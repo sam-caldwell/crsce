@@ -6,6 +6,10 @@ import (
 	"github.com/sam-caldwell/file"
 )
 
+const (
+	minimumBlockSize = 292
+)
+
 var (
 	Mode      = flag.String("mode", "", "select compress, decompress mode")
 	InFile    = flag.String("in", "", "input file")
@@ -37,5 +41,8 @@ func init() {
 	}
 	if !*Force && file.Exists(*OutFile) {
 		ansi.Errorf("file already exists: %s (use -force to overwrite)\n", *OutFile).Fatal(1)
+	}
+	if *BlockSize < minimumBlockSize {
+		ansi.Errorf("block size must be at least %d bits\n", minimumBlockSize).Fatal(1)
 	}
 }
