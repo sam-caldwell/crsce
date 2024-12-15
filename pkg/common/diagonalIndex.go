@@ -1,6 +1,10 @@
 package common
 
-// Helper function to calculate diagonal index
-func diagonalIndex(r, c, size int) int {
-	return (r + c) % size
+import "crsce/pkg/types"
+
+// DiagonalIndex - Helper function to calculate diagonal index
+func DiagonalIndex(r, c, s types.MatrixPosition) types.MatrixPosition {
+
+	return (r + c) % s
+
 }
