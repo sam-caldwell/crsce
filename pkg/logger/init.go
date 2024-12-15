@@ -6,13 +6,7 @@ import (
 	"os"
 )
 
-var (
-	debugFile *os.File
-)
-
-// Write - exported log writer
-var Write func(msg string)
-
+// init - initialize the logger
 func init() {
 	var err error
 	if *arguments.Debug {
@@ -24,11 +18,5 @@ func init() {
 		}
 	} else {
 		Write = func(msg string) { /* do nothing */ }
-	}
-}
-
-func Close() {
-	if debugFile != nil {
-		_ = debugFile.Close()
 	}
 }
