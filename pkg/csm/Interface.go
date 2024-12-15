@@ -4,9 +4,11 @@ import "crsce/pkg/types"
 
 // Interface - an abstract type for working with CSM matrices
 type Interface interface {
-	resize(size int) error
+	resize(size types.MatrixPosition) error
 
-	set(r int, c int, value types.Bit) error
+	Set(r, c types.MatrixPosition, value types.Bit) error
 
-	size() uint
+	Get(r, c types.MatrixPosition) (types.Bit, error)
+
+	size() types.MatrixPosition
 }

@@ -1,7 +1,9 @@
 package csm
 
+import "crsce/pkg/types"
+
 // New - return an initialized CSM Matrix object (either simple or lockable)
-func New(locking bool, size int) (matrix Interface, err error) {
+func New(locking bool, size types.MatrixPosition) (matrix Interface, err error) {
 
 	if locking {
 
