@@ -4,10 +4,14 @@ import (
 	"crsce/pkg/arguments"
 	"crsce/pkg/compress"
 	"crsce/pkg/decompress"
+	"crsce/pkg/logger"
 	"github.com/sam-caldwell/ansi"
 )
 
 func main() {
+
+	// cleanup any loggers we may create
+	defer logger.Close()
 
 	if *arguments.Debug {
 		ansi.Green().Println("starting...").Reset()
