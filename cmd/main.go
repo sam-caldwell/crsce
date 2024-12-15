@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crsce/pkg/common/arguments"
+	"crsce/pkg/arguments"
 	"crsce/pkg/compress"
 	"crsce/pkg/decompress"
 	"github.com/sam-caldwell/ansi"
