@@ -6,16 +6,16 @@ import (
 )
 
 // Push - push a given bit to the position (r,c)
-func (h *Matrix) Push(r, c types.MatrixPosition, bit types.Bit) {
+func (m *Matrix) Push(r, c types.MatrixPosition, bit types.Bit) {
 
-	if c >= h.size {
+	if c >= m.size {
 		//if buffer is full, store its hash and reset the buffer
-		h.hash[r] = sha256.Sum256(h.buffer)
+		m.hash[r] = sha256.Sum256(m.buffer)
 		r, c = 0, 0
-		h.bufferPosition, h.bitPosition = 0, 0
-		h.buffer = make([]byte, h.size/8)
+		m.bufferPosition, m.bitPosition = 0, 0
+		m.buffer = make([]byte, m.size/8)
 	}
 
 	// push the given bit to the current buffer state
-	h.appendBit(bit)
+	m.appendBit(bit)
 }
