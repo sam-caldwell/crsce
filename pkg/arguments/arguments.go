@@ -2,7 +2,7 @@ package arguments
 
 import (
 	"flag"
-	"github.com/sam-caldwell/ansi"
+	"fmt"
 	"github.com/sam-caldwell/file"
 )
 
@@ -20,29 +20,36 @@ var (
 	BlockSize = flag.Uint("block-size", 512, "block size")
 )
 
-func ParseArguments() {
+func ParseArguments() error {
 
 	flag.Parse()
 
+	if _, ok := map[string]any{"compress": nil, "decompress": nil}[*Mode]; !ok {
+		return fmt.Errorf("invalid mode:'%s'", *Mode)
+	}
+
 	if *InFile == "" {
-		ansi.Errorln("no input file specified").Fatal(1)
+		return fmt.Errorf("must provide input file")
 	}
 
 	if *OutFile == "" {
-		ansi.Errorln("no output file specified").Fatal(1)
+		return fmt.Errorf("must provide output file")
 	}
 
 	if *Debug && *DebugFile != "" {
-		ansi.Errorln("debug output and debug file specified").Fatal(1)
+		return fmt.Errorf("if -debug is used, a -debug-file must be specified")
 	}
 
 	if !file.Exists(*InFile) {
-		ansi.Errorf("file not found: %s\n", *InFile).Fatal(1)
+		return fmt.Errorf("input file '%s' does not exist", *InFile)
 	}
+
 	if !*Force && file.Exists(*OutFile) {
-		ansi.Errorf("file already exists: %s (use -force to overwrite)\n", *OutFile).Fatal(1)
+		return fmt.Errorf("output file '%s' already exists (use -force to overwrite)", *OutFile)
 	}
+
 	if *BlockSize < minimumBlockSize {
-		ansi.Errorf("block size must be at least %d bits\n", minimumBlockSize).Fatal(1)
+		return fmt.Errorf("block size must be at least %d bytes", minimumBlockSize)
 	}
+	return nil
 }
