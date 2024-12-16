@@ -14,7 +14,7 @@ var (
 	Mode      = flag.String("mode", "", "select compress, decompress mode")
 	InFile    = flag.String("in", "", "input file")
 	OutFile   = flag.String("out", "", "output file")
-	DebugFile = flag.String("debug-file", "debug.txt", "a file containing debug info")
+	DebugFile = flag.String("debug-file", "/tmp/crsce-debug.txt", "a file containing debug info")
 	Debug     = flag.Bool("debug", false, "debug output")
 	Force     = flag.Bool("force", false, "force overwrite")
 	BlockSize = flag.Uint("block-size", 512, "block size")
@@ -39,7 +39,7 @@ func ParseArguments() error {
 		return fmt.Errorf("must provide output file")
 	}
 
-	if *Debug && *DebugFile != "" {
+	if *Debug && (*DebugFile == "") {
 		return fmt.Errorf("if -debug is used, a -debug-file must be specified")
 	}
 
