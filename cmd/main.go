@@ -14,9 +14,13 @@ func main() {
 		input, output *os.File
 	)
 	if err = arguments.ParseArguments(); err != nil {
-		ansi.Errorln(err).Fatal(1)
+		ansi.Errorln(err)
+		return
 	}
-	logger.Initialize()
+	if err = logger.Initialize(); err != nil {
+		ansi.Errorln(err)
+		return
+	}
 
 	if *arguments.Debug {
 		ansi.Green().Println("starting...").Reset()
@@ -41,7 +45,8 @@ func main() {
 	case "compress":
 
 		if err := compress.Run(input, output); err != nil {
-			ansi.Errorln(err).Fatal(1)
+			ansi.Errorln(err)
+			return
 		}
 
 	case "decompress":
@@ -52,7 +57,8 @@ func main() {
 
 	default:
 
-		ansi.Errorf("Invalid mode:'%s'\n", *arguments.Mode).Fatal(1)
+		ansi.Errorf("Invalid mode:'%s'\n", *arguments.Mode)
+		return
 
 	}
 
