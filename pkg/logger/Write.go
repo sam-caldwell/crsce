@@ -1,4 +1,10 @@
 package logger
 
-// Write - exported log writer
-var Write func(msg string) = func(msg string) { /* do nothing */ }
+import "sync"
+
+var (
+	// Write - exported log writer
+	Write func(msg string) = func(msg string) { /* do nothing */ }
+	// writeMutex - Mutex to ensure thread-safe writes
+	writeMutex sync.Mutex
+)

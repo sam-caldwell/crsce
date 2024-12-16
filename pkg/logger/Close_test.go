@@ -8,9 +8,13 @@ import (
 func TestLogger_Close(t *testing.T) {
 
 	t.Run("test repeated close() calls and verify write is adjusted properly", func(t *testing.T) {
-		logger.Initialize()
+		if err := logger.Initialize(); err != nil {
+			t.Fatal(err)
+		}
 		logger.Close()
-		logger.Initialize()
+		if err := logger.Initialize(); err != nil {
+			t.Fatal(err)
+		}
 		logger.Close()
 		logger.Write("noop")
 	})
