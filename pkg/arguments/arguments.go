@@ -20,7 +20,7 @@ var (
 	BlockSize = flag.Uint("block-size", 512, "block size")
 )
 
-func init() {
+func ParseArguments() {
 
 	flag.Parse()
 
