@@ -13,7 +13,9 @@ func main() {
 		err           error
 		input, output *os.File
 	)
-	arguments.ParseArguments()
+	if err = arguments.ParseArguments(); err != nil {
+		ansi.Errorln(err).Fatal(1)
+	}
 
 	if *arguments.Debug {
 		ansi.Green().Println("starting...").Reset()
