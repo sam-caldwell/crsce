@@ -6,8 +6,7 @@ import (
 	"os"
 )
 
-// init - initialize the logger
-func init() {
+func Initialize() {
 	var err error
 	if *arguments.Debug {
 		if debugFile, err = os.Create(*arguments.DebugFile); err != nil {

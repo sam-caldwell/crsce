@@ -16,6 +16,7 @@ func main() {
 	if err = arguments.ParseArguments(); err != nil {
 		ansi.Errorln(err).Fatal(1)
 	}
+	logger.Initialize()
 
 	if *arguments.Debug {
 		ansi.Green().Println("starting...").Reset()
