@@ -9,8 +9,8 @@ import (
 func TestLogger_Write(t *testing.T) {
 	defer Close()
 	t.Run("test write function initial state", func(t *testing.T) {
-		if Write == nil {
-			t.Fatal("Write should not be nil initially")
+		if Write != nil {
+			t.Fatal("Write should be nil initially")
 		}
 	})
 	t.Run("test write function", func(t *testing.T) {
@@ -24,6 +24,9 @@ func TestLogger_Write(t *testing.T) {
 			if err := arguments.ParseArguments(); err != nil {
 				t.Fatal(err)
 			}
+		})
+		t.Run("initialize the logger", func(t *testing.T) {
+			Initialize()
 		})
 		var testData string = "fail"
 		t.Run("test the Write() function", func(t *testing.T) {
