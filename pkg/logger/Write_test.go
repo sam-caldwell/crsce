@@ -7,6 +7,7 @@ import (
 )
 
 func TestLogger_Write(t *testing.T) {
+	defer Close()
 	t.Run("test write function initial state", func(t *testing.T) {
 		if Write == nil {
 			t.Fatal("Write should not be nil initially")

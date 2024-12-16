@@ -42,8 +42,8 @@ func TestArguments(t *testing.T) {
 		cmd.Stdout = &stdout
 		// Run the command
 		if err := cmd.Run(); err != nil {
-			t.Logf("args: %v", argList)
-			t.Logf("stdout(%s)", stdout.String())
+			//t.Logf("args: %v", argList)
+			//t.Logf("stdout(%s)", stdout.String())
 			return strings.TrimPrefix(strings.TrimSuffix(stdout.String(), "\n"), "\x1b[0m")
 		}
 		return ""
@@ -83,7 +83,7 @@ func TestArguments(t *testing.T) {
 			},
 		}
 		for index, test := range testData {
-			t.Logf("test %d:('%s':%s) expect(%s)", index, test.arg, test.argV, test.output)
+			//t.Logf("test %d:('%s':%s) expect(%s)", index, test.arg, test.argV, test.output)
 			if output := runTest(test.arg, test.argV); output != "" && output != test.output {
 				t.Fatalf("test %d \n"+
 					"expected (%s) %v\n"+
