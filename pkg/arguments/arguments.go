@@ -24,7 +24,10 @@ func ParseArguments() error {
 
 	flag.Parse()
 
-	if _, ok := map[string]any{"compress": nil, "decompress": nil}[*Mode]; !ok {
+	switch *Mode {
+	case "compress", "decompress":
+		break
+	default:
 		return fmt.Errorf("invalid mode:'%s'", *Mode)
 	}
 

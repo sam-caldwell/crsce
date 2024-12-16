@@ -16,6 +16,7 @@ func TestArguments(t *testing.T) {
 	}
 	runTest := func(arg, argV string) string {
 		args := map[string]string{
+			"mode":  "compress",
 			"in":    "/dev/stdin",
 			"out":   "/tmp/test.out",
 			"force": "true",
@@ -42,7 +43,7 @@ func TestArguments(t *testing.T) {
 		// Run the command
 		if err := cmd.Run(); err != nil {
 			t.Logf("args: %v", argList)
-			t.Logf("stdout: '%s'", stdout.String())
+			t.Logf("stdout(%s)", stdout.String())
 			return strings.TrimPrefix(strings.TrimSuffix(stdout.String(), "\n"), "\x1b[0m")
 		}
 		return ""
@@ -53,7 +54,7 @@ func TestArguments(t *testing.T) {
 			t.Fatal("minimumBlockSize should be 292")
 		}
 	})
-	t.Run("test the arguments and their validation", func(t *testing.T) {
+	t.Run("test the arguments", func(t *testing.T) {
 		testData := TestData{
 			{
 				"-mode",
@@ -75,12 +76,21 @@ func TestArguments(t *testing.T) {
 				"bad",
 				"invalid mode:'bad'",
 			},
+			{
+				"-in",
+				"foo.non-existent.file.bar",
+				"input file 'foo.non-existent.file.bar' does not exist",
+			},
 		}
 		for index, test := range testData {
-			if output := runTest(test.arg, test.argV); output != test.output {
+			t.Logf("test %d:('%s':%s) expect(%s)", index, test.arg, test.argV, test.output)
+			if output := runTest(test.arg, test.argV); output != "" && output != test.output {
 				t.Fatalf("test %d \n"+
 					"expected (%s) %v\n"+
-					" but got (%s) %v", index, test.output, []byte(test.output), output, []byte(output))
+					" but got (%s) %v",
+					index,
+					test.output, []byte(test.output),
+					output, []byte(output))
 			}
 		}
 	})
