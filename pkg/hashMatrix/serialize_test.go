@@ -71,7 +71,6 @@ func TestMatrix_Serialize(t *testing.T) {
 		copy(actual[0][:], raw[0:32])
 		copy(actual[1][:], raw[32:64])
 
-		t.Logf("evaluating")
 		for i := 0; i < 2; i++ {
 			if !actual[i].Equal(expected[i]) {
 				t.Fatalf("Hash %d mismatch: Expected %v, Actual %v", i, expected[i], actual[i])
