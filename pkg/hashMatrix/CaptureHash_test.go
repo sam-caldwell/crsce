@@ -3,9 +3,7 @@ package hashMatrix
 import (
 	"bytes"
 	"crypto/sha256"
-	"math/rand"
 	"testing"
-	"time"
 )
 
 func TestMatrix_CaptureHash(t *testing.T) {
@@ -19,24 +17,8 @@ func TestMatrix_CaptureHash(t *testing.T) {
 		return true
 	}
 	t.Run("empty buffer", func(t *testing.T) {
-		const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-		// randomString - generate a random string of length n
-		randomString := func(n uint) string {
-			if n <= 0 {
-				return ""
-			}
-			seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-			result := make([]byte, n)
-
-			for i := range result {
-				result[i] = charset[seededRand.Intn(len(charset))]
-			}
-
-			return string(result)
-		}
 		for index := 0; index < 10; index++ {
-			testData := []byte(randomString(512 / 8))
+			testData := []byte(generateRandomString(512 / 8))
 			expected := sha256.Sum256(testData)
 			m := Matrix{
 				buffer:         testData,

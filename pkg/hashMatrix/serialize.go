@@ -1,9 +1,11 @@
 package hashMatrix
 
-import "crsce/pkg/bitFile"
+import (
+	"os"
+)
 
 // Serialize - serialize hash bits to output file
-func (m *Matrix) Serialize(output *bitFile.BitFile) (err error) {
+func (m *Matrix) Serialize(output *os.File) (err error) {
 
 	return nil
 
