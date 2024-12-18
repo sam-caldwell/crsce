@@ -7,7 +7,8 @@ import (
 
 // Push - push a given bit to the position (r,c)
 func (m *Matrix) Push(r, c types.MatrixPosition, bit types.Bit) {
-
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	// push the given bit to the current buffer state
 	if boundary := m.size * 8; r > boundary || c > boundary {
 		panic(fmt.Sprintf("coordinates outside CSM matrix (%d,%d) (size: %d)", r, c, m.size))
