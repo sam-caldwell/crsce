@@ -67,8 +67,6 @@ func TestMatrix_Serialize(t *testing.T) {
 			t.Fatalf("read raw data: expected 64 bytes, got %d", n)
 		}
 
-		t.Logf("raw: %v", raw)
-
 		var actual [2]Hash
 		copy(actual[0][:], raw[0:32])
 		copy(actual[1][:], raw[32:64])
