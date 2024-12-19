@@ -1,18 +1,15 @@
 package hashMatrix
 
 import (
+	"bytes"
 	"crypto/sha256"
-	"io"
-	"os"
 	"testing"
 )
 
 func TestMatrix_Serialize(t *testing.T) {
 	const testFileName = "/tmp/crsce.matrix.test.file.txt"
 	var (
-		err      error
-		testFile *os.File
-		matrix   = Matrix{
+		matrix = Matrix{
 			buffer:         make([]byte, 10),
 			bufferPosition: 0,
 			bitPosition:    0,
@@ -26,44 +23,18 @@ func TestMatrix_Serialize(t *testing.T) {
 	)
 
 	t.Run("Initialize Matrix with two hashes and serialize", func(t *testing.T) {
+		var buffer bytes.Buffer
+
 		matrix.hash[0] = expected[0]
 		matrix.hash[1] = expected[1]
 
-		defer func() {
-			if testFile != nil {
-				_ = testFile.Close()
-			}
-			_ = os.Remove(testFileName)
-		}()
-
-		// Open the file for writing with appropriate flags
-		testFile, err = os.OpenFile(testFileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
-		if err != nil {
-			t.Fatalf("open file (create) error: %v", err)
-		}
-
 		// Serialize the matrix to the file
-		if err := matrix.Serialize(testFile); err != nil {
+		if err := matrix.Serialize(&buffer); err != nil {
 			t.Fatal(err)
 		}
+		raw := buffer.Bytes()
 
-		if err = testFile.Close(); err != nil {
-			t.Fatal(err)
-		}
-
-		// Reopen the file for reading
-		testFile, err = os.OpenFile(testFileName, os.O_RDONLY, 0666)
-		if err != nil {
-			t.Fatalf("open file (read) error: %v", err)
-		}
-
-		raw := make([]byte, 64)
-		n, err := testFile.Read(raw)
-		if err != nil && err != io.EOF {
-			t.Fatalf("read failed (n=%d): %v", n, err)
-		}
-
-		if n != 64 {
+		if n := len(raw); n != 64 {
 			t.Fatalf("read raw data: expected 64 bytes, got %d", n)
 		}
 
