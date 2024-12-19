@@ -2,11 +2,11 @@ package hashMatrix
 
 import (
 	"errors"
-	"os"
+	"io"
 )
 
 // Serialize - serialize hash bits to output file
-func (m *Matrix) Serialize(output *os.File) (err error) {
+func (m *Matrix) Serialize(output io.Writer) (err error) {
 	if output == nil {
 		return errors.New("file handle is nil")
 	}
