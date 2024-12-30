@@ -35,7 +35,7 @@ func TestPackBits(t *testing.T) {
 			})
 			t.Run(fmt.Sprintf("%d pack bits", index), func(t *testing.T) {
 				var (
-					bitPosition    uint8
+					bitPosition    uint
 					buffer         []byte = make([]byte, tt.bufferWidth)
 					bufferPosition uint
 					resultWidth    uint
@@ -85,7 +85,7 @@ func TestPackBits(t *testing.T) {
 		for index, tt := range tests {
 			t.Run(fmt.Sprintf("Test case %d: %s", index, tt.reason), func(t *testing.T) {
 				var (
-					bitPosition    uint8
+					bitPosition    uint
 					buffer         []byte = make([]byte, tt.bufferWidth)
 					bufferPosition uint
 					resultWidth    uint

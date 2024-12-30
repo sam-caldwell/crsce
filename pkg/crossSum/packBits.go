@@ -3,7 +3,7 @@ package crossSum
 import "github.com/sam-caldwell/ansi"
 
 // packBits - Pack bits from a given bitStack to only consume the bits in width
-func packBits(buffer *[]byte, bitPosition *uint8, bufferPosition *uint, resultWidth *uint, bitStack uint16, width uint8) {
+func packBits(buffer *[]byte, bitPosition, bufferPosition, resultWidth *uint, bitStack uint16, width uint8) {
 	popBit := func() (bit byte) {
 		defer func() { bitStack >>= 1 }() // Shift bit right
 		return byte(bitStack & 1)         // Pop the bit
