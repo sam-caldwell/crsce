@@ -19,6 +19,7 @@ func TestMatrix_Serialize(t *testing.T) {
 		expected = []Hash{
 			sha256.Sum256([]byte("row0")),
 			sha256.Sum256([]byte("row1")),
+			sha256.Sum256([]byte("Woohoo!")),
 		}
 	)
 
