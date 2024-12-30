@@ -2,25 +2,31 @@ package compress
 
 import (
 	"crsce/pkg/arguments"
-	"crsce/pkg/bitFile"
+	"crsce/pkg/types"
+	"io"
+	"os"
 )
 
 // Run - runs the compress operation
-func Run() (err error) {
+func Run(input, output *os.File) (err error) {
+	s := types.MatrixPosition(*arguments.BlockSize)
+	blockBuffer := make([]byte, s)
 
-	input, err := bitFile.New(arguments.InFile)
-	if err != nil {
-		return err
+	// Read the file block-by-block
+	for {
+		// read the next block
+		_, err = input.Read(blockBuffer)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		// For each block, compress the same and write to the output file
+		if err = Compress(s, blockBuffer, output); err != nil {
+			return err
+		}
 	}
-
-	output, err := bitFile.New(arguments.OutFile)
-	if err != nil {
-		return err
-	}
-
-	if err := Compress(input, output); err != nil {
-		return err
-	}
-
 	return nil
 }
