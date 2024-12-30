@@ -1,5 +1,5 @@
 .PHONY: test
 
 test:
-	@go test -v ./...
+	@go test -failfast -v ./...
 	@echo 'done: ok'
