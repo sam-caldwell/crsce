@@ -1,10 +1,14 @@
 include Makefile.d/*.mk
 
 # Define local environment directories
-VENV_DIR := $(CURDIR)/build/venv
-NODE_DIR := $(CURDIR)/build/node
+VENV_DIR := $(CURDIR)/venv
+NODE_DIR := $(CURDIR)/node
 NODE_BIN_DIR := $(NODE_DIR)/node_modules/.bin
 BUILD_DIR := $(CURDIR)/build
+
+# Add local binaries to the PATH for make commands
+export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
+
 
 # Add local binaries to the PATH for make commands
 export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
