@@ -1,0 +1,63 @@
+# Build artifacts
+build/
+node/
+
+# IDE and editor files
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Compiled objects and libraries
+*.o
+*.a
+*.so
+*.dll
+*.lib
+*.exe
+
+# Executables
+*.out
+
+# Doxygen/documentation
+html/
+latex/
+
+# Package-specific files
+# For Python
+__pycache__/
+*.pyc
+
+# Logs and dumps
+*.log
+*.stackdump
+
+# CMake specific
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+/.cxx/
+/cmake-build*/
+/bin/
+/lib/
+/share/
+
+# Ninja build files
+.ninja_deps
+.ninja_log
+build.ninja
+
+# Test coverage
+*.gcda
+*.gcno
+*.info
+
+# Dependency files from Makefile.d/ directory structure
+# This project explicitly uses Makefile.d as a directory, so we'll ignore generated files within it
+Makefile.d/*.mk
