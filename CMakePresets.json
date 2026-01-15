@@ -1,0 +1,67 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "arm64-debug",
+      "displayName": "ARM64 Debug",
+      "description": "Configure for ARM64 with debug information.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/arm64-debug",
+      "architecture": {
+        "value": "arm64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_STANDARD": "26",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "arm64-release",
+      "displayName": "ARM64 Release",
+      "description": "Configure for ARM64 with optimizations.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/arm64-release",
+      "architecture": {
+        "value": "arm64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_STANDARD": "26",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "arm64-debug-build",
+      "displayName": "Build ARM64 Debug",
+      "configurePreset": "arm64-debug"
+    },
+    {
+      "name": "arm64-release-build",
+      "displayName": "Build ARM64 Release",
+      "configurePreset": "arm64-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "arm64-debug-test",
+      "displayName": "Test ARM64 Debug",
+      "configurePreset": "arm64-debug"
+    },
+    {
+      "name": "arm64-release-test",
+      "displayName": "Test ARM64 Release",
+      "configurePreset": "arm64-release"
+    }
+  ]
+}
