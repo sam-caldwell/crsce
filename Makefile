@@ -13,7 +13,7 @@ export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 # Add local binaries to the PATH for make commands
 export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 
-.PHONY: help
+.PHONY: all build clean configure help lint ready ready/fix test
 help:
 	@echo "Available targets:"
 	@echo "  all       - Run clean configure lint build test"
