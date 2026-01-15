@@ -1,6 +1,7 @@
 # Build artifacts
 build/
 node/
+venv/
 
 # IDE and editor files
 .idea/
