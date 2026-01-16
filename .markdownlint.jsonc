@@ -19,6 +19,7 @@
 
   // Allow duplicate headings (common in long docs)
   "MD024": false,
+  "MD025": false,
 
   // Enforce fenced code blocks and consistent style
   "MD046": { "style": "fenced" },
