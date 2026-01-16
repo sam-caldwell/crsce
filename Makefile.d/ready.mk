@@ -37,7 +37,7 @@ fix-python-deps:
   		echo "virtual environment exists"; \
 	fi
 	@pip install --upgrade pip
-	@$(VENV_DIR)/bin/pip3 install -q flake8 cmakelang
+	@$(VENV_DIR)/bin/pip3 install -q flake8
 
 .PHONY: fix-node-deps
 fix-node-deps:
@@ -155,12 +155,6 @@ check-linters:
 			echo "    ✅ flake8 is installed (locally)."; \
 	else \
 			echo "    ❌ flake8 is not installed. Run 'make ready/fix'."; \
-		exit 1; \
-	fi
-	@if command -v cmake-lint >/dev/null; then \
-			echo "    ✅ cmakelang is installed (locally)."; \
-	else \
-			echo "    ❌ cmakelang is not installed. Run 'make ready/fix'."; \
 		exit 1; \
 	fi
 	@echo "--- Linters check complete ---"

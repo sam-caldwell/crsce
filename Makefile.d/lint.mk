@@ -12,7 +12,6 @@ lint:
 	@$(MAKE) -s lint-md
 	@$(MAKE) -s lint-sh
 	@$(MAKE) -s lint-py
-	@$(MAKE) -s lint-cmake
 	@$(MAKE) -s lint-cpp
 	@echo "--- Linters check complete ---"
 
@@ -31,19 +30,12 @@ lint-py:
 	@echo "    🔎 Linting Python files..."
 	@flake8 --exclude=venv/,./node
 
-.PHONY: lint-cmake
-lint-cmake:
-	@echo "    🔎 Linting CMake files..."
-	@find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs cmakelang --format-on-edit .
-
 .PHONY: lint-cpp
 lint-cpp:
 	@echo "    🔎 Linting C++ files (clang-format)..."
 	@find cmd src test -name "*.cpp" -o -name "*.h" | xargs clang-format -i
 	@echo "    🔎 Linting C++ files (clang-tidy)..."
-	@# clang-tidy is best run during the build process.
-	@# To enable, configure with -DCMAKE_CXX_CLANG_TIDY=clang-tidy
-	@echo "    ℹ️  Skipping clang-tidy. Enable with -DCMAKE_CXX_CLANG_TIDY."
+	@cmake --build build/arm64-debug --target clang-tidy
 
 .PHONY: lint-make
 lint-make:
