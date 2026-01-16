@@ -58,6 +58,3 @@ build.ninja
 *.gcno
 *.info
 
-# Dependency files from Makefile.d/ directory structure
-# This project explicitly uses Makefile.d as a directory, so we'll ignore generated files within it
-Makefile.d/*.mk
