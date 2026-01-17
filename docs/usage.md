@@ -3,26 +3,14 @@
         <tr>
             <td><img src="docs/img/logo.png" width="300" alt="CRSCE logo"/></td>
             <td>
-                <h1>Usage Guides</h1>
+                <h1>Basic commands</h1>
                 <p>
-                    This project provides two CLI tools: `compress` and `decompress`. Paths in examples assume you
-                    run from the repository root and have<br />
-                    configured/built using CMake/Ninja via the Makefile targets.
+                    This document discusses the CRSCE command artifacts and their usage.
                 </p>
             </td>
         </tr>
     </table>
 </div>
-
-## Basic commands
-
-```bash
-# Build (once configured)
-make build
-
-# Run unit/integration/e2e tests
-make test
-```
 
 ## Compression
 

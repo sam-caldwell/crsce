@@ -5,7 +5,7 @@
             <td>
                 <h1>Code Contributions Guide</h1>
                 <p>
-                    Welcome! This document explains how to build, test, lint, and contribute changes to this 
+                    Welcome! This document explains how to build, test, lint, and contribute changes to this
                     repository. It reflects<br/>
                     the project’s conventions and quality gates so your PRs can land smoothly.
                 </p>

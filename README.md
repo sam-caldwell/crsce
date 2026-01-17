@@ -69,4 +69,4 @@ build/bin/decompress -in output.crsce -out recovered.bin
 
 ## License
 
-Copyright &copy; 2026 Sam Caldwell. See `LICENSE.txt` for details.
+Copyright &copy; 2026 Sam Caldwell. See [LICENSE.txt](LICENSE.txt) for details.
