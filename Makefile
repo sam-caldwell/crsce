@@ -6,12 +6,13 @@ VENV_DIR := $(CURDIR)/venv
 NODE_DIR := $(CURDIR)/node
 NODE_BIN_DIR := $(NODE_DIR)/node_modules/.bin
 BUILD_DIR := $(CURDIR)/build
+LLVMBIN := /opt/homebrew/opt/llvm/bin
 
 # Add local binaries to the PATH for make commands
-export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
+export PATH := $(LLVMBIN):$(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 
 # Add local binaries to the PATH for make commands
-export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
+export PATH := $(LLVMBIN):$(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 
 .PHONY: all build clean configure help lint ready ready/fix test
 help:

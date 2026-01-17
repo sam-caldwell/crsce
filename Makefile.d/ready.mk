@@ -1,7 +1,7 @@
 # Makefile.d/ready.mk
 
 .PHONY: ready
-ready: check-brew check-python check-pip check-cmake check-make check-ninja check-cxx check-cppcheck check-linters
+ready: check-brew check-python check-pip check-cmake check-make check-ninja check-brew-llvm check-cxx check-cppcheck check-linters
 	@echo "\n✅ Prerequisite check complete."
 
 .PHONY: all build clean configure help lint ready ready/fix test
@@ -26,6 +26,9 @@ fix-brew:
 fix-system-deps:
 	@echo "--- Installing system dependencies via Homebrew ---"
 	@brew install cmake ninja shellcheck cppcheck gcc llvm || true
+	@echo "--- Ensuring Homebrew LLVM is prioritized in PATH for this session ---"
+	@echo "export PATH=/opt/homebrew/opt/llvm/bin:\$$PATH" > $(BUILD_DIR)/.env-llvm.sh
+	@echo "  Run: source $(BUILD_DIR)/.env-llvm.sh to prioritize LLVM in your shell"
 
 .PHONY: fix-python-deps
 fix-python-deps:
@@ -104,25 +107,24 @@ check-ninja:
 		exit 1; \
 	fi
 
+.PHONY: check-brew-llvm
+check-brew-llvm:
+	@if [ -x "/opt/homebrew/opt/llvm/bin/clang++" ] && [ -x "/opt/homebrew/opt/llvm/bin/clang-tidy" ]; then \
+		echo "✅ Homebrew LLVM detected at /opt/homebrew/opt/llvm/bin"; \
+	else \
+		echo "❌ Homebrew LLVM not found. Run 'make ready/fix'."; exit 1; \
+	fi
+	@CLV=$$(/opt/homebrew/opt/llvm/bin/clang++ --version | head -n1); echo "    LLVM: $$CLV"
+
 .PHONY: check-cxx
 check-cxx:
-	@mkdir -p $(BUILD_DIR) # Ensure build directory exists for temporary files
-	@if command -v c++ >/dev/null; then \
-			echo "✅ C++ compiler is available (c++)."; \
-			echo "static_assert(true);" > $(BUILD_DIR)/test-cpp23.cpp; \
-			echo "int main() { return 0; }" >> $(BUILD_DIR)/test-cpp23.cpp; \
-			if c++ -std=c++23 -o $(BUILD_DIR)/test-cpp23.out $(BUILD_DIR)/test-cpp23.cpp >/dev/null 2>&1; then \
-					echo "    ✅ Compiler appears to support C++23."; \
-					rm $(BUILD_DIR)/test-cpp23.cpp $(BUILD_DIR)/test-cpp23.out; \
-			else \
-					echo "    ❌ C++ compiler does not appear to support C++23. Please upgrade your toolchain."; \
-					rm $(BUILD_DIR)/test-cpp23.cpp; \
-				exit 1; \
-			fi; \
-	else \
-			echo "❌ No C++ compiler found (c++). Run 'make ready/fix'."; \
-		exit 1; \
-	fi
+	@mkdir -p $(BUILD_DIR)
+	@echo "static_assert(true);" > $(BUILD_DIR)/test-cpp23.cpp
+	@echo "int main() { return 0; }" >> $(BUILD_DIR)/test-cpp23.cpp
+	@/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -o $(BUILD_DIR)/test-cpp23.out $(BUILD_DIR)/test-cpp23.cpp >/dev/null 2>&1 || \
+		(echo "❌ Homebrew clang++ does not appear to support C++23."; rm -f $(BUILD_DIR)/test-cpp23.cpp; exit 1)
+	@rm -f $(BUILD_DIR)/test-cpp23.cpp $(BUILD_DIR)/test-cpp23.out
+	@echo "✅ clang++ (Homebrew) supports C++23."
 
 
 .PHONY: all clean configure lint build test ready ready/fix check-linters
@@ -167,9 +169,8 @@ check-cppcheck:
 			echo "❌ cppcheck is not installed. Run 'make ready/fix'."; \
 		exit 1; \
 	fi
-	@if command -v clang-tidy >/dev/null; then \
-			echo "    ✅ clang-tidy is installed (required)."; \
+	@if [ -x "/opt/homebrew/opt/llvm/bin/clang-tidy" ]; then \
+			echo "    ✅ clang-tidy (Homebrew) is installed (required)."; \
 	else \
-			echo "    ❌ clang-tidy is not installed. Run 'make ready/fix'."; \
-		exit 1; \
+			echo "    ❌ clang-tidy (Homebrew) not installed. Run 'make ready/fix'."; exit 1; \
 	fi

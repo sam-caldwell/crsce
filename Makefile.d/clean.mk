@@ -4,7 +4,9 @@
 # Look at me using ❌ and ✅ like a youngster.  Take that ya hipsters!
 # I may be old but I can adapt new ways AND enjoy music from an era when
 # people actually played an instrument.
-
+#
+# DO NOT CHANGE THIS FILE WITHOUT A REALLY GOOD REASON!
+#
 .PHONY: all build clean configure help lint ready ready/fix test
 clean:
 	@echo "--- Cleaning build directory ---"
