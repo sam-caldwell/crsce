@@ -8,5 +8,5 @@ PRESET ?= arm64-debug
 .PHONY: all build clean configure help lint ready ready/fix test
 build:
 	@echo "--- Building project with preset: $(PRESET) ---"
-	@cmake --build build/$(PRESET)
-	@echo "--- Build complete ---"
+	@cmake --build build/$(PRESET) || {echo "❌ build failed" && exit 1}
+	@echo "--- ✅ Build complete ---"
