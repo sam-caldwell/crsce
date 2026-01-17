@@ -2,12 +2,24 @@
 # (c) 2026 Sam Caldwell. See LICENSE.txt for details
 #
 # Centralized test pipeline helpers.
+# - Fetches and wires GoogleTest for unit tests
 # - Discovers test sources to trigger reconfigure
 # - Auto-registers unit tests under test/**/unit/*.cpp
 # - Defines e2e tests for CLI binaries
 
 # Ensure this file is only processed once even if included multiple places
 include_guard(GLOBAL)
+
+# --- GoogleTest dependency (fetched locally) ---
+include(FetchContent)
+set(BUILD_GMOCK OFF CACHE BOOL "Build GoogleMock")
+set(INSTALL_GTEST OFF CACHE BOOL "Disable gtest installation")
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG v1.14.0
+)
+FetchContent_MakeAvailable(googletest)
 
 # Discover all test sources (recursive) to trigger reconfigure on changes
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
@@ -33,6 +45,8 @@ foreach(UNIT_SRC IN LISTS UNIT_TEST_SOURCES)
   target_include_directories(${TGT} PRIVATE "${PROJECT_SOURCE_DIR}/include")
   # Link project sources (object library)
   target_sources(${TGT} PRIVATE $<TARGET_OBJECTS:crsce_sources>)
+  # Link with GoogleTest main
+  target_link_libraries(${TGT} PRIVATE GTest::gtest GTest::gtest_main)
   add_test(NAME ${TGT} COMMAND ${TGT})
 endforeach()
 
