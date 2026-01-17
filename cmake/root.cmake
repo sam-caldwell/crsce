@@ -5,6 +5,12 @@ include(cmake/pipeline/build.cmake)
 include(cmake/pipeline/clean.cmake)
 include(cmake/pipeline/configure.cmake)
 
+# --- macOS SDK (Homebrew LLVM) auto-detect to keep toolchain consistent
+include(cmake/pipeline/sdk.cmake)
+if(APPLE AND CRSCE_MACOS_SDK AND NOT DEFINED CMAKE_OSX_SYSROOT)
+  set(CMAKE_OSX_SYSROOT "${CRSCE_MACOS_SDK}" CACHE STRING "macOS SDK root" FORCE)
+endif()
+
 # --- Include project definitions ---
 include(cmake/projects/compress.cmake)
 include(cmake/projects/decompress.cmake)

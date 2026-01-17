@@ -17,6 +17,8 @@ if(NOT DEFINED SOURCE_DIR)
   set(SOURCE_DIR "${CMAKE_SOURCE_DIR}")
 endif()
 
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/sdk.cmake")
+
 # Choose clang/llvm tools for source-based coverage
 find_program(CLANGXX_EXE clang++ HINTS /opt/homebrew/opt/llvm/bin)
 find_program(CLANGC_EXE clang HINTS /opt/homebrew/opt/llvm/bin)
@@ -39,12 +41,7 @@ if(EXISTS "${COV_BIN_DIR}")
   file(REMOVE_RECURSE "${COV_BIN_DIR}")
 endif()
 
-# Discover macOS SDK for Homebrew LLVM if available
-set(_SDK_PATH "")
-find_program(XCRUN_EXE xcrun)
-if(XCRUN_EXE)
-  execute_process(COMMAND ${XCRUN_EXE} --show-sdk-path OUTPUT_VARIABLE _SDK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif()
+crsce_sdk_configure_args(_SDK_CFG_FLAG)
 execute_process(
   COMMAND ${CMAKE_COMMAND} -E env CXX=${CLANGXX_EXE} CC=${CLANGC_EXE}
           ${CMAKE_COMMAND}
@@ -54,7 +51,7 @@ execute_process(
           -DCMAKE_CXX_STANDARD=23
           -DCMAKE_CXX_FLAGS=-fprofile-instr-generate\ -fcoverage-mapping
           -DCMAKE_EXE_LINKER_FLAGS=-fprofile-instr-generate
-          $<$<BOOL:${_SDK_PATH}>:-DCMAKE_OSX_SYSROOT=${_SDK_PATH}>
+          ${_SDK_CFG_FLAG}
   RESULT_VARIABLE _CFG_RC
 )
 if(NOT _CFG_RC EQUAL 0)
@@ -87,8 +84,12 @@ set(PROFILES_DIR "${COV_BIN_DIR}/profiles")
 file(MAKE_DIRECTORY "${PROFILES_DIR}")
 
 # Run tests with profile output enabled
+crsce_sdk_env_prefix(_SDK_ENV_PREFIX)
+if(_SDK_ENV_PREFIX)
+  set(_SDK_ENV_PREFIX "${_SDK_ENV_PREFIX} ")
+endif()
 execute_process(
-  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE=${PROFILES_DIR}/%p.profraw
+  COMMAND ${CMAKE_COMMAND} -E env ${_SDK_ENV_PREFIX}LLVM_PROFILE_FILE=${PROFILES_DIR}/%p.profraw
           ${CTEST_EXE} --test-dir "${COV_BIN_DIR}" --output-on-failure
   RESULT_VARIABLE _PR_RC
 )
