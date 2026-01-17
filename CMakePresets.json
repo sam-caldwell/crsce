@@ -82,8 +82,9 @@
         "CMAKE_CXX_EXTENSIONS": "OFF",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
         "CMAKE_OSX_SYSROOT": "$env{SDKROOT}",
-        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-quiet;-warnings-as-errors=*"
+        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=^(include|src|cmd|test)/;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option"
       }
     },
     {
@@ -98,8 +99,9 @@
         "CMAKE_CXX_EXTENSIONS": "OFF",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
         "CMAKE_OSX_SYSROOT": "$env{SDKROOT}",
-        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-quiet;-warnings-as-errors=*"
+        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=^(include|src|cmd|test)/;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option"
       }
     }
   ],

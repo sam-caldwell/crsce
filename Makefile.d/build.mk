@@ -8,5 +8,5 @@ PRESET ?= llvm-debug
 .PHONY: all build clean configure help lint ready ready/fix test
 build:
 	@echo "--- Building project with preset: $(PRESET) ---"
-	@cmake --build build/$(PRESET) || {echo "❌ build failed" && exit 1}
+	@cmake --build build/$(PRESET) || { echo "❌ build failed"; exit 1; }
 	@echo "--- ✅ Build complete ---"
