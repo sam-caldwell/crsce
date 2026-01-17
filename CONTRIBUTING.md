@@ -161,7 +161,6 @@ The project implements the CRSCE format. When working on features, keep these ac
 ## Documentation
 
 - Author documentation in Markdown under `docs/` with a 120‑column hard wrap.
-- Update `AGENT.md` context only if changing meta‑process; otherwise focus on user‑facing docs.
 
 ## Tips for Consistency
 
