@@ -64,28 +64,7 @@ foreach(UNIT_SRC IN LISTS UNIT_TEST_SOURCES)
   target_sources(${TGT} PRIVATE $<TARGET_OBJECTS:crsce_sources>)
   # Link with GoogleTest main
   target_link_libraries(${TGT} PRIVATE GTest::gtest GTest::gtest_main)
-  # On macOS with Homebrew LLVM, ensure we link and run against Homebrew libc++
-  if(APPLE)
-    set(_BREW_LLVM_LIB "/opt/homebrew/opt/llvm/lib")
-    set(_BREW_LLVM_CXXLIB "/opt/homebrew/opt/llvm/lib/c++")
-    if(EXISTS "${_BREW_LLVM_CXXLIB}/libc++.1.dylib")
-      # Ensure search path and runtime path prefer Homebrew libc++
-      target_link_directories(${TGT} PRIVATE "${_BREW_LLVM_LIB}" "${_BREW_LLVM_CXXLIB}")
-      target_link_options(${TGT} PRIVATE "-L${_BREW_LLVM_LIB}" "-Wl,-rpath,${_BREW_LLVM_LIB}"
-                                      "-L${_BREW_LLVM_CXXLIB}" "-Wl,-rpath,${_BREW_LLVM_CXXLIB}")
-      # Link explicitly to libc++ and libc++abi if present (try common names)
-      if(EXISTS "${_BREW_LLVM_CXXLIB}/libc++.1.dylib")
-        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++.1.dylib")
-      elseif(EXISTS "${_BREW_LLVM_CXXLIB}/libc++.dylib")
-        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++.dylib")
-      endif()
-      if(EXISTS "${_BREW_LLVM_CXXLIB}/libc++abi.1.dylib")
-        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++abi.1.dylib")
-      elseif(EXISTS "${_BREW_LLVM_CXXLIB}/libc++abi.dylib")
-        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++abi.dylib")
-      endif()
-    endif()
-  endif()
+  # Link/runtime paths and libc++ linkage are handled globally in cmake/root.cmake
   add_test(NAME ${TGT} COMMAND ${TGT})
 endforeach()
 

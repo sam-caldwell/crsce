@@ -143,7 +143,7 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp")
   # Avoid known issues with run-clang-tidy + SDK/libc++ mismatches on macOS by
   # invoking clang-tidy directly with explicit include args. This keeps results
   # deterministic across environments.
-  set(_HDR_FILTER "^(include|src|cmd|test)/")
+  set(_HDR_FILTER ".*")
   # Show full diagnostics from clang-tidy and include which -W option triggered them.
   # Suppress the compiler's own warnings (and its noisy "warnings generated" summary)
   # so we only see actionable clang-tidy diagnostics.

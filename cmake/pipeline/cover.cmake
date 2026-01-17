@@ -6,8 +6,8 @@
     cmake -D BUILD_DIR=<build_root> -D SOURCE_DIR=<repo_root> -P cmake/pipeline/cover.cmake
 
   Notes:
-    - Prefers Homebrew gcc (e.g., g++-15) on macOS.
-    - Fails if only clang is available (coverage requires gcov).
+    - Uses Homebrew clang/llvm tooling for source-based coverage (llvm-profdata/llvm-cov).
+    - Instruments with -fprofile-instr-generate and -fcoverage-mapping.
 ]]
 
 if(NOT DEFINED BUILD_DIR)
@@ -97,26 +97,38 @@ if(NOT _PR_RC EQUAL 0)
   message(FATAL_ERROR "Coverage test run (with profiling) failed (${_PR_RC}).")
 endif()
 
-# Merge profiles
+# Merge profiles (search broadly to be robust to runner working directories)
 set(PROFDATA "${COV_BIN_DIR}/coverage.profdata")
 file(GLOB RAW_PROFILES "${PROFILES_DIR}/*.profraw")
-if(RAW_PROFILES)
-  execute_process(COMMAND ${LLVM_PROFDATA_EXE} merge -sparse ${RAW_PROFILES} -o ${PROFDATA}
+file(GLOB_RECURSE RAW_PROFILES_FALLBACK "${COV_BIN_DIR}/*.profraw")
+set(ALL_PROFILES ${RAW_PROFILES} ${RAW_PROFILES_FALLBACK})
+list(REMOVE_DUPLICATES ALL_PROFILES)
+if(ALL_PROFILES)
+  execute_process(COMMAND ${LLVM_PROFDATA_EXE} merge -sparse ${ALL_PROFILES} -o ${PROFDATA}
                   RESULT_VARIABLE _PD_RC)
   if(NOT _PD_RC EQUAL 0)
     message(FATAL_ERROR "llvm-profdata merge failed (${_PD_RC}).")
   endif()
 else()
-  message(FATAL_ERROR "No .profraw files produced; ensure tests executed.")
+  message(FATAL_ERROR "No .profraw files produced; ensure tests executed and binaries are instrumented.")
 endif()
 
 # Identify instrumented binaries to include in coverage
 set(COV_BINARIES)
-foreach(name IN ITEMS compress decompress hello_world test_common_argparser_unit_argparser_unit test_common_filebitserializer_unit_filebitserializer_unit)
+# Project binaries
+foreach(name IN ITEMS compress decompress hello_world)
   if(EXISTS "${COV_BIN_DIR}/${name}")
     list(APPEND COV_BINARIES "${COV_BIN_DIR}/${name}")
   endif()
 endforeach()
+# All unit test executables (one-per-file pattern)
+file(GLOB TEST_EXES "${COV_BIN_DIR}/test_*")
+foreach(exe IN LISTS TEST_EXES)
+  if(EXISTS "${exe}")
+    list(APPEND COV_BINARIES "${exe}")
+  endif()
+endforeach()
+list(REMOVE_DUPLICATES COV_BINARIES)
 if(NOT COV_BINARIES)
   message(FATAL_ERROR "No instrumented binaries found for coverage report.")
 endif()
@@ -138,6 +150,7 @@ string(REGEX REPLACE ".*TOTAL[^\n]* ([0-9]+\.?[0-9]*)%.*" "\\1" _PCT "${_RPT}")
 if(NOT _PCT)
   message(FATAL_ERROR "Failed to parse coverage percentage from llvm-cov output:\n${_RPT}")
 endif()
+message(STATUS "\n--- Coverage Report ---\n${_RPT}")
 message(STATUS "Coverage TOTAL: ${_PCT}% (threshold ${_THRESHOLD}%)")
 
 # Compare as tenths of a percent to avoid float math
@@ -147,7 +160,8 @@ if(_PCT_TENTHS STREQUAL "${_PCT}")
 endif()
 math(EXPR _THRESHOLD_TENTHS "${_THRESHOLD} * 10")
 if(_PCT_TENTHS LESS _THRESHOLD_TENTHS)
-  message(FATAL_ERROR "Coverage threshold not met: ${_PCT}% < ${_THRESHOLD}%\n${_RPT}")
+  # Print the error after the report and summary so the failure appears last
+  message(FATAL_ERROR "Coverage threshold not met: ${_PCT}% < ${_THRESHOLD}%")
 endif()
 
 message(STATUS "✅ Coverage check complete")

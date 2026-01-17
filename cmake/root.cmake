@@ -26,7 +26,7 @@ if(CLANG_TIDY_EXE)
     "${PROJECT_SOURCE_DIR}/test/*.cpp"
   )
   add_custom_target(clang-tidy
-    COMMAND ${CLANG_TIDY_EXE} -p=${CMAKE_BINARY_DIR} "-header-filter=^(include)/" --extra-arg=-w --extra-arg=-fdiagnostics-show-option --extra-arg=-fcolor-diagnostics ${ALL_CXX_SOURCES}
+    COMMAND ${CLANG_TIDY_EXE} -p=${CMAKE_BINARY_DIR} "-header-filter=.*" --extra-arg=-w --extra-arg=-fdiagnostics-show-option --extra-arg=-fcolor-diagnostics ${ALL_CXX_SOURCES}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     VERBATIM
   )
