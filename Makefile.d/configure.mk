@@ -1,5 +1,6 @@
 # Makefile.d/configure.mk
-
+# (c) 2026 Sam Caldwell. See LICENSE.txt for details
+#
 # Default preset can be overridden from the command line
 # e.g., make configure PRESET=arm64-release
 PRESET ?= arm64-debug

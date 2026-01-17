@@ -1,4 +1,6 @@
 # cmake/pipeline/build.cmake
+# (c) 2026 Sam Caldwell. See LICENSE.txt for details
+#
 # This file is intentionally empty.
 # The build process is handled by 'cmake --build'.
 

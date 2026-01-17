@@ -1,4 +1,6 @@
-# CMakeLists.txt
+# File CMakeLists.txt
+# Brief Root file for the cmake build system
+
 cmake_minimum_required(VERSION 4.2)
 
 project(crsce VERSION 1.0.0 LANGUAGES CXX)

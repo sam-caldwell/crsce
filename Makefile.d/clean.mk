@@ -1,4 +1,5 @@
 # Makefile.d/clean.mk
+# (c) 2026 Sam Caldwell. See LICENSE.txt for details
 
 .PHONY: all build clean configure help lint ready ready/fix test
 clean:

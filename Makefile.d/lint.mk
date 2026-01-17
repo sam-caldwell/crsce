@@ -32,18 +32,13 @@ lint-py:
 
 .PHONY: lint-cpp
 lint-cpp:
-	@echo "    🔎 Static analysis (cppcheck)..."
-	@if command -v cppcheck >/dev/null; then \
-		cppcheck --quiet --error-exitcode=1 \
-		  --enable=warning,style,performance,portability \
-		  --inline-suppr \
-		  -i build -i node -i venv \
-		  --suppress=missingIncludeSystem --suppress=missingInclude \
-		  cmd src include test; \
-	else \
-		echo "    ❌ cppcheck not found. Run 'make ready/fix'."; \
+	@if ! command -v clang-tidy >/dev/null; then \
+		echo "    ❌ clang-tidy is required. Run 'make ready/fix' to install llvm."; \
 		exit 1; \
 	fi
+	@echo "    🔎 C++ analysis (clang-tidy, required)..."
+	@echo "       Running build-integrated clang-tidy during 'build' (via presets)."
+	@clang-tidy --version >/dev/null
 
 .PHONY: lint-make
 lint-make:

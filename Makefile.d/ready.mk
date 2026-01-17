@@ -25,7 +25,7 @@ fix-brew:
 .PHONY: fix-system-deps
 fix-system-deps:
 	@echo "--- Installing system dependencies via Homebrew ---"
-	@brew install cmake ninja shellcheck cppcheck gcc || true
+	@brew install cmake ninja shellcheck cppcheck gcc llvm || true
 
 .PHONY: fix-python-deps
 fix-python-deps:
@@ -165,5 +165,11 @@ check-cppcheck:
 			echo "✅ cppcheck is installed."; \
 	else \
 			echo "❌ cppcheck is not installed. Run 'make ready/fix'."; \
+		exit 1; \
+	fi
+	@if command -v clang-tidy >/dev/null; then \
+			echo "    ✅ clang-tidy is installed (required)."; \
+	else \
+			echo "    ❌ clang-tidy is not installed. Run 'make ready/fix'."; \
 		exit 1; \
 	fi

@@ -1,5 +1,10 @@
 # cmake/pipeline/test.cmake
+# (c) 2026 Sam Caldwell. See LICENSE.txt for details
+#
 # Centralized test pipeline helpers.
+# - Discovers test sources to trigger reconfigure
+# - Auto-registers unit tests under test/**/unit/*.cpp
+# - Defines e2e tests for CLI binaries
 
 # Ensure this file is only processed once even if included multiple places
 include_guard(GLOBAL)

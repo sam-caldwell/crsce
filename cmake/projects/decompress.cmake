@@ -1,3 +1,6 @@
+# (c) 2026 Sam Caldwell.
+# See LICENSE.txt for details
+#
 # cmake/projects/decompress.cmake
 
 add_executable(decompress cmd/decompress/main.cpp)

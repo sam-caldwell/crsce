@@ -1,3 +1,6 @@
+# (c) 2026 Sam Caldwell.
+# See LICENSE.txt for details
+#
 # cmake/projects/compress.cmake
 
 add_executable(compress cmd/compress/main.cpp)

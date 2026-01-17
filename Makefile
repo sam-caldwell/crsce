@@ -1,4 +1,5 @@
-include Makefile.d/*.mk
+# Makefile
+# (c) 2026 Sam Caldwell. See LICENSE.txt for details
 
 # Define local environment directories
 VENV_DIR := $(CURDIR)/venv
@@ -8,7 +9,6 @@ BUILD_DIR := $(CURDIR)/build
 
 # Add local binaries to the PATH for make commands
 export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
-
 
 # Add local binaries to the PATH for make commands
 export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
@@ -28,5 +28,6 @@ help:
 	@echo ""
 	@echo "Other targets are available in Makefile.d/."
 
-.PHONY: all
 all: clean configure lint build test
+
+include Makefile.d/*.mk

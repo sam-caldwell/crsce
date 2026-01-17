@@ -1,4 +1,7 @@
 # cmake/pipeline/sources.cmake
+# (c) 2026 Sam Caldwell. See LICENSE.txt for details
+#
+# Centralized source discovery for project build graph.
 include_guard(GLOBAL)
 
 # Discover and centralize project sources
@@ -10,4 +13,3 @@ add_library(crsce_sources OBJECT ${CRSCE_PROJECT_SOURCES})
 target_include_directories(crsce_sources PUBLIC
   "${PROJECT_SOURCE_DIR}/include"
 )
-
