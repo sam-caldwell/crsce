@@ -21,15 +21,32 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
+# Do not run clang-tidy on third-party gtest targets
+if(TARGET gtest)
+  set_target_properties(gtest PROPERTIES CXX_CLANG_TIDY "")
+  if(APPLE)
+    target_compile_definitions(gtest PRIVATE _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE)
+    target_compile_options(gtest PRIVATE -Wno-character-conversion)
+  endif()
+endif()
+
+if(TARGET gtest_main)
+  set_target_properties(gtest_main PROPERTIES CXX_CLANG_TIDY "")
+  if(APPLE)
+    target_compile_definitions(gtest_main PRIVATE _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE)
+    target_compile_options(gtest_main PRIVATE -Wno-character-conversion)
+  endif()
+endif()
+
 # Discover all test sources (recursive) to trigger reconfigure on changes
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-  "${PROJECT_SOURCE_DIR}/test/*.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/*/unit/*_test.cpp"
 )
 
 # Auto-register unit test executables for files under test/**/unit/*.cpp
 set(UNIT_TEST_SOURCES)
 foreach(TEST_CPP IN LISTS TEST_SOURCES)
-  if(TEST_CPP MATCHES "/unit/.*\\.cpp$")
+  if(TEST_CPP MATCHES "/unit/.*_test\\.cpp$")
     list(APPEND UNIT_TEST_SOURCES "${TEST_CPP}")
   endif()
 endforeach()
@@ -47,6 +64,28 @@ foreach(UNIT_SRC IN LISTS UNIT_TEST_SOURCES)
   target_sources(${TGT} PRIVATE $<TARGET_OBJECTS:crsce_sources>)
   # Link with GoogleTest main
   target_link_libraries(${TGT} PRIVATE GTest::gtest GTest::gtest_main)
+  # On macOS with Homebrew LLVM, ensure we link and run against Homebrew libc++
+  if(APPLE)
+    set(_BREW_LLVM_LIB "/opt/homebrew/opt/llvm/lib")
+    set(_BREW_LLVM_CXXLIB "/opt/homebrew/opt/llvm/lib/c++")
+    if(EXISTS "${_BREW_LLVM_CXXLIB}/libc++.1.dylib")
+      # Ensure search path and runtime path prefer Homebrew libc++
+      target_link_directories(${TGT} PRIVATE "${_BREW_LLVM_LIB}" "${_BREW_LLVM_CXXLIB}")
+      target_link_options(${TGT} PRIVATE "-L${_BREW_LLVM_LIB}" "-Wl,-rpath,${_BREW_LLVM_LIB}"
+                                      "-L${_BREW_LLVM_CXXLIB}" "-Wl,-rpath,${_BREW_LLVM_CXXLIB}")
+      # Link explicitly to libc++ and libc++abi if present (try common names)
+      if(EXISTS "${_BREW_LLVM_CXXLIB}/libc++.1.dylib")
+        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++.1.dylib")
+      elseif(EXISTS "${_BREW_LLVM_CXXLIB}/libc++.dylib")
+        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++.dylib")
+      endif()
+      if(EXISTS "${_BREW_LLVM_CXXLIB}/libc++abi.1.dylib")
+        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++abi.1.dylib")
+      elseif(EXISTS "${_BREW_LLVM_CXXLIB}/libc++abi.dylib")
+        target_link_libraries(${TGT} PRIVATE "${_BREW_LLVM_CXXLIB}/libc++abi.dylib")
+      endif()
+    endif()
+  endif()
   add_test(NAME ${TGT} COMMAND ${TGT})
 endforeach()
 

@@ -7,9 +7,9 @@ include(cmake/pipeline/configure.cmake)
 
 # --- macOS SDK (Homebrew LLVM) auto-detect to keep toolchain consistent
 include(cmake/pipeline/sdk.cmake)
-if(APPLE AND CRSCE_MACOS_SDK AND NOT DEFINED CMAKE_OSX_SYSROOT)
-  set(CMAKE_OSX_SYSROOT "${CRSCE_MACOS_SDK}" CACHE STRING "macOS SDK root" FORCE)
-endif()
+
+
+include(cmake/apple.cmake)
 
 # --- Include project definitions ---
 include(cmake/projects/compress.cmake)
@@ -26,11 +26,12 @@ if(CLANG_TIDY_EXE)
     "${PROJECT_SOURCE_DIR}/test/*.cpp"
   )
   add_custom_target(clang-tidy
-    COMMAND ${CLANG_TIDY_EXE} -p=${CMAKE_BINARY_DIR} --quiet ${ALL_CXX_SOURCES}
+    COMMAND ${CLANG_TIDY_EXE} -p=${CMAKE_BINARY_DIR} "-header-filter=^(include)/" --extra-arg=-w --extra-arg=-fdiagnostics-show-option --extra-arg=-fcolor-diagnostics ${ALL_CXX_SOURCES}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     VERBATIM
   )
 endif()
+
 
 # --- Testing ---
 include(cmake/pipeline/test.cmake)
@@ -38,5 +39,3 @@ enable_testing()
 
 # Trigger CMake reconfigure when any src/*.cpp changes (recursive)
 file(GLOB_RECURSE PROJECT_SRC_CPP CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/*.cpp")
-
-# (No C++ linter integration is configured here.)

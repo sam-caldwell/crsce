@@ -38,7 +38,8 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "md")
   if(NOT MARKDOWNLINT_EXE)
     message(FATAL_ERROR "markdownlint not found. Run 'make ready/fix'.")
   endif()
-  _run(markdown "${MARKDOWNLINT_EXE}" "**/*.md")
+  # Exclude generated content under build/*
+  _run(markdown "${MARKDOWNLINT_EXE}" "--ignore" "build/**" "**/*.md")
 endif()
 
 # Shell
@@ -48,7 +49,8 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "sh")
     message(FATAL_ERROR "shellcheck not found. Run 'make ready/fix'.")
   endif()
   # Use bash -lc to expand globs/pipe reliably
-  _run(shell "bash" "-lc" "find . -name '*.sh' -print0 | xargs -0 -r ${SHELLCHECK_EXE}")
+  # Prune build/* from search to avoid generated files
+  _run(shell "bash" "-lc" "find . -path './build' -prune -o -name '*.sh' -print0 | xargs -0 -r ${SHELLCHECK_EXE}")
 endif()
 
 # Python
@@ -57,7 +59,8 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "py")
   if(NOT FLAKE8_EXE)
     message(FATAL_ERROR "flake8 not found. Run 'make ready/fix'.")
   endif()
-  _run(flake8 "${FLAKE8_EXE}" "--exclude=venv/,./node")
+  # Exclude venv, node packages, and build outputs
+  _run(flake8 "${FLAKE8_EXE}" "--exclude=venv/,./node,./build")
 endif()
 
 # Makefiles
@@ -140,7 +143,13 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp")
   # invoking clang-tidy directly with explicit include args. This keeps results
   # deterministic across environments.
   set(_HDR_FILTER "^(include|src|cmd|test)/")
-  set(_BASE_CMD ${CLANG_TIDY_EXE} -p ${_BIN_DIR} -quiet -header-filter=${_HDR_FILTER})
+  # Show full diagnostics from clang-tidy and include which -W option triggered them.
+  # Suppress the compiler's own warnings (and its noisy "warnings generated" summary)
+  # so we only see actionable clang-tidy diagnostics.
+  set(_BASE_CMD ${CLANG_TIDY_EXE} -p ${_BIN_DIR} -warnings-as-errors=* "-header-filter=${_HDR_FILTER}")
+  list(APPEND _BASE_CMD -extra-arg=-w)
+  list(APPEND _BASE_CMD -extra-arg=-fdiagnostics-show-option)
+  list(APPEND _BASE_CMD -extra-arg=-fcolor-diagnostics)
   if(APPLE AND CRSCE_MACOS_SDK)
     list(APPEND _BASE_CMD -extra-arg=-isysroot${CRSCE_MACOS_SDK})
     list(APPEND _BASE_CMD -extra-arg=-stdlib=libc++)
@@ -151,8 +160,7 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp")
   list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/common)
   list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/Compress)
   list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/Decompress)
-  # Provide safe fallbacks for Clang feature-test operators during analysis.
-  list(APPEND _BASE_CMD "-extra-arg=-D__has_feature(x)=0")
+  # Avoid redefining builtin macros; do not override __has_feature.
 
   # Expand file list via git to mirror tracked sources
   execute_process(
