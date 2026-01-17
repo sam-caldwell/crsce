@@ -1,9 +1,22 @@
-# CRSCE — Cross-Sums Compression and Expansion
-
-CRSCE is a research proof-of-concept compression format and toolchain that encodes a 511×511 bit Cross‑Sum Matrix
-(CSM) per block using four families of cyclic cross‑sum constraints and a chained SHA‑256 Lateral Hash (LH) array.
-The project ships two C++23 binaries, `compress` and `decompress`, built with CMake/Ninja and verified by CTest. The
-format prioritizes integrity and deterministic verification; it does not provide confidentiality.
+<div>
+    <table>
+        <tr>
+            <td><img src="docs/img/logo.png" width="300" alt="CRSCE logo"/></td>
+            <td>
+                <h1>CRSCE — Cross-Sums Compression and Expansion</h1>
+                <p>
+                    CRSCE is a research proof-of-concept compression format and toolchain that encodes a 511×511 bit
+                    Cross‑Sum Matrix (CSM)<br/>
+                    per block using four families of cyclic cross‑sum constraints and a chained SHA‑256 Lateral Hash
+                    (LH) array. The project ships<br/>
+                    two C++23 binaries, `compress` and `decompress`, built with CMake/Ninja and verified by CTest.
+                    The format prioritizes integrity<br/>
+                    and deterministic verification; it does not provide confidentiality.
+                </p>
+            </td>
+        </tr>
+    </table>
+</div>
 
 ## Quick Start
 
@@ -21,6 +34,11 @@ make cover                     # optional: enforce code coverage
 * Artifacts are written under `build/<preset>/`.
 * Binaries are available at `build/bin/compress` and `build/bin/decompress` after a successful build.
 * A `hello_world/` example is available at `cmd/hello_world/main.cpp` This is a canary for the build system.
+
+## Documentation
+
+See the documentation index at [docs/README.md](docs/README.md) for an overview, theory, format details, usage guides,
+build instructions, and security notes.
 
 ## Usage
 
@@ -46,7 +64,8 @@ build/bin/decompress -in output.crsce -out recovered.bin
 
 ## References
 
-* CRSCE specification: https://samcaldwell.net/2024/12/03/cross-sums-compression-and-expansion-crsce/
+* [Documentation](docs/README.md)
+* [CRSCE specification](https://samcaldwell.net/2024/12/03/cross-sums-compression-and-expansion-crsce/)
 
 ## License
 

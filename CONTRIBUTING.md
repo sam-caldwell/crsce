@@ -1,7 +1,18 @@
-# Code Contributions Guide
-
-Welcome! This document explains how to build, test, lint, and contribute changes to this repository. It reflects the
-project’s conventions and quality gates so your PRs can land smoothly.
+<div>
+    <table>
+        <tr>
+            <td><img src="docs/img/logo.png" width="300" alt="CRSCE logo"/></td>
+            <td>
+                <h1>Code Contributions Guide</h1>
+                <p>
+                    Welcome! This document explains how to build, test, lint, and contribute changes to this 
+                    repository. It reflects<br/>
+                    the project’s conventions and quality gates so your PRs can land smoothly.
+                </p>
+            </td>
+        </tr>
+    </table>
+</div>
 
 ## TL;DR Checklist
 

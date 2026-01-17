@@ -1,7 +1,18 @@
-# Code of Conduct
-
-This project is committed to providing a welcoming, safe, and productive environment for all contributors and users.
-We expect everyone interacting in project spaces to follow this Code of Conduct.
+<div>
+    <table>
+        <tr>
+            <td><img src="docs/img/logo.png" width="300" alt="CRSCE logo"/></td>
+            <td>
+                <h1>Code of Conduct</h1>
+                <p>
+                    This project is committed to providing a welcoming, safe, and productive environment for all
+                    contributors and users.<br/>
+                    We expect everyone interacting in project spaces to follow this Code of Conduct.
+                </p>
+            </td>
+        </tr>
+    </table>
+</div>
 
 ## Our Pledge
 

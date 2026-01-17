@@ -1,7 +1,18 @@
-# Security Policy
-
-This document describes how to report security issues, what is in scope, and
-how we coordinate fixes and disclosure for this project.
+<div>
+    <table>
+        <tr>
+            <td><img src="docs/img/logo.png" width="300" alt="CRSCE logo"/></td>
+            <td>
+                <h1>Security Policy</h1>
+                <p>
+                    This document describes how to report security issues, what is in scope, and
+                    how we coordinate fixes<br/>
+                    and disclosure for this project.
+                </p>
+            </td>
+        </tr>
+    </table>
+</div>
 
 ## Reporting a Vulnerability
 
