@@ -8,7 +8,15 @@
 .PHONY: all build clean configure help lint ready ready/fix test
 clean:
 	@echo "--- Cleaning build directory ---"
-	@[ -d "$(CURDIR)/build" ] && rm -rf $(CURDIR)/build && echo "    ✅ Removed build directory."
-	@mkdir -p $(CURDIR)/build || {echo "❌ failed to create build directory" && exit 1}
-	@echo "    ✅ Created empty build directory."
-	@echo "--- Clean complete ---"
+	@if [ -d "$(CURDIR)/build" ]; then \
+		rm -rf $(CURDIR)/build || true ; \
+		echo "    ✅ Removed build directory." ; \
+	else \
+	  	echo "    ✅ Directory doesn't exist"; \
+	fi; \
+	mkdir -p $(CURDIR)/build || { \
+	  echo "    ❌ Failed to create directory."; \
+	  exit 1; \
+	} ;\
+	echo "    ✅ Created empty build directory." ;\
+	echo "--- Clean complete ---"
