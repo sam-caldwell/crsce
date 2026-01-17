@@ -18,10 +18,10 @@ When reporting, include where possible:
 - Commit hash or release tag tested
 - Environment details (OS, compiler/versions, CPU arch)
 - Exact commands to build and reproduce:
-  - `make ready`
-  - `make configure`
-  - `make build`
-  - Optional: `make test`
+    - `make ready`
+    - `make configure`
+    - `make build`
+    - Optional: `make test`
 - Clear description of impact (e.g., crash, memory corruption, DoS,
   acceptance‑criteria bypass)
 - Minimal proof‑of‑concept input(s) and expected vs. actual behavior
@@ -66,11 +66,11 @@ Out of scope (non‑exhaustive):
 ## Remediation Targets (Guidance)
 
 - Critical (RCE, reliable memory corruption, auth bypass):
-  - Acknowledge: ≤ 24–48h
-  - Fix/Advisory: target ≤ 7–14 days
+    - Acknowledge: ≤ 24–48h
+    - Fix/Advisory: target ≤ 7–14 days
 - High (crash/DoS with low effort, integrity bypass):
-  - Acknowledge: ≤ 2 business days
-  - Fix/Advisory: target ≤ 14–30 days
+    - Acknowledge: ≤ 2 business days
+    - Fix/Advisory: target ≤ 14–30 days
 - Medium (edge‑case failures, hard‑to‑exploit DoS): target ≤ 30–60 days
 - Low (minor hardening/documentation): target ≤ 60–90 days
 
