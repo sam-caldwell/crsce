@@ -3,4 +3,4 @@
 #
 .PHONY: cover
 cover:
-	@bash scripts/coverage.sh $(BUILD_DIR) $(CURDIR)
+	@cmake -D BUILD_DIR=$(BUILD_DIR) -D SOURCE_DIR=$(CURDIR) -P cmake/pipeline/cover.cmake
