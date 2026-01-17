@@ -1,38 +1,22 @@
 # cmake/root.cmake
 
+include(cmake/pipeline/build.cmake)
+include(cmake/pipeline/clean.cmake)
+include(cmake/pipeline/configure.cmake)
+include(cmake/pipeline/cover.cmake)
+include(cmake/pipeline/lint.cmake)
+
 # --- Include project definitions ---
 include(cmake/projects/compress.cmake)
 include(cmake/projects/decompress.cmake)
+include(cmake/projects/hello_world.cmake)
+include(cmake/pipeline/sources.cmake)
 
 # --- Testing ---
+include(cmake/pipeline/test.cmake)
 enable_testing()
 
-# Add the test directory
-add_subdirectory(test)
+# Trigger CMake reconfigure when any src/*.cpp changes (recursive)
+file(GLOB_RECURSE PROJECT_SRC_CPP CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/*.cpp")
 
-# --- Linter ---
-# Find clang-tidy
-find_program(CLANG_TIDY_EXE clang-tidy)
-if(CLANG_TIDY_EXE)
-  set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_EXE})
-else()
-  message(STATUS "clang-tidy not found.")
-endif()
-
-file(GLOB_RECURSE ALL_CXX_SOURCES
-  "${PROJECT_SOURCE_DIR}/cmd/*.cpp"
-  "${PROJECT_SOURCE_DIR}/src/common/*.cpp"
-  "${PROJECT_SOURCE_DIR}/src/Compress/*.cpp"
-  "${PROJECT_SOURCE_DIR}/src/Decompress/*.cpp"
-  "${PROJECT_SOURCE_DIR}/test/*.cpp"
-)
-
-if(CMAKE_CXX_CLANG_TIDY)
-  add_custom_target(clang-tidy
-    COMMAND "${CMAKE_CXX_CLANG_TIDY}"
-            "--header-filter=^(${PROJECT_SOURCE_DIR}/(include|src|test)/.*)"
-            "-p=${CMAKE_BINARY_DIR}"
-            ${ALL_CXX_SOURCES}
-    VERBATIM
-  )
-endif()
+# (No C++ linter integration is configured here.)

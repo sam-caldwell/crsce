@@ -19,7 +19,7 @@ help:
 	@echo "  all       - Run clean configure lint build test"
 	@echo "  clean     - Delete and recreate the build/ directory"
 	@echo "  configure - Configure the build pipeline"
-	@echo "  lint      - Run clang-tidy and other linters"
+	@echo "  lint      - Run configured linters"
 	@echo "  build     - Build all tools and targets"
 	@echo "  test      - Build and run all test programs"
 	@echo "  cover     - Ensure minimum test coverage threshold is maintained"
@@ -30,4 +30,3 @@ help:
 
 .PHONY: all
 all: clean configure lint build test
-

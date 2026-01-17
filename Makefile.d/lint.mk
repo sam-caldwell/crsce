@@ -13,7 +13,7 @@ lint:
 	@$(MAKE) -s lint-sh
 	@$(MAKE) -s lint-py
 	@$(MAKE) -s lint-cpp
-	@echo "--- Linters check complete ---"
+	@echo "--- ✅ Linters check complete ---"
 
 .PHONY: lint-md
 lint-md:
@@ -32,10 +32,18 @@ lint-py:
 
 .PHONY: lint-cpp
 lint-cpp:
-	@echo "    🔎 Linting C++ files (clang-format)..."
-	@find cmd src test -name "*.cpp" -o -name "*.h" | xargs clang-format -i
-	@echo "    🔎 Linting C++ files (clang-tidy)..."
-	@cmake --build build/arm64-debug --target clang-tidy
+	@echo "    🔎 Static analysis (cppcheck)..."
+	@if command -v cppcheck >/dev/null; then \
+		cppcheck --quiet --error-exitcode=1 \
+		  --enable=warning,style,performance,portability \
+		  --inline-suppr \
+		  -i build -i node -i venv \
+		  --suppress=missingIncludeSystem --suppress=missingInclude \
+		  cmd src include test; \
+	else \
+		echo "    ❌ cppcheck not found. Run 'make ready/fix'."; \
+		exit 1; \
+	fi
 
 .PHONY: lint-make
 lint-make:

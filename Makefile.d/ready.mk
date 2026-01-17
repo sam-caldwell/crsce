@@ -1,7 +1,7 @@
 # Makefile.d/ready.mk
 
 .PHONY: ready
-ready: check-brew check-python check-pip check-cmake check-make check-ninja check-clang check-linters
+ready: check-brew check-python check-pip check-cmake check-make check-ninja check-cxx check-cppcheck check-linters
 	@echo "\n✅ Prerequisite check complete."
 
 .PHONY: all build clean configure help lint ready ready/fix test
@@ -25,7 +25,7 @@ fix-brew:
 .PHONY: fix-system-deps
 fix-system-deps:
 	@echo "--- Installing system dependencies via Homebrew ---"
-	@brew install cmake ninja llvm shellcheck || true
+	@brew install cmake ninja shellcheck cppcheck gcc || true
 
 .PHONY: fix-python-deps
 fix-python-deps:
@@ -37,7 +37,7 @@ fix-python-deps:
   		echo "virtual environment exists"; \
 	fi
 	@pip install --upgrade pip
-	@$(VENV_DIR)/bin/pip3 install -q flake8
+	@$(VENV_DIR)/bin/pip3 install -q flake8 gcovr
 
 .PHONY: fix-node-deps
 fix-node-deps:
@@ -104,41 +104,30 @@ check-ninja:
 		exit 1; \
 	fi
 
-.PHONY: check-clang
-check-clang:
+.PHONY: check-cxx
+check-cxx:
 	@mkdir -p $(BUILD_DIR) # Ensure build directory exists for temporary files
-	@if command -v clang++ >/dev/null; then \
-			echo "✅ clang++ is installed."; \
-			echo "static_assert(true);" > $(BUILD_DIR)/test-cpp26.cpp; \
-			echo "int main() { return 0; }" >> $(BUILD_DIR)/test-cpp26.cpp; \
-			if clang++ -std=c++26 -o $(BUILD_DIR)/test-cpp26.out $(BUILD_DIR)/test-cpp26.cpp >/dev/null 2>&1; then \
-					echo "    ✅ clang++ appears to support C++26."; \
-					rm $(BUILD_DIR)/test-cpp26.cpp $(BUILD_DIR)/test-cpp26.out; \
+	@if command -v c++ >/dev/null; then \
+			echo "✅ C++ compiler is available (c++)."; \
+			echo "static_assert(true);" > $(BUILD_DIR)/test-cpp23.cpp; \
+			echo "int main() { return 0; }" >> $(BUILD_DIR)/test-cpp23.cpp; \
+			if c++ -std=c++23 -o $(BUILD_DIR)/test-cpp23.out $(BUILD_DIR)/test-cpp23.cpp >/dev/null 2>&1; then \
+					echo "    ✅ Compiler appears to support C++23."; \
+					rm $(BUILD_DIR)/test-cpp23.cpp $(BUILD_DIR)/test-cpp23.out; \
 			else \
-					echo "    ❌ clang++ does not appear to support C++26. Try upgrading llvm (e.g., 'brew upgrade llvm')."; \
-					rm $(BUILD_DIR)/test-cpp26.cpp; \
+					echo "    ❌ C++ compiler does not appear to support C++23. Please upgrade your toolchain."; \
+					rm $(BUILD_DIR)/test-cpp23.cpp; \
 				exit 1; \
 			fi; \
 	else \
-			echo "❌ clang++ is not installed. Run 'make ready/fix'."; \
+			echo "❌ No C++ compiler found (c++). Run 'make ready/fix'."; \
 		exit 1; \
 	fi
+
 
 .PHONY: all clean configure lint build test ready ready/fix check-linters
 check-linters:
 	@echo "--- Checking Linters ---"
-	@if command -v clang-tidy >/dev/null; then \
-			echo "    ✅ clang-tidy is installed."; \
-	else \
-			echo "    ❌ clang-tidy is not installed. Run 'make ready/fix'."; \
-		exit 1; \
-	fi
-	@if command -v clang-format >/dev/null; then \
-			echo "    ✅ clang-format is installed."; \
-	else \
-			echo "    ❌ clang-format is not installed. Run 'make ready/fix'."; \
-		exit 1; \
-	fi
 	@if command -v markdownlint >/dev/null; then \
 			echo "    ✅ markdownlint is installed (locally)."; \
 	else \
@@ -157,4 +146,24 @@ check-linters:
 			echo "    ❌ flake8 is not installed. Run 'make ready/fix'."; \
 		exit 1; \
 	fi
+	@if command -v cppcheck >/dev/null; then \
+			echo "    ✅ cppcheck is installed."; \
+	else \
+			echo "    ❌ cppcheck is not installed. Run 'make ready/fix'."; \
+		exit 1; \
+	fi
+	@if command -v gcovr >/dev/null; then \
+			echo "    ✅ gcovr is installed."; \
+	else \
+			echo "    ❌ gcovr is not installed. Run 'make ready/fix'."; \
+		exit 1; \
+	fi
 	@echo "--- Linters check complete ---"
+.PHONY: check-cppcheck
+check-cppcheck:
+	@if command -v cppcheck >/dev/null; then \
+			echo "✅ cppcheck is installed."; \
+	else \
+			echo "❌ cppcheck is not installed. Run 'make ready/fix'."; \
+		exit 1; \
+	fi

@@ -13,12 +13,9 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_CXX_STANDARD": "26",
+        "CMAKE_CXX_STANDARD": "23",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_CXX_CLANG_TIDY": "clang-tidy"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
@@ -33,12 +30,43 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_CXX_STANDARD": "26",
+        "CMAKE_CXX_STANDARD": "23",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_CXX_CLANG_TIDY": "clang-tidy"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "cmake-build-debug",
+      "displayName": "cmake-build-debug",
+      "description": "Debug build under build/cmake-build-debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/cmake-build-debug",
+      "architecture": {
+        "value": "arm64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "cmake-build-release",
+      "displayName": "cmake-build-release",
+      "description": "Release build under build/cmake-build-release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/cmake-build-release",
+      "architecture": {
+        "value": "arm64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }
   ],
@@ -52,6 +80,16 @@
       "name": "arm64-release-build",
       "displayName": "Build ARM64 Release",
       "configurePreset": "arm64-release"
+    },
+    {
+      "name": "cmake-build-debug-build",
+      "displayName": "Build cmake-build-debug",
+      "configurePreset": "cmake-build-debug"
+    },
+    {
+      "name": "cmake-build-release-build",
+      "displayName": "Build cmake-build-release",
+      "configurePreset": "cmake-build-release"
     }
   ],
   "testPresets": [
@@ -64,6 +102,16 @@
       "name": "arm64-release-test",
       "displayName": "Test ARM64 Release",
       "configurePreset": "arm64-release"
+    },
+    {
+      "name": "cmake-build-debug-test",
+      "displayName": "Test cmake-build-debug",
+      "configurePreset": "cmake-build-debug"
+    },
+    {
+      "name": "cmake-build-release-test",
+      "displayName": "Test cmake-build-release",
+      "configurePreset": "cmake-build-release"
     }
   ]
 }
