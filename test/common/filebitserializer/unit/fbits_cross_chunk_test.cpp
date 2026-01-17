@@ -1,0 +1,46 @@
+/**
+ * One-test file: Cross-chunk read across >1 KiB boundary.
+ */
+#include <gtest/gtest.h>
+#include "fbits_helpers.h"
+#include "common/FileBitSerializer.h"
+#include <fstream>
+#include <ios>
+#include <cstddef>
+#include <vector>
+#include <optional>
+#include <string>
+
+using crsce::common::FileBitSerializer;
+
+TEST(FileBitSerializerTest, CrossChunkReadHandlesBoundaries) {
+  const std::string path = tmp_dir() + "/cross_chunk.tmp";
+  {
+    std::ofstream out(path, std::ios::binary);
+    std::vector<char> buf(FileBitSerializer::kChunkSize + 2, static_cast<char>(0x00));
+    buf.front() = static_cast<char>(0xFF);
+    buf.back() = static_cast<char>(0x01);
+    out.write(buf.data(), static_cast<std::streamsize>(buf.size()));
+  }
+  FileBitSerializer serializer(path);
+  for (int i = 0; i < 8; ++i) {
+    auto bit = serializer.pop();
+    ASSERT_TRUE(bit.has_value());
+    EXPECT_TRUE(*bit);
+  }
+  std::optional<bool> b;
+  const std::size_t total_bits = (FileBitSerializer::kChunkSize + 2) * 8;
+  for (std::size_t i = 8; i < total_bits - 8; ++i) {
+    b = serializer.pop();
+    ASSERT_TRUE(b.has_value());
+  }
+  std::vector<bool> tail;
+  for (int i = 0; i < 8; ++i) {
+    auto bit = serializer.pop();
+    ASSERT_TRUE(bit.has_value());
+    tail.push_back(*bit);
+  }
+  const std::vector<bool> expect = {false, false, false, false, false, false, false, true};
+  EXPECT_EQ(tail, expect);
+  remove_file(path);
+}
