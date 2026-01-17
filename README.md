@@ -34,19 +34,20 @@ build/bin/decompress -in output.crsce -out recovered.bin
 
 ## Project Layout
 
-- `src/`      core modules (`Compress/`, `Decompress/`, `common/`)
-- `include/`  public headers
-- `cmd/`      entrypoints (`compress/`, `decompress/`)
-- `test/`     CTest suites (`test/<tool>/{unit,integration,e2e}`)
-- `cmake/`    CMake helpers; presets in `CMakePresets.json`
-- `docs/`     additional documentation
-- `build/`    per‑preset build artifacts (created by the build)
+| Directory  | Description                                          |
+|------------|------------------------------------------------------|
+| `src/`     | core modules (`Compress/`, `Decompress/`, `common/`) |
+| `include/` | public headers                                       |
+| `cmd/`     | entrypoints (`compress/`, `decompress/`)             |
+| `test/`    | CTest suites (`test/<tool>/{unit,integration,e2e}`)  |
+| `cmake/`   | CMake helpers; presets in `CMakePresets.json`        |
+| `docs/`    | additional documentation                             |
+| `build/`   | per‑preset build artifacts (created by the build)    |
 
 ## References
 
-- CRSCE specification: https://samcaldwell.net/2024/12/03/cross-sums-compression-and-expansion-crsce/
+* CRSCE specification: https://samcaldwell.net/2024/12/03/cross-sums-compression-and-expansion-crsce/
 
 ## License
 
 Copyright &copy; 2026 Sam Caldwell. See `LICENSE.txt` for details.
-
