@@ -1,0 +1,36 @@
+# Dependabot configuration (Dependabot v2)
+# Tracks GitHub Actions and the dev-only npm tooling under /node.
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    groups:
+      actions-non-major:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/node"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    versioning-strategy: auto
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm-non-major:
+        update-types:
+          - "minor"
+          - "patch"
+
