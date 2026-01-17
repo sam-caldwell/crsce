@@ -174,5 +174,6 @@ The project implements the CRSCE format. When working on features, keep these ac
 
 - If anything is unclear or you hit build/test issues, open an issue with your environment details and command output.
 
-## Please seek first to understand what has been done before you start.
+## Please seek first to understand what has been done before you start
+
 ![That's a paddlin](docs/img/paddlin.png)

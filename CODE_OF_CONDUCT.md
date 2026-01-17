@@ -105,4 +105,3 @@ Community Impact Guidelines are inspired by the Mozilla CoC enforcement ladder.
 For answers to common questions, see the Contributor Covenant FAQ:
 https://www.contributor-covenant.org/faq and translations at:
 https://www.contributor-covenant.org/translations
-
