@@ -1,10 +1,14 @@
 {
   // markdownlint configuration (JSONC supported by the Node markdownlint CLI / VS Code extension)
   "default": true,
-
+  "MD007": {
+    "indent": 4
+  },
   // Require blank lines around headings and lists (common, readable)
-  "MD022": true, // blanks around headings
-  "MD032": true, // blanks around lists
+  "MD022": true,
+  // blanks around headings
+  "MD032": true,
+  // blanks around lists
 
   // Keep line length reasonable but don't penalize common cases
   "MD013": {
@@ -13,20 +17,20 @@
     "tables": false,
     "headings": false
   },
-
   // Allow inline HTML (often used for badges/details blocks)
   "MD033": false,
-
   // Allow duplicate headings (common in long docs)
   "MD024": false,
   "MD025": false,
-
   // Allow multiple top-level headers (common in READMEs)
   "MD041": false,
   // Enforce fenced code blocks and consistent style
-  "MD046": { "style": "fenced" },
-  "MD048": { "style": "backtick" },
-
+  "MD046": {
+    "style": "fenced"
+  },
+  "MD048": {
+    "style": "backtick"
+  },
   // Allow long URLs without forcing angle brackets
   "MD034": false
 }
