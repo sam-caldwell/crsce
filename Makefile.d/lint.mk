@@ -7,40 +7,24 @@ export PATH := $(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 
 .PHONY: all build clean configure help lint ready ready/fix test
 lint:
-	@echo "--- Running Linters ---"
-	@$(MAKE) -s lint-make
-	@$(MAKE) -s lint-md
-	@$(MAKE) -s lint-sh
-	@$(MAKE) -s lint-py
-	@$(MAKE) -s lint-cpp
-	@echo "--- ✅ Linters check complete ---"
+	@cmake -D LINT_TARGET=all -P cmake/pipeline/lint.cmake
 
 .PHONY: lint-md
 lint-md:
-	@echo "    🔎 Linting Markdown files..."
-	@npx markdownlint '**/*.md'
+	@cmake -D LINT_TARGET=md -P cmake/pipeline/lint.cmake
 
 .PHONY: lint-sh
 lint-sh:
-	@echo "    🔎 Linting Shell scripts..."
-	@find . -name "*.sh" | xargs shellcheck
+	@cmake -D LINT_TARGET=sh -P cmake/pipeline/lint.cmake
 
 .PHONY: lint-py
 lint-py:
-	@echo "    🔎 Linting Python files..."
-	@flake8 --exclude=venv/,./node
+	@cmake -D LINT_TARGET=py -P cmake/pipeline/lint.cmake
 
 .PHONY: lint-cpp
 lint-cpp:
-	@if ! command -v clang-tidy >/dev/null; then \
-		echo "    ❌ clang-tidy is required. Run 'make ready/fix' to install llvm."; \
-		exit 1; \
-	fi
-	@echo "    🔎 C++ analysis (clang-tidy, required)..."
-	@echo "       Running build-integrated clang-tidy during 'build' (via presets)."
-	@clang-tidy --version >/dev/null
+	@cmake -D LINT_TARGET=cpp -P cmake/pipeline/lint.cmake
 
 .PHONY: lint-make
 lint-make:
-	@echo "    🔎 Linting Makefile files (checkmake)..."
-	@checkmake --config=.checkmake.conf Makefile Makefile.d/*.mk
+	@cmake -D LINT_TARGET=make -P cmake/pipeline/lint.cmake
