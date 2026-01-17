@@ -2,12 +2,24 @@
  * File: cmd/hello_world/main.cpp
  * Brief: simple hello world used by CI sanity checks.
  */
-#include <iostream>
+#include <print>
+#include <exception>
+#include <cstdio>
 
 /**
  * Main: prints a simple greeting to stdout.
  */
-int main() {
-  std::cout << "hello world" << std::endl;
-  return 0;
+auto main() -> int {
+  try {
+    std::println("hello world");
+    return 0;
+  } catch (const std::exception& e) {
+    std::fputs("error: ", stderr);
+    std::fputs(e.what(), stderr);
+    std::fputs("\n", stderr);
+    return 1;
+  } catch (...) {
+    std::fputs("error: unknown exception\n", stderr);
+    return 1;
+  }
 }

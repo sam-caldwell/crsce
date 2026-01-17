@@ -2,34 +2,52 @@
  * File: cmd/compress/main.cpp
  * Brief: CLI entry for compressor; validates args and prints a greeting.
  */
-#include <iostream>
+#include <print>
+#include <cstdio>
 #include "CommandLineArgs/ArgParser.h"
-#include <filesystem>
+#include <sys/stat.h>
 
 /**
  * Main entry: parse -in/-out and validate file preconditions.
  */
-int main(const int argc, char* argv[]) {
-  crsce::common::ArgParser parser("compress");
-  if (argc > 1) {
-    const bool ok = parser.parse(argc, argv);
-    // ReSharper disable once CppUseStructuredBinding
-    const auto& opt = parser.options();
-    if (!ok || opt.help) {
-      std::cerr << "usage: " << parser.usage() << std::endl;
-      return ok && opt.help ? 0 : 2;
+auto main(const int argc, char *argv[]) -> int {
+    try {
+        crsce::common::ArgParser parser("compress");
+        if (argc > 1) {
+            const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
+            const bool parsed_ok = parser.parse(args);
+            // ReSharper disable once CppUseStructuredBinding
+            const auto &opt = parser.options();
+            if (!parsed_ok || opt.help) {
+                std::println(stderr, "usage: {}", parser.usage());
+                return parsed_ok && opt.help ? 0 : 2;
+            }
+            // Validate file paths per usage: input must exist; output must NOT exist
+            struct stat statbuf{};
+            if (stat(opt.input.c_str(), &statbuf) != 0) {
+                std::println(stderr, "error: input file does not exist: {}", opt.input);
+                return 3;
+            }
+            if (stat(opt.output.c_str(), &statbuf) == 0) {
+                std::println(stderr, "error: output file already exists: {}", opt.output);
+                return 3;
+            }
+        }
+        //
+        //
+        //
+        std::println("Hello, World (compress)!");
+        //
+        //
+        //
+        return 0;
+    } catch (const std::exception &e) {
+        std::fputs("error: ", stderr);
+        std::fputs(e.what(), stderr);
+        std::fputs("\n", stderr);
+        return 1;
+    } catch (...) {
+        std::fputs("error: unknown exception\n", stderr);
+        return 1;
     }
-    // Validate file paths per usage: input must exist; output must NOT exist
-    namespace fs = std::filesystem;
-    if (!fs::exists(opt.input)) {
-      std::cerr << "error: input file does not exist: " << opt.input << std::endl;
-      return 3;
-    }
-    if (fs::exists(opt.output)) {
-      std::cerr << "error: output file already exists: " << opt.output << std::endl;
-      return 3;
-    }
-  }
-  std::cout << "Hello, World (compress)!" << std::endl;
-  return 0;
 }
