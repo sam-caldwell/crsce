@@ -4,6 +4,8 @@
  */
 #include <print>
 #include <cstdio>
+#include <span>
+#include <exception>
 #include "CommandLineArgs/ArgParser.h"
 #include <sys/stat.h>
 
@@ -14,7 +16,7 @@ auto main(const int argc, char* argv[]) -> int {
   try {
     crsce::common::ArgParser parser("decompress");
     if (argc > 1) {
-      std::span<char*> args{argv, static_cast<std::size_t>(argc)};
+      const std::span<char*> args{argv, static_cast<std::size_t>(argc)};
       const bool parsed_ok = parser.parse(args);
       // ReSharper disable once CppUseStructuredBinding
       const auto& opt = parser.options();

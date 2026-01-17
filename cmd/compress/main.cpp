@@ -4,6 +4,8 @@
  */
 #include <print>
 #include <cstdio>
+#include <span>
+#include <exception>
 #include "CommandLineArgs/ArgParser.h"
 #include <sys/stat.h>
 
