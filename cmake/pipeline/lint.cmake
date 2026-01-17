@@ -128,13 +128,19 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp")
     list(APPEND _EXTRA_ARGS "-extra-arg=-resource-dir=${_RES_DIR}")
   endif()
   set(_EXTRA_STR "")
+  # Hard guard: if no compilation database is available, fail with guidance.
+  if(NOT EXISTS "${_BIN_DIR}/compile_commands.json")
+    message(FATAL_ERROR
+      "clang-tidy compile database missing at '${_BIN_DIR}'.\n"
+      "Run 'make configure PRESET=llvm-debug' (or your preset) before 'make lint'.")
+  endif()
   # Run clang-tidy over tracked C++ sources using compile_commands.json
   # Prefer run-clang-tidy if available to use compile DB entries per file
   # Avoid known issues with run-clang-tidy + SDK/libc++ mismatches on macOS by
   # invoking clang-tidy directly with explicit include args. This keeps results
   # deterministic across environments.
   set(_HDR_FILTER "^(include|src|cmd|test)/")
-  set(_BASE_CMD ${CLANG_TIDY_EXE} -quiet -header-filter=${_HDR_FILTER})
+  set(_BASE_CMD ${CLANG_TIDY_EXE} -p ${_BIN_DIR} -quiet -header-filter=${_HDR_FILTER})
   if(APPLE AND CRSCE_MACOS_SDK)
     list(APPEND _BASE_CMD -extra-arg=-isysroot${CRSCE_MACOS_SDK})
     list(APPEND _BASE_CMD -extra-arg=-stdlib=libc++)
@@ -145,6 +151,8 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp")
   list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/common)
   list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/Compress)
   list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/Decompress)
+  # Provide safe fallbacks for Clang feature-test operators during analysis.
+  list(APPEND _BASE_CMD "-extra-arg=-D__has_feature(x)=0")
 
   # Expand file list via git to mirror tracked sources
   execute_process(
@@ -163,7 +171,17 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp")
     math(EXPR _I "0")
     while(_I LESS _N)
       list(GET _SRC_LIST_NL ${_I} _FILE)
-      execute_process(COMMAND ${_BASE_CMD} ${_FILE} RESULT_VARIABLE _one_rc)
+      # Use absolute paths so clang-tidy matches compile_commands entries.
+      if(IS_ABSOLUTE "${_FILE}")
+        set(_ABS_FILE "${_FILE}")
+      else()
+        get_filename_component(_ABS_FILE "${CMAKE_SOURCE_DIR}/${_FILE}" ABSOLUTE)
+      endif()
+      if(CRSCE_MACOS_SDK)
+        execute_process(COMMAND ${CMAKE_COMMAND} -E env SDKROOT=${CRSCE_MACOS_SDK} ${_BASE_CMD} ${_ABS_FILE} RESULT_VARIABLE _one_rc)
+      else()
+        execute_process(COMMAND ${_BASE_CMD} ${_ABS_FILE} RESULT_VARIABLE _one_rc)
+      endif()
       if(NOT _one_rc EQUAL 0)
         message(FATAL_ERROR "clang-tidy failed on ${_FILE} (${_one_rc}).")
       endif()
