@@ -69,6 +69,39 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }
+    ,
+    {
+      "name": "llvm-debug",
+      "displayName": "LLVM (Homebrew) Debug",
+      "description": "Debug with Homebrew clang/llvm and C++23",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/llvm-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_OSX_SYSROOT": "$env{SDKROOT}"
+      }
+    },
+    {
+      "name": "llvm-release",
+      "displayName": "LLVM (Homebrew) Release",
+      "description": "Release with Homebrew clang/llvm and C++23",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/llvm-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_OSX_SYSROOT": "$env{SDKROOT}"
+      }
+    }
   ],
   "buildPresets": [
     {
@@ -90,6 +123,16 @@
       "name": "cmake-build-release-build",
       "displayName": "Build cmake-build-release",
       "configurePreset": "cmake-build-release"
+    },
+    {
+      "name": "llvm-debug-build",
+      "displayName": "Build LLVM Debug",
+      "configurePreset": "llvm-debug"
+    },
+    {
+      "name": "llvm-release-build",
+      "displayName": "Build LLVM Release",
+      "configurePreset": "llvm-release"
     }
   ],
   "testPresets": [
@@ -112,6 +155,16 @@
       "name": "cmake-build-release-test",
       "displayName": "Test cmake-build-release",
       "configurePreset": "cmake-build-release"
+    },
+    {
+      "name": "llvm-debug-test",
+      "displayName": "Test LLVM Debug",
+      "configurePreset": "llvm-debug"
+    },
+    {
+      "name": "llvm-release-test",
+      "displayName": "Test LLVM Release",
+      "configurePreset": "llvm-release"
     }
   ]
 }
