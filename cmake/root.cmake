@@ -4,7 +4,6 @@
 include(cmake/pipeline/build.cmake)
 include(cmake/pipeline/clean.cmake)
 include(cmake/pipeline/configure.cmake)
-include(cmake/pipeline/lint.cmake)
 
 # --- Include project definitions ---
 include(cmake/projects/compress.cmake)

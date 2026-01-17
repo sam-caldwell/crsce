@@ -17,48 +17,44 @@ if(NOT DEFINED SOURCE_DIR)
   set(SOURCE_DIR "${CMAKE_SOURCE_DIR}")
 endif()
 
-# Choose a GNU C++ compiler suitable for gcov coverage.
-set(_GXX_CANDIDATES g++-15 g++-14 g++-13 g++-12 g++-11 g++)
-set(GXX_FOUND "")
-foreach(c IN LISTS _GXX_CANDIDATES)
-  find_program(_CXX "${c}")
-  if(_CXX)
-    set(GXX_FOUND "${_CXX}")
-    break()
-  endif()
-endforeach()
-
-if(NOT GXX_FOUND)
-  message(FATAL_ERROR "No GNU g++ found. Install Homebrew gcc and retry.")
+# Choose clang/llvm tools for source-based coverage
+find_program(CLANGXX_EXE clang++ HINTS /opt/homebrew/opt/llvm/bin)
+find_program(CLANGC_EXE clang HINTS /opt/homebrew/opt/llvm/bin)
+find_program(LLVM_PROFDATA_EXE llvm-profdata HINTS /opt/homebrew/opt/llvm/bin)
+find_program(LLVM_COV_EXE llvm-cov HINTS /opt/homebrew/opt/llvm/bin)
+if(NOT CLANGXX_EXE OR NOT CLANGC_EXE)
+  message(FATAL_ERROR "clang/clang++ not found. Run 'make ready/fix' to install llvm.")
+endif()
+if(NOT LLVM_PROFDATA_EXE OR NOT LLVM_COV_EXE)
+  message(FATAL_ERROR "llvm-profdata/llvm-cov not found. Run 'make ready/fix' to install llvm.")
 endif()
 
-# Verify not clang-compatible
-execute_process(COMMAND "${GXX_FOUND}" --version OUTPUT_VARIABLE _VER)
-string(TOLOWER "${_VER}" _VER_LOWER)
-if(_VER_LOWER MATCHES "clang")
-  message(FATAL_ERROR "Coverage requires GNU g++ (gcov). Found clang-compatible '${GXX_FOUND}'.")
-endif()
-
-message(STATUS "Using C++ compiler for coverage: ${GXX_FOUND}")
-
-# Derive gcov executable name for the chosen g++
-set(GCOV_EXE "${GXX_FOUND}")
-string(REPLACE "g++" "gcov" GCOV_EXE "${GCOV_EXE}")
-set(GCC_EXE "${GXX_FOUND}")
-string(REPLACE "g++" "gcc" GCC_EXE "${GCC_EXE}")
+execute_process(COMMAND "${CLANGXX_EXE}" --version OUTPUT_VARIABLE _CLVER)
+message(STATUS "Using clang++ for coverage: ${CLANGXX_EXE}\n${_CLVER}")
 
 set(COV_BIN_DIR "${BUILD_DIR}/arm64-debug-coverage")
 
 # Configure with coverage flags
+if(EXISTS "${COV_BIN_DIR}")
+  file(REMOVE_RECURSE "${COV_BIN_DIR}")
+endif()
+
+# Discover macOS SDK for Homebrew LLVM if available
+set(_SDK_PATH "")
+find_program(XCRUN_EXE xcrun)
+if(XCRUN_EXE)
+  execute_process(COMMAND ${XCRUN_EXE} --show-sdk-path OUTPUT_VARIABLE _SDK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
 execute_process(
-  COMMAND ${CMAKE_COMMAND} -E env CXX=${GXX_FOUND} CC=${GCC_EXE}
+  COMMAND ${CMAKE_COMMAND} -E env CXX=${CLANGXX_EXE} CC=${CLANGC_EXE}
           ${CMAKE_COMMAND}
             -S ${SOURCE_DIR} -B ${COV_BIN_DIR}
             -G Ninja
-            -DCMAKE_BUILD_TYPE=Debug
-            -DCMAKE_CXX_STANDARD=23
-            -DCMAKE_CXX_FLAGS=--coverage
-            -DCMAKE_EXE_LINKER_FLAGS=--coverage
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_STANDARD=23
+          -DCMAKE_CXX_FLAGS=-fprofile-instr-generate\ -fcoverage-mapping
+          -DCMAKE_EXE_LINKER_FLAGS=-fprofile-instr-generate
+          $<$<BOOL:${_SDK_PATH}>:-DCMAKE_OSX_SYSROOT=${_SDK_PATH}>
   RESULT_VARIABLE _CFG_RC
 )
 if(NOT _CFG_RC EQUAL 0)
@@ -84,34 +80,73 @@ if(NOT _TST_RC EQUAL 0)
   message(FATAL_ERROR "Coverage test step failed (${_TST_RC}).")
 endif()
 
-# Coverage report (requires gcovr)
-find_program(GCOVR_EXE gcovr)
-if(NOT GCOVR_EXE)
-  message(FATAL_ERROR "gcovr not found. Run 'make ready/fix' to install.")
+# Coverage report using llvm-profdata and llvm-cov
+
+# Profiles directory and merged data
+set(PROFILES_DIR "${COV_BIN_DIR}/profiles")
+file(MAKE_DIRECTORY "${PROFILES_DIR}")
+
+# Run tests with profile output enabled
+execute_process(
+  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE=${PROFILES_DIR}/%p.profraw
+          ${CTEST_EXE} --test-dir "${COV_BIN_DIR}" --output-on-failure
+  RESULT_VARIABLE _PR_RC
+)
+if(NOT _PR_RC EQUAL 0)
+  message(FATAL_ERROR "Coverage test run (with profiling) failed (${_PR_RC}).")
 endif()
 
+# Merge profiles
+set(PROFDATA "${COV_BIN_DIR}/coverage.profdata")
+file(GLOB RAW_PROFILES "${PROFILES_DIR}/*.profraw")
+if(RAW_PROFILES)
+  execute_process(COMMAND ${LLVM_PROFDATA_EXE} merge -sparse ${RAW_PROFILES} -o ${PROFDATA}
+                  RESULT_VARIABLE _PD_RC)
+  if(NOT _PD_RC EQUAL 0)
+    message(FATAL_ERROR "llvm-profdata merge failed (${_PD_RC}).")
+  endif()
+else()
+  message(FATAL_ERROR "No .profraw files produced; ensure tests executed.")
+endif()
+
+# Identify instrumented binaries to include in coverage
+set(COV_BINARIES)
+foreach(name IN ITEMS compress decompress hello_world test_common_argparser_unit_argparser_unit test_common_filebitserializer_unit_filebitserializer_unit)
+  if(EXISTS "${COV_BIN_DIR}/${name}")
+    list(APPEND COV_BINARIES "${COV_BIN_DIR}/${name}")
+  endif()
+endforeach()
+if(NOT COV_BINARIES)
+  message(FATAL_ERROR "No instrumented binaries found for coverage report.")
+endif()
+
+# Generate coverage report and enforce threshold
 set(_THRESHOLD 95)
-set(_FILTER "^(cmd|src|include)/")
-
-# Generate report and enforce threshold. Exclude serializer to keep aggregate stable.
 execute_process(
-  COMMAND "${GCOVR_EXE}"
-          --gcov-executable "${GCOV_EXE}"
-          --object-directory "${COV_BIN_DIR}"
-          --root "${SOURCE_DIR}"
-          --filter "${_FILTER}"
-          --exclude "src/common/FileBitSerializer.cpp"
-          --exclude "test/"
-          --txt --fail-under-line=${_THRESHOLD}
-  OUTPUT_FILE "${COV_BIN_DIR}/coverage.txt"
-  RESULT_VARIABLE _CV_RC
+  COMMAND ${LLVM_COV_EXE} report -instr-profile=${PROFDATA} ${COV_BINARIES}
+  WORKING_DIRECTORY ${SOURCE_DIR}
+  OUTPUT_VARIABLE _RPT
+  RESULT_VARIABLE _RC_RPT
 )
+if(NOT _RC_RPT EQUAL 0)
+  message(FATAL_ERROR "llvm-cov report failed (${_RC_RPT}).")
+endif()
 
-file(READ "${COV_BIN_DIR}/coverage.txt" _COVERAGE_TXT)
-message(STATUS "\n${_COVERAGE_TXT}")
+# Extract TOTAL line percentage
+string(REGEX REPLACE ".*TOTAL[^\n]* ([0-9]+\.?[0-9]*)%.*" "\\1" _PCT "${_RPT}")
+if(NOT _PCT)
+  message(FATAL_ERROR "Failed to parse coverage percentage from llvm-cov output:\n${_RPT}")
+endif()
+message(STATUS "Coverage TOTAL: ${_PCT}% (threshold ${_THRESHOLD}%)")
 
-if(NOT _CV_RC EQUAL 0)
-  message(FATAL_ERROR "Coverage threshold not met (fail-under ${_THRESHOLD}%).")
+# Compare as tenths of a percent to avoid float math
+string(REGEX REPLACE "([0-9]+)\.([0-9]).*" "\\1\\2" _PCT_TENTHS "${_PCT}")
+if(_PCT_TENTHS STREQUAL "${_PCT}")
+  set(_PCT_TENTHS "${_PCT}0")
+endif()
+math(EXPR _THRESHOLD_TENTHS "${_THRESHOLD} * 10")
+if(_PCT_TENTHS LESS _THRESHOLD_TENTHS)
+  message(FATAL_ERROR "Coverage threshold not met: ${_PCT}% < ${_THRESHOLD}%\n${_RPT}")
 endif()
 
 message(STATUS "✅ Coverage check complete")
