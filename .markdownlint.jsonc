@@ -21,6 +21,8 @@
   "MD024": false,
   "MD025": false,
 
+  // Allow multiple top-level headers (common in READMEs)
+  "MD041": false,
   // Enforce fenced code blocks and consistent style
   "MD046": { "style": "fenced" },
   "MD048": { "style": "backtick" },
