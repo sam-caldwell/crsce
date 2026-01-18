@@ -64,33 +64,28 @@ if(NOT _BLD_RC EQUAL 0)
   message(FATAL_ERROR "Coverage build step failed (${_BLD_RC}).")
 endif()
 
-# Test
+######################################################################
+# Test with coverage instrumentation enabled (single run)
+######################################################################
 find_program(CTEST_EXE ctest)
 if(NOT CTEST_EXE)
   set(CTEST_EXE "${CMAKE_CTEST_COMMAND}")
 endif()
-execute_process(
-  COMMAND "${CTEST_EXE}" --test-dir "${COV_BIN_DIR}" --output-on-failure
-  RESULT_VARIABLE _TST_RC
-)
-if(NOT _TST_RC EQUAL 0)
-  message(FATAL_ERROR "Coverage test step failed (${_TST_RC}).")
-endif()
-
-# Coverage report using llvm-profdata and llvm-cov
 
 # Profiles directory and merged data
 set(PROFILES_DIR "${COV_BIN_DIR}/profiles")
 file(MAKE_DIRECTORY "${PROFILES_DIR}")
 
-# Run tests with profile output enabled
-crsce_sdk_env_prefix(_SDK_ENV_PREFIX)
-if(_SDK_ENV_PREFIX)
-  set(_SDK_ENV_PREFIX "${_SDK_ENV_PREFIX} ")
+# Build environment list for cmake -E env
+set(_ENV_ARGS)
+if(APPLE AND DEFINED CRSCE_MACOS_SDK AND NOT "${CRSCE_MACOS_SDK}" STREQUAL "")
+  list(APPEND _ENV_ARGS "SDKROOT=${CRSCE_MACOS_SDK}")
 endif()
+list(APPEND _ENV_ARGS "LLVM_PROFILE_FILE=${PROFILES_DIR}/%p.profraw")
+
+# Run tests once with profiling enabled
 execute_process(
-  COMMAND ${CMAKE_COMMAND} -E env ${_SDK_ENV_PREFIX}LLVM_PROFILE_FILE=${PROFILES_DIR}/%p.profraw
-          ${CTEST_EXE} --test-dir "${COV_BIN_DIR}" --output-on-failure
+  COMMAND ${CMAKE_COMMAND} -E env ${_ENV_ARGS} ${CTEST_EXE} --test-dir "${COV_BIN_DIR}" --output-on-failure
   RESULT_VARIABLE _PR_RC
 )
 if(NOT _PR_RC EQUAL 0)
@@ -99,9 +94,15 @@ endif()
 
 # Merge profiles (search broadly to be robust to runner working directories)
 set(PROFDATA "${COV_BIN_DIR}/coverage.profdata")
+
+# Prefer profiles from the dedicated profiles/ dir; fallback only if empty
 file(GLOB RAW_PROFILES "${PROFILES_DIR}/*.profraw")
-file(GLOB_RECURSE RAW_PROFILES_FALLBACK "${COV_BIN_DIR}/*.profraw")
-set(ALL_PROFILES ${RAW_PROFILES} ${RAW_PROFILES_FALLBACK})
+if(RAW_PROFILES)
+  set(ALL_PROFILES ${RAW_PROFILES})
+else()
+  file(GLOB_RECURSE RAW_PROFILES_FALLBACK "${COV_BIN_DIR}/*.profraw")
+  set(ALL_PROFILES ${RAW_PROFILES_FALLBACK})
+endif()
 list(REMOVE_DUPLICATES ALL_PROFILES)
 if(ALL_PROFILES)
   execute_process(COMMAND ${LLVM_PROFDATA_EXE} merge -sparse ${ALL_PROFILES} -o ${PROFDATA}
@@ -128,9 +129,29 @@ foreach(exe IN LISTS TEST_EXES)
     list(APPEND COV_BINARIES "${exe}")
   endif()
 endforeach()
+# Also include the static library for robust mapping discovery (macOS/LLVM)
+if(EXISTS "${COV_BIN_DIR}/libcrsce_static.a")
+  list(APPEND COV_BINARIES "${COV_BIN_DIR}/libcrsce_static.a")
+endif()
 list(REMOVE_DUPLICATES COV_BINARIES)
 if(NOT COV_BINARIES)
   message(FATAL_ERROR "No instrumented binaries found for coverage report.")
+endif()
+
+# Quick diagnostic: show annotated coverage for FileBitSerializer.cpp (first match)
+set(_FBSRC "${SOURCE_DIR}/src/common/FileBitSerializer.cpp")
+if(EXISTS "${_FBSRC}")
+  foreach(_BIN IN LISTS COV_BINARIES)
+    execute_process(
+      COMMAND ${LLVM_COV_EXE} show -instr-profile=${PROFDATA} ${_BIN} --sources ${_FBSRC}
+      OUTPUT_VARIABLE _SHOW_OUT
+      RESULT_VARIABLE _SHOW_RC
+    )
+    if(_SHOW_RC EQUAL 0 AND _SHOW_OUT)
+      message(STATUS "\n--- Annotated: src/common/FileBitSerializer.cpp (from ${_BIN}) ---\n${_SHOW_OUT}")
+      break()
+    endif()
+  endforeach()
 endif()
 
 # Generate coverage report and enforce threshold

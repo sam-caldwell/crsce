@@ -8,6 +8,7 @@
 # DO NOT CHANGE THIS FILE WITHOUT A REALLY GOOD REASON!
 #
 .PHONY: all build clean configure help lint ready ready/fix test
+
 clean:
 	@echo "--- Cleaning build directory ---"
 	@if [ -d "$(CURDIR)/build" ]; then \

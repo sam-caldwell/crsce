@@ -13,3 +13,9 @@ add_library(crsce_sources OBJECT ${CRSCE_PROJECT_SOURCES})
 target_include_directories(crsce_sources PUBLIC
   "${PROJECT_SOURCE_DIR}/include"
 )
+
+# Also provide a static library for tools/tests to link, which improves coverage attribution
+add_library(crsce_static STATIC ${CRSCE_PROJECT_SOURCES})
+target_include_directories(crsce_static PUBLIC
+  "${PROJECT_SOURCE_DIR}/include"
+)

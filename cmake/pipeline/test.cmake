@@ -60,8 +60,8 @@ foreach(UNIT_SRC IN LISTS UNIT_TEST_SOURCES)
 
   add_executable(${TGT} "${UNIT_SRC}")
   target_include_directories(${TGT} PRIVATE "${PROJECT_SOURCE_DIR}/include")
-  # Link project sources (object library)
-  target_sources(${TGT} PRIVATE $<TARGET_OBJECTS:crsce_sources>)
+  # Link project sources via static library to improve coverage attribution on macOS/LLVM
+  target_link_libraries(${TGT} PRIVATE crsce_static)
   # Link with GoogleTest main
   target_link_libraries(${TGT} PRIVATE GTest::gtest GTest::gtest_main)
   # Link/runtime paths and libc++ linkage are handled globally in cmake/root.cmake
