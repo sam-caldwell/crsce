@@ -11,7 +11,7 @@ TEST(ClangPluginOneTestPerFile, MultipleTestsFail) {
   ASSERT_FALSE(lib.empty()) << "Plugin build failed: " << log;
 
   const auto repo = repo_root_from_build_cwd();
-  const auto fixture = repo / "test/tools/fixtures/OneTestPerFile/sad/multiple_tests/multiple_tests_fail_test.cpp";
+  const auto fixture = repo / "test/tools/clang-plugins/OneTestPerFile/fixtures/sad/multiple_tests/multiple_tests_fail_test.cpp";
   ASSERT_TRUE(std::filesystem::exists(fixture));
 
   std::string out;

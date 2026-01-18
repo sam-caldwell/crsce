@@ -33,7 +33,11 @@ inline std::string run_command_capture(const std::string &cmd, int &exit_code) {
     result += buffer.data();
   }
   int status = pclose(pipe);
-  if (WIFEXITED(status)) exit_code = WEXITSTATUS(status); else exit_code = -1;
+  if (WIFEXITED(status)) {
+    exit_code = WEXITSTATUS(status);
+  } else {
+    exit_code = -1;
+  }
 #endif
   return result;
 }
@@ -41,7 +45,9 @@ inline std::string run_command_capture(const std::string &cmd, int &exit_code) {
 inline std::filesystem::path repo_root_from_build_cwd() {
   // Assume current working directory is <repo>/build/<preset>
   auto cwd = std::filesystem::current_path();
-  if (cwd.filename() == "") cwd = cwd.parent_path();
+  if (cwd.filename() == "") {
+    cwd = cwd.parent_path();
+  }
   auto maybe_build_dir = cwd.parent_path(); // <repo>/build
   auto maybe_repo = maybe_build_dir.parent_path(); // <repo>
   return maybe_repo;
@@ -57,17 +63,21 @@ inline std::filesystem::path ensure_plugin_built(std::string &log) {
                     " -D BUILD_DIR=" + build_root.string() +
                     " -P " + (repo / "cmake/pipeline/deps.cmake").string();
   log += run_command_capture(cmd, code);
-  if (code != 0) return {};
+  if (code != 0) {
+    return {};
+  }
 
 #if defined(__APPLE__)
-  auto libname = "libone_test_per_file.dylib";
+  auto libname = "libOneTestPerFile.dylib";
 #elif defined(_WIN32)
-  auto libname = "one_test_per_file.dll";
+  auto libname = "OneTestPerFile.dll";
 #else
-  auto libname = "libone_test_per_file.so";
+  auto libname = "libOneTestPerFile.so";
 #endif
-  auto libpath = build_root / "tools/clang-plugins/one-test-per-file" / libname;
-  if (!std::filesystem::exists(libpath)) return {};
+  auto libpath = build_root / "tools/clang-plugins/OneTestPerFile" / libname;
+  if (!std::filesystem::exists(libpath)) {
+    return {};
+  }
   return libpath;
 }
 

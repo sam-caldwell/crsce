@@ -33,7 +33,7 @@ Start here if you’re new:
 
 ### Tools and Plugins
 
-- [Clang Plugin: One Test Per File](../tools/clang-plugins/one-test-per-file/README.md)
+- [Clang Plugin: One Test Per File](../tools/clang-plugins/OneTestPerFile/README.md)
 
 ### Notes
 

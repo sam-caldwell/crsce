@@ -1,6 +1,7 @@
 // Intentionally missing required header block
 
-#define TEST(SUITE, NAME) int SUITE##_##NAME##_test_var = 0;
+#define TEST(SUITE, NAME) \
+  namespace { [[maybe_unused]] static const int SUITE##_##NAME##_test_var = 0; }
 
 /**
  * @name Dummy

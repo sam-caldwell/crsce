@@ -41,6 +41,7 @@ endif()
 # Discover all test sources (recursive) to trigger reconfigure on changes
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/test/*/*/unit/*_test.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/*/*/unit/*_test.cpp"
 )
 
 # Auto-register unit test executables for files under test/**/unit/*.cpp

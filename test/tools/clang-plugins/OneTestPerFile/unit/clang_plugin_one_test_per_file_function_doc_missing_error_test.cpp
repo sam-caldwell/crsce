@@ -11,7 +11,7 @@ TEST(ClangPluginOneTestPerFile, MissingDocBeforeFunctionFails) {
   ASSERT_FALSE(lib.empty()) << "Plugin build failed: " << log;
 
   const auto repo = repo_root_from_build_cwd();
-  const auto fixture = repo / "test/tools/OneTestPerFile/fixtures/sad/missing_doc_for_function/missing_doc_before_function_fail_test.cpp";
+  const auto fixture = repo / "test/tools/clang-plugins/OneTestPerFile/fixtures/sad/missing_doc_for_function/missing_doc_before_function_fail_test.cpp";
   ASSERT_TRUE(std::filesystem::exists(fixture));
 
   std::string out;

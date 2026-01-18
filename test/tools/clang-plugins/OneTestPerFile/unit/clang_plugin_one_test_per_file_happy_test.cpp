@@ -11,7 +11,7 @@ TEST(ClangPluginOneTestPerFile, HappyPasses) {
   ASSERT_FALSE(lib.empty()) << "Plugin build failed: " << log;
 
   const auto repo = repo_root_from_build_cwd();
-  const auto fixture = repo / "test/tools/OneTestPerFile/fixtures/happy/one_test_and_doc_ok_test.cpp";
+  const auto fixture = repo / "test/tools/clang-plugins/OneTestPerFile/fixtures/happy/one_test_and_doc_ok_test.cpp";
   ASSERT_TRUE(std::filesystem::exists(fixture));
 
   std::string out;
