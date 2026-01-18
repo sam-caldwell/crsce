@@ -1,0 +1,38 @@
+/**
+ * One-test file: Repeated pop() after EOF remains std::nullopt and stable.
+ */
+#include <gtest/gtest.h>
+#include "common/FileBitSerializer.h"
+
+#include <fstream>
+#include <ios>
+#include <string>
+#include <filesystem>
+#include <cstdio>
+
+using crsce::common::FileBitSerializer;
+
+TEST(FileBitSerializerTest, RepeatedPopAfterEOFStable) {
+  const std::string path = std::filesystem::temp_directory_path().string() + "/repeated_pop_eof.tmp";
+  {
+    std::ofstream out(path, std::ios::binary);
+    const char v = static_cast<char>(0xFF); // 1111 1111
+    out.write(&v, 1);
+  }
+  FileBitSerializer s(path);
+  // Consume all 8 bits
+  for (int i = 0; i < 8; ++i) {
+    auto b = s.pop();
+    ASSERT_TRUE(b.has_value());
+  }
+  // Now at EOF
+  ASSERT_FALSE(s.has_next());
+  // Repeated pop() remains nullopt without side-effects
+  for (int i = 0; i < 5; ++i) {
+    auto b = s.pop();
+    EXPECT_FALSE(b.has_value());
+    EXPECT_FALSE(s.has_next());
+  }
+  std::remove(path.c_str());
+}
+
