@@ -37,8 +37,7 @@ class ArgParser {
 
   /**
    * @brief Parse argv for -h/--help, -in <path>, -out <path>.
-   * @param argc Argument count
-   * @param argv Argument values
+   * @param args
    * @return true if parsing succeeded; false on an unknown flag or missing value
    */
   auto parse(std::span<char*> args) -> bool;
