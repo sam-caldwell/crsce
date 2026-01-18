@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""
+Git commit-msg hook: ensure the commit message is at least 10 characters.
+
+This hook reads the commit message file provided by Git and enforces a
+minimum length requirement of 10 characters, excluding blank lines and
+commented lines (those starting with '#').
+"""
+
+import sys
+from pathlib import Path
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print("commit-msg: missing commit message file path", file=sys.stderr)
+        return 1
+
+    path = Path(sys.argv[1])
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"commit-msg: cannot read message file: {exc}", file=sys.stderr)
+        return 1
+
+    # Ignore commented and empty lines when measuring length
+    cleaned_lines = []
+    for line in text.splitlines():
+        if line.strip() == "":
+            continue
+        if line.lstrip().startswith("#"):
+            continue
+        cleaned_lines.append(line)
+
+    message = "\n".join(cleaned_lines).strip()
+
+    if len(message) < 10:
+        print(
+            "Aborting commit: commit message must be at least 10 characters (excluding comments).",
+            file=sys.stderr,
+        )
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

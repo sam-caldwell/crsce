@@ -2,6 +2,7 @@
 
 .PHONY: ready
 ready: check-brew check-python check-pip check-cmake check-make check-ninja check-brew-llvm check-cxx check-cppcheck check-linters
+	@$(MAKE) -s hooks
 	@echo "\n✅ Prerequisite check complete."
 
 .PHONY: all build clean configure help lint ready ready/fix test
