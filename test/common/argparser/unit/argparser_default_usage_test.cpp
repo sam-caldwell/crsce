@@ -9,8 +9,7 @@
 using crsce::common::ArgParser;
 
 TEST(ArgParserTest, DefaultProgramNameUsage) {
-  const ArgParser p("");
-  const auto u = p.usage();
-  EXPECT_EQ(u.rfind("program ", 0), 0U);
+    const ArgParser p("");
+    const auto u = p.usage();
+    EXPECT_EQ(u.rfind("program ", 0), 0U);
 }
-
