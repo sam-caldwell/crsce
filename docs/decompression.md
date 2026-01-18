@@ -5,7 +5,7 @@
             <td>
                 <h1>Decompression Algorithm Notes</h1>
                 <p>
-                  This document expands on practical reconstruction techniques for CRSCE decoding on CPU. It is 
+                  This document expands on practical reconstruction techniques for CRSCE decoding on CPU. It is
                   solver‑agnostic but assumes common patterns described.
                 </p>
             </td>
