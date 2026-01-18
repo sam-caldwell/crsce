@@ -18,6 +18,7 @@ if(NOT DEFINED SOURCE_DIR)
 endif()
 
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/sdk.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/tools/num_cpus.cmake")
 
 # Choose clang/llvm tools for source-based coverage
 find_program(CLANGXX_EXE clang++ HINTS /opt/homebrew/opt/llvm/bin)
@@ -58,8 +59,12 @@ if(NOT _CFG_RC EQUAL 0)
   message(FATAL_ERROR "Coverage configure step failed (${_CFG_RC}).")
 endif()
 
-# Build
-execute_process(COMMAND "${CMAKE_COMMAND}" --build "${COV_BIN_DIR}" RESULT_VARIABLE _BLD_RC)
+# Build (parallel)
+crsce_num_cpus(_NPROC)
+if(NOT _NPROC)
+  set(_NPROC 1)
+endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" --build "${COV_BIN_DIR}" --parallel ${_NPROC} RESULT_VARIABLE _BLD_RC)
 if(NOT _BLD_RC EQUAL 0)
   message(FATAL_ERROR "Coverage build step failed (${_BLD_RC}).")
 endif()
@@ -83,9 +88,9 @@ if(APPLE AND DEFINED CRSCE_MACOS_SDK AND NOT "${CRSCE_MACOS_SDK}" STREQUAL "")
 endif()
 list(APPEND _ENV_ARGS "LLVM_PROFILE_FILE=${PROFILES_DIR}/%p.profraw")
 
-# Run tests once with profiling enabled
+# Run tests once with profiling enabled (parallel)
 execute_process(
-  COMMAND ${CMAKE_COMMAND} -E env ${_ENV_ARGS} ${CTEST_EXE} --test-dir "${COV_BIN_DIR}" --output-on-failure
+  COMMAND ${CMAKE_COMMAND} -E env ${_ENV_ARGS} ${CTEST_EXE} --test-dir "${COV_BIN_DIR}" --output-on-failure -j ${_NPROC}
   RESULT_VARIABLE _PR_RC
 )
 if(NOT _PR_RC EQUAL 0)

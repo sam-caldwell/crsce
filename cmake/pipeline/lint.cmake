@@ -24,6 +24,13 @@ else()
   set(ENV{PATH} "/opt/homebrew/opt/llvm/bin:${CMAKE_SOURCE_DIR}/venv/bin:${CMAKE_SOURCE_DIR}/node/node_modules/.bin")
 endif()
 
+# Determine reasonable parallelism for tools that support it
+include("${CMAKE_SOURCE_DIR}/cmake/tools/num_cpus.cmake")
+crsce_num_cpus(_NPROC)
+if(NOT _NPROC)
+  set(_NPROC 1)
+endif()
+
 function(_run name)
   message(STATUS "Lint: ${name}")
   execute_process(COMMAND ${ARGN} RESULT_VARIABLE rc)
@@ -51,7 +58,7 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "sh")
   endif()
   # Use bash -lc to expand globs/pipe reliably
   # Prune build/* from search to avoid generated files
-  _run(shell "bash" "-lc" "find . -path './build' -prune -o -name '*.sh' -print0 | xargs -0 -r ${SHELLCHECK_EXE}")
+  _run(shell "bash" "-lc" "find . -path './build' -prune -o -name '*.sh' -print0 | xargs -0 -r -P ${_NPROC} -n 1 ${SHELLCHECK_EXE}")
 endif()
 
 # Python
@@ -61,7 +68,7 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "py")
     message(FATAL_ERROR "flake8 not found. Run 'make ready/fix'.")
   endif()
   # Exclude venv, node packages, and build outputs
-  _run(flake8 "${FLAKE8_EXE}" "--exclude=venv/,./node,./build")
+  _run(flake8 "${FLAKE8_EXE}" "--exclude=venv/,./node,./build" "--jobs=${_NPROC}")
 endif()
 
 # Makefiles

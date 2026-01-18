@@ -1,26 +1,106 @@
-#!/bin/sh
-#
-# An example hook script to verify what is about to be committed.
-# Called by "git commit" with no arguments.  The hook should
-# exit with non-zero status after issuing an appropriate message if
-# it wants to stop the commit.
-#
-# To enable this hook, rename this file to "pre-commit".
+#!/usr/bin/env python3
+"""
+Git pre-commit hook (Python 3):
 
-if git rev-parse --verify HEAD >/dev/null 2>&1
-then
-	against=HEAD
-else
-	# Initial commit: diff against an empty tree object
-	against=$(git hash-object -t tree /dev/null)
-fi
+Performs fast, local quality gates before allowing a commit:
+- Checks staged changes for whitespace errors via git diff-index --check
+- Runs project linters (make lint)
+- Enforces a test coverage threshold (make cover)
 
-# Redirect output to stderr.
-exec 1>&2
+Exits non-zero to block the commit on any failure.
+"""
 
-# If there are whitespace errors, print the offending file names and fail.
-# shellcheck disable=SC2093
-exec git diff-index --check --cached $against --
+from __future__ import annotations
 
-# ensure linter is passing before commit
-make clean coverage lint
+import os
+import shutil
+import subprocess
+import sys
+from typing import List
+
+
+def _run_capture(cmd: List[str]) -> subprocess.CompletedProcess:
+    """Run a command, capturing stdout/stderr (text)."""
+    return subprocess.run(
+        cmd,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def _run_stream(cmd: List[str]) -> int:
+    """Run a command, streaming output to the terminal; return exit code."""
+    try:
+        cp = subprocess.run(cmd, check=False)
+        return cp.returncode
+    except FileNotFoundError:
+        return 127
+
+
+def _git_against_ref() -> str:
+    """Return 'HEAD' or the empty tree hash on initial commit."""
+    rc = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode
+    if rc == 0:
+        return "HEAD"
+    # Initial commit: diff against an empty tree object
+    empty_tree = subprocess.check_output(
+        ["git", "hash-object", "-t", "tree", "/dev/null"], text=True
+    ).strip()
+    return empty_tree
+
+
+def whitespace_check() -> int:
+    """Check staged diffs for whitespace errors; print diagnostics on failure."""
+    against = _git_against_ref()
+    res = _run_capture(["git", "diff-index", "--check", "--cached", against, "--"])
+    if res.returncode != 0:
+        # Match legacy behavior: direct messages to stderr
+        if res.stdout:
+            sys.stderr.write(res.stdout)
+        if res.stderr:
+            sys.stderr.write(res.stderr)
+        sys.stderr.write(
+            "Aborting commit due to whitespace errors in staged changes.\n"
+        )
+    return res.returncode
+
+
+def ensure_make() -> None:
+    if not shutil.which("make"):
+        sys.stderr.write(
+            "pre-commit: 'make' not found. Install build tools or run 'make ready/fix'.\n"
+        )
+        sys.exit(127)
+
+
+def main() -> int:
+    # 1) Whitespace check on staged changes
+    if whitespace_check() != 0:
+        return 1
+
+    ensure_make()
+
+    # 2) Run linters (fast fail)
+    lint_rc = _run_stream(["make", "lint"])
+    if lint_rc != 0:
+        return lint_rc
+
+    # 3) Enforce coverage threshold (build + tests under instrumentation)
+    #    Note: original shell hook referenced a nonexistent 'coverage' target;
+    #    this uses the correct 'cover' target from Makefile.d/cover.mk
+    cover_rc = _run_stream(["make", "cover"])
+    if cover_rc != 0:
+        return cover_rc
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

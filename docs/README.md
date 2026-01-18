@@ -29,6 +29,7 @@ Start here if you’re new:
 - [Usage Guides](./usage.md)
 - [Build and Test](./build.md)
 - [Security and Robustness](./security.md)
+- [Git Hooks](./git-hooks.md)
 
 ### Notes
 

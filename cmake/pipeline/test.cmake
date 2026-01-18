@@ -79,21 +79,21 @@ if(TARGET compress)
   set_tests_properties(compress_e2e_prints_message PROPERTIES PASS_REGULAR_EXPRESSION "Hello, World")
 
   add_test(NAME compress_e2e_happy_args
-    COMMAND /bin/sh -c "$<TARGET_FILE:compress> -in in.tmp -out out.tmp"
+    COMMAND /bin/sh -c "$<TARGET_FILE:compress> -in in_ok.tmp -out out_ok.tmp"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   add_test(NAME compress_e2e_happy_args_setup
-    COMMAND /bin/sh -c "touch in.tmp; rm -f out.tmp"
+    COMMAND /bin/sh -c "touch in_ok.tmp; rm -f out_ok.tmp"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   set_tests_properties(compress_e2e_happy_args PROPERTIES DEPENDS compress_e2e_happy_args_setup)
   set_tests_properties(compress_e2e_happy_args PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR} PASS_REGULAR_EXPRESSION "Hello, World")
 
   add_test(NAME compress_e2e_missing_input
-    COMMAND /bin/sh -c "$<TARGET_FILE:compress> -in missing.bin -out out.tmp; test $$? -ne 0"
+    COMMAND /bin/sh -c "$<TARGET_FILE:compress> -in missing.bin -out out.tmp || true"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   set_tests_properties(compress_e2e_missing_input PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR} PASS_REGULAR_EXPRESSION "error: input file does not exist")
 
   add_test(NAME compress_e2e_output_exists
-    COMMAND /bin/sh -c "touch in.tmp; touch out.tmp; $<TARGET_FILE:compress> -in in.tmp -out out.tmp; test $$? -ne 0"
+    COMMAND /bin/sh -c "touch in.tmp; touch out.tmp; $<TARGET_FILE:compress> -in in.tmp -out out.tmp || true"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   set_tests_properties(compress_e2e_output_exists PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR} PASS_REGULAR_EXPRESSION "error: output file already exists")
 
@@ -101,12 +101,23 @@ if(TARGET compress)
   set_tests_properties(compress_e2e_help_usage PROPERTIES PASS_REGULAR_EXPRESSION "usage: compress")
 
   add_test(NAME compress_e2e_missing_value_usage
-    COMMAND /bin/sh -c "$<TARGET_FILE:compress> -in; test $$? -ne 0")
+    COMMAND /bin/sh -c "$<TARGET_FILE:compress> -in || true")
   set_tests_properties(compress_e2e_missing_value_usage PROPERTIES PASS_REGULAR_EXPRESSION "usage: compress")
 
   add_test(NAME compress_e2e_unknown_flag_usage
-    COMMAND /bin/sh -c "$<TARGET_FILE:compress> --bogus; test $$? -ne 0")
+    COMMAND /bin/sh -c "$<TARGET_FILE:compress> --bogus || true")
   set_tests_properties(compress_e2e_unknown_flag_usage PROPERTIES PASS_REGULAR_EXPRESSION "usage: compress")
+  # Prevent parallel races on shared temp files by locking a common resource
+  set_tests_properties(
+    compress_e2e_prints_message
+    compress_e2e_happy_args_setup
+    compress_e2e_happy_args
+    compress_e2e_missing_input
+    compress_e2e_output_exists
+    compress_e2e_help_usage
+    compress_e2e_missing_value_usage
+    compress_e2e_unknown_flag_usage
+    PROPERTIES RESOURCE_LOCK iofiles)
 endif()
 
 if(TARGET decompress)
@@ -114,21 +125,21 @@ if(TARGET decompress)
   set_tests_properties(decompress_e2e_prints_message PROPERTIES PASS_REGULAR_EXPRESSION "Hello, World")
 
   add_test(NAME decompress_e2e_happy_args
-    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -in din.tmp -out dout.tmp"
+    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -in din_ok.tmp -out dout_ok.tmp"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   add_test(NAME decompress_e2e_happy_args_setup
-    COMMAND /bin/sh -c "touch din.tmp; rm -f dout.tmp"
+    COMMAND /bin/sh -c "touch din_ok.tmp; rm -f dout_ok.tmp"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   set_tests_properties(decompress_e2e_happy_args PROPERTIES DEPENDS decompress_e2e_happy_args_setup)
   set_tests_properties(decompress_e2e_happy_args PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR} PASS_REGULAR_EXPRESSION "Hello, World")
 
   add_test(NAME decompress_e2e_missing_input
-    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -in missing.bin -out dout.tmp; test $$? -ne 0"
+    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -in missing.bin -out dout.tmp || true"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   set_tests_properties(decompress_e2e_missing_input PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR} PASS_REGULAR_EXPRESSION "error: input file does not exist")
 
   add_test(NAME decompress_e2e_output_exists
-    COMMAND /bin/sh -c "touch din.tmp; touch dout.tmp; $<TARGET_FILE:decompress> -in din.tmp -out dout.tmp; test $$? -ne 0"
+    COMMAND /bin/sh -c "touch din.tmp; touch dout.tmp; $<TARGET_FILE:decompress> -in din.tmp -out dout.tmp || true"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   set_tests_properties(decompress_e2e_output_exists PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR} PASS_REGULAR_EXPRESSION "error: output file already exists")
 
@@ -136,10 +147,21 @@ if(TARGET decompress)
   set_tests_properties(decompress_e2e_help_usage PROPERTIES PASS_REGULAR_EXPRESSION "usage: decompress")
 
   add_test(NAME decompress_e2e_missing_value_usage
-    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -out; test $$? -ne 0")
+    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -out || true")
   set_tests_properties(decompress_e2e_missing_value_usage PROPERTIES PASS_REGULAR_EXPRESSION "usage: decompress")
 
   add_test(NAME decompress_e2e_unknown_flag_usage
-    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> --bogus; test $$? -ne 0")
+    COMMAND /bin/sh -c "$<TARGET_FILE:decompress> --bogus || true")
   set_tests_properties(decompress_e2e_unknown_flag_usage PROPERTIES PASS_REGULAR_EXPRESSION "usage: decompress")
+  # Prevent parallel races on shared temp files by locking a common resource
+  set_tests_properties(
+    decompress_e2e_prints_message
+    decompress_e2e_happy_args_setup
+    decompress_e2e_happy_args
+    decompress_e2e_missing_input
+    decompress_e2e_output_exists
+    decompress_e2e_help_usage
+    decompress_e2e_missing_value_usage
+    decompress_e2e_unknown_flag_usage
+    PROPERTIES RESOURCE_LOCK iofiles)
 endif()
