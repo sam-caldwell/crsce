@@ -63,6 +63,9 @@
 - Run all linters: `make lint`
 - Tools: markdownlint, shellcheck, flake8, and C++ static analysis (`cppcheck`)
 - All linters must pass before a PR is merged.
+- Scope: lint runs only on files changed in your branch by default. To lint everything, call the script directly:
+  `cmake -D LINT_CHANGED_ONLY=OFF -D LINT_TARGET=all -P cmake/pipeline/lint.cmake`
+  You can also target a specific linter with `-D LINT_TARGET=md|sh|py|cpp`.
 
 ## Coding Style and Conventions
 
@@ -109,12 +112,12 @@ The project implements the CRSCE format. When working on features, keep these ac
 - Block size: CSM is 511×511 bits; last block padded with zeros to full size
 - Bit mapping: row‑major; bytes are little‑endian on stream, each byte serialized MSB‑first into bits
 - Payload per block: exactly 149,216 bits (18,652 bytes) in this order:
-  1) `LH[0..510]` (each 256 bits)
-  2) `LSM[0..510]` (each 9 bits, MSB‑first)
-  3) `VSM[0..510]` (each 9 bits, MSB‑first)
-  4) `DSM[0..510]` (each 9 bits, MSB‑first)
-  5) `XSM[0..510]` (each 9 bits, MSB‑first)
-  6) four trailing zero padding bits
+    1) `LH[0..510]` (each 256 bits)
+    2) `LSM[0..510]` (each 9 bits, MSB‑first)
+    3) `VSM[0..510]` (each 9 bits, MSB‑first)
+    4) `DSM[0..510]` (each 9 bits, MSB‑first)
+    5) `XSM[0..510]` (each 9 bits, MSB‑first)
+    6) four trailing zero padding bits
 - Cross‑sum computation: canonical loop bounds 0..510 with modulo addressing for diagonals; each entry in 0..511
 - LH chain: SHA‑256 with seed `RG9uYWxkVHJ1bXBJbXBlYWNoSW5jYXJjZXJhdGVIaXN0b3J5UmVtZW1iZXJz`,
   `N=SHA256(seed)`, `LH[0]=SHA256(N||RowBytes(0))`, `LH[r]=SHA256(LH[r-1]||RowBytes(r))` for r=1..510
