@@ -29,7 +29,7 @@ TEST(FileBitSerializerTest, CrossChunkReadHandlesBoundaries) {
     EXPECT_TRUE(*bit);
   }
   std::optional<bool> b;
-  const std::size_t total_bits = (FileBitSerializer::kChunkSize + 2) * 8;
+  constexpr std::size_t total_bits = (FileBitSerializer::kChunkSize + 2) * 8;
   for (std::size_t i = 8; i < total_bits - 8; ++i) {
     b = serializer.pop();
     ASSERT_TRUE(b.has_value());

@@ -16,7 +16,7 @@ TEST(FileBitSerializerTest, RepeatedPopAfterEOFStable) {
   const std::string path = std::filesystem::temp_directory_path().string() + "/repeated_pop_eof.tmp";
   {
     std::ofstream out(path, std::ios::binary);
-    const char v = static_cast<char>(0xFF); // 1111 1111
+    constexpr auto v = static_cast<char>(0xFF); // 1111 1111
     out.write(&v, 1);
   }
   FileBitSerializer s(path);
@@ -27,7 +27,7 @@ TEST(FileBitSerializerTest, RepeatedPopAfterEOFStable) {
   }
   // Now at EOF
   ASSERT_FALSE(s.has_next());
-  // Repeated pop() remains nullopt without side-effects
+  // Repeated pop() remains nullopt without side effects
   for (int i = 0; i < 5; ++i) {
     auto b = s.pop();
     EXPECT_FALSE(b.has_value());

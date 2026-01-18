@@ -15,7 +15,7 @@ TEST(FileBitSerializerTest, OneByteBitsAreMSBFirst) {
   const std::string path = tmp_dir() + "/one_byte.tmp";
   {
     std::ofstream out(path, std::ios::binary);
-    const char v = static_cast<char>(0xAC);
+    constexpr auto v = static_cast<char>(0xAC);
     out.write(&v, 1);
   }
   FileBitSerializer serializer(path);
