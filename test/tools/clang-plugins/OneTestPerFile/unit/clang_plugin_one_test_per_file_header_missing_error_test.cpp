@@ -3,6 +3,8 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
+#include <string>
+#include <filesystem>
 #include "helpers/plugin_runner.h"
 
 TEST(ClangPluginOneTestPerFile, MissingHeaderFails) {
@@ -15,7 +17,7 @@ TEST(ClangPluginOneTestPerFile, MissingHeaderFails) {
   ASSERT_TRUE(std::filesystem::exists(fixture));
 
   std::string out;
-  int code = clang_compile_with_plugin(fixture, lib, out);
+  const int code = clang_compile_with_plugin(fixture, lib, out);
   EXPECT_NE(code, 0) << "Expected failure for missing header docstring";
   EXPECT_NE(out.find("test file must start with the required docstring header"), std::string::npos) << out;
 }

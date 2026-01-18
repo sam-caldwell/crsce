@@ -10,15 +10,15 @@
 #include <cstdio>
 #include <memory>
 #include <array>
-#if !defined(_WIN32)
+#ifndef _WIN32
 #include <sys/wait.h>
 #endif
 
 inline std::string run_command_capture(const std::string &cmd, int &exit_code) {
   std::array<char, 8192> buffer{};
   std::string result;
-#if defined(_WIN32)
-  std::string full = cmd + " 2>&1";
+#ifdef _WIN32
+  const std::string full = cmd + " 2>&1";
   FILE *pipe = _popen(full.c_str(), "r");
   if (!pipe) { exit_code = -1; return ""; }
   while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
@@ -26,7 +26,7 @@ inline std::string run_command_capture(const std::string &cmd, int &exit_code) {
   }
   exit_code = _pclose(pipe);
 #else
-  std::string full = cmd + " 2>&1";
+  const std::string full = cmd + " 2>&1";
   FILE *pipe = popen(full.c_str(), "r");
   if (!pipe) { exit_code = -1; return ""; }
   while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
@@ -59,7 +59,7 @@ inline std::filesystem::path ensure_plugin_built(std::string &log) {
 
   int code = 0;
   // Build all tools (deps script is incremental and skips if up-to-date)
-  std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string() +
+  const std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string() +
                     " -D BUILD_DIR=" + build_root.string() +
                     " -P " + (repo / "cmake/pipeline/deps.cmake").string();
   log += run_command_capture(cmd, code);
@@ -67,13 +67,15 @@ inline std::filesystem::path ensure_plugin_built(std::string &log) {
     return {};
   }
 
-#if defined(__APPLE__)
-  auto libname = "libOneTestPerFile.dylib";
-#elif defined(_WIN32)
-  auto libname = "OneTestPerFile.dll";
-#else
-  auto libname = "libOneTestPerFile.so";
-#endif
+  #ifdef __APPLE__
+    const char* libname = "libOneTestPerFile.dylib";
+  #else
+    #ifdef _WIN32
+      const char* libname = "OneTestPerFile.dll";
+    #else
+      const char* libname = "libOneTestPerFile.so";
+    #endif
+  #endif
   auto libpath = build_root / "tools/clang-plugins/OneTestPerFile" / libname;
   if (!std::filesystem::exists(libpath)) {
     return {};
@@ -85,7 +87,7 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
                                      const std::filesystem::path &plugin_lib,
                                      std::string &output) {
   auto obj = std::filesystem::current_path() / "_tmp_one_test_per_file.o";
-  std::string cmd = std::string("clang++ -std=c++23 -c ") + fixture_cpp.string() +
+  const std::string cmd = std::string("clang++ -std=c++23 -c ") + fixture_cpp.string() +
                     " -o " + obj.string() +
                     " -Xclang -load -Xclang " + plugin_lib.string() +
                     " -Xclang -plugin -Xclang one-test-per-file";

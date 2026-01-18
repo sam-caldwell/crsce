@@ -3,6 +3,8 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
+#include <string>
+#include <filesystem>
 #include "helpers/plugin_runner.h"
 
 TEST(ClangPluginOneTestPerFile, MissingDocBeforeFunctionFails) {
@@ -15,7 +17,7 @@ TEST(ClangPluginOneTestPerFile, MissingDocBeforeFunctionFails) {
   ASSERT_TRUE(std::filesystem::exists(fixture));
 
   std::string out;
-  int code = clang_compile_with_plugin(fixture, lib, out);
+  const int code = clang_compile_with_plugin(fixture, lib, out);
   EXPECT_NE(code, 0) << "Expected failure for missing Doxygen block before function";
   EXPECT_NE(out.find("function definition must be immediately preceded by a Doxygen block"), std::string::npos) << out;
 }
