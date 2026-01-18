@@ -32,6 +32,8 @@ make cover                     # optional: enforce code coverage
 * Artifacts are written under `build/<preset>/`.
 * Binaries are available at `build/bin/compress` and `build/bin/decompress` after a successful build.
 * A `hello_world/` example is available at `cmd/hello_world/main.cpp` This is a canary for the build system.
+* Lint scope: by default, lint runs only on changed files. To lint everything, run:
+  `cmake -D LINT_CHANGED_ONLY=OFF -D LINT_TARGET=all -P cmake/pipeline/lint.cmake`
 
 ## Documentation
 

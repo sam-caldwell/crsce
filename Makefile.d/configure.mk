@@ -9,4 +9,5 @@ PRESET ?= llvm-debug
 configure:
 	@echo "--- Configuring project with preset: $(PRESET) ---"
 	@cmake --preset=$(PRESET) -S .
-	@echo "--- Configuration complete ---"
+	@echo "--- Building tool dependencies (make deps) ---"
+	@$(MAKE) deps

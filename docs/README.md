@@ -31,6 +31,10 @@ Start here if you’re new:
 - [Security and Robustness](./security.md)
 - [Git Hooks](./git-hooks.md)
 
+### Tools and Plugins
+
+- [Clang Plugin: One Test Per File](../tools/clang-plugins/one-test-per-file/README.md)
+
 ### Notes
 
 - The “Theory” and “Format” pages capture the acceptance criteria and bit/byte ordering used by the tools.
