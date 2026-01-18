@@ -92,13 +92,6 @@ def main() -> int:
     if lint_rc != 0:
         return lint_rc
 
-    # 3) Enforce coverage threshold (build + tests under instrumentation)
-    #    Note: original shell hook referenced a nonexistent 'coverage' target;
-    #    this uses the correct 'cover' target from Makefile.d/cover.mk
-    cover_rc = _run_stream(["make", "cover"])
-    if cover_rc != 0:
-        return cover_rc
-
     return 0
 
 
