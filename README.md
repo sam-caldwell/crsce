@@ -1,7 +1,7 @@
 <div>
     <table>
         <tr>
-            <td width="300px"><img src="docs/img/logo.png" alt="CRSCE logo"/></td>
+            <td style="min-width:200px"><img src="docs/img/logo.png" alt="CRSCE logo"/></td>
             <td>
                 <h1>CRSCE — Cross-Sums Compression and Expansion</h1>
                 <p>
