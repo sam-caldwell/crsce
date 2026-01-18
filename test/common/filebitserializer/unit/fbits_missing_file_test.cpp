@@ -1,16 +1,17 @@
 /**
- * One-test file: Non-existent file -> not good, no bits.
+ * @file fbits_missing_file_test.cpp
+ * @brief One-test file: Non-existent file -> not good, no bits.
  */
 #include <gtest/gtest.h>
-#include "fbits_helpers.h"
-#include "common/FileBitSerializer.h"
 #include <string>
+#include "helpers/tmp_dir.h"
+#include "common/FileBitSerializer.h"
 
 using crsce::common::FileBitSerializer;
 
 TEST(FileBitSerializerTest, MissingFileNotGoodAndEmpty) {
   const std::string missing_path = tmp_dir() + "/definitely_not_here_12345.bin";
-  FileBitSerializer serializer(missing_path);
+  FileBitSerializer serializer(missing_path); // NOLINT(misc-const-correctness)
   EXPECT_FALSE(serializer.good());
   EXPECT_FALSE(serializer.has_next());
   auto b = serializer.pop();

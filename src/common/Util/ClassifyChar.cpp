@@ -7,19 +7,17 @@
 #include <cctype>
 
 namespace crsce::common::util {
-
-CharClass classify_char(char ch) {
-  const auto uch = static_cast<unsigned char>(ch);
-  if (std::isdigit(uch) != 0) {
-    return CharClass::Digit;
-  }
-  if (std::isalpha(uch) != 0) {
-    return CharClass::Alpha;
-  }
-  if (std::isspace(uch) != 0) {
-    return CharClass::Space;
-  }
-  return CharClass::Other;
-}
-
-}  // namespace crsce::common::util
+    CharClass classify_char(const char ch) {
+        const auto uch = static_cast<unsigned char>(ch);
+        if (std::isdigit(uch) != 0) {
+            return CharClass::Digit;
+        }
+        if (std::isalpha(uch) != 0) {
+            return CharClass::Alpha;
+        }
+        if (std::isspace(uch) != 0) {
+            return CharClass::Space;
+        }
+        return CharClass::Other;
+    }
+} // namespace crsce::common::util

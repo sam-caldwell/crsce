@@ -6,12 +6,10 @@
 #include <optional>
 
 namespace crsce::common::util {
-
-std::optional<int> safe_divide(int a, int b) {
-  if (b == 0) {
-    return std::nullopt;
-  }
-  return a / b;
-}
-
-}  // namespace crsce::common::util
+    std::optional<int> safe_divide(const int a, const int b) {
+        if (b == 0) {
+            return std::nullopt;
+        }
+        return a / b;
+    }
+} // namespace crsce::common::util
