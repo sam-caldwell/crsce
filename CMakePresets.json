@@ -110,31 +110,6 @@
       "name": "arm64-debug-build",
       "displayName": "Build ARM64 Debug",
       "configurePreset": "arm64-debug"
-    },
-    {
-      "name": "arm64-release-build",
-      "displayName": "Build ARM64 Release",
-      "configurePreset": "arm64-release"
-    },
-    {
-      "name": "cmake-build-debug-build",
-      "displayName": "Build cmake-build-debug",
-      "configurePreset": "cmake-build-debug"
-    },
-    {
-      "name": "cmake-build-release-build",
-      "displayName": "Build cmake-build-release",
-      "configurePreset": "cmake-build-release"
-    },
-    {
-      "name": "llvm-debug-build",
-      "displayName": "Build LLVM Debug",
-      "configurePreset": "llvm-debug"
-    },
-    {
-      "name": "llvm-release-build",
-      "displayName": "Build LLVM Release",
-      "configurePreset": "llvm-release"
     }
   ],
   "testPresets": [
@@ -142,31 +117,6 @@
       "name": "arm64-debug-test",
       "displayName": "Test ARM64 Debug",
       "configurePreset": "arm64-debug"
-    },
-    {
-      "name": "arm64-release-test",
-      "displayName": "Test ARM64 Release",
-      "configurePreset": "arm64-release"
-    },
-    {
-      "name": "cmake-build-debug-test",
-      "displayName": "Test cmake-build-debug",
-      "configurePreset": "cmake-build-debug"
-    },
-    {
-      "name": "cmake-build-release-test",
-      "displayName": "Test cmake-build-release",
-      "configurePreset": "cmake-build-release"
-    },
-    {
-      "name": "llvm-debug-test",
-      "displayName": "Test LLVM Debug",
-      "configurePreset": "llvm-debug"
-    },
-    {
-      "name": "llvm-release-test",
-      "displayName": "Test LLVM Release",
-      "configurePreset": "llvm-release"
     }
   ]
 }

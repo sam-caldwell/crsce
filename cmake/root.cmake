@@ -8,6 +8,14 @@ include(cmake/pipeline/configure.cmake)
 # --- macOS SDK (Homebrew LLVM) auto-detect to keep toolchain consistent
 include(cmake/pipeline/sdk.cmake)
 
+# --- Optimization defaults by configuration ---
+# Ensure optimized builds use -O3 (Release) and -O2 (RelWithDebInfo).
+# Debug remains unoptimized for easier debugging and coverage instrumentation.
+add_compile_options(
+  $<$<CONFIG:Release>:-O3>
+  $<$<CONFIG:RelWithDebInfo>:-O2>
+)
+
 
 include(cmake/apple.cmake)
 
