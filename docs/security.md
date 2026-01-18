@@ -6,8 +6,7 @@
                 <h1>Security and Robustness</h1>
                 <p>
                     CRSCE is designed for deterministic verification (integrity), not confidentiality. This page
-                    summarizes security‑related expectations for<br/>
-                    implementations and operators. It consolidates content from SECURITY.md and .
+                    summarizes security‑related expectations for implementations and operators.
                 </p>
             </td>
         </tr>

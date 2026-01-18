@@ -6,8 +6,7 @@
                 <h1>Theory of Operation</h1>
                 <p>
                     This section explains the theory behind CRSCE’s compression and decompression. It defines the
-                    acceptance criteria<br/>
-                    for the project.
+                    acceptance criteria for the project.
                 </p>
             </td>
         </tr>

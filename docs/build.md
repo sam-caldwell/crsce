@@ -15,7 +15,7 @@
 ## Overview
 
 This project targets C++23 and uses CMake + Ninja with presets. A Makefile wraps the common workflows. The authoritative
-commands and presets are defined in the repository ( CMakePresets.json, Makefile.d/*).
+commands and presets are defined in the repository (`CMakePresets.json`, `Makefile.d/*.mk`).
 
 ## Prerequisites
 

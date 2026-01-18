@@ -5,8 +5,8 @@
             <td>
                 <h1>Decompression Algorithm Notes</h1>
                 <p>
-                  This document expands on practical reconstruction techniques for CRSCE decoding on CPU.<br/>
-                  It is solver‑agnostic but assumes common patterns described.
+                  This document expands on practical reconstruction techniques for CRSCE decoding on CPU. It is 
+                  solver‑agnostic but assumes common patterns described.
                 </p>
             </td>
         </tr>
@@ -26,6 +26,15 @@ For each line, maintain two running quantities: residual R (target sum minus alr
 unassigned variables U on that line. Then:
 
 - If R = 0, assign all remaining variables on that line to 0.
+- If R = U, assign all remaining variables on that line to 1.
+- Update residuals and repeat until a fixed point.
+
+## Known‑hash folding
+
+We know certain row-patterns are challenging for LBP/GOBP to solve, and that these are common. To reduce risk and
+increase speed, we can:
+
+- Maintain a small library of frequently occurring row patterns and their SHA‑256.
 - If R = U, assign all remaining variables on that line to 1.
 - Update residuals and repeat until a fixed point.
 
