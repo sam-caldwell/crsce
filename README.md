@@ -64,6 +64,8 @@ build/bin/decompress -in output.crsce -out recovered.bin
 
 * [Documentation](docs/README.md)
 * [CRSCE specification](https://samcaldwell.net/2024/12/03/cross-sums-compression-and-expansion-crsce/)
+* [Loopy Belief Propagation: Theory and Practical Implementation in Probabilistic Graphical Models](https://samcaldwell.net/2025/12/15/loopy-belief-propagation-theory-and-practical-implementation-in-probabilistic-graphical-models)
+* [The Game of Beliefs Protocol (GOBP): A Message-Passing Mechanism for CRSCE Decompression](https://samcaldwell.net/2025/12/16/the-game-of-beliefs-protocol-gobp-a-message-passing-mechanism-for-crsce-decompression)
 
 ## License
 
