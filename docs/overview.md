@@ -1,7 +1,7 @@
 <div>
     <table>
         <tr>
-            <td><img src="docs/img/logo.png" width="300" alt="CRSCE logo"/></td>
+            <td style="min-width:200px"><img src="docs/img/logo.png" alt="CRSCE logo"/></td>
             <td>
                 <h1>Overview and Concepts</h1>
                 <p>
