@@ -27,21 +27,21 @@ def repo_root() -> str:
 
 def main() -> int:
     root = repo_root()
-    print(f"[pre-push] Running 'make all' in {root} ...", flush=True)
+    print(f"[pre-push] Running 'make build test cover' in {root} ...", flush=True)
     try:
-        rc = subprocess.run(["make", "all"], cwd=root).returncode
+        rc = subprocess.run(["make", "build", "test", "cover"], cwd=root).returncode
     except FileNotFoundError:
         sys.stderr.write("[pre-push] error: 'make' not found in PATH\n")
         return 1
     except Exception as e:  # pragma: no cover
-        sys.stderr.write(f"[pre-push] error: failed to run 'make all': {e}\n")
+        sys.stderr.write(f"[pre-push] error: failed to run 'make  build test cover': {e}\n")
         return 1
 
     if rc != 0:
-        sys.stderr.write("[pre-push] ❌ 'make all' failed; blocking push.\n")
+        sys.stderr.write("[pre-push] ❌ 'make  build test cover' failed; blocking push.\n")
         return rc if rc != 0 else 1
 
-    print("[pre-push] ✅ 'make all' passed; allowing push.")
+    print("[pre-push] ✅ 'make  build test cover' passed; allowing push.")
     return 0
 
 
