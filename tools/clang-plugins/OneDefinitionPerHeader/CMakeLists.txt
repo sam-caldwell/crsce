@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.16)
+project(OneDefinitionPerHeader LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(APPLE)
+  set(CMAKE_MACOSX_RPATH ON)
+endif()
+find_package(LLVM REQUIRED CONFIG)
+find_package(Clang REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${CLANG_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
+add_library(OneDefinitionPerHeader SHARED
+  "/Users/samcaldwell/git/sam-caldwell/crsce/tools/clang-plugins/OneDefinitionPerHeader/src/OneDefinitionPerHeader.cpp"
+)
+target_link_libraries(OneDefinitionPerHeader PRIVATE clangAST clangASTMatchers clangBasic clangFrontend clangLex clangTooling)
+set_target_properties(OneDefinitionPerHeader PROPERTIES OUTPUT_NAME "OneDefinitionPerHeader")

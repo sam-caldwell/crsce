@@ -216,7 +216,8 @@ public:
     auto &SM = CI_->getSourceManager();
     const auto FID = SM.getMainFileID();
     const auto P = SM.getFilename(SM.getLocForStartOfFile(FID));
-    if (!(P.ends_with(".h") && P.contains("/include/"))) {
+    // Apply to any header path ending with .h (do not rely on directory name).
+    if (!P.ends_with(".h")) {
       return;
     }
     // Must start with '/**' and include @file/@brief and copyright markers.
@@ -269,58 +270,51 @@ public:
   explicit Visitor(Ctx *c) : C(c) {}
 
   bool VisitCXXRecordDecl(const clang::CXXRecordDecl *D) {
-    if (valid(D)) {
+    if (D && !D->isImplicit() && D->isThisDeclarationADefinition()) {
       C->foundConstruct(D->getBeginLoc());
     }
     return true;
   }
 
   bool VisitRecordDecl(const clang::RecordDecl *D) {
-    if (valid(D)) {
+    if (D && !D->isImplicit() && D->isThisDeclarationADefinition()) {
       C->foundConstruct(D->getBeginLoc());
     }
     return true;
   }
 
   bool VisitEnumDecl(const clang::EnumDecl *D) {
-    if (valid(D)) {
+    if (D && !D->isImplicit() && D->isThisDeclarationADefinition()) {
       C->foundConstruct(D->getBeginLoc());
     }
     return true;
   }
 
   bool VisitFunctionDecl(const clang::FunctionDecl *D) {
-    if (D && D->isThisDeclarationADefinition() && !D->isImplicit() &&
-        D->hasBody() && inMain(D)) {
+    if (D && D->isThisDeclarationADefinition() && !D->isImplicit() && D->hasBody()) {
       C->foundConstruct(D->getBeginLoc());
     }
     return true;
   }
 
   bool VisitTypedefDecl(const clang::TypedefDecl *D) {
-    if (D && !D->isImplicit() && inMain(D)) {
+    if (D && !D->isImplicit()) {
       C->foundConstruct(D->getBeginLoc());
     }
     return true;
   }
 
   bool VisitTypeAliasDecl(const clang::TypeAliasDecl *D) {
-    if (D && !D->isImplicit() && inMain(D)) {
+    if (D && !D->isImplicit()) {
       C->foundConstruct(D->getBeginLoc());
     }
     return true;
   }
 
 private:
-  template <class T> bool inMain(const T *D) const {
-    auto &SM = C->ci().getSourceManager();
-    return SM.isWrittenInMainFile(SM.getSpellingLoc(D->getLocation()));
-  }
+  template <class T> bool inMain(const T * /*D*/) const { return true; }
 
-  template <class T> bool valid(const T *D) const {
-    return D && !D->isImplicit() && D->isThisDeclarationADefinition() &&
-           inMain(D);
-  }
+  template <class T> bool valid(const T *D) const { return D && !D->isImplicit(); }
 
   Ctx *C;
 };

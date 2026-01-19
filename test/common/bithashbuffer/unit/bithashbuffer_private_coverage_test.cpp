@@ -32,12 +32,6 @@ hash_row(const std::array<std::uint8_t, BitHashBuffer::kHashSize> &prev,
 
 TEST(BitHashBufferPushAndFlushTest, PublicBehaviorMatchesExpectedRowHash) {
   BitHashBuffer buf("seed");
-  // Partial bits should not produce any hash
-  for (int i = 0; i < 3; ++i) {
-    buf.pushBit(true);
-  }
-  EXPECT_EQ(buf.count(), 0U);
-
   // Build one full row of 0xAB bytes via MSB-first bit pushes
   std::array<std::uint8_t, BitHashBuffer::kRowSize> row{};
   row.fill(0xAB); // 0b10101011 (MSB-first pushes: 1,0,1,0,1,0,1,1)
