@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/Users/samcaldwell/git/sam-caldwell/crsce/tools/clang-plugins/OneDefinitionPerHeader",
-  "command": "/usr/bin/c++ -DOneDefinitionPerHeader_EXPORTS -I/opt/homebrew/Cellar/llvm/21.1.8/include -std=gnu++17 -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -fPIC   -DEXPERIMENTAL_KEY_INSTRUCTIONS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -o CMakeFiles/OneDefinitionPerHeader.dir/src/OneDefinitionPerHeader.cpp.o -c /Users/samcaldwell/git/sam-caldwell/crsce/tools/clang-plugins/OneDefinitionPerHeader/src/OneDefinitionPerHeader.cpp",
-  "file": "/Users/samcaldwell/git/sam-caldwell/crsce/tools/clang-plugins/OneDefinitionPerHeader/src/OneDefinitionPerHeader.cpp",
-  "output": "CMakeFiles/OneDefinitionPerHeader.dir/src/OneDefinitionPerHeader.cpp.o"
-}
-]
