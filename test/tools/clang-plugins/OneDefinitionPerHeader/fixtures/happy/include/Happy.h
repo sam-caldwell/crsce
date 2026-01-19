@@ -8,5 +8,5 @@
  * @brief Example struct with doc
  */
 struct HappyStruct {
-  int x{};
+    int x{};
 };

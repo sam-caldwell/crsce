@@ -7,4 +7,5 @@
 /**
  * @brief Example struct with doc
  */
-struct MissingFileStruct { };
+struct MissingFileStruct {
+};

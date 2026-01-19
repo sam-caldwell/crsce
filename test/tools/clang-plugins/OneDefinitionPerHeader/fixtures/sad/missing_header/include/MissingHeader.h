@@ -1,6 +1,7 @@
 // Intentionally missing required Doxygen header block
 
 /**
- * @brief Struct doc exists, but header doc is missing.
+ * @brief Struct doc exists, but the header doc is missing.
  */
-struct MissingHeaderStruct { };
+struct MissingHeaderStruct {
+};

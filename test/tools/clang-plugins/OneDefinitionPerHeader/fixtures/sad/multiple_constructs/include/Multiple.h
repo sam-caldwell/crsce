@@ -7,9 +7,11 @@
 /**
  * @brief First struct
  */
-struct One { };
+struct One {
+};
 
 /**
  * @brief Second struct
  */
-struct Two { };
+struct Two {
+};

@@ -6,4 +6,5 @@
 /**
  * @brief Example struct with doc
  */
-struct MissingCopyrightStruct { };
+struct MissingCopyrightStruct {
+};

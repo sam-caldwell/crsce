@@ -21,7 +21,8 @@ bool FileBitSerializer::has_next() {
   if (eof_) {
     return false;
   }
-  return fill() && (buf_len_ > 0);
+  // If not at EOF, attempt a refill; a successful fill implies buf_len_ > 0.
+  return fill();
 }
 
 } // namespace crsce::common

@@ -4,4 +4,5 @@
 /**
  * @brief Proper doc for the construct follows, so only header doc should fail.
  */
-struct LineCommentHeaderStruct { };
+struct LineCommentHeaderStruct {
+};

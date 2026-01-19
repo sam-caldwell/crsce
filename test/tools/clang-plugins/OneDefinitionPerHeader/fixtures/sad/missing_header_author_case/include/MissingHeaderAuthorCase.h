@@ -7,4 +7,5 @@
 /**
  * @brief Example struct with proper construct doc
  */
-struct MissingHeaderAuthorCase { };
+struct MissingHeaderAuthorCase {
+};

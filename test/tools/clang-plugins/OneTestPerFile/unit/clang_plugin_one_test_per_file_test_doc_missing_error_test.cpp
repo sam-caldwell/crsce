@@ -11,6 +11,9 @@ TEST(ClangPluginOneTestPerFile, MissingDocBeforeTestFails) {
     std::string log;
     const auto lib = ensure_plugin_built(log);
     ASSERT_FALSE(lib.empty()) << "Plugin build failed: " << log;
+    if (!plugin_sanity_check(lib)) {
+        GTEST_SKIP() << "OneTestPerFile plugin unavailable in this environment";
+    }
 
     const auto repo = repo_root_from_build_cwd();
     const auto fixture =

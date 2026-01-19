@@ -7,4 +7,7 @@
 /**
  * @brief Example enum with doc
  */
-enum class HappyKind { One = 1, Two = 2 };
+enum class HappyKind {
+    One = 1,
+    Two = 2
+};

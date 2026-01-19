@@ -1,4 +1,3 @@
-
 // Intentional leading blank/comment line to violate: header doc must start at line 1
 
 /**
@@ -10,4 +9,5 @@
 /**
  * @brief Example struct with doc
  */
-struct LateHeaderDocStruct { };
+struct LateHeaderDocStruct {
+};

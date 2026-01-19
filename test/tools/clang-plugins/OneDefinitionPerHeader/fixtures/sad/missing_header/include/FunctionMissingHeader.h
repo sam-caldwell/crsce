@@ -1,4 +1,4 @@
-// Intentionally missing required Doxygen header block
+// Intentionally missing the required Doxygen header block
 
 /**
  * @brief Function doc exists, but header doc is missing.

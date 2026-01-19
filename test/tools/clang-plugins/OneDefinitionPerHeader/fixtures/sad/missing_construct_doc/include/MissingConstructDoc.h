@@ -5,4 +5,5 @@
  */
 
 // Missing Doxygen block before struct
-struct Undocumented { };
+struct Undocumented {
+};
