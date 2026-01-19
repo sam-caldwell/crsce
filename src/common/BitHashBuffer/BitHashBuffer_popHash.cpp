@@ -3,10 +3,10 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Pop the oldest queued hash if available.
  */
-#include "common/BitHashBuffer.h"
-#include <optional>
+#include "../../../include/common/BitHashBuffer/BitHashBuffer.h"
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace crsce::common {
 
@@ -17,7 +17,8 @@ namespace crsce::common {
  * @throws None
  * @return Oldest 32-byte digest or std::nullopt if empty.
  */
-std::optional<std::array<std::uint8_t, BitHashBuffer::kHashSize>> BitHashBuffer::popHash() {
+std::optional<std::array<std::uint8_t, BitHashBuffer::kHashSize>>
+BitHashBuffer::popHash() {
   if (hashVector_.empty()) {
     return std::nullopt;
   }

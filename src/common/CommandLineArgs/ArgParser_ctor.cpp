@@ -4,8 +4,8 @@
  * @brief ArgParser constructor implementation.
  */
 #include "CommandLineArgs/ArgParser.h"
-#include <utility>
 #include <string>
+#include <utility>
 
 namespace crsce::common {
 
@@ -17,4 +17,4 @@ ArgParser::ArgParser(std::string programName) // GCOVR_EXCL_LINE
   }
 }
 
-}  // namespace crsce::common
+} // namespace crsce::common

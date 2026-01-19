@@ -4,8 +4,8 @@
  * @brief Constructor for FileBitSerializer: open stream and reset state.
  */
 #include "common/FileBitSerializer.h"
-#include <string>
 #include <ios>
+#include <string>
 
 namespace crsce::common {
 
@@ -17,8 +17,7 @@ namespace crsce::common {
  * @param path Filesystem path to open in binary mode.
  * @return N/A
  */
-FileBitSerializer::FileBitSerializer(const std::string& path) // GCOVR_EXCL_LINE
-    : in_(path, std::ios::binary),
-      buf_(kChunkSize) {}
+FileBitSerializer::FileBitSerializer(const std::string &path) // GCOVR_EXCL_LINE
+    : in_(path, std::ios::binary), buf_(kChunkSize) {}
 
-}  // namespace crsce::common
+} // namespace crsce::common

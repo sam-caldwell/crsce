@@ -8,7 +8,8 @@
 namespace crsce::common::detail::sha256 {
 
 /** @name big_sigma1 */
-u32 big_sigma1(const u32 x) { return rotr(x, 6U) ^ rotr(x, 11U) ^ rotr(x, 25U); }
+u32 big_sigma1(const u32 x) {
+  return rotr(x, 6U) ^ rotr(x, 11U) ^ rotr(x, 25U);
+}
 
 } // namespace crsce::common::detail::sha256
-

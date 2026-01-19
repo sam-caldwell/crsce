@@ -1,9 +1,9 @@
 /**
  * @file: argparser_only_out_returns_false_test.cpp
  */
-#include <gtest/gtest.h>
 #include "CommandLineArgs/ArgParser.h"
 #include "helpers.h"
+#include <gtest/gtest.h>
 #include <span>
 
 using crsce::common::ArgParser;
@@ -11,6 +11,6 @@ using crsce::common::ArgParser;
 TEST(ArgParserTest, OnlyOutFlagReturnsFalse) {
   ArgParser p("prog");
   auto a = make_argv({"prog", "-out", "output.bin"});
-  const bool ok = p.parse(std::span<char*>{a.argv.data(), a.argv.size()});
+  const bool ok = p.parse(std::span<char *>{a.argv.data(), a.argv.size()});
   EXPECT_FALSE(ok);
 }

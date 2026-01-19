@@ -2,10 +2,10 @@
  * @file fbits_missing_file_test.cpp
  * @brief One-test file: Non-existent file -> not good, no bits.
  */
+#include "common/FileBitSerializer.h"
+#include "helpers/tmp_dir.h"
 #include <gtest/gtest.h>
 #include <string>
-#include "helpers/tmp_dir.h"
-#include "common/FileBitSerializer.h"
 
 using crsce::common::FileBitSerializer;
 

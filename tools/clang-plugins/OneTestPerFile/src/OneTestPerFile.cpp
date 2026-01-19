@@ -3,37 +3,47 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #if __has_include(<clang/AST/AST.h>)
-#  include "ClangIncludes.h"
-#  include <unordered_map>
-#  include <memory>
-#  include <llvm/ADT/StringRef.h>
-#  include <clang/AST/ASTConsumer.h>
-#  include <clang/AST/ASTContext.h>
-#  include <clang/AST/Decl.h>
-#  include <clang/AST/RecursiveASTVisitor.h>
-#  include <clang/Frontend/FrontendAction.h>
-#  include <clang/Frontend/FrontendPluginRegistry.h>
-#  include <clang/Basic/IdentifierTable.h>
-#  include <clang/Lex/Token.h>
-#  include <clang/Lex/Preprocessor.h>
-#  include <clang/Lex/PPCallbacks.h>
-#  include <clang/Basic/SourceLocation.h>
-#  include "llvm/Support/Path.h"
+#include "ClangIncludes.h"
+#include "llvm/Support/Path.h"
+#include <clang/AST/ASTConsumer.h>
+#include <clang/AST/ASTContext.h>
+#include <clang/AST/Decl.h>
+#include <clang/AST/RecursiveASTVisitor.h>
+#include <clang/Basic/IdentifierTable.h>
+#include <clang/Basic/SourceLocation.h>
+#include <clang/Frontend/FrontendAction.h>
+#include <clang/Frontend/FrontendPluginRegistry.h>
+#include <clang/Lex/PPCallbacks.h>
+#include <clang/Lex/Preprocessor.h>
+#include <clang/Lex/Token.h>
+#include <llvm/ADT/StringRef.h>
+#include <memory>
+#include <unordered_map>
 #else
-#  include <string_view>
-namespace clang { struct SourceLocation { [[nodiscard]] bool isValid() const { return false; } }; struct FileID { unsigned _{}; }; }
+#include <string_view>
+
+namespace clang {
+struct SourceLocation {
+  [[nodiscard]] bool isValid() const { return false; }
+};
+
+struct FileID {
+  unsigned _{};
+};
+} // namespace clang
 #endif
 /*
  * Brief: Verifies that test *.cpp files contain exactly one TEST(...) macro,
- *        have a required header Doxygen block at line 1 (with @file <filename> and copyright),
- *        and that each function or TEST is immediately preceded by a Doxygen-style block comment.
+ *        have a required header Doxygen block at line 1 (with @file <filename>
+ * and copyright), and that each function or TEST is immediately preceded by a
+ * Doxygen-style block comment.
  */
 
-#include <string>
-#include <vector>
 #include <cctype>
 #include <cstddef>
+#include <string>
 #include <utility>
+#include <vector>
 
 using namespace clang;
 
@@ -41,31 +51,39 @@ namespace {
 #if __has_include(<clang/AST/AST.h>)
 static_assert(crsce::otpf::kClangIncludesMarker, "");
 using StrRef = llvm::StringRef;
-inline StrRef make_ref(const std::string &s) { return StrRef(s.data(), s.size()); }
+inline StrRef make_ref(const std::string &s) {
+  return StrRef(s.data(), s.size());
+}
 #else
 using StrRef = std::string_view;
 inline StrRef make_ref(const std::string &s) { return std::string_view{s}; }
 #endif
 
-inline bool ends_with_ref(StrRef s, const char* suf) {
+// ReSharper disable once CppDFAConstantParameter
+inline bool ends_with_ref(const StrRef s, const char *suf) {
 #if __has_include(<clang/AST/AST.h>)
   return s.ends_with(suf);
 #else
+  // ReSharper disable once CppDeprecatedEntity
   const auto n = std::char_traits<char>::length(suf);
   return s.size() >= n && s.substr(s.size() - n) == StrRef(suf, n);
 #endif
 }
+
 inline StrRef rtrim_ref(StrRef s) {
 #if __has_include(<clang/AST/AST.h>)
   return s.rtrim();
 #else
-  while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\r' || s.back() == '\n')) {
+  while (!s.empty() && (s.back() == ' ' || s.back() == '\t' ||
+                        s.back() == '\r' || s.back() == '\n')) {
     s.remove_suffix(1);
   }
+  // ReSharper disable once CppDFALocalValueEscapesFunction
   return s;
 #endif
 }
-inline bool contains_ref(StrRef s, const char* needle) {
+
+inline bool contains_ref(const StrRef s, const char *needle) {
 #if __has_include(<clang/AST/AST.h>)
   return s.contains(needle);
 #else
@@ -88,12 +106,14 @@ inline bool isBlankLine(StrRef L) {
 class FileState {
 public:
   FileState() = default;
+
   void setPath(std::string p) { Path_ = std::move(p); }
   [[nodiscard]] const std::string &path() const { return Path_; }
-  void setFid(FileID id) { FID_ = id; }
+  void setFid(const FileID id) { FID_ = id; }
   [[nodiscard]] FileID fid() const { return FID_; }
   void setContent(std::string c) { Content_ = std::move(c); }
   [[nodiscard]] const std::string &content() const { return Content_; }
+
   void buildLineIndex() {
     LineOffsets_.clear();
     LineOffsets_.push_back(0);
@@ -104,6 +124,7 @@ public:
       }
     }
   }
+
   [[nodiscard]] StrRef getLine(unsigned OneBased) const {
     if (OneBased == 0) {
       return {};
@@ -120,19 +141,25 @@ public:
       return whole.substr(start, whole.size() - start);
     }
     const unsigned start = LineOffsets_[OneBased - 1];
-    const unsigned end = (OneBased < LineOffsets_.size()) ? LineOffsets_[OneBased] : Content_.size();
+    const unsigned end = (OneBased < LineOffsets_.size())
+                             ? LineOffsets_[OneBased]
+                             : Content_.size();
     if (end < start) {
       return {};
     }
     const StrRef whole = make_ref(Content_);
     return whole.substr(start, end - start);
   }
-  [[nodiscard]] bool hasImmediateDoxygenBlockAbove(unsigned targetLine, bool requireBrief) const {
+
+  [[nodiscard]] bool hasImmediateDoxygenBlockAbove(unsigned targetLine,
+                                                   bool requireBrief) const {
     if (targetLine <= 1) {
       return false;
     }
     int L = static_cast<int>(targetLine) - 1;
-    while (L >= 1 && isBlankLine(getLine(static_cast<unsigned>(L)))) { --L; }
+    while (L >= 1 && isBlankLine(getLine(static_cast<unsigned>(L)))) {
+      --L;
+    }
     if (L < 1) {
       return false;
     }
@@ -144,7 +171,10 @@ public:
     bool sawBrief = false;
     for (int i = L; i >= 1; --i) {
       const StrRef cur = getLine(static_cast<unsigned>(i));
-      if (contains_ref(cur, "/**")) { sawOpening = true; break; }
+      if (contains_ref(cur, "/**")) {
+        sawOpening = true;
+        break;
+      }
       if (contains_ref(cur, "/*")) {
         return false;
       }
@@ -160,18 +190,23 @@ public:
     }
     return true;
   }
+
   void incrementTestCount() { ++TestCount_; }
   [[nodiscard]] unsigned testCount() const { return TestCount_; }
   [[nodiscard]] SourceLocation firstTestLoc() const { return FirstTestLoc_; }
+
   void setFirstTestLocIfUnset(SourceLocation loc) {
+    // ReSharper disable once CppDFAConstantConditions
     if (!FirstTestLoc_.isValid()) {
       FirstTestLoc_ = loc;
     }
   }
+
   [[nodiscard]] bool headerChecked() const { return HeaderChecked_; }
   void setHeaderChecked(bool v) { HeaderChecked_ = v; }
   [[nodiscard]] bool headerOk() const { return HeaderOk_; }
   void setHeaderOk(bool v) { HeaderOk_ = v; }
+
 private:
   std::string Path_;
   FileID FID_{};
@@ -235,8 +270,8 @@ public:
           DiagnosticsEngine::Error,
           "test file must start with the required docstring header");
       CI_->getDiagnostics().Report(StartLoc, DiagID);
-      const auto NoteID = CI_->getDiagnostics().getCustomDiagID(
-          DiagnosticsEngine::Note, "%0");
+      const auto NoteID =
+          CI_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Note, "%0");
       CI_->getDiagnostics().Report(StartLoc, NoteID) << Msg;
     };
 
@@ -267,16 +302,18 @@ public:
 
     // Check copyright details (project-specific)
     const bool hasCopyright = headerBlock.contains("@copyright") &&
-                        headerBlock.contains("Sam Caldwell") &&
-                        headerBlock.contains("LICENSE.txt");
+                              headerBlock.contains("Sam Caldwell") &&
+                              headerBlock.contains("LICENSE.txt");
 
     FS.setHeaderOk(hasFile && hasCopyright);
     if (!FS.headerOk()) {
       if (!hasFile) {
-        reportHeaderError("missing '@file <filename>' matching current file name");
+        reportHeaderError(
+            "missing '@file <filename>' matching current file name");
       }
       if (!hasCopyright) {
-        reportHeaderError("missing copyright line (expected to reference Sam Caldwell and LICENSE.txt)");
+        reportHeaderError("missing copyright line (expected to reference Sam "
+                          "Caldwell and LICENSE.txt)");
       }
     }
   }
@@ -291,7 +328,9 @@ public:
     const auto DiagID = CI_->getDiagnostics().getCustomDiagID(
         DiagnosticsEngine::Error,
         "only one TEST(...) is allowed per test file; found %0");
-    auto DB = CI_->getDiagnostics().Report(FS.firstTestLoc().isValid() ? FS.firstTestLoc() : SourceLocation(), DiagID);
+    auto DB = CI_->getDiagnostics().Report(
+        FS.firstTestLoc().isValid() ? FS.firstTestLoc() : SourceLocation(),
+        DiagID);
     DB << FS.testCount();
   }
 
@@ -304,11 +343,11 @@ private:
 
 class OTPFPPCallbacks : public PPCallbacks {
 public:
-  explicit OTPFPPCallbacks(OneTestPerFileContext *Ctx)
-      : Ctx_(Ctx) {}
+  explicit OTPFPPCallbacks(OneTestPerFileContext *Ctx) : Ctx_(Ctx) {}
 
-  void MacroExpands(const Token &MacroNameTok, const MacroDefinition &/*MD*/,
-                    SourceRange /*Range*/, const MacroArgs */*Args*/) override {
+  void MacroExpands(const Token &MacroNameTok, const MacroDefinition & /*MD*/,
+                    SourceRange /*Range*/,
+                    const MacroArgs * /*Args*/) override {
     const IdentifierInfo *II = MacroNameTok.getIdentifierInfo();
     if (!II) {
       return;
@@ -332,19 +371,22 @@ public:
     FS.incrementTestCount();
     FS.setFirstTestLocIfUnset(ExpLoc);
 
-    // Verify that a Doxygen block comment immediately precedes the TEST(...) line
+    // Verify that a Doxygen block comment immediately precedes the TEST(...)
+    // line
     const unsigned line = SM.getSpellingLineNumber(ExpLoc);
-    const bool ok = FS.hasImmediateDoxygenBlockAbove(line, /*requireBrief=*/true);
+    const bool ok =
+        FS.hasImmediateDoxygenBlockAbove(line, /*requireBrief=*/true);
     if (!ok) {
       const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "TEST(...) must be immediately preceded by a Doxygen block (/** ... */) with @brief");
+          DiagnosticsEngine::Error, "TEST(...) must be immediately preceded by "
+                                    "a Doxygen block (/** ... */) with @brief");
       Ctx_->getCI().getDiagnostics().Report(ExpLoc, DiagID);
     }
   }
 
   void EndOfMainFile() override {
-    // At end of main file, ensure the current main file's test count is valid.
+    // At the end of the main file, ensure the current main file's test count is
+    // valid.
     const SourceManager &SM = Ctx_->getCI().getSourceManager();
     const FileID MainFID = SM.getMainFileID();
     const SourceLocation MainLoc = SM.getLocForStartOfFile(MainFID);
@@ -387,11 +429,13 @@ public:
     Ctx_->ensureHeaderChecked(FS);
 
     const unsigned line = SM.getSpellingLineNumber(Spelling);
-    const bool ok = FS.hasImmediateDoxygenBlockAbove(line, /*requireBrief=*/true);
+    const bool ok =
+        FS.hasImmediateDoxygenBlockAbove(line, /*requireBrief=*/true);
     if (!ok) {
       const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
           DiagnosticsEngine::Error,
-          "function definition must be immediately preceded by a Doxygen block (/** ... */) with @brief");
+          "function definition must be immediately preceded by a Doxygen block "
+          "(/** ... */) with @brief");
       Ctx_->getCI().getDiagnostics().Report(Spelling, DiagID);
     }
 
@@ -417,16 +461,21 @@ private:
 class OneTestPerFileAction : public PluginASTAction {
 public:
   OneTestPerFileAction() = default;
-  std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, llvm::StringRef /*InFile*/) override {
+
+  std::unique_ptr<ASTConsumer>
+  CreateASTConsumer(CompilerInstance &CI, llvm::StringRef /*InFile*/) override {
     Ctx = std::make_unique<OneTestPerFileContext>(CI);
     // Register PP callbacks
-    CI.getPreprocessor().addPPCallbacks(std::make_unique<OTPFPPCallbacks>(Ctx.get()));
+    CI.getPreprocessor().addPPCallbacks(
+        std::make_unique<OTPFPPCallbacks>(Ctx.get()));
     return std::make_unique<OTPFASTConsumer>(Ctx.get());
   }
 
-  bool ParseArgs(const CompilerInstance &CI, const std::vector<std::string> &args) override {
+  bool ParseArgs(const CompilerInstance &CI,
+                 const std::vector<std::string> &args) override {
     // No args currently
-    (void)CI; (void)args;
+    (void)CI;
+    (void)args;
     return true;
   }
 
@@ -443,5 +492,4 @@ const FrontendPluginRegistry::Add<OneTestPerFileAction>
     X("one-test-per-file", "enforce one TEST per file and docstrings in tests");
 } // anonymous namespace
 #endif // has clang headers
-
 } // namespace

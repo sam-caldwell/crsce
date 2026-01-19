@@ -12,4 +12,4 @@ auto ArgParser::usage() const -> std::string {
   return programName_ + " -in <file> -out <file>";
 }
 
-}  // namespace crsce::common
+} // namespace crsce::common

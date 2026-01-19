@@ -17,4 +17,3 @@ namespace crsce::common::detail::sha256 {
 u32 rotr(const u32 x, const u32 n) { return (x >> n) | (x << (32U - n)); }
 
 } // namespace crsce::common::detail::sha256
-

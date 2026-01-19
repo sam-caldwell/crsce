@@ -5,6 +5,7 @@
   Behavior:
     - Groups sources under tools/<group>/ (group is usually the dir above src/).
     - For groups under tools/clang-plugins/*, builds a shared library plugin.
+    - For groups under tools/clang-tidy-plugins/*, builds a shared library plugin.
     - For other groups, builds an executable from the group's sources.
     - Skips configure/build if no .cpp files in the group changed since last build.
 
@@ -73,6 +74,11 @@ foreach(_grp IN LISTS _GROUPS)
 
   # Build directory for this group
   set(_BUILD_DIR_GRP "${BUILD_DIR}/tools/${_grp}")
+  # clang-tidy plugins are built under build/tools/clang-plugins/<PluginName>
+  if(_grp MATCHES "^clang-tidy-plugins/")
+    get_filename_component(_GRP_BASENAME "${_grp}" NAME)
+    set(_BUILD_DIR_GRP "${BUILD_DIR}/tools/clang-plugins/${_GRP_BASENAME}")
+  endif()
   file(MAKE_DIRECTORY "${_BUILD_DIR_GRP}")
 
   # Compute latest .cpp timestamp in this group
@@ -116,10 +122,11 @@ foreach(_grp IN LISTS _GROUPS)
     string(APPEND _SRC_LINES "  \"${_s}\"\n")
   endforeach()
 
-  if(_grp MATCHES "^clang-plugins/")
+  if(_grp MATCHES "^(clang-plugins|clang-tidy-plugins)/")
     string(APPEND _CM "find_package(LLVM REQUIRED CONFIG)\nfind_package(Clang REQUIRED CONFIG)\n")
     string(APPEND _CM "include_directories(\${LLVM_INCLUDE_DIRS})\ninclude_directories(\${CLANG_INCLUDE_DIRS})\nadd_definitions(\${LLVM_DEFINITIONS})\n")
     string(APPEND _CM "add_library(${_TGT} SHARED\n${_SRC_LINES})\n")
+    # Link common Clang components; tidy plugins may add their own as needed
     string(APPEND _CM "target_link_libraries(${_TGT} PRIVATE clangAST clangASTMatchers clangBasic clangFrontend clangLex clangTooling)\n")
     string(APPEND _CM "set_target_properties(${_TGT} PROPERTIES OUTPUT_NAME \"${_TGT}\")\n")
   else()
@@ -164,6 +171,10 @@ foreach(_grp IN LISTS _GROUPS)
   else()
     file(WRITE "${_STAMP_FILE}" "${_LATEST}")
     message(STATUS "✅ Built: ${_grp}")
+    # Mark tidy plugin outputs so clang-tidy loader can discover them under clang-plugins dir
+    if(_grp MATCHES "^clang-tidy-plugins/")
+      file(WRITE "${_BUILD_DIR_GRP}/.is_clang_tidy_plugin" "1")
+    endif()
   endif()
 endforeach()
 

@@ -5,7 +5,7 @@
 #include "common/Util/IsPowerOfTwo.h"
 
 namespace crsce::common::util {
-    bool is_power_of_two(unsigned const x) {
-        return x != 0U && (x & (x - 1U)) == 0U;
-    }
+bool is_power_of_two(unsigned const x) {
+  return x != 0U && (x & (x - 1U)) == 0U;
+}
 } // namespace crsce::common::util

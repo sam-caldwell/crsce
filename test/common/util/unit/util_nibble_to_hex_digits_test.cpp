@@ -1,8 +1,8 @@
 /**
  * @file: util_nibble_to_hex_digits_test.cpp
  */
-#include <gtest/gtest.h>
 #include "common/Util/NibbleToHex.h"
+#include <gtest/gtest.h>
 
 using crsce::common::util::nibble_to_hex;
 

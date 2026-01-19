@@ -35,4 +35,4 @@ std::optional<bool> FileBitSerializer::pop() {
   return bit;
 }
 
-}  // namespace crsce::common
+} // namespace crsce::common

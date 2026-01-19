@@ -15,4 +15,3 @@ namespace crsce::common::detail::sha256 {
 u32 ch(const u32 x, const u32 y, const u32 z) { return (x & y) ^ (~x & z); }
 
 } // namespace crsce::common::detail::sha256
-

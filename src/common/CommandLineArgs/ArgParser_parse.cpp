@@ -5,16 +5,16 @@
  */
 #include "CommandLineArgs/ArgParser.h"
 #include <cstddef>
-#include <string>
 #include <span>
+#include <string>
 
 namespace crsce::common {
 
-auto ArgParser::parse(std::span<char*> args) -> bool {  // GCOVR_EXCL_LINE
+auto ArgParser::parse(std::span<char *> args) -> bool { // GCOVR_EXCL_LINE
   // Reset options each parse
   opts_ = Options{};
   // Use manual index to avoid modifying the loop counter in-place
-  std::size_t i = 1;  // NOLINT(*-identifier-length)
+  std::size_t i = 1; // NOLINT(*-identifier-length)
   while (i < args.size()) {
     const std::string arg = args[i];
     if (arg == "-h" || arg == "--help") {
@@ -24,9 +24,9 @@ auto ArgParser::parse(std::span<char*> args) -> bool {  // GCOVR_EXCL_LINE
     }
     if (arg == "-in" || arg == "-out") {
       if (i + 1 >= args.size()) {
-        return false;  // missing value
+        return false; // missing value
       }
-      const char* val = args[++i];
+      const char *val = args[++i];
       if (arg == "-in") {
         opts_.input = val;
       } else {
@@ -38,7 +38,8 @@ auto ArgParser::parse(std::span<char*> args) -> bool {  // GCOVR_EXCL_LINE
     // Unknown flag/token
     return false;
   }
-  return args.size() <= 1 || opts_.help || (!opts_.input.empty() && !opts_.output.empty());
+  return args.size() <= 1 || opts_.help ||
+         (!opts_.input.empty() && !opts_.output.empty());
 }
 
-}  // namespace crsce::common
+} // namespace crsce::common

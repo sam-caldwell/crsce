@@ -4,6 +4,6 @@
  */
 
 // NOLINTBEGIN
-// Function definition missing required Doxygen block above
+// Function definition missing the required Doxygen block above
 int helper_function_without_doc() { return 42; }
 // NOLINTEND

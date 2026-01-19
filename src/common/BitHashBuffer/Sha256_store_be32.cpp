@@ -10,7 +10,7 @@
 namespace crsce::common::detail::sha256 {
 
 /** @name store_be32 */
-void store_be32(u8* dst, u32 x) {
+void store_be32(u8 *dst, u32 x) {
   std::array<u8, 4> tmp{};
   tmp[0] = static_cast<u8>((x >> 24) & 0xffU);
   tmp[1] = static_cast<u8>((x >> 16) & 0xffU);

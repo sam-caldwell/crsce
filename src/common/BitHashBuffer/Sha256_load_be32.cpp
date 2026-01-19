@@ -10,13 +10,11 @@
 namespace crsce::common::detail::sha256 {
 
 /** @name load_be32 */
-u32 load_be32(const u8* src) {
+u32 load_be32(const u8 *src) {
   std::array<u8, 4> tmp{};
   std::memcpy(tmp.data(), src, tmp.size());
-  return (static_cast<u32>(tmp[0]) << 24) |
-         (static_cast<u32>(tmp[1]) << 16) |
-         (static_cast<u32>(tmp[2]) << 8) |
-         (static_cast<u32>(tmp[3]));
+  return (static_cast<u32>(tmp[0]) << 24) | (static_cast<u32>(tmp[1]) << 16) |
+         (static_cast<u32>(tmp[2]) << 8) | (static_cast<u32>(tmp[3]));
 }
 
 } // namespace crsce::common::detail::sha256

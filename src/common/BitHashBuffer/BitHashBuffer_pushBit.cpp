@@ -3,9 +3,9 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Push a single bit into the current byte (MSB-first) and advance.
  */
-#include "common/BitHashBuffer.h"
-#include <cstdint>
+#include "../../../include/common/BitHashBuffer/BitHashBuffer.h"
 #include <cstddef>
+#include <cstdint>
 
 namespace crsce::common {
 
@@ -20,7 +20,8 @@ namespace crsce::common {
 void BitHashBuffer::pushBit(bool v) {
   const int shift = 7 - bitPos_;
   if (v) {
-    currByte_ = static_cast<std::uint8_t>(currByte_ | (static_cast<std::uint8_t>(1U) << shift));
+    currByte_ = static_cast<std::uint8_t>(
+        currByte_ | (static_cast<std::uint8_t>(1U) << shift));
   }
   ++bitPos_;
   if (bitPos_ >= 8) {

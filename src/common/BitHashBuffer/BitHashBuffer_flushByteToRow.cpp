@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Flush a full currByte_ into the row buffer.
  */
-#include "common/BitHashBuffer.h"
+#include "../../../include/common/BitHashBuffer/BitHashBuffer.h"
 
 namespace crsce::common {
 

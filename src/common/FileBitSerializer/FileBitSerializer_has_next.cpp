@@ -24,5 +24,4 @@ bool FileBitSerializer::has_next() {
   return fill() && (buf_len_ > 0);
 }
 
-}  // namespace crsce::common
-
+} // namespace crsce::common

@@ -2,15 +2,15 @@
  * @file bithashbuffer_finalize_row_private_test.cpp
  * @brief Cover finalizeRowIfFull behavior via public surface: early and full.
  */
-#include <gtest/gtest.h>
-#include <array>
-#include <string>
 #include <algorithm>
-#include <iterator>
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <gtest/gtest.h>
+#include <iterator>
+#include <string>
 
-#include "common/BitHashBuffer.h"
+#include "../../../../include/common/BitHashBuffer/BitHashBuffer.h"
 #include "common/BitHashBuffer/detail/Sha256.h"
 
 using crsce::common::BitHashBuffer;
@@ -20,48 +20,51 @@ namespace {
 std::array<std::uint8_t, BitHashBuffer::kHashSize>
 hash_row(const std::array<std::uint8_t, BitHashBuffer::kHashSize> &prev,
          const std::array<std::uint8_t, BitHashBuffer::kRowSize> &row) {
-    std::array<std::uint8_t, BitHashBuffer::kHashSize + BitHashBuffer::kRowSize> buf{};
-    std::ranges::copy(prev, buf.begin());
-    std::ranges::copy(row, std::ranges::next(buf.begin(), static_cast<std::ptrdiff_t>(BitHashBuffer::kHashSize)));
-    return sha256_digest(buf.data(), buf.size());
+  std::array<std::uint8_t, BitHashBuffer::kHashSize + BitHashBuffer::kRowSize>
+      buf{};
+  std::ranges::copy(prev, buf.begin());
+  std::ranges::copy(
+      row, std::ranges::next(buf.begin(), static_cast<std::ptrdiff_t>(
+                                              BitHashBuffer::kHashSize)));
+  return sha256_digest(buf.data(), buf.size());
 }
 } // anonymous namespace
 
 TEST(BitHashBufferFinalizeRowPathsTest, FinalizeRowEarlyAndFullPaths) {
-    // Early path: push fewer than 64 bytes; no hash produced
-    {
-        BitHashBuffer buf("zz");
-        const auto before = buf.count();
-        // Push 10 full bytes of zeros (80 bits)
-        for (int i = 0; i < 10; ++i) {
-            for (int b = 0; b < 8; ++b) {
-                buf.pushBit(false);
-            }
-        }
-        EXPECT_EQ(buf.count(), before);
+  // Early path: push fewer than 64 bytes; no hash produced
+  {
+    BitHashBuffer buf("zz");
+    const auto before = buf.count();
+    // Push 10 full bytes of zeros (80 bits)
+    for (int i = 0; i < 10; ++i) {
+      for (int b = 0; b < 8; ++b) {
+        buf.pushBit(false);
+      }
     }
+    EXPECT_EQ(buf.count(), before);
+  }
 
-    // Full path: push exactly 64 bytes of 0x3C, expect a single hash
-    {
-        BitHashBuffer buf("zz");
-        const auto seed = buf.seedHash();
-        std::array<std::uint8_t, BitHashBuffer::kRowSize> row{};
-        row.fill(0x3C);
-        // 0x3C = 0b00111100; MSB-first: 0,0,1,1,1,1,0,0
-        for (std::size_t i = 0; i < BitHashBuffer::kRowSize; ++i) {
-            buf.pushBit(false);
-            buf.pushBit(false);
-            buf.pushBit(true);
-            buf.pushBit(true);
-            buf.pushBit(true);
-            buf.pushBit(true);
-            buf.pushBit(false);
-            buf.pushBit(false);
-        }
-        ASSERT_EQ(buf.count(), 1U);
-        const auto expected = hash_row(seed, row);
-        auto got = buf.popHash();
-        ASSERT_TRUE(got.has_value());
-        EXPECT_EQ(got.value(), expected);
+  // Full path: push exactly 64 bytes of 0x3C, expect a single hash
+  {
+    BitHashBuffer buf("zz");
+    const auto seed = buf.seedHash();
+    std::array<std::uint8_t, BitHashBuffer::kRowSize> row{};
+    row.fill(0x3C);
+    // 0x3C = 0b00111100; MSB-first: 0,0,1,1,1,1,0,0
+    for (std::size_t i = 0; i < BitHashBuffer::kRowSize; ++i) {
+      buf.pushBit(false);
+      buf.pushBit(false);
+      buf.pushBit(true);
+      buf.pushBit(true);
+      buf.pushBit(true);
+      buf.pushBit(true);
+      buf.pushBit(false);
+      buf.pushBit(false);
     }
+    ASSERT_EQ(buf.count(), 1U);
+    const auto expected = hash_row(seed, row);
+    auto got = buf.popHash();
+    ASSERT_TRUE(got.has_value());
+    EXPECT_EQ(got.value(), expected);
+  }
 }
