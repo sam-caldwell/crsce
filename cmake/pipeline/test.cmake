@@ -61,6 +61,7 @@ foreach(UNIT_SRC IN LISTS UNIT_TEST_SOURCES)
 
   add_executable(${TGT} "${UNIT_SRC}")
   target_include_directories(${TGT} PRIVATE "${PROJECT_SOURCE_DIR}/include")
+  target_compile_definitions(${TGT} PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
   # Link project sources via static library to improve coverage attribution on macOS/LLVM
   target_link_libraries(${TGT} PRIVATE crsce_static)
   # Link with GoogleTest main
@@ -182,4 +183,13 @@ if(TARGET hasher AND TARGET sha256_ok_helper AND TARGET sha256_bad_helper)
 
   add_test(NAME hasher_e2e_candidate_success
     COMMAND /bin/sh -c "CRSCE_HASHER_CANDIDATE=$<TARGET_FILE:sha256_ok_helper> $<TARGET_FILE:hasher>")
+endif()
+
+# Fallback candidate test using system shasum if available
+if(TARGET hasher)
+  find_program(SYS_SHASUM shasum PATHS /usr/bin /opt/homebrew/bin NO_DEFAULT_PATH)
+  if(SYS_SHASUM)
+    add_test(NAME hasher_e2e_fallback_shasum
+      COMMAND $<TARGET_FILE:hasher>)
+  endif()
 endif()

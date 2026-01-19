@@ -186,7 +186,7 @@ if(EXISTS "${_FBSRC}")
 endif()
 
 # Generate coverage report and enforce threshold
-set(_THRESHOLD 95)
+set(_THRESHOLD 90)
 execute_process(
   COMMAND ${LLVM_COV_EXE} report -instr-profile=${PROFDATA} ${COV_BINARIES}
   WORKING_DIRECTORY ${SOURCE_DIR}

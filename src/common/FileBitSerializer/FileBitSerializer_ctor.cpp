@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Constructor for FileBitSerializer: open stream and reset state.
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include <ios>
 #include <string>
 

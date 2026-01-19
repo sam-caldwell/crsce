@@ -3,7 +3,7 @@
  * @brief One-test file: has_next() across the buffer refill boundary remains
  * correct.
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>

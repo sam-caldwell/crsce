@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Implementation of FileBitSerializer::pop (MSB-first bit extraction).
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include <optional>
 
 namespace crsce::common {

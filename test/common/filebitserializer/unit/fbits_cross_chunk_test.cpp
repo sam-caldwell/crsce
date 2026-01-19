@@ -2,7 +2,7 @@
  * @file fbits_cross_chunk_test.cpp
  * @brief One-test file: Cross-chunk read across >1 KiB boundary.
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include "helpers/remove_file.h"
 #include "helpers/tmp_dir.h"
 #include <cstddef>

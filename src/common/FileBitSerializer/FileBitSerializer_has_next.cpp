@@ -3,7 +3,7 @@
  * © 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Implementation of FileBitSerializer::has_next.
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 
 namespace crsce::common {
 

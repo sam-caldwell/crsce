@@ -3,7 +3,7 @@
  * @brief One-test file: Two-byte sequence spans a byte boundary; verify
  * MSB-first order.
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include <cstdio>
 #include <filesystem>
 #include <fstream>

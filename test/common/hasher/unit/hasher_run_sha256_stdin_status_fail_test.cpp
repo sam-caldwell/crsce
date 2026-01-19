@@ -1,0 +1,17 @@
+/**
+ * @file hasher_run_sha256_stdin_status_fail_test.cpp
+ */
+#include "common/HasherUtils/RunSha256Stdin.h"
+#include <gtest/gtest.h>
+#include <string>
+#include <vector>
+#include <cstdint>
+
+using crsce::common::hasher::run_sha256_stdin;
+
+TEST(HasherUtils, RunSha256StdinStatusFail) { // NOLINT(readability-identifier-naming)
+    const std::vector<std::string> cmd{"/bin/false"};
+    const std::vector<std::uint8_t> data{1, 2, 3};
+    std::string hex;
+    EXPECT_FALSE(run_sha256_stdin(cmd, data, hex));
+}

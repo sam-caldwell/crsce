@@ -2,7 +2,7 @@
  * @file fbits_empty_file_test.cpp
  * @brief One-test file: Empty file -> no bits.
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include "helpers/remove_file.h"
 #include "helpers/tmp_dir.h"
 #include <fstream>

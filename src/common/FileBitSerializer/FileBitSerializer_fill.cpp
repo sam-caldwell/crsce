@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Implementation of FileBitSerializer::fill (refills the byte buffer).
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include <cstddef>
 #include <ios>
 

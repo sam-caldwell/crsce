@@ -3,7 +3,7 @@
  * @brief One-test file: Repeated pop() after EOF remains std::nullopt and
  * stable.
  */
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 #include <gtest/gtest.h>
 
 #include <cstdio>

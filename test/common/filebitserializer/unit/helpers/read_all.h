@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "common/FileBitSerializer.h"
+#include "common/FileBitSerializer/FileBitSerializer.h"
 
 #include <optional>
 #include <vector>
