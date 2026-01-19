@@ -12,7 +12,6 @@ Exits non-zero to block the commit on any failure.
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
@@ -40,7 +39,7 @@ def _run_stream(cmd: List[str]) -> int:
 
 
 def _git_against_ref() -> str:
-    """Return 'HEAD' or the empty tree hash on initial commit."""
+    """Return 'HEAD' or the empty tree hash on the initial commit."""
     rc = subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD"],
         stdout=subprocess.DEVNULL,
