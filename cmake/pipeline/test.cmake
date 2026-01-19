@@ -166,3 +166,20 @@ if(TARGET decompress)
     decompress_e2e_unknown_flag_usage
     PROPERTIES RESOURCE_LOCK iofiles)
 endif()
+
+# E2E tests for hasher using helper tools
+if(TARGET hasher AND TARGET sha256_ok_helper AND TARGET sha256_bad_helper)
+  add_test(NAME hasher_e2e_success_cmd
+    COMMAND /bin/sh -c "CRSCE_HASHER_CMD=$<TARGET_FILE:sha256_ok_helper> $<TARGET_FILE:hasher>")
+
+  add_test(NAME hasher_e2e_mismatch_cmd
+    COMMAND /bin/sh -c "CRSCE_HASHER_CMD=$<TARGET_FILE:sha256_bad_helper> $<TARGET_FILE:hasher> || true")
+  set_tests_properties(hasher_e2e_mismatch_cmd PROPERTIES PASS_REGULAR_EXPRESSION "candidate:")
+
+  add_test(NAME hasher_e2e_no_tool
+    COMMAND /bin/sh -c "CRSCE_HASHER_CMD=/nonexistent/sha256 $<TARGET_FILE:hasher> || true")
+  set_tests_properties(hasher_e2e_no_tool PROPERTIES PASS_REGULAR_EXPRESSION "failed to run system tool")
+
+  add_test(NAME hasher_e2e_candidate_success
+    COMMAND /bin/sh -c "CRSCE_HASHER_CANDIDATE=$<TARGET_FILE:sha256_ok_helper> $<TARGET_FILE:hasher>")
+endif()

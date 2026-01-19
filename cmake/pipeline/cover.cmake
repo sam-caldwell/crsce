@@ -122,7 +122,7 @@ endif()
 # Identify instrumented binaries to include in coverage
 set(COV_BINARIES)
 # Project binaries
-foreach(name IN ITEMS compress decompress hello_world)
+foreach(name IN ITEMS compress decompress hello_world hasher)
   if(EXISTS "${COV_BIN_DIR}/${name}")
     list(APPEND COV_BINARIES "${COV_BIN_DIR}/${name}")
   endif()
