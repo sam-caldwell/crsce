@@ -2,7 +2,7 @@
  * File: cmd/decompress/main.cpp
  * Brief: CLI entry for decompressor; validates args and prints a greeting.
  */
-#include "CommandLineArgs/ArgParser.h"
+#include "common/ArgParser/ArgParser.h"
 #include <cstdio>
 #include <exception>
 #include <print>

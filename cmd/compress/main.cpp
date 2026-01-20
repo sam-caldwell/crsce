@@ -2,7 +2,7 @@
  * File: cmd/compress/main.cpp
  * Brief: CLI entry for compressor; validates args and prints a greeting.
  */
-#include "CommandLineArgs/ArgParser.h"
+#include "common/ArgParser/ArgParser.h"
 #include <cstdio>
 #include <exception>
 #include <print>
