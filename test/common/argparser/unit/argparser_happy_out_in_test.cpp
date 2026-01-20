@@ -1,7 +1,7 @@
 /**
  * One-test file: Happy path -out then -in order.
  */
-#include "CommandLineArgs/ArgParser.h"
+#include "common/ArgParser/ArgParser.h"
 #include "helpers.h"
 #include <gtest/gtest.h>
 #include <span>

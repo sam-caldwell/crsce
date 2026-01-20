@@ -1,7 +1,7 @@
 /**
  * One-test file: Help flag with other args; parse ok and help true.
  */
-#include "CommandLineArgs/ArgParser.h"
+#include "common/ArgParser/ArgParser.h"
 #include "helpers.h"
 #include <gtest/gtest.h>
 #include <span>

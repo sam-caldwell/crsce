@@ -2,7 +2,7 @@
  * @file: argparser_default_usage_test.cpp
  * @brief Default program name in usage string.
  */
-#include "CommandLineArgs/ArgParser.h"
+#include "common/ArgParser/ArgParser.h"
 #include <gtest/gtest.h>
 #include <string>
 

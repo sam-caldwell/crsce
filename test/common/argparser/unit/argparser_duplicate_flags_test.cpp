@@ -1,7 +1,7 @@
 /**
  * One-test file: Duplicate -in/-out flags; last occurrence wins.
  */
-#include "CommandLineArgs/ArgParser.h"
+#include "common/ArgParser/ArgParser.h"
 #include "helpers.h"
 #include <gtest/gtest.h>
 #include <span>

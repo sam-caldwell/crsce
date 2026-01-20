@@ -2,6 +2,7 @@
  * @file ArgParser.h
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Simple command-line argument parser shared by project binaries.
+ * @note Located under include/common/ArgParser.
  *
  * Supports flags: -h/--help, -in <path>, -out <path> and exposes parsed
  * values via a small Options POD. Intended for use by cmd/compress and
@@ -102,3 +103,8 @@ class ArgParser {
 };
 
 }  // namespace crsce::common
+/**
+ * @file ArgParser.h
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
+ * @brief Simple command-line argument parser shared by project binaries.
+ */

@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief ArgParser::parse implementation.
  */
-#include "CommandLineArgs/ArgParser.h"
+#include "common/ArgParser/ArgParser.h"
 #include <cstddef>
 #include <span>
 #include <string>
