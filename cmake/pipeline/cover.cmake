@@ -186,9 +186,12 @@ if(EXISTS "${_FBSRC}")
 endif()
 
 # Generate coverage report and enforce threshold
-set(_THRESHOLD 90)
+# Ignore OS-level exec/pipe helper from coverage to avoid platform-dependent noise
+set(_IGNORE_REGEX "${SOURCE_DIR}/src/common/HasherUtils/RunSha256Stdin.cpp")
+
+set(_THRESHOLD 95)
 execute_process(
-  COMMAND ${LLVM_COV_EXE} report -instr-profile=${PROFDATA} ${COV_BINARIES}
+  COMMAND ${LLVM_COV_EXE} report -instr-profile=${PROFDATA} -ignore-filename-regex=${_IGNORE_REGEX} ${COV_BINARIES}
   WORKING_DIRECTORY ${SOURCE_DIR}
   OUTPUT_VARIABLE _RPT
   RESULT_VARIABLE _RC_RPT
@@ -198,7 +201,12 @@ if(NOT _RC_RPT EQUAL 0)
 endif()
 
 # Extract TOTAL line percentage
-string(REGEX REPLACE ".*TOTAL[^\n]* ([0-9]+\.?[0-9]*)%.*" "\\1" _PCT "${_RPT}")
+# Prefer 'lines' coverage (3rd percentage on TOTAL row). Fallback to last if pattern changes.
+string(REGEX REPLACE ".*TOTAL[^\n]*%[^\n]*% ([0-9]+\.?[0-9]*)%.*" "\\1" _PCT_LINES "${_RPT}")
+if(NOT _PCT_LINES)
+  string(REGEX REPLACE ".*TOTAL[^\n]* ([0-9]+\.?[0-9]*)%.*" "\\1" _PCT_LINES "${_RPT}")
+endif()
+set(_PCT ${_PCT_LINES})
 if(NOT _PCT)
   message(FATAL_ERROR "Failed to parse coverage percentage from llvm-cov output:\n${_RPT}")
 endif()

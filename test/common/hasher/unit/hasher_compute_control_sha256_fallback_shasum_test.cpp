@@ -6,13 +6,13 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 using crsce::common::hasher::compute_control_sha256;
 
 TEST(HasherUtils, ComputeControlSha256FallbackShasumIfAvailable) { // NOLINT(readability-identifier-naming)
     // Only run if a system shasum exists; otherwise skip
-    std::string shasum = "/usr/bin/shasum";
-    if (!std::filesystem::exists(shasum)) {
+    if (std::filesystem::path shasum = "/usr/bin/shasum"; !std::filesystem::exists(shasum)) {
         shasum = "/opt/homebrew/bin/shasum";
         if (!std::filesystem::exists(shasum)) {
             GTEST_SKIP() << "shasum not available";

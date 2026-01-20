@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 using crsce::common::hasher::compute_control_sha256;
 
