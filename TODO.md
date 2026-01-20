@@ -112,7 +112,7 @@ Implementation MUST treat these as hard constants.
     - [x]CLI Argument Parser (`ArgParser` class) is working
     - [x]extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
 
-- [x] **Phase 2 — CRSCE Decompression Features**
+- [x] **Phase 2 — CRSCE Compression Features**
     - [x] Implement `CrossSum` class
     - [x] Implement `BitHashBuffer` class
     - [x] Implement `Compress` class
