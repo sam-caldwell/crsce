@@ -58,13 +58,19 @@ namespace crsce::compress {
         /** Pop all available LH digests as a contiguous byte vector (32*N bytes). */
         [[nodiscard]] std::vector<std::uint8_t> pop_all_lh_bytes();
 
+        /** Compress the input file to the CRSCE v1 container at output_path_. */
+        bool compress_file();
+
     private:
         void pad_and_finalize_row_if_needed();
 
         void advance_coords_after_bit();
+        void reset_block();
+        void push_zero_row();
 
         std::string input_path_;
         std::string output_path_;
+        std::string seed_;
 
         // Cross-sum accumulators
         crsce::common::CrossSum lsm_;

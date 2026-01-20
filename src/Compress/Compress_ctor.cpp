@@ -12,6 +12,7 @@ namespace crsce::compress {
                        const std::string &lh_seed)
         : input_path_(std::move(input_path)),
           output_path_(std::move(output_path)),
+          seed_(lh_seed),
           lh_(lh_seed) {
     }
 } // namespace crsce::compress

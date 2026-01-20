@@ -5,14 +5,11 @@
 #include "common/ArgParser/ArgParser.h"
 #include <cstdio>
 #include <exception>
-#include <fstream>
-#include <ios>
 #include <print>
 #include <span>
 #include <string>
 #include <sys/stat.h>
 
-#include "common/FileBitSerializer/FileBitSerializer.h"
 #include "compress/Compress/Compress.h"
 
 /**
@@ -41,29 +38,11 @@ auto main(const int argc, char *argv[]) -> int {
                              opt.output);
                 return 3;
             }
-            // Stream input bits into the block accumulator and create the output file.
-            crsce::common::FileBitSerializer in_bits(opt.input);
-            if (!in_bits.good()) {
-                std::println(stderr, "error: failed to open input file: {}", opt.input);
-                return 3;
-            }
-
-            const std::ofstream out(opt.output, std::ios::binary);
-            if (!out.good()) {
-                std::println(stderr, "error: failed to create output file: {}", opt.output);
-                return 3;
-            }
-
-            crsce::compress::Compress cx(opt.input, opt.output);
-            while (true) {
-                const auto b = in_bits.pop();
-                if (!b.has_value()) {
-                    break;
-                }
-                cx.push_bit(*b);
-            }
-            cx.finalize_block();
-            // For now, do not write container payloads; just ensure output exists.
+      crsce::compress::Compress cx(opt.input, opt.output);
+      if (!cx.compress_file()) {
+        std::println(stderr, "error: compression failed");
+        return 4;
+      }
         }
 
         std::println("Hello, World (compress)!");

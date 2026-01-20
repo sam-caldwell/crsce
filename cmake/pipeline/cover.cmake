@@ -189,7 +189,8 @@ endif()
 # Ignore OS-level exec/pipe helper from coverage to avoid platform-dependent noise
 # Ignore OS-dependent hashing wrappers from coverage to avoid platform variance
 # Focus coverage on core libraries; exclude OS-dependent wrappers and thin CLIs
-set(_IGNORE_REGEX "(${SOURCE_DIR}/src/common/HasherUtils/(RunSha256Stdin|ComputeControlSha256)\\.cpp$|${SOURCE_DIR}/cmd/.*\\.cpp$)")
+# Be robust to absolute/relative paths in coverage mappings
+set(_IGNORE_REGEX "(RunSha256Stdin\\.cpp|ComputeControlSha256\\.cpp|/cmd/.*\\.cpp)")
 
 set(_THRESHOLD 95)
 execute_process(
