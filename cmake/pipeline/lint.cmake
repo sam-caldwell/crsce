@@ -89,6 +89,31 @@ function(_git_changed_files out)
   endif()
 endfunction()
 
+# Whitespace (git diff --check) — detect new blank line at EOF, trailing spaces, etc.
+if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "ws")
+  message(STATUS "Lint: whitespace")
+  # Check both staged and unstaged diffs. If any issues are found, emit them and fail.
+  execute_process(
+    COMMAND bash -lc "set -euo pipefail; \
+      if git rev-parse --git-dir >/dev/null 2>&1; then \
+        o1=\"\$(git diff --check --cached -- . || true)\"; \
+        o2=\"\$(git diff --check -- . || true)\"; \
+        errs=\"\$(printf '%s\n%s\n' \"$o1\" \"$o2\" | awk 'NF')\"; \
+      else \
+        errs=\"\"; \
+      fi; \
+      if [ -n \"$errs\" ]; then echo \"$errs\"; exit 2; fi"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_VARIABLE _WS_OUT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _WS_RC
+  )
+  if(NOT _WS_RC EQUAL 0)
+    message(STATUS "-- Linter failed --")
+    message(FATAL_ERROR "Whitespace issues detected in diffs:\n${_WS_OUT}")
+  endif()
+endif()
+
 # Markdown
 if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "md")
   if(LINT_CHANGED_ONLY)
