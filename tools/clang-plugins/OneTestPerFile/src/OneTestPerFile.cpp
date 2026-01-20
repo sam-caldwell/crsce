@@ -223,6 +223,15 @@ class OneTestPerFileContext {
 public:
   explicit OneTestPerFileContext(CompilerInstance &CI) : CI_(&CI) {}
 
+  void setEnforceHeader(bool v) { EnforceHeader_ = v; }
+  [[nodiscard]] bool enforceHeader() const { return EnforceHeader_; }
+  void setRequireBrief(bool v) { RequireBrief_ = v; }
+  [[nodiscard]] bool requireBrief() const { return RequireBrief_; }
+  void setEnforceTestDoc(bool v) { EnforceTestDoc_ = v; }
+  [[nodiscard]] bool enforceTestDoc() const { return EnforceTestDoc_; }
+  void setEnforceFuncDoc(bool v) { EnforceFuncDoc_ = v; }
+  [[nodiscard]] bool enforceFuncDoc() const { return EnforceFuncDoc_; }
+
   FileState &getOrCreateFileState(SourceLocation Loc) {
     const SourceManager &SM = CI_->getSourceManager();
     const SourceLocation Spelling = SM.getSpellingLoc(Loc);
@@ -259,6 +268,11 @@ public:
       return;
     }
     FS.setHeaderChecked(true);
+    if (!enforceHeader()) {
+      // Skip header enforcement when disabled by plugin args
+      FS.setHeaderOk(true);
+      return;
+    }
     if (!isTestCppPath(FS.path())) {
       return;
     }
@@ -339,6 +353,10 @@ public:
 private:
   CompilerInstance *CI_{};
   std::unordered_map<unsigned, FileState> States; // keyed by FileID hash
+  bool EnforceHeader_{true};
+  bool RequireBrief_{true};
+  bool EnforceTestDoc_{true};
+  bool EnforceFuncDoc_{true};
 };
 
 class OTPFPPCallbacks : public PPCallbacks {
@@ -374,13 +392,14 @@ public:
     // Verify that a Doxygen block comment immediately precedes the TEST(...)
     // line
     const unsigned line = SM.getSpellingLineNumber(ExpLoc);
-    const bool ok =
-        FS.hasImmediateDoxygenBlockAbove(line, /*requireBrief=*/true);
-    if (!ok) {
-      const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
-          DiagnosticsEngine::Error, "TEST(...) must be immediately preceded by "
-                                    "a Doxygen block (/** ... */) with @brief");
-      Ctx_->getCI().getDiagnostics().Report(ExpLoc, DiagID);
+    if (Ctx_->enforceTestDoc()) {
+      const bool ok = FS.hasImmediateDoxygenBlockAbove(line, Ctx_->requireBrief());
+      if (!ok) {
+        const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
+            DiagnosticsEngine::Error, "TEST(...) must be immediately preceded by "
+                                      "a Doxygen block (/** ... */) with @brief");
+        Ctx_->getCI().getDiagnostics().Report(ExpLoc, DiagID);
+      }
     }
   }
 
@@ -429,14 +448,15 @@ public:
     Ctx_->ensureHeaderChecked(FS);
 
     const unsigned line = SM.getSpellingLineNumber(Spelling);
-    const bool ok =
-        FS.hasImmediateDoxygenBlockAbove(line, /*requireBrief=*/true);
-    if (!ok) {
-      const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "function definition must be immediately preceded by a Doxygen block "
-          "(/** ... */) with @brief");
-      Ctx_->getCI().getDiagnostics().Report(Spelling, DiagID);
+    if (Ctx_->enforceFuncDoc()) {
+      const bool ok = FS.hasImmediateDoxygenBlockAbove(line, Ctx_->requireBrief());
+      if (!ok) {
+        const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "function definition must be immediately preceded by a Doxygen block "
+            "(/** ... */) with @brief");
+        Ctx_->getCI().getDiagnostics().Report(Spelling, DiagID);
+      }
     }
 
     return true;
@@ -465,6 +485,11 @@ public:
   std::unique_ptr<ASTConsumer>
   CreateASTConsumer(CompilerInstance &CI, llvm::StringRef /*InFile*/) override {
     Ctx = std::make_unique<OneTestPerFileContext>(CI);
+    // Apply parsed options to context
+    Ctx->setEnforceHeader(OptEnforceHeader);
+    Ctx->setRequireBrief(OptRequireBrief);
+    Ctx->setEnforceTestDoc(OptEnforceTestDoc);
+    Ctx->setEnforceFuncDoc(OptEnforceFuncDoc);
     // Register PP callbacks
     CI.getPreprocessor().addPPCallbacks(
         std::make_unique<OTPFPPCallbacks>(Ctx.get()));
@@ -473,9 +498,25 @@ public:
 
   bool ParseArgs(const CompilerInstance &CI,
                  const std::vector<std::string> &args) override {
-    // No args currently
     (void)CI;
-    (void)args;
+    bool enforceHeader = true;
+    bool requireBrief = true;
+    bool enforceTestDoc = true;
+    bool enforceFuncDoc = true;
+    // Accept simple flags:
+    //  - no-header     => disable header block enforcement
+    //  - no-brief      => do not require @brief within preceding Doxygen block
+    for (const auto &a : args) {
+      if (a == "no-header") { enforceHeader = false; }
+      if (a == "no-brief") { requireBrief = false; }
+      if (a == "no-test-doc") { enforceTestDoc = false; }
+      if (a == "no-func-doc") { enforceFuncDoc = false; }
+    }
+    // Store options; applied in CreateASTConsumer
+    OptEnforceHeader = enforceHeader;
+    OptRequireBrief = requireBrief;
+    OptEnforceTestDoc = enforceTestDoc;
+    OptEnforceFuncDoc = enforceFuncDoc;
     return true;
   }
 
@@ -485,6 +526,10 @@ public:
 
 private:
   std::unique_ptr<OneTestPerFileContext> Ctx;
+  bool OptEnforceHeader{true};
+  bool OptRequireBrief{true};
+  bool OptEnforceTestDoc{true};
+  bool OptEnforceFuncDoc{true};
 };
 
 namespace {

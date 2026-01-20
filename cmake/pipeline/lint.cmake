@@ -356,8 +356,8 @@ if((LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp") AND NOT LINT_ONLY_
     list(FILTER _SRC_LIST_NL EXCLUDE REGEX "^test/tools/clang-plugins/OneTestPerFile/fixtures/.*\\.cpp$")
     list(FILTER _SRC_LIST_NL EXCLUDE REGEX "^test/tools/clang-plugins/.*/fixtures/.*\\.(cpp|h)$")
   endif()
-    endif()
-    # Exclude plugin test fixtures as well if entries are absolute
+  endif()
+  # Exclude plugin test fixtures as well if entries are absolute
     if(_SRC_LIST_NL)
       list(FILTER _SRC_LIST_NL EXCLUDE REGEX ".*/test/tools/OneTestPerFile/fixtures/.*\\.cpp$")
       list(FILTER _SRC_LIST_NL EXCLUDE REGEX ".*/test/tools/clang-plugins/OneTestPerFile/fixtures/.*\\.cpp$")
@@ -418,6 +418,90 @@ if((LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp") AND NOT LINT_ONLY_
       endwhile()
     endif()
     endif()
+  endif()
+endif()
+
+# --- OneTestPerFile clang plugin enforcement over test sources ---
+# --- OneTestPerFile clang plugin enforcement (disabled by default) ---
+# The Frontend plugin is not reliably loadable across toolchains in CI.
+# Keep this block disabled unless explicitly enabled via LINT_OTPF=ON.
+if((LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp") AND LINT_OTPF)
+  # Locate plugin library; build it if missing
+  set(_PLUG_LIB)
+  file(GLOB _OTPF_DYLIB "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneTestPerFile/*OneTestPerFile*.dylib")
+  file(GLOB _OTPF_SO    "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneTestPerFile/*OneTestPerFile*.so")
+  file(GLOB _OTPF_DLL   "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneTestPerFile/*OneTestPerFile*.dll")
+  if(_OTPF_DYLIB)
+    list(GET _OTPF_DYLIB 0 _PLUG_LIB)
+  elseif(_OTPF_SO)
+    list(GET _OTPF_SO 0 _PLUG_LIB)
+  elseif(_OTPF_DLL)
+    list(GET _OTPF_DLL 0 _PLUG_LIB)
+  endif()
+  if(NOT _PLUG_LIB)
+    message(STATUS "Building OneTestPerFile plugin (missing lib)...")
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=${CMAKE_SOURCE_DIR} -D BUILD_DIR=${CMAKE_SOURCE_DIR}/build -D ONLY_GROUP=clang-plugins/OneTestPerFile -P ${CMAKE_SOURCE_DIR}/cmake/pipeline/deps.cmake
+      RESULT_VARIABLE _DEP_RC)
+    if(NOT _DEP_RC EQUAL 0)
+      message(FATAL_ERROR "Failed to build OneTestPerFile plugin (${_DEP_RC}).")
+    endif()
+    file(GLOB _OTPF_DYLIB2 "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneTestPerFile/*OneTestPerFile*.dylib")
+    file(GLOB _OTPF_SO2    "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneTestPerFile/*OneTestPerFile*.so")
+    file(GLOB _OTPF_DLL2   "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneTestPerFile/*OneTestPerFile*.dll")
+    if(_OTPF_DYLIB2)
+      list(GET _OTPF_DYLIB2 0 _PLUG_LIB)
+    elseif(_OTPF_SO2)
+      list(GET _OTPF_SO2 0 _PLUG_LIB)
+    elseif(_OTPF_DLL2)
+      list(GET _OTPF_DLL2 0 _PLUG_LIB)
+    endif()
+  endif()
+  if(NOT _PLUG_LIB)
+    message(FATAL_ERROR "OneTestPerFile plugin library not found after build.")
+  endif()
+
+  # Gather test sources
+  if(LINT_CHANGED_ONLY)
+    _git_changed_files(_TEST_CHANGED "test/**/*.cpp")
+    set(_TEST_SRCS ${_TEST_CHANGED})
+  else()
+    execute_process(COMMAND bash -lc "git ls-files 'test/**/*.cpp'"
+                    OUTPUT_VARIABLE _TEST_LIST
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    separate_arguments(_TEST_SRCS UNIX_COMMAND "${_TEST_LIST}")
+  endif()
+  if(_TEST_SRCS)
+    # Compose includes similar to clang-tidy so plugin can parse
+    set(_BASE)
+    list(APPEND _BASE -fsyntax-only)
+    list(APPEND _BASE -std=c++23)
+    list(APPEND _BASE -I${CMAKE_SOURCE_DIR}/include)
+    list(APPEND _BASE -I${CMAKE_SOURCE_DIR}/src)
+    list(APPEND _BASE -I${CMAKE_SOURCE_DIR}/src/common)
+    list(APPEND _BASE -I${CMAKE_SOURCE_DIR}/src/Compress)
+    list(APPEND _BASE -I${CMAKE_SOURCE_DIR}/src/Decompress)
+    # gtest include dirs (ensure coverage build also works)
+    list(APPEND _BASE -I${_BIN_DIR}/_deps/googletest-src/googletest/include)
+    list(APPEND _BASE -I${_BIN_DIR}/_deps/googletest-src/googletest)
+
+    foreach(_T IN LISTS _TEST_SRCS)
+      if(NOT IS_ABSOLUTE "${_T}")
+        set(_TF "${CMAKE_SOURCE_DIR}/${_T}")
+      else()
+        set(_TF "${_T}")
+      endif()
+      if(EXISTS "${_TF}")
+        _run("otpf:${_T}"
+          clang++ ${_BASE}
+          -Xclang -load -Xclang "${_PLUG_LIB}"
+          -Xclang -plugin -Xclang one-test-per-file
+          -Xclang -plugin-arg-one-test-per-file -Xclang no-header
+          -Xclang -plugin-arg-one-test-per-file -Xclang no-test-doc
+          -Xclang -plugin-arg-one-test-per-file -Xclang no-func-doc
+          "${_TF}")
+      endif()
+    endforeach()
   endif()
 endif()
 
