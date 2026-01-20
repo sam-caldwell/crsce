@@ -180,7 +180,7 @@ Implementation MUST treat these as hard constants.
 - Create a class which will accept raw bit data representing a single row of CSM.
 - Calculate a sha256 digest for each row as part of the lateral hash chain where:
 
-  ```
+  ```text
   LH[0] = SHA256(seedBytes|Row[0])
   LH[1] = SHA256(Row[0]|Row[1])
   ...
@@ -306,7 +306,7 @@ Implementation MUST treat these as hard constants.
 
 - Verify reconstructed rows against LH using chained SHA‑256 chaining:
 
-  ```
+  ```text
   seedHash = SHA256(seedBytes)
   LH[0] = SHA256(seedHash || Row[0])
   LH[i] = SHA256(LH[i−1] || Row[i])  // i > 0
@@ -396,7 +396,8 @@ Implementation MUST treat these as hard constants.
 
 #### Theory of operation
 
-- ** Constructor**:
+- **Constructor**:
+
     - Open the source file for reading.
     - Open the output file for writing.
     - Read the header bytes (28 bytes) (Throw an exception on deviations)
@@ -407,7 +408,9 @@ Implementation MUST treat these as hard constants.
     - initialize a 'residual' cross-sum vector set (`rLSM`, `rVSM`, `rDSM`, `rXSM`) to track the number of unsolved bits
       in the cross-sums.
     - initialize the `CSM` matrix.
+
 - `loadBlock(block_data)` method:
+
     - Read exactly 18,652 bytes; reject deviations.
         - Parse LH table (16,352 bytes → 511 digests × 32 bytes).
         - Parse cross‑sum vectors from 2,300 bytes as a contiguous bitstream of 4 × (511 × 9) bits, then 4 pad bits.
