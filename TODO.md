@@ -101,44 +101,44 @@ Implementation MUST treat these as hard constants.
 ## Delivery Phases
 
 - [x] **Phase 1 — Tooling & Hygiene**
-    - Clang Plugins
+    - [x] Clang Plugins
         - Finalize and document `OneDefinitionPerHeader` and `OneDefinitionPerCppFile` (usage, diagnostics, wiring).
         - Ensure make deps builds plugins under `tools/*`; tidy plugins land under `build/tools/clang-plugins/`.
         - Lint auto-loads tidy plugins via `-load` (already wired); maintain `NOLINT` guards in fixtures.
-    - Ensure dependabot is running.
-    - Build/Lint/Test Pipeline is working
-    - `hello_world` project is working
-    - basic `cmd/compress` and `cmd/decompress` are working as hello_world examples
-    - CLI Argument Parser (`ArgParser` class) is working
-    - extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
+    - [x]Ensure dependabot is running.
+    - [x]Build/Lint/Test Pipeline is working
+    - [x]`hello_world` project is working
+    - [x]basic `cmd/compress` and `cmd/decompress` are working as hello_world examples
+    - [x]CLI Argument Parser (`ArgParser` class) is working
+    - [x]extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
 
 - [ ] **Phase 2 — CRSCE Decompression Features**
-    - Implement `CrossSum` class
-    - Implement `BitHashBuffer` class
-    - Implement `Compress` class
-    - Extend `cmd/compress` to use `Compress` class
-    - Develop end-to-end compression tests using random, generated input data and known, fixed input data.
+    - [ ] Implement `CrossSum` class
+    - [ ] Implement `BitHashBuffer` class
+    - [ ] Implement `Compress` class
+    - [ ] Extend `cmd/compress` to use `Compress` class
+    - [ ] Develop end-to-end compression tests using random, generated input data and known, fixed input data.
 
 - [ ] **Phase 3 — CRSCE Decompression Features**
-    - Implement `Csm` class
-    - Implement `LHChainVerifier` class
-    - Implement `Solver` interface
-    - Implement `DeterministicElimination` class
-    - Implement `LoopyBeliefsPropagation` class
-    - Implement `Decompressor` class
-    - Extend `cmd/decompress` to use `Decompressor` class
-    - Develop end-to-end decompression tests using random
-    - Develop an end-to-end compression-decompression test using random inputs and automated complete cycle.
+    - [ ] Implement `Csm` class
+    - [ ] Implement `LHChainVerifier` class
+    - [ ] Implement `Solver` interface
+    - [ ] Implement `DeterministicElimination` class
+    - [ ] Implement `LoopyBeliefsPropagation` class
+    - [ ] Implement `Decompressor` class
+    - [ ] Extend `cmd/decompress` to use `Decompressor` class
+    - [ ] Develop end-to-end decompression tests using random
+    - [ ] Develop an end-to-end compression-decompression test using random inputs and automated complete cycle.
 
 - [ ] **Phase 4 — Testing and Data Collection**
-    - Develop automated test on HP DL 580 G7 (40 CPU Cores, 128GB RAM)
-    - Test should run end-to-end test cycles on random data.
+    - [ ] Develop automated test on HP DL 580 G7 (40 CPU Cores, 128GB RAM)
+    - [ ] Test should run end-to-end test cycles on random data.
         - Count the number of collisions (preserving input data)
         - Capture start, stop times for compression and decompression.
-    - Emit metrics as JSON to syslog (and capture this for later analysis).
-    - Increase test coverage to ~99% (ideally 100%).
+    - [ ] mit metrics as JSON to syslog (and capture this for later analysis).
+    - [ ] Increase test coverage to ~99% (ideally 100%).
 - [ ] **Phase 5 — Documentation**
-    - Write paper describing design, implementation and findings.
+    - [ ] Write paper describing design, implementation and findings.
 
 ---
 
