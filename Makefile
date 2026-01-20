@@ -31,6 +31,12 @@ help:
 	@echo ""
 	@echo "Other targets are available in Makefile.d/."
 
-all: clean configure lint build test cover
+all:
+	@$(MAKE) clean
+	@$(MAKE) configure
+	@$(MAKE) lint
+	@$(MAKE) build
+	@$(MAKE) test
+	@$(MAKE) cover
 
 include Makefile.d/*.mk

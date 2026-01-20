@@ -301,6 +301,9 @@ if((LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp") AND NOT LINT_ONLY_
     list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/common)
     list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/Compress)
     list(APPEND _BASE_CMD -extra-arg=-I${CMAKE_SOURCE_DIR}/src/Decompress)
+    # Ensure GoogleTest headers are found even before tests build
+    list(APPEND _BASE_CMD -extra-arg=-I${_BIN_DIR}/_deps/googletest-src/googletest/include)
+    list(APPEND _BASE_CMD -extra-arg=-I${_BIN_DIR}/_deps/googletest-src/googletest)
     # Avoid redefining builtin macros; do not override __has_feature.
 
   # Determine which C++ sources to lint
@@ -518,6 +521,9 @@ if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp" OR LINT_TARGET STREQ
       endif()
       list(APPEND _BASE -extra-arg=-w -extra-arg=-fdiagnostics-show-option -extra-arg=-fcolor-diagnostics)
       list(APPEND _BASE ${_EXTRA_ARGS})
+      # Ensure GoogleTest headers are found for tool tests that include gtest
+      set(_GTEST_ROOT "${CMAKE_SOURCE_DIR}/build/llvm-debug/_deps/googletest-src/googletest")
+      list(APPEND _BASE -extra-arg=-I${_GTEST_ROOT}/include -extra-arg=-I${_GTEST_ROOT})
       # Absolute file path
       get_filename_component(_abs "${CMAKE_SOURCE_DIR}/${_f}" ABSOLUTE)
       execute_process(COMMAND ${_BASE} ${_abs} RESULT_VARIABLE _rc)
