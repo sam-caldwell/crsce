@@ -112,19 +112,19 @@ Implementation MUST treat these as hard constants.
     - [x]CLI Argument Parser (`ArgParser` class) is working
     - [x]extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
 
-- [ ] **Phase 2 — CRSCE Decompression Features**
-    - [ ] Implement `CrossSum` class
-    - [ ] Implement `BitHashBuffer` class
-    - [ ] Implement `Compress` class
-    - [ ] Extend `cmd/compress` to use `Compress` class
-    - [ ] Develop end-to-end compression tests using random, generated input data and known, fixed input data.
+- [x] **Phase 2 — CRSCE Decompression Features**
+    - [x] Implement `CrossSum` class
+    - [x] Implement `BitHashBuffer` class
+    - [x] Implement `Compress` class
+    - [x] Extend `cmd/compress` to use `Compress` class
+    - [x] Develop end-to-end compression tests using random, generated input data and known, fixed input data.
 
 - [ ] **Phase 3 — CRSCE Decompression Features**
     - [ ] Implement `Csm` class
     - [ ] Implement `LHChainVerifier` class
     - [ ] Implement `Solver` interface
     - [ ] Implement `DeterministicElimination` class
-    - [ ] Implement `LoopyBeliefsPropagation` class
+    - [ ] Implement `GobpSolver` class
     - [ ] Implement `Decompressor` class
     - [ ] Extend `cmd/decompress` to use `Decompressor` class
     - [ ] Develop end-to-end decompression tests using random
