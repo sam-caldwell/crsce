@@ -120,12 +120,14 @@ Implementation MUST treat these as hard constants.
     - [x] Develop end-to-end compression tests using random, generated input data and known, fixed input data.
 
 - [ ] **Phase 3 — CRSCE Decompression Features**
-    - [ ] Implement `Csm` class
-    - [ ] Implement `LHChainVerifier` class
-    - [ ] Implement `Solver` interface
-    - [ ] Implement `DeterministicElimination` class
+    - [x] Implement `Csm` class (100% feature complete; >99% test coverage; linters/tests green)
+    - [x] Implement `LHChainVerifier` class (100% feature complete; tests added; linters/tests green)
+    - [x] Implement `Solver` interface (abstract API + tests)
+    - [x] Implement `DeterministicElimination` class (forced-move pass + tests; hash_step placeholder)
     - [ ] Implement `GobpSolver` class
     - [ ] Implement `Decompressor` class
+        - [x] Header parsing and validation (v1)
+        - [x] Block payload splitting (LH and sums)
     - [ ] Extend `cmd/decompress` to use `Decompressor` class
     - [ ] Develop end-to-end decompression tests using random
     - [ ] Develop an end-to-end compression-decompression test using random inputs and automated complete cycle.
