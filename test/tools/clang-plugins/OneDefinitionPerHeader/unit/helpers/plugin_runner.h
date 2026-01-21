@@ -147,10 +147,10 @@ inline std::filesystem::path ensure_plugin_built(std::string &log) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     int code = 0;
-    const std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string() +
-                            " -D BUILD_DIR=" + build_root.string() +
-                            " -DONLY_GROUP=clang-plugins/OneDefinitionPerHeader" +
-                            " -P " + (repo / "cmake/pipeline/deps.cmake").string();
+    const std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string()
+                            + " -D BUILD_DIR=" + build_root.string()
+                            + " -DONLY_GROUP=clang-plugins/OneDefinitionPerHeader"
+                            + " -P " + (repo / "cmake/pipeline/deps.cmake").string();
     log += run_command_capture(cmd, code);
     // Release lock
     std::error_code ec;
@@ -172,10 +172,10 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_hdr,
     int code = 0;
 #ifdef _WIN32
     const std::string cmd = std::string("/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -x c++ -c ") + fixture_hdr.
-                            string() +
-                            " -o " + obj.string() +
-                            " -Xclang -load -Xclang " + plugin_lib.string() +
-                            " -Xclang -plugin -Xclang one-definition-per-header";
+                            string()
+                            + " -o " + obj.string()
+                            + " -Xclang -load -Xclang " + plugin_lib.string()
+                            + " -Xclang -plugin -Xclang one-definition-per-header";
     output = run_command_capture(cmd, code);
     return code;
 #else

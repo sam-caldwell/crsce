@@ -44,8 +44,8 @@ std::array<u8, 32> sha256_digest(const u8 *data, std::size_t len) {
     }
     for (int i = 16; i < 64; ++i) {
       const auto i_sz = static_cast<std::size_t>(i);
-      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7) +
-                   small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
+      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7)
+                   + small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
     }
 
     u32 a = h0;
@@ -92,14 +92,14 @@ std::array<u8, 32> sha256_digest(const u8 *data, std::size_t len) {
 
   if (rem + 1 + 8 <= 64) {
     constexpr std::size_t off = 64U - 8U;
-    tail[off + 0] = static_cast<u8>((total_bits >> 56) & 0xffU);
-    tail[off + 1] = static_cast<u8>((total_bits >> 48) & 0xffU);
-    tail[off + 2] = static_cast<u8>((total_bits >> 40) & 0xffU);
-    tail[off + 3] = static_cast<u8>((total_bits >> 32) & 0xffU);
-    tail[off + 4] = static_cast<u8>((total_bits >> 24) & 0xffU);
-    tail[off + 5] = static_cast<u8>((total_bits >> 16) & 0xffU);
-    tail[off + 6] = static_cast<u8>((total_bits >> 8) & 0xffU);
-    tail[off + 7] = static_cast<u8>((total_bits) & 0xffU);
+    tail[off + 0] = static_cast<u8>(total_bits >> 56 & 0xffU);
+    tail[off + 1] = static_cast<u8>(total_bits >> 48 & 0xffU);
+    tail[off + 2] = static_cast<u8>(total_bits >> 40 & 0xffU);
+    tail[off + 3] = static_cast<u8>(total_bits >> 32 & 0xffU);
+    tail[off + 4] = static_cast<u8>(total_bits >> 24 & 0xffU);
+    tail[off + 5] = static_cast<u8>(total_bits >> 16 & 0xffU);
+    tail[off + 6] = static_cast<u8>(total_bits >> 8 & 0xffU);
+    tail[off + 7] = static_cast<u8>(total_bits & 0xffU);
 
     const std::span<const u8> tail_span{tail.data(), tail.size()};
     for (int i = 0; i < 16; ++i) {
@@ -108,8 +108,8 @@ std::array<u8, 32> sha256_digest(const u8 *data, std::size_t len) {
     }
     for (int i = 16; i < 64; ++i) {
       const auto i_sz = static_cast<std::size_t>(i);
-      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7) +
-                   small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
+      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7)
+                   + small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
     }
     u32 a = h0;
     u32 b = h1;
@@ -148,8 +148,8 @@ std::array<u8, 32> sha256_digest(const u8 *data, std::size_t len) {
     }
     for (int i = 16; i < 64; ++i) {
       const auto i_sz = static_cast<std::size_t>(i);
-      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7) +
-                   small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
+      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7)
+                   + small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
     }
     u32 a = h0;
     u32 b = h1;
@@ -189,7 +189,7 @@ std::array<u8, 32> sha256_digest(const u8 *data, std::size_t len) {
     tail2[60] = static_cast<u8>((total_bits >> 24) & 0xffU);
     tail2[61] = static_cast<u8>((total_bits >> 16) & 0xffU);
     tail2[62] = static_cast<u8>((total_bits >> 8) & 0xffU);
-    tail2[63] = static_cast<u8>((total_bits) & 0xffU);
+    tail2[63] = static_cast<u8>(total_bits & 0xffU);
 
     const std::span<const u8> tail2_span{tail2.data(), tail2.size()};
     for (int i = 0; i < 16; ++i) {
@@ -198,8 +198,8 @@ std::array<u8, 32> sha256_digest(const u8 *data, std::size_t len) {
     }
     for (int i = 16; i < 64; ++i) {
       const auto i_sz = static_cast<std::size_t>(i);
-      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7) +
-                   small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
+      w.at(i_sz) = small_sigma1(w.at(i_sz - 2)) + w.at(i_sz - 7)
+                   + small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
     }
     a = h0;
     b = h1;

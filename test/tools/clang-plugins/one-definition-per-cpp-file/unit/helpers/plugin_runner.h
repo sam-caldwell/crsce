@@ -101,10 +101,10 @@ inline std::filesystem::path ensure_plugin_built(std::string &log) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   // Build all tools via the existing deps script
-  const std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string() +
-                    " -D BUILD_DIR=" + build_root.string() +
-                    " -DONLY_GROUP=clang-plugins/OneDefinitionPerCppFile" +
-                    " -P " + (repo / "cmake/pipeline/deps.cmake").string();
+  const std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string()
+                    + " -D BUILD_DIR=" + build_root.string()
+                    + " -DONLY_GROUP=clang-plugins/OneDefinitionPerCppFile"
+                    + " -P " + (repo / "cmake/pipeline/deps.cmake").string();
   log += run_command_capture(cmd, code);
   std::error_code ec;
   std::filesystem::remove(lock, ec);
@@ -125,10 +125,10 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
   auto obj = std::filesystem::current_path() / "_tmp_one_def_per_cpp_file.o";
   int code = 0;
 #ifdef _WIN32
-  const std::string cmd = std::string("/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -c ") + fixture_cpp.string() +
-                    " -o " + obj.string() +
-                    " -Xclang -load -Xclang " + plugin_lib.string() +
-                    " -Xclang -plugin -Xclang one-definition-per-cpp-file";
+  const std::string cmd = std::string("/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -c ") + fixture_cpp.string()
+                    + " -o " + obj.string()
+                    + " -Xclang -load -Xclang " + plugin_lib.string()
+                    + " -Xclang -plugin -Xclang one-definition-per-cpp-file";
   output = run_command_capture(cmd, code);
   return code;
 #else

@@ -18,4 +18,3 @@
 inline void remove_file(const std::string& path) {
   std::remove(path.c_str());
 }
-

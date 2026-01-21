@@ -17,4 +17,3 @@
 inline std::string tmp_dir() {
   return std::filesystem::temp_directory_path().string();
 }
-

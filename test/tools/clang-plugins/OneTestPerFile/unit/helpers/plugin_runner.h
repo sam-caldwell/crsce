@@ -91,9 +91,9 @@ inline std::filesystem::path ensure_plugin_built(std::string &log) {
 
     int code = 0;
     // Build all tools (deps script is incremental and skips if up to date)
-    const std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string() +
-                            " -D BUILD_DIR=" + build_root.string() +
-                            " -P " + (repo / "cmake/pipeline/deps.cmake").string();
+    const std::string cmd = std::string("cmake -D SOURCE_DIR=") + repo.string()
+                            + " -D BUILD_DIR=" + build_root.string()
+                            + " -P " + (repo / "cmake/pipeline/deps.cmake").string();
     log += run_command_capture(cmd, code);
     std::error_code ec;
     std::filesystem::remove(lock, ec);
@@ -123,10 +123,10 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
     const auto obj = std::filesystem::current_path() / "_tmp_one_test_per_file.o";
     int code = 0;
 #ifdef _WIN32
-    const std::string cmd = std::string("/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -c ") + fixture_cpp.string() +
-                            " -o " + obj.string() +
-                            " -Xclang -load -Xclang " + plugin_lib.string() +
-                            " -Xclang -plugin -Xclang one-test-per-file";
+    const std::string cmd = std::string("/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -c ") + fixture_cpp.string()
+                            + " -o " + obj.string()
+                            + " -Xclang -load -Xclang " + plugin_lib.string()
+                            + " -Xclang -plugin -Xclang one-test-per-file";
     output = run_command_capture(cmd, code);
     return code;
 #else

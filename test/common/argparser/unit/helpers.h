@@ -18,4 +18,3 @@ inline Argv make_argv(const std::vector<std::string>& av) {
   }
   return a;
 }
-

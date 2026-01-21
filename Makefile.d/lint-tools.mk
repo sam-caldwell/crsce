@@ -4,4 +4,3 @@
 .PHONY: lint/tools
 lint/tools:
 	@cmake -D LINT_TARGET=cpp_tools -P cmake/pipeline/lint.cmake
-

@@ -13,8 +13,8 @@
 using crsce::common::FileBitSerializer;
 
 TEST(FileBitSerializerTest, HasNextIdempotentAndStableAtEOF) {
-  const std::string path = std::filesystem::temp_directory_path().string() +
-                           "/idempotent_has_next.tmp";
+  const std::string path = std::filesystem::temp_directory_path().string()
+                           + std::string("/idempotent_has_next.tmp");
   {
     std::ofstream out(path, std::ios::binary);
     constexpr auto v = static_cast<char>(0xA5); // 1010 0101

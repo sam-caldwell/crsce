@@ -14,7 +14,7 @@ export PATH := $(LLVMBIN):$(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 # Add local binaries to the PATH for make commands
 export PATH := $(LLVMBIN):$(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 
-.PHONY: all build clean configure help lint ready ready/fix test
+.PHONY: all build clean configure help lint ready ready/fix test whitespace/fix
 help:
 	@echo "Available targets:"
 	@echo "  all       - Run clean configure lint build test"
@@ -28,6 +28,7 @@ help:
 	@echo "  cover     - Ensure minimum test coverage threshold is maintained"
 	@echo "  ready     - Check development environment prerequisites"
 	@echo "  ready/fix - Install missing development environment prerequisites"
+	@echo "  whitespace/fix  - Normalize LF, trim trailing spaces, add final newline"
 	@echo ""
 	@echo "Other targets are available in Makefile.d/."
 
