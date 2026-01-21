@@ -105,12 +105,12 @@ Implementation MUST treat these as hard constants.
         - Finalize and document `OneDefinitionPerHeader` and `OneDefinitionPerCppFile` (usage, diagnostics, wiring).
         - Ensure make deps builds plugins under `tools/*`; tidy plugins land under `build/tools/clang-plugins/`.
         - Lint auto-loads tidy plugins via `-load` (already wired); maintain `NOLINT` guards in fixtures.
-    - [x]Ensure dependabot is running.
-    - [x]Build/Lint/Test Pipeline is working
-    - [x]`hello_world` project is working
-    - [x]basic `cmd/compress` and `cmd/decompress` are working as hello_world examples
-    - [x]CLI Argument Parser (`ArgParser` class) is working
-    - [x]extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
+            - [x]Ensure dependabot is running.
+            - [x]Build/Lint/Test Pipeline is working
+            - [x]`hello_world` project is working
+            - [x]basic `cmd/compress` and `cmd/decompress` are working as hello_world examples
+            - [x]CLI Argument Parser (`ArgParser` class) is working
+            - [x]extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
 
 - [x] **Phase 2 — CRSCE Compression Features**
     - [x] Implement `CrossSum` class
@@ -133,11 +133,42 @@ Implementation MUST treat these as hard constants.
     - [ ] Develop an end-to-end compression-decompression test using random inputs and automated complete cycle.
 
 - [ ] **Phase 4 — Testing and Data Collection**
+    - [ ] Improved Reliability:
+        - [ ] Add Improved error handling for compressor stack
+        - [ ] Add Improved error handling for decompressor stack
+        - [ ] Ensure the decompressor stack fails if any block is empty where header does not indicate an empty file.
+        - [ ] Ensure the decompressor can safely handle empty files.
+        - [ ] Add collision detection to the decompressor stack (solver).
+    - [ ] Observability Features:
+        - [ ] Add metrics to the compressor stack
+            - compression time per block (in nanoseconds)
+            - compression time per file (in nanoseconds)
+            - number of blocks compressed
+            - number of bytes compressed
+        - [ ] Add metrics to the decompressor stack
+            - decompression time per block (in nanoseconds)
+            - decompression time per file (in nanoseconds)
+            - number of blocks decompressed
+            - number of bytes decompressed
+            - number of collisions detected
+            - number of blocks with empty payloads
+            - number of blocks with invalid headers
+            - number of blocks with invalid payloads
+            - number of CSM elements solved by hash-based deterministic elimination
+            - number of CSM elements solved by deterministic elimination
+            - number of CSM elements solved by GOBP
+            - number of cycles through decompression stack
+            - time spent in DE (hashes) (in nanoseconds)
+            - time spent in DE (forced moves) (in nanoseconds)
+            - time spend in GOBP (in nanoseconds)
+            - time spend decoding blocks to LH and cross-sums vectors (in nanoseconds)
+    - [ ] Add Debugging logic to emit the full state of the compressor stack and decompressor stack at each step.
+    - [ ] Add functionality to emit the decompressor state on collision detection.
     - [ ] Develop automated test on HP DL 580 G7 (40 CPU Cores, 128GB RAM)
     - [ ] Test should run end-to-end test cycles on random data.
         - Count the number of collisions (preserving input data)
         - Capture start, stop times for compression and decompression.
-    - [ ] mit metrics as JSON to syslog (and capture this for later analysis).
+    - [ ] Emit metrics as JSON to syslog (and capture this for later analysis).
     - [ ] Increase test coverage to ~99% (ideally 100%).
 - [ ] **Phase 5 — Documentation**
     - [ ] Write paper describing design, implementation and findings.
