@@ -30,7 +30,7 @@ namespace crsce::common {
                 }
             }
         }
-        if (bit_pos != 0) {
+        if (bit_pos != 0) { // GCOVR_EXCL_BR_LINE (kSize*kBitWidth=4599 -> remainder 7 bits; else branch unreachable)
             out.push_back(curr);
         }
     }

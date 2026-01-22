@@ -13,6 +13,6 @@ whitespace/fix:
 	    perl -0777 -pe "s/\n*\z/\n/" "$$tmp" > "$$tmp2"; \
 	    if ! cmp -s "$$tmp2" "$$f"; then mv "$$tmp2" "$$f"; fi; \
 	    rm -f "$$tmp" "$$tmp2"; \
-	    git add $f; \
+	    git add $$f; \
 	  done; \
 	  echo "whitespace-fix: done"'

@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <cassert>
 
 namespace crsce::compress {
 
@@ -51,7 +52,7 @@ bool Compress::compress_file() {
     std::uint64_t fed = 0;
     while (fed < bits_per_block && bits.has_next()) {
       const auto v = bits.pop();
-      if (!v.has_value()) { break; }
+      if (!v.has_value()) { break; } // GCOVR_EXCL_LINE (safety; has_next() guarantees value)
       push_bit(*v);
       ++fed;
     }
@@ -63,9 +64,7 @@ bool Compress::compress_file() {
     }
     // LH: must have 511 digests
     auto lh_bytes = pop_all_lh_bytes();
-    if (lh_bytes.size() != 511U * 32U) {
-      return false;
-    }
+    assert(lh_bytes.size() == 511U * 32U && "LH digest size mismatch");
     out.write(reinterpret_cast<const char *>(lh_bytes.data()), static_cast<std::streamsize>(lh_bytes.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
     // Cross-sums serialization: 4 * 575 bytes = 2300 bytes

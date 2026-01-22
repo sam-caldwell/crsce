@@ -124,16 +124,19 @@ endif()
 
 if(TARGET decompress)
   add_test(NAME decompress_e2e_prints_message COMMAND $<TARGET_FILE:decompress>)
-  set_tests_properties(decompress_e2e_prints_message PROPERTIES PASS_REGULAR_EXPRESSION "Hello, World")
 
+  add_test(NAME decompress_e2e_happy_args_setup
+    COMMAND /bin/sh -c ": > dsrc_ok.tmp; rm -f din_ok.tmp; $<TARGET_FILE:compress> -in dsrc_ok.tmp -out din_ok.tmp; rm -f dout_ok.tmp"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   add_test(NAME decompress_e2e_happy_args
     COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -in din_ok.tmp -out dout_ok.tmp"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-  add_test(NAME decompress_e2e_happy_args_setup
-    COMMAND /bin/sh -c "touch din_ok.tmp; rm -f dout_ok.tmp"
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   set_tests_properties(decompress_e2e_happy_args PROPERTIES DEPENDS decompress_e2e_happy_args_setup)
-  set_tests_properties(decompress_e2e_happy_args PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR} PASS_REGULAR_EXPRESSION "Hello, World")
+  # Verify roundtrip matches original bytes
+  add_test(NAME decompress_e2e_roundtrip_matches
+    COMMAND /bin/sh -c "cmp -s dsrc_ok.tmp dout_ok.tmp"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  set_tests_properties(decompress_e2e_roundtrip_matches PROPERTIES DEPENDS decompress_e2e_happy_args)
 
   add_test(NAME decompress_e2e_missing_input
     COMMAND /bin/sh -c "$<TARGET_FILE:decompress> -in missing.bin -out dout.tmp || true"
@@ -160,6 +163,7 @@ if(TARGET decompress)
     decompress_e2e_prints_message
     decompress_e2e_happy_args_setup
     decompress_e2e_happy_args
+    decompress_e2e_roundtrip_matches
     decompress_e2e_missing_input
     decompress_e2e_output_exists
     decompress_e2e_help_usage

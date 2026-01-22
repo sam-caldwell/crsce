@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <fstream>
 #include <optional>
+#include <functional>
 #include <span>
 #include <string>
 #include <vector>
@@ -52,6 +53,14 @@ namespace crsce::decompress {
 
         /** Blocks remaining to read after header is parsed. */
         [[nodiscard]] std::uint64_t blocks_remaining() const noexcept { return blocks_remaining_; }
+
+        /**
+         * Iterate all blocks, invoking a callback with LH and sums spans for each.
+         * Returns false if header is invalid or any block cannot be read fully.
+         */
+        bool for_each_block(HeaderV1Fields &hdr,
+                            const std::function<void(std::span<const std::uint8_t> lh,
+                                                      std::span<const std::uint8_t> sums)> &fn);
 
     private:
         std::ifstream in_;

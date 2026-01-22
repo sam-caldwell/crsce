@@ -52,6 +52,7 @@ execute_process(
           -DCMAKE_CXX_STANDARD=23
           -DCMAKE_CXX_FLAGS=-fprofile-instr-generate\ -fcoverage-mapping
           -DCMAKE_EXE_LINKER_FLAGS=-fprofile-instr-generate
+          -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=${BUILD_DIR}/llvm-debug/_deps/googletest-src
           ${_SDK_CFG_FLAG}
   RESULT_VARIABLE _CFG_RC
 )
@@ -95,6 +96,14 @@ execute_process(
 )
 if(NOT _PR_RC EQUAL 0)
   message(FATAL_ERROR "Coverage test run (with profiling) failed (${_PR_RC}).")
+endif()
+
+# Create a stable reference path at ${BUILD_DIR}/Temporary pointing to this build's Testing/Temporary
+set(_TMP_SRC "${COV_BIN_DIR}/Testing/Temporary")
+set(_TMP_DST "${BUILD_DIR}/Temporary")
+if(EXISTS "${_TMP_SRC}")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E remove -f "${_TMP_DST}")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink "${_TMP_SRC}" "${_TMP_DST}")
 endif()
 
 # Merge profiles (search broadly to be robust to runner working directories)

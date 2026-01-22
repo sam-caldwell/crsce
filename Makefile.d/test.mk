@@ -10,4 +10,11 @@ JOBS := $(shell cmake -P cmake/tools/print_num_cpus.cmake | tail -n1 | sed 's/[^
 test:
 	@echo "--- Running tests for preset: $(PRESET) ---"
 	@cd build/$(PRESET) && ctest --output-on-failure -j $(JOBS)
+	@# Ensure a stable Temporary/ path under build/ for tooling convenience
+	@TMP_SRC_DIR="$(BUILD_DIR)/$(PRESET)/Testing/Temporary"; \
+	TMP_DST_DIR="$(BUILD_DIR)/Testing"; \
+	if [ -d "$$TMP_SRC_DIR" ]; then \
+	  cmake -E remove -f "$$TMP_DST_DIR"; \
+	  cmake -E create_symlink "$$TMP_SRC_DIR" "$$TMP_DST_DIR"; \
+	fi
 	@echo "--- Tests complete ---"

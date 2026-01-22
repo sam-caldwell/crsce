@@ -94,7 +94,7 @@ Implementation MUST treat these as hard constants.
 | `decompress`        | `Decompressor`             | CRSCE decompressor                       |
 | `decompress`        | `Solver`                   | Polymorphic CRSCE solver interface       |
 | `decompress`        | `DeterministicElimination` | CRSCE deterministic elimination features |
-| `decompress`        | `LoopyBeliefsPropagation`  | CRSCE loopy belief propagation solver    |
+| `decompress`        | `GobpSolver`               | CRSCE GOBP Solver                        |
 
 ---
 
@@ -105,12 +105,12 @@ Implementation MUST treat these as hard constants.
         - Finalize and document `OneDefinitionPerHeader` and `OneDefinitionPerCppFile` (usage, diagnostics, wiring).
         - Ensure make deps builds plugins under `tools/*`; tidy plugins land under `build/tools/clang-plugins/`.
         - Lint auto-loads tidy plugins via `-load` (already wired); maintain `NOLINT` guards in fixtures.
-            - [x]Ensure dependabot is running.
-            - [x]Build/Lint/Test Pipeline is working
-            - [x]`hello_world` project is working
-            - [x]basic `cmd/compress` and `cmd/decompress` are working as hello_world examples
-            - [x]CLI Argument Parser (`ArgParser` class) is working
-            - [x]extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
+        - [x] Ensure dependabot is running.
+        - [x] Build/Lint/Test Pipeline is working
+        - [x] `hello_world` project is working
+        - [x] basic `cmd/compress` and `cmd/decompress` are working as hello_world examples
+        - [x] CLI Argument Parser (`ArgParser` class) is working
+        - [x] extend `cmd/compress` and `cmd/decompress` to use `ArgParser`
 
 - [x] **Phase 2 — CRSCE Compression Features**
     - [x] Implement `CrossSum` class
@@ -124,7 +124,7 @@ Implementation MUST treat these as hard constants.
     - [x] Implement `LHChainVerifier` class (100% feature complete; tests added; linters/tests green)
     - [x] Implement `Solver` interface (abstract API + tests)
     - [x] Implement `DeterministicElimination` class (forced-move pass + tests; hash_step placeholder)
-    - [ ] Implement `GobpSolver` class
+    - [x] Implement `GobpSolver` class (CPU single-host; damping + thresholds; full tests; linters green)
     - [ ] Implement `Decompressor` class
         - [x] Header parsing and validation (v1)
         - [x] Block payload splitting (LH and sums)

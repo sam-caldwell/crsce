@@ -24,10 +24,9 @@ void BitHashBuffer::pushBit(bool v) {
         currByte_ | (static_cast<std::uint8_t>(1U) << shift));
   }
   ++bitPos_;
-  if (bitPos_ >= 8) {
-    flushByteToRow();
-    finalizeRowIfFull();
-  }
+  // Always attempt to flush and finalize; flushByteToRow() early-returns until 8 bits.
+  flushByteToRow();
+  finalizeRowIfFull();
 }
 
 } // namespace crsce::common

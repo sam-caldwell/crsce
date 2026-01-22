@@ -26,6 +26,7 @@ Start here if you’re new:
 - [Theory of Operation](./theory.md)
 - [File Format](./format.md)
 - [Decompression Notes](decompression.md)
+- [GobpSolver Parameters and Tuning](./GobpSolver/README.md)
 - [Usage Guides](./usage.md)
 - [Build and Test](./build.md)
 - [Security and Robustness](./security.md)
