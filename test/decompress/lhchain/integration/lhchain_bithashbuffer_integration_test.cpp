@@ -20,7 +20,7 @@ using crsce::decompress::Csm;
 using crsce::decompress::LHChainVerifier;
 
 TEST(LHChainIntegration, BitHashBufferEndToEndChainVerification) { // NOLINT
-    const std::string seed = "CRSCE_v1_seed";
+    constexpr std::string seed = "CRSCE_v1_seed";
     BitHashBuffer hasher(seed);
     const LHChainVerifier verifier(seed);
     Csm csm;

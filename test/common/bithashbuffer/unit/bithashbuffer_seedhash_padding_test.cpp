@@ -3,6 +3,11 @@
  * @brief Validate seedHash for single- and double-block SHA-256 padding.
  */
 #include <cstdint>
+/**
+ * @file bithashbuffer_seedhash_padding_test.cpp
+ * @brief Seed hash padding behavior is correct for the first block.
+ * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>

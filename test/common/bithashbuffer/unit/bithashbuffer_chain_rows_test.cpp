@@ -6,6 +6,12 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+/**
+ * @file bithashbuffer_chain_rows_test.cpp
+ * @brief BitHashBuffer chains multiple rows and produces expected digests.
+ * @copyright (c) 2026 Sam Caldwell.
+ * See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <iterator>
 #include <string>

@@ -19,11 +19,11 @@ using crsce::decompress::Csm;
 using crsce::common::detail::sha256::sha256_digest;
 
 TEST(LHChainVerifier, ZerosFirstTwoRowsOk) { // NOLINT
-    const std::string seed = "CRSCE_v1_seed";
+    constexpr std::string seed = "CRSCE_v1_seed";
     const LHChainVerifier v{seed};
     const Csm csm; // all zeros rows
 
-    // Build expected LH for first two zero rows
+    // Build expected LH for the first two zero rows
     const std::vector<std::uint8_t> seed_bytes(seed.begin(), seed.end());
     const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
     std::array<std::uint8_t, LHChainVerifier::kRowSize> zero_row{};

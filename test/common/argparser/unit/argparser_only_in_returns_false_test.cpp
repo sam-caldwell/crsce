@@ -9,8 +9,9 @@
 using crsce::common::ArgParser;
 
 TEST(ArgParserTest, OnlyInFlagReturnsFalse) {
-  ArgParser p("prog");
-  auto a = make_argv({"prog", "-in", "input.bin"});
-  const bool ok = p.parse(std::span<char *>{a.argv.data(), a.argv.size()});
-  EXPECT_FALSE(ok);
+    ArgParser p("prog");
+    // ReSharper disable once CppUseStructuredBinding
+    auto a = make_argv({"prog", "-in", "input.bin"});
+    const bool ok = p.parse(std::span<char *>{a.argv.data(), a.argv.size()});
+    EXPECT_FALSE(ok);
 }

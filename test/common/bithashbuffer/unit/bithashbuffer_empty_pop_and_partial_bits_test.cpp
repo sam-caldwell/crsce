@@ -2,6 +2,11 @@
  * @file bithashbuffer_empty_pop_and_partial_bits_test.cpp
  * @brief popHash() empty case; partial bits should not produce a hash.
  */
+/**
+ * @file bithashbuffer_empty_pop_and_partial_bits_test.cpp
+ * @brief Empty pop and partial bits behavior (no spurious hashes).
+ * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <string>
 

@@ -56,6 +56,7 @@ TEST(DecompressorIntegration, ReadOneBlockFromCompressedFile) { // NOLINT
     EXPECT_EQ(lh.size(), Decompressor::kLhBytes);
     EXPECT_EQ(sums.size(), Decompressor::kSumsBytes);
 }
+
 TEST(DecompressorIntegration, TruncatedBlockReturnsNullopt) { // NOLINT
     namespace fs = std::filesystem;
     const std::string in = std::string(TEST_BINARY_DIR) + "/d_trunc_in.bin";
@@ -70,7 +71,7 @@ TEST(DecompressorIntegration, TruncatedBlockReturnsNullopt) { // NOLINT
         Compress cx(in, out);
         ASSERT_TRUE(cx.compress_file());
     }
-    // Truncate file to header + fragment of block
+    // Truncate the file to header + fragment of block
     ASSERT_TRUE(fs::exists(out));
     const auto orig_size = fs::file_size(out);
     ASSERT_GT(orig_size, Decompressor::kHeaderSize);
@@ -84,7 +85,7 @@ TEST(DecompressorIntegration, TruncatedBlockReturnsNullopt) { // NOLINT
         in_f.read(buf.data(), static_cast<std::streamsize>(buf.size()));
         out_f.write(buf.data(), in_f.gcount());
     }
-    // Decompressor on truncated file: header ok, first block read fails
+    // Decompressor on a truncated file: header ok, first block read fails
     Decompressor dx(truncated);
     HeaderV1Fields hdr{};
     ASSERT_TRUE(dx.read_header(hdr));

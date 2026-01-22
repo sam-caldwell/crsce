@@ -15,35 +15,57 @@ using u8 = crsce::common::detail::sha256::u8;
 namespace known = crsce::decompress::known_lh;
 
 namespace {
-std::array<u8, 64> row_zeros() { return {}; }
+    std::array<u8, 64> row_zeros() { return {}; }
 
-std::array<u8, 64> row_ones() {
-    std::array<u8, 64> r{}; r.fill(0xFF); r.back() = 0xFE; return r;
-}
-
-std::array<u8, 64> row_alt_0101() {
-    std::array<u8, 64> r{}; std::size_t byte_idx = 0; int bit_pos = 0; u8 curr = 0;
-    for (std::size_t i = 0; i < 511; ++i) {
-        const bool bit = (i % 2) != 0; if (bit) { curr = static_cast<u8>(curr | static_cast<u8>(1U << (7 - bit_pos))); }
-        ++bit_pos; if (bit_pos >= 8) { r.at(byte_idx++) = curr; curr = 0; bit_pos = 0; }
+    std::array<u8, 64> row_ones() {
+        std::array<u8, 64> r{};
+        r.fill(0xFF);
+        r.back() = 0xFE;
+        return r;
     }
-    if (bit_pos != 0) { r.at(byte_idx) = curr; }
-    return r;
-}
 
-std::array<u8, 64> row_alt_1010() {
-    std::array<u8, 64> r{}; std::size_t byte_idx = 0; int bit_pos = 0; u8 curr = 0;
-    for (std::size_t i = 0; i < 511; ++i) {
-        const bool bit = (i % 2) == 0; if (bit) { curr = static_cast<u8>(curr | static_cast<u8>(1U << (7 - bit_pos))); }
-        ++bit_pos; if (bit_pos >= 8) { r.at(byte_idx++) = curr; curr = 0; bit_pos = 0; }
+    std::array<u8, 64> row_alt_0101() {
+        std::array<u8, 64> r{};
+        std::size_t byte_idx = 0;
+        int bit_pos = 0;
+        u8 curr = 0;
+        for (std::size_t i = 0; i < 511; ++i) {
+            if (const bool bit = (i % 2) != 0) {
+                curr = static_cast<u8>(curr | static_cast<u8>(1U << (7 - bit_pos)));
+            }
+            ++bit_pos;
+            if (bit_pos >= 8) {
+                r.at(byte_idx++) = curr;
+                curr = 0;
+                bit_pos = 0;
+            }
+        }
+        if (bit_pos != 0) { r.at(byte_idx) = curr; }
+        return r;
     }
-    if (bit_pos != 0) { r.at(byte_idx) = curr; }
-    return r;
-}
+
+    std::array<u8, 64> row_alt_1010() {
+        std::array<u8, 64> r{};
+        std::size_t byte_idx = 0;
+        int bit_pos = 0;
+        u8 curr = 0;
+        for (std::size_t i = 0; i < 511; ++i) {
+            const bool bit = (i % 2) == 0;
+            if (bit) { curr = static_cast<u8>(curr | static_cast<u8>(1U << (7 - bit_pos))); }
+            ++bit_pos;
+            if (bit_pos >= 8) {
+                r.at(byte_idx++) = curr;
+                curr = 0;
+                bit_pos = 0;
+            }
+        }
+        if (bit_pos != 0) { r.at(byte_idx) = curr; }
+        return r;
+    }
 } // namespace
 
 TEST(KnownRowHashes, ConstantsMatchComputed) { // NOLINT
-    const std::string seed = "CRSCE_v1_seed";
+    constexpr std::string seed = "CRSCE_v1_seed";
     const auto *seed_data = reinterpret_cast<const u8 *>(seed.data()); // NOLINT
     const auto seed_hash = sha256_digest(seed_data, seed.size());
     EXPECT_EQ(seed_hash, known::kSeedHash);

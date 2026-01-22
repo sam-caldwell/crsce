@@ -9,16 +9,16 @@
 using crsce::common::ArgParser;
 
 TEST(ArgParserTest, MissingValueFails) {
-  {
-    // ReSharper disable once CppUseStructuredBinding
-    auto a = make_argv({"prog", "-in"});
-    ArgParser p("prog");
-    EXPECT_FALSE(p.parse(std::span<char *>{a.argv.data(), a.argv.size()}));
-  }
-  {
-    // ReSharper disable once CppUseStructuredBinding
-    auto a = make_argv({"prog", "-out"});
-    ArgParser p("prog");
-    EXPECT_FALSE(p.parse(std::span<char *>{a.argv.data(), a.argv.size()}));
-  }
+    {
+        // ReSharper disable once CppUseStructuredBinding
+        auto a = make_argv({"prog", "-in"});
+        ArgParser p("prog");
+        EXPECT_FALSE(p.parse(std::span<char *>{a.argv.data(), a.argv.size()}));
+    }
+    {
+        // ReSharper disable once CppUseStructuredBinding
+        auto a = make_argv({"prog", "-out"});
+        ArgParser p("prog");
+        EXPECT_FALSE(p.parse(std::span<char *>{a.argv.data(), a.argv.size()}));
+    }
 }

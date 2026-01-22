@@ -13,6 +13,6 @@ using crsce::decompress::Csm;
 TEST(LHChainVerifier, ZeroRowsOk) { // NOLINT
     const LHChainVerifier v{"CRSCE_v1_seed"};
     const Csm csm; // default zeros
-    const std::vector<std::uint8_t> empty{};
+    constexpr std::vector<std::uint8_t> empty{};
     EXPECT_TRUE(v.verify_rows(csm, empty, 0));
 }

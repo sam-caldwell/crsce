@@ -6,6 +6,11 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+/**
+ * @file bithashbuffer_private_coverage_test.cpp
+ * @brief Coverage of private helpers using friend exposure hooks.
+ * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <iterator>
 #include <string>

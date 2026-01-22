@@ -19,28 +19,28 @@ using crsce::decompress::Csm;
 using crsce::common::detail::sha256::sha256_digest;
 
 namespace {
-// Pack a vector<bool> bits MSB-first into 64 bytes
-std::array<std::uint8_t, 64> pack_row_64(const std::vector<bool> &bits) {
-    std::array<std::uint8_t, 64> row{};
-    std::size_t byte_idx = 0;
-    int bit_pos = 0; // 0..7; 0 is MSB position
-    std::uint8_t curr = 0;
-    for (const bool b: bits) {
-        if (b) {
-            curr = static_cast<std::uint8_t>(curr | static_cast<std::uint8_t>(1U << (7 - bit_pos)));
+    // Pack a vector<bool> bits MSB-first into 64 bytes
+    std::array<std::uint8_t, 64> pack_row_64(const std::vector<bool> &bits) {
+        std::array<std::uint8_t, 64> row{};
+        std::size_t byte_idx = 0;
+        int bit_pos = 0; // 0..7; 0 is MSB position
+        std::uint8_t curr = 0;
+        for (const bool b: bits) {
+            if (b) {
+                curr = static_cast<std::uint8_t>(curr | static_cast<std::uint8_t>(1U << (7 - bit_pos)));
+            }
+            ++bit_pos;
+            if (bit_pos >= 8) {
+                row.at(byte_idx++) = curr;
+                curr = 0;
+                bit_pos = 0;
+            }
         }
-        ++bit_pos;
-        if (bit_pos >= 8) {
-            row.at(byte_idx++) = curr;
-            curr = 0;
-            bit_pos = 0;
+        if (bit_pos != 0) {
+            row.at(byte_idx) = curr;
         }
+        return row;
     }
-    if (bit_pos != 0) {
-        row.at(byte_idx) = curr;
-    }
-    return row;
-}
 } // namespace
 
 TEST(LHChainVerifier, SinglePatternRowOk) { // NOLINT
@@ -59,7 +59,7 @@ TEST(LHChainVerifier, SinglePatternRowOk) { // NOLINT
     bits.push_back(false); // pad bit
     const auto row64 = pack_row_64(bits);
 
-    const std::string seed = "CRSCE_v1_seed";
+    constexpr std::string seed = "CRSCE_v1_seed";
     const std::vector<std::uint8_t> seed_bytes(seed.begin(), seed.end());
     const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
     std::array<std::uint8_t, 32 + 64> buf{};

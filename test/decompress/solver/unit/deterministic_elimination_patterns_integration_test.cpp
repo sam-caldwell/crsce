@@ -20,7 +20,7 @@ TEST(DeterministicEliminationPatterns, AllZerosEliminatedByDE) { // NOLINT
     for (std::size_t i = 0; i < Csm::kS; ++i) {
         st.U_row.at(i) = st.U_col.at(i) = st.U_diag.at(i) = st.U_xdiag.at(i) = static_cast<std::uint16_t>(Csm::kS);
         st.R_row.at(i) = 0;
-        st.R_col.at(i) = 0;      // not used by row-forcing zeros; kept consistent
+        st.R_col.at(i) = 0; // not used by row-forcing zeros; kept consistent
         st.R_diag.at(i) = 0;
         st.R_xdiag.at(i) = 0;
     }
@@ -69,8 +69,9 @@ TEST(DeterministicEliminationPatterns, AlternatingRowsEliminatedByHashThenDENoop
     // Simulate hash-based DE solved rows: lock alternating patterns and set U=0, R=0 across all families.
     for (std::size_t r = 0; r < Csm::kS; ++r) {
         for (std::size_t c = 0; c < Csm::kS; ++c) {
-            const bool bit = (r % 2U == 0U) ? ((c % 2U) != 0U)  // 0101...
-                                            : ((c % 2U) == 0U); // 1010...
+            const bool bit = (r % 2U == 0U)
+                                 ? ((c % 2U) != 0U) // 0101...
+                                 : ((c % 2U) == 0U); // 1010...
             csm.put(r, c, bit);
             csm.lock(r, c);
         }

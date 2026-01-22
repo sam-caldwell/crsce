@@ -10,27 +10,30 @@
 using crsce::decompress::Solver;
 
 namespace {
-class DummySolver final : public Solver {
-public:
-    DummySolver() = default;
-    std::size_t solve_step() override {
-        if (steps_ < 2) {
-            ++steps_;
-            return 1; // solved one bit
-        }
-        solved_ = true;
-        return 0; // no more progress
-    }
-    [[nodiscard]] bool solved() const override { return solved_; }
-    void reset() override {
-        steps_ = 0;
-        solved_ = false;
-    }
+    class DummySolver final : public Solver {
+    public:
+        DummySolver() = default;
 
-private:
-    std::size_t steps_{0};
-    bool solved_{false};
-};
+        std::size_t solve_step() override {
+            if (steps_ < 2) {
+                ++steps_;
+                return 1; // solved one bit
+            }
+            solved_ = true;
+            return 0; // no more progress
+        }
+
+        [[nodiscard]] bool solved() const override { return solved_; }
+
+        void reset() override {
+            steps_ = 0;
+            solved_ = false;
+        }
+
+    private:
+        std::size_t steps_{0};
+        bool solved_{false};
+    };
 } // namespace
 
 TEST(SolverDummyImplSmoke, CallsThroughBasePointer) { // NOLINT

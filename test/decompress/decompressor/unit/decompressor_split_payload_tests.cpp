@@ -24,6 +24,7 @@ TEST(Decompressor, SplitPayloadOk) { // NOLINT
     EXPECT_EQ(lh.front(), static_cast<std::uint8_t>(0));
     EXPECT_EQ(sums.front(), static_cast<std::uint8_t>(Decompressor::kLhBytes & 0xFFU));
 }
+
 TEST(Decompressor, SplitPayloadBadLengths) { // NOLINT
     const std::vector<std::uint8_t> too_small(Decompressor::kBlockBytes - 1U);
     const std::vector<std::uint8_t> too_large(Decompressor::kBlockBytes + 1U);

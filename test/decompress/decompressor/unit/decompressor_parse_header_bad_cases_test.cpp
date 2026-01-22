@@ -15,12 +15,15 @@ using crsce::decompress::HeaderV1Fields;
 using crsce::common::format::HeaderV1;
 
 namespace {
-std::array<std::uint8_t, Decompressor::kHeaderSize> mk_hdr(std::uint64_t orig, std::uint64_t blocks) {
-    const auto v = HeaderV1::pack(orig, blocks);
-    std::array<std::uint8_t, Decompressor::kHeaderSize> a{};
-    std::ranges::copy(v, a.begin());
-    return a;
-}
+    // ReSharper disable once CppDFAConstantParameter
+    // NOLINT BEGIN(CppDFAConstantParameter)
+    std::array<std::uint8_t, Decompressor::kHeaderSize> mk_hdr(const std::uint64_t orig, const std::uint64_t blocks) {
+    // NOLINT END(CppDFAConstantParameter)
+        const auto v = HeaderV1::pack(orig, blocks);
+        std::array<std::uint8_t, Decompressor::kHeaderSize> a{};
+        std::ranges::copy(v, a.begin());
+        return a;
+    }
 } // namespace
 
 TEST(Decompressor, ParseHeaderBadMagicVersionCrc) { // NOLINT

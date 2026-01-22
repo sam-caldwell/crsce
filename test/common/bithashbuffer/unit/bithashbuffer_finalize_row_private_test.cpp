@@ -6,6 +6,11 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+/**
+ * @file bithashbuffer_finalize_row_private_test.cpp
+ * @brief FinalizeRow private path is exercised via test exposure.
+ * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <iterator>
 #include <string>
