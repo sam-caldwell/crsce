@@ -8,6 +8,18 @@
 
 using crsce::common::ArgParser;
 
+/**
+
+ * @name ArgParserTest.HappyPathInThenOut
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(ArgParserTest, HappyPathInThenOut) {
     // ReSharper disable once CppUseStructuredBinding
     auto a = make_argv({"prog", "-in", "a.bin", "-out", "b.bin"});

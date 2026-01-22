@@ -10,6 +10,18 @@
 
 using crsce::compress::Compress;
 
+/**
+
+ * @name CompressAdvanceCoords.AdvancesColumnWithinRow
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(CompressAdvanceCoords, AdvancesColumnWithinRow) { // NOLINT
     Compress cx("in.bin", "out.crsc");
     // Push two ones; expect column cross-sums at c=0 and c=1 incremented

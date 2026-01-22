@@ -14,6 +14,18 @@ using crsce::decompress::Decompressor;
 using crsce::decompress::HeaderV1Fields;
 using crsce::common::format::HeaderV1;
 
+/**
+
+ * @name Decompressor.ParseHeaderOk
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(Decompressor, ParseHeaderOk) { // NOLINT
     const std::uint64_t orig = 12345U;
     const std::uint64_t blocks = 7U;

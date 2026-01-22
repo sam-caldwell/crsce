@@ -6,6 +6,18 @@
 
 using crsce::common::util::nibble_to_hex;
 
+/**
+
+ * @name UtilMathTest.NibbleToHexDigits
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(UtilMathTest, NibbleToHexDigits) {
   EXPECT_EQ(nibble_to_hex(0), '0');
   EXPECT_EQ(nibble_to_hex(9), '9');

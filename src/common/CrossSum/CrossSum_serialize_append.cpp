@@ -1,6 +1,7 @@
 /**
  * @file CrossSum_serialize_append.cpp
  * @brief Serialize CrossSum elements as contiguous 9-bit MSB-first bitstream.
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/CrossSum/CrossSum.h"
 #include <cstddef>
@@ -23,6 +24,9 @@ namespace crsce::common {
                 }
                 ++bit_pos;
                 // NOLINTNEXTLINE(readability-magic-numbers)
+                /**
+                 * @brief Implementation detail.
+                 */
                 if (bit_pos >= 8) {
                     out.push_back(curr);
                     curr = 0;

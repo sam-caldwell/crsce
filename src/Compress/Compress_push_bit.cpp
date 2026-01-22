@@ -1,11 +1,15 @@
 /**
  * @file Compress_push_bit.cpp
  * @brief Implementation of Compress::push_bit (row-major streaming).
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <cstddef>
 
 namespace crsce::compress {
+    /**
+     * @brief Implementation detail.
+     */
     void Compress::push_bit(bool bit) {
         // Update cross-sums on bit=1
         if (bit) {

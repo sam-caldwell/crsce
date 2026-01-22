@@ -1,5 +1,7 @@
 /**
  * @file HeaderV1.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/Format/HeaderV1.h"
 #include "common/Util/Crc32.h"
@@ -10,6 +12,9 @@
 namespace crsce::common::format {
 
 namespace {
+/**
+ * @brief Implementation detail.
+ */
 inline void put_le16(std::array<std::uint8_t, HeaderV1::kSize> &b, std::size_t off, std::uint16_t v) {
   b.at(off + 0) = static_cast<std::uint8_t>(v & 0xFFU);
   b.at(off + 1) = static_cast<std::uint8_t>((v >> 8U) & 0xFFU);

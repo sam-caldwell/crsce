@@ -1,5 +1,7 @@
 /**
  * @file GobpSolver.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Gobp/GobpSolver.h"
 #include "decompress/Csm/Csm.h"
@@ -11,6 +13,12 @@
 #include <stdexcept>
 
 namespace crsce::decompress {
+
+    /**
+
+     * @brief Implementation detail.
+
+     */
 
     GobpSolver::GobpSolver(Csm &csm, ConstraintState &state,
                            const double damping,

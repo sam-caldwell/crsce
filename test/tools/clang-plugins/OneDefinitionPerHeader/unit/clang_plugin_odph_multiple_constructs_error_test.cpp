@@ -7,6 +7,18 @@
 #include <gtest/gtest.h>
 #include <string>
 
+/**
+
+ * @name ClangPluginODPH.MultipleConstructsFail
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(ClangPluginODPH, MultipleConstructsFail) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

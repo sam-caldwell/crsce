@@ -35,6 +35,18 @@ hash_row(const std::array<std::uint8_t, BitHashBuffer::kHashSize> &prev,
 }
 } // anonymous namespace
 
+/**
+
+ * @name BitHashBufferFinalizeRowPathsTest.FinalizeRowEarlyAndFullPaths
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(BitHashBufferFinalizeRowPathsTest, FinalizeRowEarlyAndFullPaths) {
   // Early path: push fewer than 64 bytes; no hash produced
   {

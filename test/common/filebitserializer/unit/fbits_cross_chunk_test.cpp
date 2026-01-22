@@ -15,6 +15,18 @@
 
 using crsce::common::FileBitSerializer;
 
+/**
+
+ * @name FileBitSerializerTest.CrossChunkReadHandlesBoundaries
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(FileBitSerializerTest, CrossChunkReadHandlesBoundaries) {
   const std::string path = tmp_dir() + "/cross_chunk.tmp";
   {

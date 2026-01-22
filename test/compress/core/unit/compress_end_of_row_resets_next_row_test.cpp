@@ -10,6 +10,18 @@
 
 using crsce::compress::Compress;
 
+/**
+
+ * @name CompressAdvanceCoords.EndOfRowDoesNotAdvanceColumnAndResetsNextRow
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(CompressAdvanceCoords, EndOfRowDoesNotAdvanceColumnAndResetsNextRow) { // NOLINT
     Compress cx("in.bin", "out.crsc");
     // Fill row 0 with ones (511 data bits); end-of-row triggers pad and row advance

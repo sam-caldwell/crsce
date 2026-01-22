@@ -1,5 +1,7 @@
 /**
  * @file ExtractFirstHex64.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/HasherUtils/ExtractFirstHex64.h"
 
@@ -7,6 +9,12 @@
 #include <string>
 
 namespace crsce::common::hasher {
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 bool extract_first_hex64(const std::string &src, std::string &hex_out) {
   hex_out.clear();

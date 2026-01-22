@@ -14,6 +14,18 @@ using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
 using crsce::decompress::DeterministicElimination;
 
+/**
+
+ * @name DeterministicEliminationSad.ConstructorRejectsRGreaterThanU
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(DeterministicEliminationSad, ConstructorRejectsRGreaterThanU) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -25,6 +37,18 @@ TEST(DeterministicEliminationSad, ConstructorRejectsRGreaterThanU) { // NOLINT
     st.R_row.at(2) = 11; // invalid
     EXPECT_THROW((DeterministicElimination{csm, st}), std::invalid_argument);
 }
+
+/**
+
+ * @name DeterministicEliminationSad.ThrowsWhenULineZeroButCellUnlocked
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
 
 TEST(DeterministicEliminationSad, ThrowsWhenULineZeroButCellUnlocked) { // NOLINT
     Csm csm;

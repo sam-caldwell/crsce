@@ -14,6 +14,18 @@ using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
 using crsce::decompress::GobpSolver;
 
+/**
+
+ * @name GobpSolverParams.ClampingAndGetters
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(GobpSolverParams, ClampingAndGetters) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -37,6 +49,18 @@ TEST(GobpSolverParams, ClampingAndGetters) { // NOLINT
     EXPECT_GT(gobp.assign_confidence(), 0.5); // clamped strictly above 0.5
     EXPECT_LE(gobp.assign_confidence(), 1.0);
 }
+
+/**
+
+ * @name GobpSolverParams.DampingBlendsPreviousData
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
 
 TEST(GobpSolverParams, DampingBlendsPreviousData) { // NOLINT
     Csm csm;
@@ -62,6 +86,18 @@ TEST(GobpSolverParams, DampingBlendsPreviousData) { // NOLINT
     EXPECT_FALSE(csm.is_locked(r, c));
 }
 
+/**
+
+ * @name GobpSolverParams.SkipsLockedCells
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(GobpSolverParams, SkipsLockedCells) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -81,6 +117,18 @@ TEST(GobpSolverParams, SkipsLockedCells) { // NOLINT
     EXPECT_TRUE(csm.is_locked(r, c));
     EXPECT_DOUBLE_EQ(csm.get_data(r, c), 0.123);
 }
+
+/**
+
+ * @name GobpSolverParams.SolvedReturnsTrueWhenAllUZero
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
 
 TEST(GobpSolverParams, SolvedReturnsTrueWhenAllUZero) { // NOLINT
     Csm csm;

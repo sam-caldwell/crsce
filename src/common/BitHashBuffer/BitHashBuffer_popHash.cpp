@@ -18,6 +18,9 @@ namespace crsce::common {
  * @return Oldest 32-byte digest or std::nullopt if empty.
  */
 std::optional<std::array<std::uint8_t, BitHashBuffer::kHashSize>>
+/**
+ * @brief Implementation detail.
+ */
 BitHashBuffer::popHash() {
   if (hashVector_.empty()) {
     return std::nullopt;

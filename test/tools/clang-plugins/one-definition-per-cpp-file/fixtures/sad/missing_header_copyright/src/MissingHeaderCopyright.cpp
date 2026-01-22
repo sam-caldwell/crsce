@@ -1,6 +1,7 @@
 /**
  * @file MissingHeaderCopyright.cpp
  * @brief Missing copyright tag in the header.
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 
 /**

@@ -15,6 +15,9 @@ namespace crsce::common {
         opts_ = Options{};
         // Use manual index to avoid modifying the loop counter in-place
         std::size_t i = 1; // NOLINT(*-identifier-length)
+        /**
+         * @brief Implementation detail.
+         */
         while (i < args.size()) {
             const std::string arg = args[i];
             if (arg == "-h" || arg == "--help") {

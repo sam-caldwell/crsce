@@ -13,6 +13,18 @@ using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
 using crsce::decompress::DeterministicElimination;
 
+/**
+
+ * @name DeterministicEliminationPatterns.AllZerosEliminatedByDE
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(DeterministicEliminationPatterns, AllZerosEliminatedByDE) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -39,6 +51,18 @@ TEST(DeterministicEliminationPatterns, AllZerosEliminatedByDE) { // NOLINT
     EXPECT_TRUE(de.solved());
 }
 
+/**
+
+ * @name DeterministicEliminationPatterns.AllOnesEliminatedByDE
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(DeterministicEliminationPatterns, AllOnesEliminatedByDE) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -63,6 +87,18 @@ TEST(DeterministicEliminationPatterns, AllOnesEliminatedByDE) { // NOLINT
     EXPECT_TRUE(de.solved());
 }
 
+/**
+
+ * @name DeterministicEliminationPatterns.AlternatingRowsEliminatedByHashThenDENoop
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(DeterministicEliminationPatterns, AlternatingRowsEliminatedByHashThenDENoop) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -86,6 +122,18 @@ TEST(DeterministicEliminationPatterns, AlternatingRowsEliminatedByHashThenDENoop
     EXPECT_EQ(progress, 0U);
     EXPECT_TRUE(de.solved());
 }
+
+/**
+
+ * @name DeterministicEliminationPatterns.SingleRowForcedOnesOnly
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
 
 TEST(DeterministicEliminationPatterns, SingleRowForcedOnesOnly) { // NOLINT
     Csm csm;

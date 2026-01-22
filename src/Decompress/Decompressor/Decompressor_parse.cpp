@@ -1,5 +1,7 @@
 /**
  * @file Decompressor_parse.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 #include "common/Util/Crc32.h"
@@ -15,6 +17,9 @@ namespace crsce::decompress {
     using crsce::common::util::crc32_ieee;
 
     namespace {
+        /**
+         * @brief Implementation detail.
+         */
         template<typename T>
         inline T load_le(std::span<const std::uint8_t> s) {
             T v = 0;

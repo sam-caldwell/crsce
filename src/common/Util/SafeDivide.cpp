@@ -6,6 +6,9 @@
 #include <optional>
 
 namespace crsce::common::util {
+/**
+ * @brief Implementation detail.
+ */
 std::optional<int> safe_divide(const int a, const int b) {
   if (b == 0) {
     return std::nullopt;

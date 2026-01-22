@@ -1,12 +1,16 @@
 /**
  * @file Compress_ctor.cpp
  * @brief Constructor for Compress.
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <string>
 #include <utility>
 
 namespace crsce::compress {
+    /**
+     * @brief Implementation detail.
+     */
     Compress::Compress(std::string input_path,
                        std::string output_path,
                        const std::string &lh_seed)

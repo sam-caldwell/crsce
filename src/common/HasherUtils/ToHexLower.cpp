@@ -1,5 +1,7 @@
 /**
  * @file ToHexLower.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/HasherUtils/ToHexLower.h"
 
@@ -9,6 +11,12 @@
 #include <string>
 
 namespace crsce::common::hasher {
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 std::string to_hex_lower(const std::array<std::uint8_t, 32> &digest) {
   static constexpr std::array<char, 16> kHex{

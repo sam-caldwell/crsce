@@ -18,6 +18,18 @@
 using crsce::common::BitHashBuffer;
 using crsce::common::detail::sha256::sha256_digest;
 
+/**
+
+ * @name BitHashBufferSeedHashSingleBlockTest.SingleBlockPaddingShortSeed
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(BitHashBufferSeedHashSingleBlockTest, SingleBlockPaddingShortSeed) {
   const std::string seed = "abc"; // <=55 triggers a single-block padding path
   const BitHashBuffer buf(seed);

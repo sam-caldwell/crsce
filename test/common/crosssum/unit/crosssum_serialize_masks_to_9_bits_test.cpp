@@ -30,6 +30,18 @@ namespace {
     }
 }
 
+/**
+
+ * @name CrossSumSerializeMask.ValuesAboveNineBitsAreMasked
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(CrossSumSerializeMask, ValuesAboveNineBitsAreMasked) { // NOLINT
     CrossSum cs;
     // Manually increment to create values above 9 bits (>= 512)

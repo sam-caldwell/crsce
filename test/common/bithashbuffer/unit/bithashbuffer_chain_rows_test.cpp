@@ -36,6 +36,18 @@ hash_row(const std::array<std::uint8_t, BitHashBuffer::kHashSize> &prev,
 }
 } // anonymous namespace
 
+/**
+
+ * @name BitHashBufferChainRowsTest.TwoRowsChainingAndPopFifo
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(BitHashBufferChainRowsTest, TwoRowsChainingAndPopFifo) {
   const std::string seed = "seed"; // simple case, single-block padding
   BitHashBuffer buf(seed);

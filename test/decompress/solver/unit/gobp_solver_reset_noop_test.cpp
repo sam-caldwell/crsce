@@ -13,6 +13,18 @@ using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
 using crsce::decompress::GobpSolver;
 
+/**
+
+ * @name GobpSolverBasics.ResetNoop
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(GobpSolverBasics, ResetNoop) { // NOLINT
     Csm csm;
     ConstraintState st{};

@@ -14,6 +14,18 @@
 
 using crsce::common::FileBitSerializer;
 
+/**
+
+ * @name FileBitSerializerTest.OneByteBitsAreMSBFirst
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(FileBitSerializerTest, OneByteBitsAreMSBFirst) {
   const std::string path = tmp_dir() + "/one_byte.tmp";
   {

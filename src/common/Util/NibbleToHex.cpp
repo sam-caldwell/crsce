@@ -5,6 +5,9 @@
 #include "common/Util/NibbleToHex.h"
 
 namespace crsce::common::util {
+/**
+ * @brief Implementation detail.
+ */
 char nibble_to_hex(const unsigned v) {
   if (v < 10U) {
     return static_cast<char>('0' + v);

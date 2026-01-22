@@ -1,11 +1,18 @@
 /**
  * @file CrossSum_value.cpp
  * @brief Accessor for CrossSum values.
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/CrossSum/CrossSum.h"
 #include <cstddef>
 
 namespace crsce::common {
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 auto CrossSum::value(std::size_t i) const noexcept -> ValueType {
   if (i < kSize) {

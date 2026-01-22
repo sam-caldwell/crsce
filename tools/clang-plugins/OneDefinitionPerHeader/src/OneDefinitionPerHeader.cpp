@@ -1,7 +1,7 @@
 /**
  * @file OneDefinitionPerHeader.cpp
  * @brief Enforce one construct per header and docstrings for headers under
- * include/
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include <cctype>
 #include <string>
@@ -36,6 +36,9 @@ namespace {
     <clang/AST/ASTConsumer.h>) && __has_include(<clang/AST/ASTContext.h>)
 static_assert(odph::kClangIncludes, "");
 using StrRef = llvm::StringRef;
+/**
+ * @brief Implementation detail.
+ */
 inline StrRef make_ref(const std::string &s) {
   return StrRef(s.data(), s.size());
 }

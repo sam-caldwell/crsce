@@ -1,10 +1,14 @@
 /**
  * @file Compress_finalize_block.cpp
  * @brief Implementation of Compress::finalize_block (flush partial row).
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 
 namespace crsce::compress {
+    /**
+     * @brief Implementation detail.
+     */
     void Compress::pad_and_finalize_row_if_needed() {
         if (row_bit_count_ == 0) {
             return; // no partial row to flush

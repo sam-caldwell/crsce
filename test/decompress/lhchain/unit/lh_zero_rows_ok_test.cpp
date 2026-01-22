@@ -10,6 +10,18 @@
 using crsce::decompress::LHChainVerifier;
 using crsce::decompress::Csm;
 
+/**
+
+ * @name LHChainVerifier.ZeroRowsOk
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(LHChainVerifier, ZeroRowsOk) { // NOLINT
     const LHChainVerifier v{"CRSCE_v1_seed"};
     const Csm csm; // default zeros

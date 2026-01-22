@@ -1,5 +1,7 @@
 /**
  * @file LHChainVerifier_pack_and_verify.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 #include "decompress/Csm/Csm.h"
@@ -16,6 +18,9 @@ namespace crsce::decompress {
     using crsce::common::detail::sha256::sha256_digest;
 
     std::array<std::uint8_t, LHChainVerifier::kRowSize>
+    /**
+     * @brief Implementation detail.
+     */
     LHChainVerifier::pack_row_bytes(const Csm &csm, const std::size_t r) {
         std::array<std::uint8_t, kRowSize> row{};
         std::size_t byte_idx = 0;

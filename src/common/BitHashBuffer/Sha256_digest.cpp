@@ -81,6 +81,9 @@ std::array<u8, 32> sha256_digest(const u8 *data, std::size_t len) {
 
   // Prepare final padding blocks
   std::array<u8, 128> tail{};
+  /**
+   * @brief Implementation detail.
+   */
   if (rem > 0) {
     const std::span<const u8> data_span{data, len};
     auto src = data_span.subspan(full_chunks * 64U, rem);

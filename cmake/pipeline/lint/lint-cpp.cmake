@@ -148,9 +148,14 @@ function(lint_cpp)
   endif()
 
   # Resolve clang++
-  find_program(OTPF_CLANGXX_EXE clang++ HINTS /opt/homebrew/opt/llvm/bin)
-  if(NOT OTPF_CLANGXX_EXE)
-    set(OTPF_CLANGXX_EXE clang++)
+  # Prefer Homebrew clang++ for plugin support
+  if(EXISTS "/opt/homebrew/opt/llvm/bin/clang++")
+    set(OTPF_CLANGXX_EXE "/opt/homebrew/opt/llvm/bin/clang++")
+  else()
+    find_program(OTPF_CLANGXX_EXE clang++)
+    if(NOT OTPF_CLANGXX_EXE)
+      set(OTPF_CLANGXX_EXE clang++)
+    endif()
   endif()
 
   # Compose base args
@@ -163,6 +168,11 @@ function(lint_cpp)
   list(APPEND _BASE -I${CMAKE_SOURCE_DIR}/src/Decompress)
   list(APPEND _BASE -I${_BIN_DIR}/_deps/googletest-src/googletest/include)
   list(APPEND _BASE -I${_BIN_DIR}/_deps/googletest-src/googletest)
+  # Ensure resource dir if discoverable
+  execute_process(COMMAND ${OTPF_CLANGXX_EXE} -print-resource-dir OUTPUT_VARIABLE _RES_DIR2 OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE _rd2)
+  if(_rd2 EQUAL 0 AND _RES_DIR2)
+    list(APPEND _BASE -resource-dir=${_RES_DIR2})
+  endif()
   string(JOIN " " _BASE_STR ${_BASE})
 
   # Gather test sources (all)
@@ -185,22 +195,86 @@ function(lint_cpp)
         continue()
       endif()
       set(_CMD "${OTPF_CLANGXX_EXE} ${_BASE_STR} -Xclang -load -Xclang \"${_PLUG_LIB}\" -Xclang -plugin -Xclang one-test-per-file \"${_TF}\"")
-      # Run OTPF; if it exits non-zero but prints no diagnostics, treat as pass.
+      # Run OTPF; non-zero exit is a failure.
       execute_process(COMMAND bash -lc "${_CMD}"
                       OUTPUT_VARIABLE _OTPF_OUT
                       ERROR_VARIABLE _OTPF_ERR
                       RESULT_VARIABLE _OTPF_RC)
       if(NOT _OTPF_RC EQUAL 0)
-        # Check for any error-like diagnostics; if none, consider it a success.
         if(NOT _OTPF_OUT AND NOT _OTPF_ERR)
           message(STATUS "  😬 🤷 😬 Lint passed for ${_T}")
-          # No output; ignore spurious non-zero exit
         else()
           message(STATUS "-- 🔥Linter failed 🔥 --")
           message(FATAL_ERROR "  🔥OTPF failed on ${_T} (${_OTPF_RC}).\n${_OTPF_OUT}${_OTPF_ERR}")
         endif()
       else()
         message(STATUS "  ✅ Lint passed for ${_T}")
+      endif()
+    endif()
+  endforeach()
+
+  # OneDefinitionPerCppFile enforcement across src/**/*.cpp
+  # Build/locate plugin
+  set(_ODPCPP_LIB)
+  file(GLOB _ODPCPP_DYLIB "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneDefinitionPerCppFile/*OneDefinitionPerCppFile*.dylib")
+  file(GLOB _ODPCPP_SO    "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneDefinitionPerCppFile/*OneDefinitionPerCppFile*.so")
+  file(GLOB _ODPCPP_DLL   "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneDefinitionPerCppFile/*OneDefinitionPerCppFile*.dll")
+  if(_ODPCPP_DYLIB)
+    list(GET _ODPCPP_DYLIB 0 _ODPCPP_LIB)
+  elseif(_ODPCPP_SO)
+    list(GET _ODPCPP_SO 0 _ODPCPP_LIB)
+  elseif(_ODPCPP_DLL)
+    list(GET _ODPCPP_DLL 0 _ODPCPP_LIB)
+  endif()
+  if(NOT _ODPCPP_LIB)
+    message(STATUS "Building OneDefinitionPerCppFile plugin (missing lib)...")
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=${CMAKE_SOURCE_DIR} -D BUILD_DIR=${CMAKE_SOURCE_DIR}/build -D ONLY_GROUP=clang-plugins/OneDefinitionPerCppFile -P ${CMAKE_SOURCE_DIR}/cmake/pipeline/deps.cmake
+      RESULT_VARIABLE _DEP_RC2)
+    if(NOT _DEP_RC2 EQUAL 0)
+      message(FATAL_ERROR "Failed to build OneDefinitionPerCppFile plugin (${_DEP_RC2}).")
+    endif()
+    file(GLOB _ODPCPP_DYLIB2 "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneDefinitionPerCppFile/*OneDefinitionPerCppFile*.dylib")
+    file(GLOB _ODPCPP_SO2    "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneDefinitionPerCppFile/*OneDefinitionPerCppFile*.so")
+    file(GLOB _ODPCPP_DLL2   "${CMAKE_SOURCE_DIR}/build/tools/clang-plugins/OneDefinitionPerCppFile/*OneDefinitionPerCppFile*.dll")
+    if(_ODPCPP_DYLIB2)
+      list(GET _ODPCPP_DYLIB2 0 _ODPCPP_LIB)
+    elseif(_ODPCPP_SO2)
+      list(GET _ODPCPP_SO2 0 _ODPCPP_LIB)
+    elseif(_ODPCPP_DLL2)
+      list(GET _ODPCPP_DLL2 0 _ODPCPP_LIB)
+    endif()
+  endif()
+  if(NOT _ODPCPP_LIB)
+    message(FATAL_ERROR "OneDefinitionPerCppFile plugin library not found after build.")
+  endif()
+
+  # Gather src C++ sources
+  execute_process(COMMAND bash -lc "git ls-files 'src/**/*.cpp'"
+                  OUTPUT_VARIABLE _SRC_CPPS
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  separate_arguments(_SRC_CPPS_LIST UNIX_COMMAND "${_SRC_CPPS}")
+  foreach(_S IN LISTS _SRC_CPPS_LIST)
+    if(NOT IS_ABSOLUTE "${_S}")
+      set(_SF "${CMAKE_SOURCE_DIR}/${_S}")
+    else()
+      set(_SF "${_S}")
+    endif()
+    if(EXISTS "${_SF}")
+      set(_CMD2 "${OTPF_CLANGXX_EXE} ${_BASE_STR} -Xclang -load -Xclang \"${_ODPCPP_LIB}\" -Xclang -plugin -Xclang one-definition-per-cpp-file \"${_SF}\"")
+      execute_process(COMMAND bash -lc "${_CMD2}"
+                      OUTPUT_VARIABLE _ODPCPP_OUT
+                      ERROR_VARIABLE _ODPCPP_ERR
+                      RESULT_VARIABLE _ODPCPP_RC)
+      if(NOT _ODPCPP_RC EQUAL 0)
+        if(NOT _ODPCPP_OUT AND NOT _ODPCPP_ERR)
+          message(STATUS "  😬 🤷 😬 Lint passed for ${_S}")
+        else()
+          message(STATUS "-- 🔥Linter failed 🔥 --")
+          message(FATAL_ERROR "  🔥ODPCPP failed on ${_S} (${_ODPCPP_RC}).\n${_ODPCPP_OUT}${_ODPCPP_ERR}")
+        endif()
+      else()
+        message(STATUS "  ✅ Lint passed for ${_S}")
       endif()
     endif()
   endforeach()

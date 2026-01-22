@@ -9,6 +9,18 @@
 
 using crsce::common::FileBitSerializer;
 
+/**
+
+ * @name FileBitSerializerTest.MissingFileNotGoodAndEmpty
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(FileBitSerializerTest, MissingFileNotGoodAndEmpty) {
   const std::string missing_path = tmp_dir() + "/definitely_not_here_12345.bin";
   FileBitSerializer serializer(missing_path); // NOLINT(misc-const-correctness)

@@ -35,6 +35,18 @@ hash_row(const std::array<std::uint8_t, BitHashBuffer::kHashSize> &prev,
 }
 } // anonymous namespace
 
+/**
+
+ * @name BitHashBufferPushAndFlushTest.PublicBehaviorMatchesExpectedRowHash
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(BitHashBufferPushAndFlushTest, PublicBehaviorMatchesExpectedRowHash) {
   BitHashBuffer buf("seed");
   // Build one full row of 0xAB bytes via MSB-first bit pushes

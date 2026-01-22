@@ -1,5 +1,7 @@
 /**
  * @file Decompressor_drive.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 
@@ -10,6 +12,9 @@
 #include <span>
 
 namespace crsce::decompress {
+    /**
+     * @brief Implementation detail.
+     */
     bool Decompressor::for_each_block(HeaderV1Fields &hdr,
                                       const std::function<void(std::span<const std::uint8_t> lh,
                                                                 std::span<const std::uint8_t> sums)> &fn) {

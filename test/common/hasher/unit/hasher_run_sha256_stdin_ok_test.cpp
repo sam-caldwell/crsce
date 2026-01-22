@@ -10,6 +10,18 @@
 
 using crsce::common::hasher::run_sha256_stdin;
 
+/**
+
+ * @name HasherUtils.RunSha256StdinOk
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(HasherUtils, RunSha256StdinOk) { // NOLINT(readability-identifier-naming)
     std::string shasum = "/usr/bin/shasum";
     if (!std::filesystem::exists(shasum)) {

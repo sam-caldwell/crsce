@@ -11,6 +11,18 @@
 
 using crsce::decompress::Decompressor;
 
+/**
+
+ * @name Decompressor.SplitPayloadOk
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(Decompressor, SplitPayloadOk) { // NOLINT
     std::vector<std::uint8_t> block(Decompressor::kBlockBytes);
     for (std::size_t i = 0; i < block.size(); ++i) {
@@ -24,6 +36,18 @@ TEST(Decompressor, SplitPayloadOk) { // NOLINT
     EXPECT_EQ(lh.front(), static_cast<std::uint8_t>(0));
     EXPECT_EQ(sums.front(), static_cast<std::uint8_t>(Decompressor::kLhBytes & 0xFFU));
 }
+
+/**
+
+ * @name Decompressor.SplitPayloadBadLengths
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
 
 TEST(Decompressor, SplitPayloadBadLengths) { // NOLINT
     const std::vector<std::uint8_t> too_small(Decompressor::kBlockBytes - 1U);

@@ -1,7 +1,7 @@
 /**
  * @file MissingHeaderAuthorCase.cpp
  * @brief Wrong case for author name.
- * @copyright (c) sam caldwell.  See LICENSE.txt for details
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 
 // NOLINTBEGIN(misc-use-internal-linkage)

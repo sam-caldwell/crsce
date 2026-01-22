@@ -1,5 +1,7 @@
 /**
  * @file RunSha256Stdin.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/HasherUtils/RunSha256Stdin.h"
 #include "common/HasherUtils/ExtractFirstHex64.h"
@@ -16,6 +18,12 @@
 #endif
 
 namespace crsce::common::hasher {
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 bool run_sha256_stdin(const std::vector<std::string> &cmd,
                       const std::vector<std::uint8_t> &data,

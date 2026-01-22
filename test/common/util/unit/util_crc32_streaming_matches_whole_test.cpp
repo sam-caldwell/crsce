@@ -9,6 +9,18 @@
 
 using crsce::common::util::crc32_ieee;
 
+/**
+
+ * @name UtilCrc32.StreamingMatchesWhole
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(UtilCrc32, StreamingMatchesWhole) { // NOLINT
   static constexpr std::array<std::uint8_t, 9> whole{
       '1','2','3','4','5','6','7','8','9'};

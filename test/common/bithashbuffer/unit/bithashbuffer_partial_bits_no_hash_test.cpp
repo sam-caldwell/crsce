@@ -14,6 +14,18 @@
 
 using crsce::common::BitHashBuffer;
 
+/**
+
+ * @name BitHashBufferPartialBitsNoHashTest.PushingLessThanOneRowProducesNoHash
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(BitHashBufferPartialBitsNoHashTest, PushingLessThanOneRowProducesNoHash) {
   BitHashBuffer buf("y");
   // Push 63 bytes worth of zeros (but stop one byte short)

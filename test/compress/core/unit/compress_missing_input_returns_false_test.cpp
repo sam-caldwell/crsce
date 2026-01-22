@@ -11,6 +11,18 @@
 
 using crsce::compress::Compress;
 
+/**
+
+ * @name CompressCore.MissingInputReturnsFalse
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(CompressCore, MissingInputReturnsFalse) { // NOLINT
   namespace fs = std::filesystem;
   const std::string in = std::string(TEST_BINARY_DIR) + "/c_missing_in.bin";

@@ -59,6 +59,18 @@ namespace {
     }
 } // namespace
 
+/**
+
+ * @name ContainerPayload.OneByteLhAndCrossSums
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(ContainerPayload, OneByteLhAndCrossSums) { // NOLINT
     const std::string in_path = std::string(TEST_BINARY_DIR) + "/cp_onebyte_in.bin";
     const std::string out_path = std::string(TEST_BINARY_DIR) + "/cp_onebyte_out.crsce";

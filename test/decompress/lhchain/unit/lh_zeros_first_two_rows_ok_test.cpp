@@ -18,6 +18,18 @@ using crsce::decompress::LHChainVerifier;
 using crsce::decompress::Csm;
 using crsce::common::detail::sha256::sha256_digest;
 
+/**
+
+ * @name LHChainVerifier.ZerosFirstTwoRowsOk
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(LHChainVerifier, ZerosFirstTwoRowsOk) { // NOLINT
     constexpr std::string seed = "CRSCE_v1_seed";
     const LHChainVerifier v{seed};

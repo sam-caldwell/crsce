@@ -52,6 +52,9 @@ namespace {
 #if __has_include(<clang/AST/AST.h>)
     static_assert(crsce::otpf::kClangIncludesMarker, "");
     using StrRef = llvm::StringRef;
+    /**
+     * @brief Implementation detail.
+     */
     inline StrRef make_ref(const std::string &s) {
         return StrRef(s.data(), s.size());
     }
@@ -153,7 +156,8 @@ namespace {
         }
 
         [[nodiscard]] bool hasImmediateDoxygenBlockAbove(const unsigned targetLine,
-                                                         const bool requireBrief) const {
+                                                         const bool requireBrief,
+                                                         const bool requireName) const {
             if (targetLine <= 1) {
                 return false;
             }
@@ -170,6 +174,7 @@ namespace {
             }
             bool sawOpening = false;
             bool sawBrief = false;
+            bool sawName = false;
             for (int i = L; i >= 1; --i) {
                 const StrRef cur = getLine(static_cast<unsigned>(i));
                 if (contains_ref(cur, "/**")) {
@@ -182,11 +187,17 @@ namespace {
                 if (requireBrief && contains_ref(cur, "@brief")) {
                     sawBrief = true;
                 }
+                if (requireName && contains_ref(cur, "@name")) {
+                    sawName = true;
+                }
             }
             if (!sawOpening) {
                 return false;
             }
             if (requireBrief && !sawBrief) {
+                return false;
+            }
+            if (requireName && !sawName) {
                 return false;
             }
             return true;
@@ -233,6 +244,8 @@ namespace {
         [[nodiscard]] bool enforceTestDoc() const { return EnforceTestDoc_; }
         void setEnforceFuncDoc(bool v) { EnforceFuncDoc_ = v; }
         [[nodiscard]] bool enforceFuncDoc() const { return EnforceFuncDoc_; }
+        void setRequireNameForTestDoc(bool v) { RequireNameForTestDoc_ = v; }
+        [[nodiscard]] bool requireNameForTestDoc() const { return RequireNameForTestDoc_; }
 
         FileState &getOrCreateFileState(SourceLocation Loc) {
             const SourceManager &SM = CI_->getSourceManager();
@@ -308,28 +321,23 @@ namespace {
             }
             const llvm::StringRef headerBlock = C.take_front(endPos + 2);
 
-            // Check for @file <basename>
+            // Check for @file <basename> and a brief description
             llvm::SmallString<256> base;
             base = llvm::sys::path::filename(llvm::StringRef(FS.path()));
             llvm::SmallString<256> fileTag;
             fileTag.append("@file ");
             fileTag.append(base);
             const bool hasFile = headerBlock.contains(fileTag);
+            const bool hasBrief = headerBlock.contains("@brief");
 
-            // Check copyright details (project-specific)
-            const bool hasCopyright = headerBlock.contains("@copyright") &&
-                                      headerBlock.contains("Sam Caldwell") &&
-                                      headerBlock.contains("LICENSE.txt");
-
-            FS.setHeaderOk(hasFile && hasCopyright);
+            FS.setHeaderOk(hasFile && hasBrief);
             if (!FS.headerOk()) {
                 if (!hasFile) {
                     reportHeaderError(
                         "missing '@file <filename>' matching current file name");
                 }
-                if (!hasCopyright) {
-                    reportHeaderError("missing copyright line (expected to reference Sam "
-                        "Caldwell and LICENSE.txt)");
+                if (!hasBrief) {
+                    reportHeaderError("missing '@brief' line in file header");
                 }
             }
         }
@@ -359,6 +367,7 @@ namespace {
         bool RequireBrief_{true};
         bool EnforceTestDoc_{true};
         bool EnforceFuncDoc_{true};
+        bool RequireNameForTestDoc_{true};
     };
 
     class OTPFPPCallbacks : public PPCallbacks {
@@ -396,11 +405,12 @@ namespace {
             // line
             const unsigned line = SM.getSpellingLineNumber(ExpLoc);
             if (Ctx_->enforceTestDoc()) {
-                const bool ok = FS.hasImmediateDoxygenBlockAbove(line, Ctx_->requireBrief());
+                const bool ok = FS.hasImmediateDoxygenBlockAbove(line, Ctx_->requireBrief(),
+                                                                Ctx_->requireNameForTestDoc());
                 if (!ok) {
                     const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
                         DiagnosticsEngine::Error, "TEST(...) must be immediately preceded by "
-                        "a Doxygen block (/** ... */) with @brief");
+                        "a Doxygen block (/** ... */) with @name and @brief");
                     Ctx_->getCI().getDiagnostics().Report(ExpLoc, DiagID);
                 }
             }
@@ -453,7 +463,7 @@ namespace {
 
             const unsigned line = SM.getSpellingLineNumber(Spelling);
             if (Ctx_->enforceFuncDoc()) {
-                const bool ok = FS.hasImmediateDoxygenBlockAbove(line, Ctx_->requireBrief());
+                const bool ok = FS.hasImmediateDoxygenBlockAbove(line, Ctx_->requireBrief(), false);
                 if (!ok) {
                     const unsigned DiagID = Ctx_->getCI().getDiagnostics().getCustomDiagID(
                         DiagnosticsEngine::Error,
@@ -495,6 +505,7 @@ namespace {
             Ctx->setRequireBrief(OptRequireBrief);
             Ctx->setEnforceTestDoc(OptEnforceTestDoc);
             Ctx->setEnforceFuncDoc(OptEnforceFuncDoc);
+            Ctx->setRequireNameForTestDoc(OptRequireNameForTestDoc);
             // Register PP callbacks
             CI.getPreprocessor().addPPCallbacks(
                 std::make_unique<OTPFPPCallbacks>(Ctx.get()));
@@ -508,6 +519,7 @@ namespace {
             bool requireBrief = true;
             bool enforceTestDoc = true;
             bool enforceFuncDoc = true;
+            bool requireNameForTestDoc = true;
             // Accept simple flags:
             //  - no-header     => disable header block enforcement
             //  - no-brief      => do not require @brief within preceding Doxygen block
@@ -516,12 +528,14 @@ namespace {
                 if (a == "no-brief") { requireBrief = false; }
                 if (a == "no-test-doc") { enforceTestDoc = false; }
                 if (a == "no-func-doc") { enforceFuncDoc = false; }
+                if (a == "no-test-name") { requireNameForTestDoc = false; }
             }
             // Store options; applied in CreateASTConsumer
             OptEnforceHeader = enforceHeader;
             OptRequireBrief = requireBrief;
             OptEnforceTestDoc = enforceTestDoc;
             OptEnforceFuncDoc = enforceFuncDoc;
+            OptRequireNameForTestDoc = requireNameForTestDoc;
             return true;
         }
 
@@ -535,6 +549,7 @@ namespace {
         bool OptRequireBrief{true};
         bool OptEnforceTestDoc{true};
         bool OptEnforceFuncDoc{true};
+        bool OptRequireNameForTestDoc{true};
     };
 
     namespace {

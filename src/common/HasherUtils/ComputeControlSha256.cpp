@@ -1,5 +1,7 @@
 /**
  * @file ComputeControlSha256.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/HasherUtils/ComputeControlSha256.h"
 #include "common/HasherUtils/RunSha256Stdin.h"
@@ -11,6 +13,12 @@
 #include <cstdint>
 
 namespace crsce::common::hasher {
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 bool compute_control_sha256(const std::vector<std::uint8_t> &data,
                             std::string &hex_out) {

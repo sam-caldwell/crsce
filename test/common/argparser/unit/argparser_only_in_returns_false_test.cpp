@@ -8,6 +8,18 @@
 
 using crsce::common::ArgParser;
 
+/**
+
+ * @name ArgParserTest.OnlyInFlagReturnsFalse
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(ArgParserTest, OnlyInFlagReturnsFalse) {
     ArgParser p("prog");
     // ReSharper disable once CppUseStructuredBinding

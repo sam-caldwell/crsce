@@ -6,6 +6,18 @@
 
 using crsce::decompress::Csm;
 
+/**
+
+ * @name CsmBasic.DefaultsAreZero
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(CsmBasic, DefaultsAreZero) { // NOLINT
     const Csm cs;
     // Sample a few coordinates including corners and center
@@ -13,6 +25,18 @@ TEST(CsmBasic, DefaultsAreZero) { // NOLINT
     EXPECT_FALSE(cs.get(Csm::kS - 1, Csm::kS - 1));
     EXPECT_FALSE(cs.get(128, 256));
 }
+
+/**
+
+ * @name CsmBasic.PutAndGetRoundtrip
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
 
 TEST(CsmBasic, PutAndGetRoundtrip) { // NOLINT
     Csm cs;

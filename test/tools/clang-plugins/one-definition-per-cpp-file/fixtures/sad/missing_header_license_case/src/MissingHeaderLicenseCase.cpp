@@ -1,7 +1,7 @@
 /**
  * @file MissingHeaderLicenseCase.cpp
  * @brief Wrong case for a license file.
- * @copyright (c) Sam Caldwell.  See license.txt for details
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 
 // NOLINTBEGIN(misc-use-internal-linkage)

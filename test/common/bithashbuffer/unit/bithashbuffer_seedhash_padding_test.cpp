@@ -18,6 +18,18 @@
 using crsce::common::BitHashBuffer;
 using crsce::common::detail::sha256::sha256_digest;
 
+/**
+
+ * @name BitHashBufferSeedHashPaddingTest.TwoBlockPaddingLen56
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(BitHashBufferSeedHashPaddingTest, TwoBlockPaddingLen56) {
   const std::string seed(56, 'A'); // 56 triggers two-block padding path
   const BitHashBuffer buf(seed);

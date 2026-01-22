@@ -1,6 +1,7 @@
 /**
  * @file Compress_serialize_cross_sums.cpp
  * @brief Serialize LSM/VSM/DSM/XSM as a contiguous byte vector.
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <cstdint>

@@ -1,5 +1,7 @@
 /**
  * @file Compress_compress_file.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include "common/Format/HeaderV1.h"
@@ -12,6 +14,12 @@
 #include <cassert>
 
 namespace crsce::compress {
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 bool Compress::compress_file() {
   namespace fs = std::filesystem;

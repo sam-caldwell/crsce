@@ -14,6 +14,18 @@
 
 using crsce::common::BitHashBuffer;
 
+/**
+
+ * @name BitHashBufferEmptyPopPartialBitsTest.EmptyPopReturnsNullopt
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(BitHashBufferEmptyPopPartialBitsTest, EmptyPopReturnsNullopt) {
   BitHashBuffer buf("x");
   EXPECT_EQ(buf.count(), 0U);

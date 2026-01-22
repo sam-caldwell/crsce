@@ -1,5 +1,7 @@
 /**
  * @file Csm_put.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/Csm.h"
 #include "decompress/Exceptions/WriteFailureOnLockedCsmElement.h"
@@ -8,6 +10,9 @@
 #include <stdexcept>
 
 namespace crsce::decompress {
+    /**
+     * @brief Implementation detail.
+     */
     void Csm::put(std::size_t r, std::size_t c, bool v) {
         if (!in_bounds(r, c)) {
             throw std::out_of_range("Csm::put: index out of bounds");

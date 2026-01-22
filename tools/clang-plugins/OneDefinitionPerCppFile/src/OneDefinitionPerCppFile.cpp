@@ -1,6 +1,7 @@
 /**
  * @file OneDefinitionPerCppFile.cpp
  * @brief Enforce one construct per .cpp under src/ and required docstrings.
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include <cctype>
 #include <string>
@@ -35,6 +36,9 @@ namespace {
     <clang/AST/ASTConsumer.h>) && __has_include(<clang/AST/ASTContext.h>)
     static_assert(odpcpp::kClangIncludes, "");
     using StrRef = llvm::StringRef;
+    /**
+     * @brief Implementation detail.
+     */
     inline StrRef make_ref(const std::string &s) {
         return StrRef(s.data(), s.size());
     }

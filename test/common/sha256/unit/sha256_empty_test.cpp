@@ -9,6 +9,18 @@
 using crsce::common::detail::sha256::sha256_digest;
 using u8 = crsce::common::detail::sha256::u8;
 
+/**
+
+ * @name Sha256KnownVectors.EmptyString
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(Sha256KnownVectors, EmptyString) {
     constexpr std::array<u8, 32> expect{
         0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14,

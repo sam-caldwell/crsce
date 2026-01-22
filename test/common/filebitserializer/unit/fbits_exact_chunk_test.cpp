@@ -15,6 +15,18 @@
 
 using crsce::common::FileBitSerializer;
 
+/**
+
+ * @name FileBitSerializerTest.ExactChunkSizeBoundaries
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(FileBitSerializerTest, ExactChunkSizeBoundaries) {
   const std::string path = tmp_dir() + "/exact_chunk.tmp";
   {

@@ -7,6 +7,9 @@
 #include <cctype>
 
 namespace crsce::common::util {
+/**
+ * @brief Implementation detail.
+ */
 CharClass classify_char(const char ch) {
   const auto uch = static_cast<unsigned char>(ch);
   if (std::isdigit(uch) != 0) {

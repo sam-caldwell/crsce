@@ -1,5 +1,7 @@
 /**
  * @file Decompressor_io.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 
@@ -12,6 +14,9 @@
 #include <vector>
 
 namespace crsce::decompress {
+    /**
+     * @brief Implementation detail.
+     */
     Decompressor::Decompressor(const std::string &input_path)
         : in_(input_path, std::ios::binary) {
     }

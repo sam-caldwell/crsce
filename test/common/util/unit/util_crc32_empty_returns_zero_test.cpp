@@ -8,6 +8,18 @@
 
 using crsce::common::util::crc32_ieee;
 
+/**
+
+ * @name UtilCrc32.EmptyReturnsZero
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(UtilCrc32, EmptyReturnsZero) { // NOLINT
   const auto crc_null = crc32_ieee(nullptr, 0);
   EXPECT_EQ(crc_null, 0x00000000U);

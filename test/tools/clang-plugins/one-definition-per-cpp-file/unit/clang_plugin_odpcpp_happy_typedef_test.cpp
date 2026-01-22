@@ -7,6 +7,18 @@
 #include <gtest/gtest.h>
 #include <string>
 
+/**
+
+ * @name ClangPluginODPCPP.HappyTypedefPasses
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(ClangPluginODPCPP, HappyTypedefPasses) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

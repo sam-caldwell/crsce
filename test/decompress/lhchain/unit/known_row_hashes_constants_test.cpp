@@ -64,6 +64,18 @@ namespace {
     }
 } // namespace
 
+/**
+
+ * @name KnownRowHashes.ConstantsMatchComputed
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(KnownRowHashes, ConstantsMatchComputed) { // NOLINT
     constexpr std::string seed = "CRSCE_v1_seed";
     const auto *seed_data = reinterpret_cast<const u8 *>(seed.data()); // NOLINT

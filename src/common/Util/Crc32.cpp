@@ -1,5 +1,7 @@
 /**
  * @file Crc32.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/Util/Crc32.h"
 #include <array>
@@ -10,6 +12,12 @@ namespace crsce::common::util {
 
 namespace {
 constexpr std::uint32_t kPoly = 0xEDB88320U;
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 inline std::uint32_t make_entry_rt(std::uint32_t i) {
   std::uint32_t c = i;

@@ -5,6 +5,9 @@
 #include "common/Util/ClampInt.h"
 
 namespace crsce::common::util {
+/**
+ * @brief Implementation detail.
+ */
 int clamp_int(const int v, const int lo, const int hi) {
   if (v < lo) {
     return lo;

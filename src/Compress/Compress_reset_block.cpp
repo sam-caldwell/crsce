@@ -1,10 +1,18 @@
 /**
  * @file Compress_reset_block.cpp
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <cstddef>
 
 namespace crsce::compress {
+
+/**
+
+ * @brief Implementation detail.
+
+ */
 
 void Compress::reset_block() {
   lsm_.reset();

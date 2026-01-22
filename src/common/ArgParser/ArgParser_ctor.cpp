@@ -8,6 +8,9 @@
 #include <utility>
 
 namespace crsce::common {
+    /**
+     * @brief Implementation detail.
+     */
     ArgParser::ArgParser(std::string programName) // GCOVR_EXCL_LINE
         : programName_(std::move(programName)) {
         // GCOVR_EXCL_LINE

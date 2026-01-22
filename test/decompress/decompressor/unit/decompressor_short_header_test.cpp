@@ -13,6 +13,18 @@
 using crsce::decompress::Decompressor;
 using crsce::decompress::HeaderV1Fields;
 
+/**
+
+ * @name Decompressor.ShortHeaderReturnsFalse
+
+ * @brief Intent: exercise the expected behavior of this test.
+
+ *         Passing indicates the behavior holds; failing indicates a regression.
+
+ *         Assumptions: default environment and explicit setup within this test.
+
+ */
+
 TEST(Decompressor, ShortHeaderReturnsFalse) { // NOLINT
     const std::string p = std::string(TEST_BINARY_DIR) + "/d_trunc_hdr.crsc";
     // Write fewer than kHeaderSize bytes
