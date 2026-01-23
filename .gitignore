@@ -2,6 +2,7 @@
 build/
 node/
 venv/
+Testing/
 
 # IDE and editor files
 .idea/

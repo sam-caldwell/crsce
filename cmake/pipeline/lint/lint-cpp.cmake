@@ -82,6 +82,22 @@ function(lint_cpp)
     # Exclude C++ sources under tools/** from main clang-tidy pass; they have separate checks
     list(FILTER _SRC_LIST EXCLUDE REGEX "^tools/.*\\.cpp$")
 
+    # Filter out any paths that no longer exist (e.g., after renames)
+    set(_SRC_EXISTING)
+    foreach(_FILE IN LISTS _SRC_LIST)
+      if(IS_ABSOLUTE "${_FILE}")
+        set(_ABS_FILE "${_FILE}")
+      else()
+        get_filename_component(_ABS_FILE "${CMAKE_SOURCE_DIR}/${_FILE}" ABSOLUTE)
+      endif()
+      if(EXISTS "${_ABS_FILE}")
+        list(APPEND _SRC_EXISTING "${_FILE}")
+      else()
+        message(STATUS "C++: skipping missing file ${_FILE}")
+      endif()
+    endforeach()
+    set(_SRC_LIST ${_SRC_EXISTING})
+
     # Run clang-tidy
     if(LINT_PARALLEL)
       string(JOIN " " _EXTRA_STR ${_EXTRA_ARGS})

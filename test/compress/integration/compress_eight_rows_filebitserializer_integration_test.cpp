@@ -6,6 +6,7 @@
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "compress/Compress/Compress.h"
 #include "common/BitHashBuffer/detail/Sha256.h"
+#include "helpers/compress_utils.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
@@ -22,51 +23,6 @@ using crsce::common::FileBitSerializer;
 using crsce::compress::Compress;
 using crsce::common::detail::sha256::sha256_digest;
 using crsce::common::detail::sha256::u8;
-
-namespace {
-    // Pack 512 bits (511 data + 1 pad) into 64 bytes for hashing checks
-    std::array<u8, 64> pack_row_with_pad(const std::vector<bool> &row511) {
-        std::array<u8, 64> out{};
-        std::size_t byte_idx = 0;
-        int bit_pos = 0;
-        u8 curr = 0;
-        auto push_bit = [&](bool b) {
-            if (b) { curr |= static_cast<u8>(1U << (7 - bit_pos)); }
-            ++bit_pos;
-            if (bit_pos >= 8) {
-                out.at(byte_idx++) = curr;
-                curr = 0;
-                bit_pos = 0;
-            }
-        };
-        for (const bool b: row511) { push_bit(b); }
-        push_bit(false); // pad bit
-        if (bit_pos != 0) { out.at(byte_idx) = curr; }
-        return out;
-    }
-
-    // Convert 8 rows of 511 bits into a byte vector with bit order MSB-first
-    std::vector<u8> rows_to_bytes(const std::vector<std::vector<bool> > &rows) {
-        std::vector<u8> bytes;
-        bytes.reserve((rows.size() * Compress::kBitsPerRow) / 8);
-        u8 curr = 0;
-        int bit_pos = 0;
-        auto push_bit = [&](bool b) {
-            if (b) { curr |= static_cast<u8>(1U << (7 - bit_pos)); }
-            ++bit_pos;
-            if (bit_pos >= 8) {
-                bytes.push_back(curr);
-                curr = 0;
-                bit_pos = 0;
-            }
-        };
-        for (const auto &row: rows) {
-            for (const bool b: row) { push_bit(b); }
-        }
-        if (bit_pos != 0) { bytes.push_back(curr); }
-        return bytes;
-    }
-} // namespace
 
 /**
 
@@ -108,7 +64,7 @@ TEST(CompressIntegration, EightRowsViaFileBitSerializer) { // NOLINT
     }
 
     // Write exact bytes (no trailing partial garbage) to a temp file
-    const std::vector<u8> bytes = rows_to_bytes(rows);
+    const std::vector<u8> bytes = crsce::testhelpers::compress::rows_to_bytes(rows);
     ASSERT_EQ(bytes.size(), total_bits / 8);
     const std::string in_path = std::string(TEST_BINARY_DIR) + "/comp8_in.bin";
     const std::string out_path = std::string(TEST_BINARY_DIR) + "/comp8_out.bin";
@@ -143,7 +99,7 @@ TEST(CompressIntegration, EightRowsViaFileBitSerializer) { // NOLINT
     std::vector<u8> expected_concat;
     expected_concat.reserve(kRows * 32);
     for (std::size_t r = 0; r < kRows; ++r) {
-        const auto row64 = pack_row_with_pad(rows[r]);
+        const auto row64 = crsce::testhelpers::compress::pack_row_with_pad(rows[r]);
         std::ranges::copy(prev, buf.begin());
         std::ranges::copy(row64, std::next(buf.begin(), 32));
         const auto d = sha256_digest(buf.data(), buf.size());

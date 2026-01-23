@@ -38,11 +38,10 @@ auto main(const int argc, char *argv[]) -> int {
                              opt.output);
                 return 3;
             }
-      crsce::compress::Compress cx(opt.input, opt.output);
-      if (!cx.compress_file()) {
-        std::println(stderr, "error: compression failed");
-        return 4;
-      }
+            if (crsce::compress::Compress cx(opt.input, opt.output); !cx.compress_file()) {
+                std::println(stderr, "error: compression failed");
+                return 4;
+            }
         }
 
         std::println("Hello, World (compress)!");

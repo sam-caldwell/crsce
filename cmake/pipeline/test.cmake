@@ -42,12 +42,18 @@ endif()
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/test/*/*/unit/*_test.cpp"
   "${PROJECT_SOURCE_DIR}/test/*/*/*/unit/*_test.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/integration/*_test.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/*/integration/*_test.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/*/*/integration/*_test.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/e2e/*_test.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/*/e2e/*_test.cpp"
+  "${PROJECT_SOURCE_DIR}/test/*/*/*/e2e/*_test.cpp"
 )
 
 # Auto-register unit test executables for files under test/**/unit/*.cpp
 set(UNIT_TEST_SOURCES)
 foreach(TEST_CPP IN LISTS TEST_SOURCES)
-  if(TEST_CPP MATCHES "/unit/.*_test\\.cpp$")
+  if(TEST_CPP MATCHES "/(unit|integration|e2e)/.*_test\\.cpp$")
     list(APPEND UNIT_TEST_SOURCES "${TEST_CPP}")
   endif()
 endforeach()
@@ -60,7 +66,7 @@ foreach(UNIT_SRC IN LISTS UNIT_TEST_SOURCES)
   set(TGT "test_${TGT_NAME}")
 
   add_executable(${TGT} "${UNIT_SRC}")
-  target_include_directories(${TGT} PRIVATE "${PROJECT_SOURCE_DIR}/include")
+  target_include_directories(${TGT} PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/test")
   target_compile_definitions(${TGT} PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
   # Link project sources via static library to improve coverage attribution on macOS/LLVM
   target_link_libraries(${TGT} PRIVATE crsce_static)
@@ -69,6 +75,19 @@ foreach(UNIT_SRC IN LISTS UNIT_TEST_SOURCES)
   # Link/runtime paths and libc++ linkage are handled globally in cmake/root.cmake
   add_test(NAME ${TGT} COMMAND ${TGT})
 endforeach()
+
+# --- Hello World E2E (gtest gate) ---
+# Build and register a gtest-based end-to-end canary for the hello_world CLI.
+set(HELLO_WORLD_GATE_TEST "")
+if(TARGET hello_world)
+  add_executable(test_hello_world_e2e_canary
+    "${PROJECT_SOURCE_DIR}/test/hello_world/e2e/hello_world_canary.cpp")
+  target_include_directories(test_hello_world_e2e_canary PRIVATE
+    "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/test")
+  target_link_libraries(test_hello_world_e2e_canary PRIVATE crsce_static GTest::gtest GTest::gtest_main)
+  add_test(NAME hello_world_e2e_gtest COMMAND test_hello_world_e2e_canary)
+  set(HELLO_WORLD_GATE_TEST hello_world_e2e_gtest)
+endif()
 
 # Define end-to-end tests for existing binaries
 if(TARGET hello_world)
@@ -81,7 +100,7 @@ if(TARGET compress)
   set_tests_properties(compress_e2e_prints_message PROPERTIES PASS_REGULAR_EXPRESSION "Hello, World")
 
   add_test(NAME compress_e2e_happy_args
-    COMMAND /bin/sh -c "$<TARGET_FILE:compress> -in in_ok.tmp -out out_ok.tmp"
+    COMMAND /bin/sh -c "rm -f out_ok.tmp; $<TARGET_FILE:compress> -in in_ok.tmp -out out_ok.tmp"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   add_test(NAME compress_e2e_happy_args_setup
     COMMAND /bin/sh -c "touch in_ok.tmp; rm -f out_ok.tmp"
@@ -172,6 +191,33 @@ if(TARGET decompress)
     PROPERTIES RESOURCE_LOCK iofiles)
 endif()
 
+# End-to-end roundtrip for a multi-block (>=2) zero-filled file
+if(TARGET compress AND TARGET decompress)
+  # Create a zero file large enough to span >=2 blocks and run roundtrip
+  # 2-block threshold: kBitsPerBlock = 511*511 = 261,121 bits -> ~32,640.125 bytes
+  # Choose 40,000 bytes (>32,641) to ensure at least two blocks
+  add_test(NAME roundtrip_e2e_twoblocks_setup
+    COMMAND /bin/sh -c ": > twoblk_src.bin; python3 - <<'PY'\nimport sys\nf=open('twoblk_src.bin','wb')\nf.write(b'\\x00'*40000)\nf.close()\nPY\nrm -f twoblk.crsc twoblk_out.bin; $<TARGET_FILE:compress> -in twoblk_src.bin -out twoblk.crsc"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+  add_test(NAME roundtrip_e2e_twoblocks_decompress
+    COMMAND /bin/sh -c "rm -f twoblk_out.bin; $<TARGET_FILE:decompress> -in twoblk.crsc -out twoblk_out.bin"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  set_tests_properties(roundtrip_e2e_twoblocks_decompress PROPERTIES DEPENDS roundtrip_e2e_twoblocks_setup)
+
+  add_test(NAME roundtrip_e2e_twoblocks_cmp
+    COMMAND /bin/sh -c "rm -f twoblk_out.bin; $<TARGET_FILE:decompress> -in twoblk.crsc -out twoblk_out.bin; cmp -s twoblk_src.bin twoblk_out.bin"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  set_tests_properties(roundtrip_e2e_twoblocks_cmp PROPERTIES DEPENDS roundtrip_e2e_twoblocks_setup)
+
+  # Prevent parallel races on shared temp files
+  set_tests_properties(
+    roundtrip_e2e_twoblocks_setup
+    roundtrip_e2e_twoblocks_decompress
+    roundtrip_e2e_twoblocks_cmp
+    PROPERTIES RESOURCE_LOCK iofiles)
+endif()
+
 # E2E tests for hasher using helper tools
 if(TARGET hasher AND TARGET sha256_ok_helper AND TARGET sha256_bad_helper)
   add_test(NAME hasher_e2e_success_cmd
@@ -196,4 +242,15 @@ if(TARGET hasher)
     add_test(NAME hasher_e2e_fallback_shasum
       COMMAND $<TARGET_FILE:hasher>)
   endif()
+endif()
+
+# --- Gate ordering: run hello_world e2e first ---
+if(HELLO_WORLD_GATE_TEST)
+  # Make all non-hello_world tests depend on the hello_world gtest E2E.
+  get_property(ALL_TESTS DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} PROPERTY TESTS)
+  foreach(T IN LISTS ALL_TESTS)
+    if(NOT T STREQUAL "${HELLO_WORLD_GATE_TEST}" AND NOT T MATCHES "^hello_world")
+      set_tests_properties(${T} PROPERTIES DEPENDS ${HELLO_WORLD_GATE_TEST})
+    endif()
+  endforeach()
 endif()

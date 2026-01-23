@@ -1,4 +1,7 @@
-// Test helpers for ArgParser unit tests
+/**
+ * @file helpers.h
+ * @brief Shared Argv builder for ArgParser tests.
+ */
 #pragma once
 
 #include <string>
