@@ -30,7 +30,9 @@ namespace {
 
 /**
  * @name CompressDecompressIntegration.ZeroTwoBlockRoundtrip
- * @brief Intent: Ensure Compress API output roundtrips via Decompressor to original bytes for a >=2-block all-zero file. Passing indicates the holistic compression/decompression stack reconstructs the original data. Assumptions: default seed and format v1.
+ * @brief Intent: Ensure Compress API output round trips via Decompressor to original bytes for a >=2-block all-zero
+ *        file. Passing indicates the holistic compression/decompression stack reconstructs the original data.
+ *        Assumptions: default seed and format v1.
  */
 TEST(CompressDecompressIntegration, ZeroTwoBlockRoundtrip) {
     namespace fs = std::filesystem;
@@ -64,9 +66,10 @@ TEST(CompressDecompressIntegration, ZeroTwoBlockRoundtrip) {
     int bit_pos = 0;
     const std::string seed = "CRSCE_v1_seed";
     const bool ok = dx.for_each_block(hdr, [&](std::span<const std::uint8_t> lh,
-                                         std::span<const std::uint8_t> sums) {
+                                               std::span<const std::uint8_t> sums) {
         const std::uint64_t total_bits = hdr.original_size_bytes * 8U;
-        const std::uint64_t done_bits = (static_cast<std::uint64_t>(rec.size()) * 8U) + static_cast<std::uint64_t>(bit_pos);
+        const std::uint64_t done_bits = (static_cast<std::uint64_t>(rec.size()) * 8U) + static_cast<std::uint64_t>(
+                                            bit_pos);
         if (done_bits >= total_bits) { return; } // ignore extras
 
         Csm csm;
@@ -74,7 +77,8 @@ TEST(CompressDecompressIntegration, ZeroTwoBlockRoundtrip) {
             // Force failure by leaving 'ok' unchanged; outer check will fail on mismatch
             return;
         }
-        constexpr std::uint64_t bits_per_block = static_cast<std::uint64_t>(Csm::kS) * static_cast<std::uint64_t>(Csm::kS);
+        constexpr std::uint64_t bits_per_block =
+                static_cast<std::uint64_t>(Csm::kS) * static_cast<std::uint64_t>(Csm::kS);
         const std::uint64_t remain = total_bits - done_bits;
         const std::uint64_t take = std::min(remain, bits_per_block);
         append_bits_from_csm(csm, take, rec, curr, bit_pos);
