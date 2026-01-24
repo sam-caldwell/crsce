@@ -1,7 +1,8 @@
 /**
- * @file main.cpp
+ * @file cmd/hasher/main.cpp
  * @brief Generate 32KB random data, compute SHA-256 via system sha256sum/shasum
  *        and via internal Sha256, compare, and return 0 on match, 1 otherwise.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
 #include "common/BitHashBuffer/detail/Sha256.h"
 #include "common/HasherUtils/ToHexLower.h"
@@ -16,6 +17,10 @@
 
 using u8 = crsce::common::detail::sha256::u8;
 
+/**
+ * @brief Program entry point for hasher utility.
+ * @return 0 on match; 1 on mismatch or control failure; 2 on unhandled exception.
+ */
 int main() try {
     // 1) Generate 32KB random input
     constexpr std::size_t kLen = 32 * 1024;

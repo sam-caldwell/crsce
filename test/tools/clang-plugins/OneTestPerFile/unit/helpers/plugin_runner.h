@@ -126,7 +126,7 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
     const std::string cmd = std::string("/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -c ") + fixture_cpp.string()
                             + " -o " + obj.string()
                             + " -Xclang -load -Xclang " + plugin_lib.string()
-                            + " -Xclang -plugin -Xclang one-test-per-file";
+                            + " -Xclang -plugin -Xclang OneTestPerFile";
     output = run_command_capture(cmd, code);
     return code;
 #else
@@ -136,7 +136,7 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
         "-c", fixture_cpp.string(),
         "-o", obj.string(),
         "-Xclang", "-load", "-Xclang", plugin_lib.string(),
-        "-Xclang", "-plugin", "-Xclang", "one-test-per-file"
+        "-Xclang", "-plugin", "-Xclang", "OneTestPerFile"
     };
     // reuse run_exec_capture from above file (define a local copy here)
     auto run_exec_capture = [](const std::vector<std::string>& args2, int &ec) {
@@ -190,7 +190,7 @@ inline bool plugin_sanity_check(const std::filesystem::path &plugin_lib) {
         "-c", fx.string(),
         "-o", (std::filesystem::current_path() / "_tmp_otpf_probe.o").string(),
         "-Xclang", "-load", "-Xclang", plugin_lib.string(),
-        "-Xclang", "-plugin", "-Xclang", "one-test-per-file"
+        "-Xclang", "-plugin", "-Xclang", "OneTestPerFile"
     };
     auto run_exec_capture_local = [](const std::vector<std::string>& args2, int &ec) {
         std::string result;

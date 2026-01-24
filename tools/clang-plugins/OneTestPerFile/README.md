@@ -1,4 +1,4 @@
-# One-Test-Per-File Clang Plugin
+# OneTestPerFile Clang Plugin
 
 ## Purpose
 
@@ -25,7 +25,7 @@
                 -Xclang build/tools/clang-plugins/OneTestPerFile/libOneTestPerFile.dylib \
                 -Xclang \
                 -plugin \
-                -Xclang one-test-per-file \
+                -Xclang OneTestPerFile \
                 -c test/some/path/foo_test.cpp
       ```
     - Linux:
@@ -35,7 +35,7 @@
                 -Xclang build/tools/clang-plugins/OneTestPerFile/libOneTestPerFile.so \
                 -Xclang \
                 -plugin \
-                -Xclang one-test-per-file \
+                -Xclang OneTestPerFile \
                 -c test/some/path/foo_test.cpp
       ```
 

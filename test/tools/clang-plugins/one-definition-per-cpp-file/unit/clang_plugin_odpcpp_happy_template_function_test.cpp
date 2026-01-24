@@ -28,7 +28,7 @@ TEST(ClangPluginODPCPP, HappyTemplateFunctionPasses) {
     }
 
     const auto repo = repo_root_from_build_cwd();
-    const auto fixture = repo / "test/tools/clang-plugins/one-definition-per-cpp-file/"
+    const auto fixture = repo / "test/tools/clang-plugins/OneDefinitionPerCppFile/"
                          "fixtures/happy/src/HappyTemplateFunction.cpp";
     ASSERT_TRUE(std::filesystem::exists(fixture));
 

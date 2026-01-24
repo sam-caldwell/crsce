@@ -554,7 +554,7 @@ namespace {
 
     namespace {
         const FrontendPluginRegistry::Add<OneTestPerFileAction>
-        X("one-test-per-file", "enforce one TEST per file and docstrings in tests");
+        X("OneTestPerFile", "enforce one TEST per file and docstrings in tests");
     } // anonymous namespace
 #endif // has clang headers
 } // namespace

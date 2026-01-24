@@ -7,7 +7,12 @@
 
 namespace crsce::common::util {
 /**
- * @brief Implementation detail.
+ * @name safe_divide
+ * @brief Perform integer division with zero-division safety.
+ * @param a Dividend.
+ * @param b Divisor; if zero, returns std::nullopt.
+ * @return Quotient wrapped in std::optional when b != 0; otherwise std::nullopt.
+ * @details Avoids undefined behavior and exception overhead for common error path.
  */
 std::optional<int> safe_divide(const int a, const int b) {
   if (b == 0) {

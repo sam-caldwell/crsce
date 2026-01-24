@@ -8,7 +8,11 @@
 
 namespace crsce::common::util {
 /**
- * @brief Implementation detail.
+ * @name classify_char
+ * @brief Classify a character using the C locale into Digit, Alpha, Space, or Other.
+ * @param ch Character to classify.
+ * @return CharClass enum indicating the category.
+ * @details Wraps <cctype> predicates and normalizes the return type for parsing utilities.
  */
 CharClass classify_char(const char ch) {
   const auto uch = static_cast<unsigned char>(ch);

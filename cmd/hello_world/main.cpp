@@ -1,13 +1,15 @@
 /**
- * File: cmd/hello_world/main.cpp
- * Brief: simple hello world used by CI sanity checks.
+ * @file cmd/hello_world/main.cpp
+ * @brief Simple hello world used by CI sanity checks.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
 #include <cstdio>
 #include <exception>
 #include <print>
 
 /**
- * Main: prints a simple greeting to stdout.
+ * @brief Program entry point for hello_world sample.
+ * @return 0 on success; non-zero on failure.
  */
 auto main() -> int {
     try {

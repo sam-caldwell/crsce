@@ -29,7 +29,7 @@ TEST(ClangPluginODPCPP, MissingConstructDocFails) {
 
     const auto repo = repo_root_from_build_cwd();
     const auto fixture =
-            repo / "test/tools/clang-plugins/one-definition-per-cpp-file/fixtures/"
+            repo / "test/tools/clang-plugins/OneDefinitionPerCppFile/fixtures/"
             "sad/missing_construct_doc/src/MissingConstructDoc.cpp";
     ASSERT_TRUE(std::filesystem::exists(fixture));
 

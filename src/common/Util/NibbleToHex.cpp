@@ -6,7 +6,11 @@
 
 namespace crsce::common::util {
 /**
- * @brief Implementation detail.
+ * @name nibble_to_hex
+ * @brief Convert a 4-bit value (0..15) to its uppercase hexadecimal character.
+ * @param v Unsigned value; only the low nibble is meaningful.
+ * @return '0'..'9' or 'A'..'F' for inputs 0..15; '?' for invalid inputs.
+ * @details Used by lightweight hex formatting routines where speed and locality matter.
  */
 char nibble_to_hex(const unsigned v) {
   if (v < 10U) {

@@ -1,16 +1,21 @@
 /**
- * File: cmd/decompress/main.cpp
- * Brief: CLI entry for decompressor; parse args, iterate blocks with Decompressor,
- *        reconstruct CSMs via solvers, verify LH, and write original bytes.
+ * @file cmd/decompress/main.cpp
+ * @brief CLI entry for decompressor; parse args and dispatch to runner.
+ *        Reconstructs CSMs via solvers, verifies LH, and writes original bytes.
+ *
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "decompress/Cli/DecompressApp.h"
+#include "decompress/Cli/run.h"
 #include <span>
 #include <cstddef>
 
 /**
- * Main entry: parse -in/-out and validate file preconditions; then decompress.
+ * @brief Program entry point for decompressor CLI.
+ * @param argc Argument count.
+ * @param argv Argument vector.
+ * @return Process exit code (0 on success).
  */
-auto main(const int argc, char* argv[]) -> int {
-    const std::span<char*> args{argv, static_cast<std::size_t>(argc)};
+auto main(const int argc, char *argv[]) -> int {
+    const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
     return crsce::decompress::cli::run(args);
 }

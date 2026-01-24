@@ -42,6 +42,12 @@ namespace crsce::decompress {
          */
         explicit Decompressor(const std::string &input_path);
 
+        /**
+         * Construct a decompressor with input and output paths. The output path is stored for
+         * use by decompress_file().
+         */
+        explicit Decompressor(const std::string &input_path, const std::string &output_path);
+
         /** True if the underlying stream is good. */
         [[nodiscard]] bool good() const { return in_.good(); }
 
@@ -62,8 +68,15 @@ namespace crsce::decompress {
                             const std::function<void(std::span<const std::uint8_t> lh,
                                                       std::span<const std::uint8_t> sums)> &fn);
 
+        /**
+         * Run full-file decompression and write the reconstructed bytes to output_path_.
+         * Returns true on success.
+         */
+        bool decompress_file();
+
     private:
         std::ifstream in_;
         std::uint64_t blocks_remaining_{0};
+        std::string output_path_{};
     };
 } // namespace crsce::decompress

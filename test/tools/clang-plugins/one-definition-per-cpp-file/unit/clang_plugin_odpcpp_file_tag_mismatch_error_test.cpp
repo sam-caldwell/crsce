@@ -29,7 +29,7 @@ TEST(ClangPluginODPCPP, FileTagMismatchFails) {
 
     const auto repo = repo_root_from_build_cwd();
     const auto fixture =
-            repo / "test/tools/clang-plugins/one-definition-per-cpp-file/fixtures/"
+            repo / "test/tools/clang-plugins/OneDefinitionPerCppFile/fixtures/"
             "sad/file_tag_mismatch/src/FileTagMismatch.cpp";
     ASSERT_TRUE(std::filesystem::exists(fixture));
 

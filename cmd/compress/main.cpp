@@ -1,15 +1,19 @@
 /**
- * File: cmd/compress/main.cpp
- * Brief: CLI entry for compressor; validates args and prints a greeting.
+ * @file cmd/compress/main.cpp
+ * @brief CLI entry for compressor; validates args and dispatches to runner.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "compress/Cli/CompressApp.h"
+#include "compress/Cli/run.h"
 #include <span>
 #include <cstddef>
 
 /**
- * Main entry: parse -in/-out and validate file preconditions.
+ * @brief Program entry point for compressor CLI.
+ * @param argc Argument count.
+ * @param argv Argument vector.
+ * @return Process exit code (0 on success).
  */
-auto main(const int argc, char* argv[]) -> int {
-    const std::span<char*> args{argv, static_cast<std::size_t>(argc)};
+auto main(const int argc, char *argv[]) -> int {
+    const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
     return crsce::compress::cli::run(args);
 }

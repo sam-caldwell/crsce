@@ -128,7 +128,7 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
   const std::string cmd = std::string("/opt/homebrew/opt/llvm/bin/clang++ -std=c++23 -c ") + fixture_cpp.string()
                     + " -o " + obj.string()
                     + " -Xclang -load -Xclang " + plugin_lib.string()
-                    + " -Xclang -plugin -Xclang one-definition-per-cpp-file";
+                    + " -Xclang -plugin -Xclang OneDefinitionPerCppFile";
   output = run_command_capture(cmd, code);
   return code;
 #else
@@ -138,7 +138,7 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
       "-c", fixture_cpp.string(),
       "-o", obj.string(),
       "-Xclang", "-load", "-Xclang", plugin_lib.string(),
-      "-Xclang", "-plugin", "-Xclang", "one-definition-per-cpp-file"
+      "-Xclang", "-plugin", "-Xclang", "OneDefinitionPerCppFile"
   };
   // local spawn runner
   auto run_exec_capture = [](const std::vector<std::string>& args2, int &ec) {
@@ -180,7 +180,7 @@ inline int clang_compile_with_plugin(const std::filesystem::path &fixture_cpp,
 #ifndef _WIN32
 inline bool plugin_sanity_check(const std::filesystem::path &plugin_lib) {
   const auto repo = repo_root_from_build_cwd();
-  const auto fx = repo / "test/tools/clang-plugins/one-definition-per-cpp-file/fixtures/sad/missing_header_brief/src/MissingHeaderBrief.cpp";
+  const auto fx = repo / "test/tools/clang-plugins/OneDefinitionPerCppFile/fixtures/sad/missing_header_brief/src/MissingHeaderBrief.cpp";
   if (!std::filesystem::exists(fx)) { return false; }
   int code = 0;
   const std::vector<std::string> args{
@@ -189,7 +189,7 @@ inline bool plugin_sanity_check(const std::filesystem::path &plugin_lib) {
       "-c", fx.string(),
       "-o", (std::filesystem::current_path() / "_tmp_odpcpp_probe.o").string(),
       "-Xclang", "-load", "-Xclang", plugin_lib.string(),
-      "-Xclang", "-plugin", "-Xclang", "one-definition-per-cpp-file"
+      "-Xclang", "-plugin", "-Xclang", "OneDefinitionPerCppFile"
   };
   auto run_exec_capture_local = [](const std::vector<std::string>& args2, int &ec) {
     std::string result;

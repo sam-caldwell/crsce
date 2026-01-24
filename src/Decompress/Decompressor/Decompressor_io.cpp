@@ -21,6 +21,10 @@ namespace crsce::decompress {
         : in_(input_path, std::ios::binary) {
     }
 
+    Decompressor::Decompressor(const std::string &input_path, const std::string &output_path)
+        : in_(input_path, std::ios::binary), output_path_(output_path) {
+    }
+
     bool Decompressor::read_header(HeaderV1Fields &out) {
         std::array<std::uint8_t, kHeaderSize> hdr{};
         in_.read(reinterpret_cast<char *>(hdr.data()), static_cast<std::streamsize>(hdr.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)

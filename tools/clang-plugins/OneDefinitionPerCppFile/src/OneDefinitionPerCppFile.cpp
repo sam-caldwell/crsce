@@ -99,7 +99,7 @@ namespace {
             const unsigned start = lineOffsets_[oneBased - 1];
             const unsigned end = (oneBased < lineOffsets_.size())
                                      ? lineOffsets_[oneBased]
-                                     : content_.size();
+                                     : static_cast<unsigned>(content_.size());
             if (end < start) {
                 return {};
             }
@@ -370,7 +370,7 @@ namespace {
     };
 
     const clang::FrontendPluginRegistry::Add<Action>
-    X("one-definition-per-cpp-file",
+    X("OneDefinitionPerCppFile",
       "enforce one construct per source with docstrings");
 #else
     namespace odpcpp_noop {
