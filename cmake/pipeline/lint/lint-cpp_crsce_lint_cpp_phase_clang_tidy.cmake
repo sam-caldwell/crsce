@@ -6,7 +6,14 @@ include_guard(GLOBAL)
 
 function(_crsce_lint_cpp_phase_clang_tidy BIN_DIR CLANG_TIDY_EXE)
   # Remaining args are the source files (true CMake list from caller).
-  set(SRC_LIST ${ARGN})
+  set(SRC_LIST_RAW ${ARGN})
+
+  # Normalize to absolute paths to make execution independent of CWD.
+  set(SRC_LIST "")
+  foreach(_f IN LISTS SRC_LIST_RAW)
+    get_filename_component(_abs "${_f}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+    list(APPEND SRC_LIST "${_abs}")
+  endforeach()
 
   include("${CMAKE_SOURCE_DIR}/cmake/pipeline/sdk.cmake")
 
@@ -42,7 +49,7 @@ function(_crsce_lint_cpp_phase_clang_tidy BIN_DIR CLANG_TIDY_EXE)
   file(WRITE "${_LIST_FILE}" "${_SRC_NL}\n")
 
   # Note: plain xargs splits on whitespace; this assumes paths don’t contain spaces.
-  _run("clang-tidy (parallel) (base: ${_BASE_STR})"
+  _run("clang-tidy (parallel)"
           bash -lc "xargs -P ${_NPROC} -n 1 ${_BASE_STR} < '${_LIST_FILE}'")
 
 endfunction()

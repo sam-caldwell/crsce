@@ -10,6 +10,7 @@ include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_phase_c
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_find_or_build_plugin.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_plugin_base_args.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_run_plugin.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_filter_files.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_run_plugin_on_list.cmake")
 
 function(lint_cpp)
@@ -33,15 +34,23 @@ function(lint_cpp)
   # IMPORTANT: do not quote the list unless the callee explicitly expects a single string.
   _crsce_lint_cpp_phase_clang_tidy(${_BIN_DIR} ${CLANG_TIDY_EXE} ${CPP_SOURCE_FILES})
 
-  _crsce_lint_cpp_run_plugin_on_list(
-          ${_BIN_DIR}
-          "${CPP_SOURCE_FILES}"
-          OneDefinitionPerCppFile
-          OneDefinitionPerCppFile)
+  # Run OneDefinitionPerCppFile only on src/**/*.cpp
+  _crsce_lint_cpp_filter_files(ODPCPP_SOURCE_FILES "^src/.*\\.cpp$" ${CPP_SOURCE_FILES})
+  list(LENGTH ODPCPP_SOURCE_FILES _ODPCPP_LEN)
+  message(STATUS "C++: found ${_ODPCPP_LEN} src files for OneDefinitionPerCppFile")
+  if (_ODPCPP_LEN GREATER 0)
+    _crsce_lint_cpp_run_plugin_on_list(
+            ${_BIN_DIR}
+            "${ODPCPP_SOURCE_FILES}"
+            OneDefinitionPerCppFile
+            OneDefinitionPerCppFile)
+  else ()
+    message(STATUS "C++: no src/**/*.cpp files; skipping OneDefinitionPerCppFile plugin 😬 🤷 😬")
+  endif ()
 
   # Filter to only test/**/*.cpp (relative to repo root).
   message(STATUS "C++: Filtering for test files")
-  _crsce_lint_cpp_filter_test_cpp_files(TEST_CPP_SOURCE_FILES ${CPP_SOURCE_FILES})
+  _crsce_lint_cpp_filter_files(TEST_CPP_SOURCE_FILES "^test/.*\\.cpp$" ${CPP_SOURCE_FILES})
 
   list(LENGTH TEST_CPP_SOURCE_FILES _TEST_LEN)
   message(STATUS "C++: found ${_TEST_LEN} test files to lint")
