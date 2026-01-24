@@ -34,7 +34,6 @@ namespace crsce::compress::cli {
                 std::println(stderr, "error: compression failed");
                 return 4;
             }
-
             return 0;
         } catch (const std::exception &e) {
             // NOSONAR

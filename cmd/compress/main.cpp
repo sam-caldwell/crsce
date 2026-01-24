@@ -11,7 +11,7 @@
  * @brief Program entry point for compressor CLI.
  * @param argc Argument count.
  * @param argv Argument vector.
- * @return Process exit code (0 on success).
+ * @return Process exit code (0 on success, non-zero represents an error state).
  */
 auto main(const int argc, char *argv[]) -> int {
     const std::span<char *> args{argv, static_cast<std::size_t>(argc)};

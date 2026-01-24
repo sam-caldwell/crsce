@@ -27,7 +27,7 @@ namespace crsce::decompress::cli {
                 return vrc;
             }
             const auto &[input, output, help] = parser.options();
-            // Decompress blocks and write output
+
             if (crsce::decompress::Decompressor dx(input, output); !dx.decompress_file()) {
                 return 4;
             }
