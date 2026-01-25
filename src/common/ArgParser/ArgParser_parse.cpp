@@ -9,15 +9,22 @@
 #include <string>
 
 namespace crsce::common {
-    auto ArgParser::parse(std::span<char *> args) -> bool {
+    /**
+     * @brief Parse argv into ArgParser options.
+     * @param args Raw argv span (argv[0]...argv[argc-1]). The first element is the program name.
+     * @return true if parsing succeeded (or help requested); false on unknown flags or missing values.
+     * @details Recognizes the following options:
+     * - `-h`/`--help` to set the help flag and accept any other state.
+     * - `-in <path>` to set the input path.
+     * - `-out <path>` to set the output path.
+     * Unknown flags or a missing value after `-in`/`-out` cause parsing to fail.
+     */
+    auto ArgParser::parse(const std::span<char *> args) -> bool {
         // GCOVR_EXCL_LINE
         // Reset options each parse
         opts_ = Options{};
         // Use manual index to avoid modifying the loop counter in-place
         std::size_t i = 1; // NOLINT(*-identifier-length)
-        /**
-         * @brief Implementation detail.
-         */
         while (i < args.size()) {
             const std::string arg = args[i];
             if (arg == "-h" || arg == "--help") {

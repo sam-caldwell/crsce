@@ -5,15 +5,18 @@
  */
 #include "common/ArgParser/ArgParser.h"
 #include <string>
-#include <utility>
+#include <utility> // IWYU pragma: keep
 
 namespace crsce::common {
     /**
-     * @brief Implementation detail.
+     * @name ArgParser
+     * @brief Construct an argument parser with a program name.
+     * @param programName The program name used when rendering usage text.
+     * @return N/A
+     * @throws None
      */
-    ArgParser::ArgParser(std::string programName) // GCOVR_EXCL_LINE
+    ArgParser::ArgParser(std::string programName)
         : programName_(std::move(programName)) {
-        // GCOVR_EXCL_LINE
         // Ensure the program name is non-empty for usage strings
         if (programName_.empty()) {
             programName_ = "program";

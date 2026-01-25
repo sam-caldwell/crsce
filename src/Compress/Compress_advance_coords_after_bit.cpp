@@ -7,7 +7,8 @@
 
 namespace crsce::compress {
     /**
-     * @brief Implementation detail.
+     * @brief Advance the column coordinate after pushing a bit.
+     * @return N/A
      */
     void Compress::advance_coords_after_bit() {
         // Advance column within the same row; wrap at kS (but row resets only at end-of-row)

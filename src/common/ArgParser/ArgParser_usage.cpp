@@ -7,6 +7,11 @@
 #include <string>
 
 namespace crsce::common {
+    /**
+     * @brief Generate a short usage synopsis for the program.
+     * @return A single-line usage string combining the program name and required flags.
+     * @details Example: "compress -in <file> -out <file>".
+     */
     auto ArgParser::usage() const -> std::string {
         return programName_ + " -in <file> -out <file>";
     }

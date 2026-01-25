@@ -117,7 +117,11 @@ foreach(_grp IN LISTS _GROUPS)
     endif()
   endif()
 
-  if(_LATEST LESS_EQUAL _PREV)
+  if(FORCE_REBUILD)
+    message(STATUS "Forcing rebuild for group: ${_grp}")
+  endif()
+
+  if(NOT FORCE_REBUILD AND _LATEST LESS_EQUAL _PREV)
     message(STATUS "Up-to-date; skipping: ${_grp}")
     continue()
   endif()
@@ -177,13 +181,14 @@ foreach(_grp IN LISTS _GROUPS)
   endif()
   execute_process(
     COMMAND ${CMAKE_COMMAND}
+            -G Ninja
             -S "${_BUILD_DIR_GRP}" -B "${_BUILD_DIR_GRP}"
             ${_SDK_CFG_FLAG}
             ${_EXTRA_FLAGS}
     RESULT_VARIABLE _cfg_rc
   )
   if(NOT _cfg_rc EQUAL 0)
-    message(SEND_ERROR "  🔥Configure failed for group ${_grp} (${_cfg_rc})")
+    message(SEND_ERROR "  Configure failed for group ${_grp} (${_cfg_rc})")
     math(EXPR _FAILURES "${_FAILURES}+1")
     continue()
   endif()
@@ -194,7 +199,7 @@ foreach(_grp IN LISTS _GROUPS)
     RESULT_VARIABLE _bld_rc
   )
   if(NOT _bld_rc EQUAL 0)
-    message(SEND_ERROR "  🔥Build failed for group ${_grp} (${_bld_rc})")
+    message(SEND_ERROR "  Build failed for group ${_grp} (${_bld_rc})")
     math(EXPR _FAILURES "${_FAILURES}+1")
   else()
     file(WRITE "${_STAMP_FILE}" "${_LATEST}")
@@ -207,7 +212,7 @@ foreach(_grp IN LISTS _GROUPS)
 endforeach()
 
 if(_FAILURES GREATER 0)
-  message(FATAL_ERROR "  🔥One or more tool groups failed to build (${_FAILURES}).")
+  message(FATAL_ERROR "  One or more tool groups failed to build (${_FAILURES}).")
 else()
   message(STATUS "All tools built successfully.")
 endif()

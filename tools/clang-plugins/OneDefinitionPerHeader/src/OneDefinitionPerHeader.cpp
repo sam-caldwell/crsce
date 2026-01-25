@@ -49,7 +49,7 @@ inline StrRef make_ref(const std::string &s) { return std::string_view{s}; }
 #endif
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
-inline bool isBlankLine(StrRef L) {
+inline bool isBlankLine(const StrRef L) {
   for (const char c : L) {
     if (c == '\n' || c == '\r') {
       break;

@@ -9,6 +9,17 @@
 #include <vector>
 
 namespace crsce::common {
+    /**
+     * @name serialize_append
+     * @brief Serialize all cross-sum elements as a contiguous 9-bit MSB-first bitstream.
+     * @param out Destination byte vector; 575 bytes are appended (ceil(511*9/8)).
+     * @return N/A
+     * @throws None
+     * @details
+     * - Each of the 511 values is clamped to 9 bits and emitted MSB-first.
+     * - Bits are packed into bytes with bit 7 first; a final partial byte is emitted
+     *   when necessary. For 511 elements at 9 bits each (4599 bits), this appends 575 bytes.
+     */
     void CrossSum::serialize_append(std::vector<std::uint8_t> &out) const {
         std::uint8_t curr = 0;
         int bit_pos = 0; // next bit position in curr [0..7], 0 = MSB
@@ -24,9 +35,6 @@ namespace crsce::common {
                 }
                 ++bit_pos;
                 // NOLINTNEXTLINE(readability-magic-numbers)
-                /**
-                 * @brief Implementation detail.
-                 */
                 if (bit_pos >= 8) {
                     out.push_back(curr);
                     curr = 0;
@@ -34,7 +42,8 @@ namespace crsce::common {
                 }
             }
         }
-        if (bit_pos != 0) { // GCOVR_EXCL_BR_LINE (kSize*kBitWidth=4599 -> remainder 7 bits; else branch unreachable)
+        if (bit_pos != 0) {
+            // GCOVR_EXCL_BR_LINE (kSize*kBitWidth=4599 -> remainder 7 bits; else branch unreachable)
             out.push_back(curr);
         }
     }

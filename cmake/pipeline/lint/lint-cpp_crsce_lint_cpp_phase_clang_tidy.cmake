@@ -36,6 +36,11 @@ function(_crsce_lint_cpp_phase_clang_tidy BIN_DIR CLANG_TIDY_EXE)
     list(APPEND _EXTRA_ARGS "-extra-arg=-resource-dir=${_RES_DIR}")
   endif ()
 
+  # On macOS, clang-tidy sometimes needs the SDK sysroot to parse libc++ headers.
+  if (DEFINED ENV{SDKROOT} AND NOT "$ENV{SDKROOT}" STREQUAL "")
+    list(APPEND _EXTRA_ARGS "-extra-arg=-isysroot=$ENV{SDKROOT}")
+  endif ()
+
   # Build a shell command string (because _run uses bash -lc).
   set(WARN_AS_ERR "-warnings-as-errors=*")
   # Escape header-filter so bash does not interpret parentheses when invoked via -lc

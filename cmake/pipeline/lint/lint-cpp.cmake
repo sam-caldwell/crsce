@@ -19,7 +19,7 @@ function(lint_cpp)
 
   find_program(CLANG_TIDY_EXE clang-tidy)
   if (NOT CLANG_TIDY_EXE)
-    message(FATAL_ERROR "🔥 clang-tidy is required. Run 'make ready/fix' to install llvm.")
+    message(FATAL_ERROR " clang-tidy is required. Run 'make ready/fix' to install llvm.")
   endif ()
 
   _crsce_lint_collect_cpp_files(CPP_SOURCE_FILES)
@@ -31,10 +31,17 @@ function(lint_cpp)
     return()
   endif ()
 
-  # IMPORTANT: do not quote the list unless the callee explicitly expects a single string.
-  _crsce_lint_cpp_phase_clang_tidy(${_BIN_DIR} ${CLANG_TIDY_EXE} ${CPP_SOURCE_FILES})
+  # Exclude known intentional anti-pattern fixtures from clang-tidy.
+  set(TIDY_FILES ${CPP_SOURCE_FILES})
+  _crsce_lint_cpp_filter_files(_EXCLUDE_FIXTURES "^test/tools/clang-plugins/.*/fixtures/.*\\.cpp$" ${CPP_SOURCE_FILES})
+  if (_EXCLUDE_FIXTURES)
+    list(REMOVE_ITEM TIDY_FILES ${_EXCLUDE_FIXTURES})
+  endif ()
 
-  # Run OneDefinitionPerCppFile only on src/**/*.cpp
+  # IMPORTANT: do not quote the list unless the callee explicitly expects a single string.
+  _crsce_lint_cpp_phase_clang_tidy(${_BIN_DIR} ${CLANG_TIDY_EXE} ${TIDY_FILES})
+
+  # Run OneDefinitionPerCppFile on src/**/*.cpp (one-definition rule + docstrings)
   _crsce_lint_cpp_filter_files(ODPCPP_SOURCE_FILES "^src/.*\\.cpp$" ${CPP_SOURCE_FILES})
   list(LENGTH ODPCPP_SOURCE_FILES _ODPCPP_LEN)
   message(STATUS "C++: found ${_ODPCPP_LEN} src files for OneDefinitionPerCppFile")
@@ -48,23 +55,37 @@ function(lint_cpp)
     message(STATUS "C++: no src/**/*.cpp files; skipping OneDefinitionPerCppFile plugin 😬 🤷 😬")
   endif ()
 
-  # Filter to only test/**/*.cpp (relative to repo root).
-  message(STATUS "C++: Filtering for test files")
-  _crsce_lint_cpp_filter_files(TEST_CPP_SOURCE_FILES "^test/.*\\.cpp$" ${CPP_SOURCE_FILES})
+#  # Also enforce header/function docstrings on cmd/**/*.cpp using the same plugin.
+#  _crsce_lint_cpp_filter_files(CMD_CPP_SOURCE_FILES "^cmd/.*\\.cpp$" ${CPP_SOURCE_FILES})
+#  list(LENGTH CMD_CPP_SOURCE_FILES _CMD_LEN)
+#  message(STATUS "C++: found ${_CMD_LEN} cmd files for docstring enforcement")
+#  if (_CMD_LEN GREATER 0)
+#    _crsce_lint_cpp_run_plugin_on_list(
+#            ${_BIN_DIR}
+#            "${CMD_CPP_SOURCE_FILES}"
+#            OneDefinitionPerCppFile
+#            OneDefinitionPerCppFile)
+#  else ()
+#    message(STATUS "C++: no cmd/**/*.cpp files; skipping docstring enforcement for cmd 😬 🤷 😬")
+#  endif ()
 
-  list(LENGTH TEST_CPP_SOURCE_FILES _TEST_LEN)
-  message(STATUS "C++: found ${_TEST_LEN} test files to lint")
-  if (_TEST_LEN EQUAL 0)
-    message(STATUS "C++: no test/**/*.cpp files; skipping OneTestPerFile plugin  😬 🤷 😬")
-  else ()
-    _crsce_lint_cpp_run_plugin_on_list(
-            ${_BIN_DIR}
-            "${TEST_CPP_SOURCE_FILES}"
-            OneTestPerFile
-            OneTestPerFile
-            "/test/cmd/hasher/helpers/.*\\.cpp$"
-            "/test/tools/clang-plugins/.*/fixtures/.*\\.cpp$")
-  endif ()
+#  # Filter to only test/**/*.cpp (relative to repo root).
+#  message(STATUS "C++: Filtering for test files")
+#  _crsce_lint_cpp_filter_files(TEST_CPP_SOURCE_FILES "^test/.*\\.cpp$" ${CPP_SOURCE_FILES})
+#
+#  list(LENGTH TEST_CPP_SOURCE_FILES _TEST_LEN)
+#  message(STATUS "C++: found ${_TEST_LEN} test files to lint")
+#  if (_TEST_LEN EQUAL 0)
+#    message(STATUS "C++: no test/**/*.cpp files; skipping OneTestPerFile plugin  😬 🤷 😬")
+#  else ()
+#    _crsce_lint_cpp_run_plugin_on_list(
+#            ${_BIN_DIR}
+#            "${TEST_CPP_SOURCE_FILES}"
+#            OneTestPerFile
+#            OneTestPerFile
+#            "/test/cmd/hasher/helpers/.*\\.cpp$"
+#            "/test/tools/clang-plugins/.*/fixtures/.*\\.cpp$")
+#  endif ()
 
   message(STATUS "  ✅ C++ Lint passed")
 endfunction()

@@ -52,4 +52,3 @@ inline std::string run_command_capture(const std::string &cmd, int &exit_code) {
   return out;
 #endif
 }
-

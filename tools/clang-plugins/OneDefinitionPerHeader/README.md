@@ -1,8 +1,3 @@
-/**
- * @file README.md
- * @brief One-Definition-Per-Header plugin wiring for tools pipeline.
- */
-
 Build: integrated by repository tooling under tools/clang-plugins.
 Usage example:
 

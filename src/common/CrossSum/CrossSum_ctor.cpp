@@ -6,5 +6,8 @@
 #include "common/CrossSum/CrossSum.h"
 
 namespace crsce::common {
+    /**
+     * @brief Construct a CrossSum with all elements zero-initialized.
+     */
     CrossSum::CrossSum() = default;
 } // namespace crsce::common

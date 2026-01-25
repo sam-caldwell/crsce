@@ -6,8 +6,10 @@
 #include "common/BitHashBuffer/detail/Sha256.h"
 
 namespace crsce::common::detail::sha256 {
-
-/** @name small_sigma0 */
-u32 small_sigma0(const u32 x) { return rotr(x, 7U) ^ rotr(x, 18U) ^ (x >> 3U); }
-
+    /**
+     * @brief SHA-256 σ0 function.
+     * @param x Input 32-bit value.
+     * @return rotr(x,7) ^ rotr(x,18) ^ (x >> 3)
+     */
+    u32 small_sigma0(const u32 x) { return rotr(x, 7U) ^ rotr(x, 18U) ^ (x >> 3U); }
 } // namespace crsce::common::detail::sha256

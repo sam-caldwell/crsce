@@ -54,6 +54,12 @@ _deps/
 .ninja_log
 build.ninja
 
+# Prevent accidental in-source CMake builds under tools/*
+tools/**/CMakeCache.txt
+tools/**/CMakeFiles/
+tools/**/cmake_install.cmake
+tools/**/Makefile
+
 # Test coverage
 *.gcda
 *.gcno

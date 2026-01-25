@@ -1,7 +1,7 @@
 
 # Converts a list of absolute or relative file paths into the subset that
 # matches the given FILTER_REGEX (relative to repo root).
-function(_crsce_lint_cpp_filter_files FILTER_REGEX OUT_VAR)
+function(_crsce_lint_cpp_filter_files OUT_VAR FILTER_REGEX)
   set(_out "")
   foreach (_f IN LISTS ARGN)
     # Ensure we have an absolute path before computing RELATIVE_PATH

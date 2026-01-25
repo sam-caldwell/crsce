@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace crsce::common {
@@ -47,7 +48,7 @@ namespace crsce::common {
          * @param seed Arbitrary string used to derive the initial seed hash.
          * @return N/A
          */
-        explicit BitHashBuffer(const std::string &seed);
+        explicit BitHashBuffer(std::string_view seed);
 
         /**
          * @name pushBit
