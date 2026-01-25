@@ -1,6 +1,7 @@
 /**
  * @file LHChainVerifier.h
  * @brief Verify chained SHA-256 digests (LH) for CSM rows.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -15,6 +16,7 @@
 namespace crsce::decompress {
     /**
      * @class LHChainVerifier
+     * @name LHChainVerifier
      * @brief Verifies LH chain: H0 = sha256(seedHash||Row0), Hi=sha256(H(i-1)||Rowi).
      */
     class LHChainVerifier {
@@ -37,12 +39,20 @@ namespace crsce::decompress {
         [[nodiscard]] bool verify_all(const Csm &csm,
                                       std::span<const std::uint8_t> lh_bytes) const;
 
-        /** Access seed hash for tests. */
+        /**
+         * @name seed_hash
+         * @brief Access the current seed hash H(-1).
+         * @return Const reference to 32-byte seed hash.
+         */
         [[nodiscard]] const std::array<std::uint8_t, kHashSize> &seed_hash() const noexcept { return seed_hash_; }
 
     private:
         static std::array<std::uint8_t, kRowSize> pack_row_bytes(const Csm &csm, std::size_t r);
 
+        /**
+         * @name seed_hash_
+         * @brief Initial digest H(-1) derived from constructor seed.
+         */
         std::array<std::uint8_t, kHashSize> seed_hash_{};
     };
 } // namespace crsce::decompress

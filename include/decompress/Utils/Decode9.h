@@ -1,6 +1,7 @@
 /**
  * @file Decode9.h
  * @brief Utilities to decode MSB-first 9-bit packed streams.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -11,6 +12,7 @@
 
 namespace crsce::decompress {
     /**
+     * @name decode_9bit_stream
      * @brief Decode a 9-bit MSB-first packed stream into kCount 16-bit integers.
      * @tparam kCount Number of values to decode.
      * @param bytes Input byte span containing 9*kCount bits (padded to whole bytes).

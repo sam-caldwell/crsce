@@ -82,6 +82,17 @@ public:
 
   // Static helpers (exposed for tests if needed)
   static bool hasDocBrief(clang::CompilerInstance &CI, const clang::Decl *D, bool requireBrief);
+  struct DocRequirements {
+    bool requireBlock{true};
+    bool requireName{true};
+    bool requireBrief{true};
+    bool requireParams{false};
+    bool requireReturn{false};
+  };
+  static bool checkDocForDecl(clang::CompilerInstance &CI,
+                              const clang::Decl *D,
+                              const DocRequirements &Req,
+                              std::string &missingTags);
 
 private:
   static std::string getQualifiedName(const clang::Decl *D);

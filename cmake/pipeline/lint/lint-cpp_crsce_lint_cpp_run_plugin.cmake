@@ -33,9 +33,11 @@ function(_crsce_lint_cpp_run_plugin BIN_DIR FILES PLUGIN_DIR_NAME PLUGIN_FLAG)
     endif ()
 
     set(_EXTRA_PLUGIN_ARGS "")
+    # Always print constructs for better diagnostics for these plugins
     if ("${PLUGIN_FLAG}" STREQUAL "OneDefinitionPerCppFile")
-      # Always print constructs for better diagnostics (escalation applied only in replay)
       set(_EXTRA_PLUGIN_ARGS "-Xclang -plugin-arg-OneDefinitionPerCppFile -Xclang print-constructs")
+    elseif ("${PLUGIN_FLAG}" STREQUAL "one-definition-per-header")
+      set(_EXTRA_PLUGIN_ARGS "-Xclang -plugin-arg-one-definition-per-header -Xclang print-constructs")
     endif ()
 
     set(_CMD "${_BASE_STR} -Xclang -load -Xclang \"${_PLUG}\" ${_EXTRA_PLUGIN_ARGS} -Xclang -plugin -Xclang ${PLUGIN_FLAG} \"${_FP}\"")
@@ -45,7 +47,15 @@ function(_crsce_lint_cpp_run_plugin BIN_DIR FILES PLUGIN_DIR_NAME PLUGIN_FLAG)
     if (NOT _RC EQUAL 0)
       # Fallback: rerun with verbose diagnostics to surface the root cause.
       # During verbose replay, request debug-errors to force summary as Error diagnostics
-      set(_CMD_VERBOSE "${_BASE_STR} -ferror-limit=0 -fno-caret-diagnostics -fdiagnostics-absolute-paths -Xclang -load -Xclang \"${_PLUG}\" ${_EXTRA_PLUGIN_ARGS} -Xclang -plugin-arg-OneDefinitionPerCppFile -Xclang debug-errors -Xclang -plugin -Xclang ${PLUGIN_FLAG} \"${_FP}\"")
+      # Pass debug-errors to the appropriate plugin
+      if ("${PLUGIN_FLAG}" STREQUAL "OneDefinitionPerCppFile")
+        set(_DBG_ARGS "-Xclang -plugin-arg-OneDefinitionPerCppFile -Xclang debug-errors")
+      elseif ("${PLUGIN_FLAG}" STREQUAL "one-definition-per-header")
+        set(_DBG_ARGS "-Xclang -plugin-arg-one-definition-per-header -Xclang debug-errors")
+      else()
+        set(_DBG_ARGS "")
+      endif()
+      set(_CMD_VERBOSE "${_BASE_STR} -ferror-limit=0 -fno-caret-diagnostics -fdiagnostics-absolute-paths -Xclang -load -Xclang \"${_PLUG}\" ${_EXTRA_PLUGIN_ARGS} ${_DBG_ARGS} -Xclang -plugin -Xclang ${PLUGIN_FLAG} \"${_FP}\"")
       message(STATUS "  ${PLUGIN_FLAG} failed on ${_P} (${_RC}). Replaying with verbose diagnostics:\n    CMD: ${_CMD_VERBOSE}")
       execute_process(COMMAND bash -lc "${_CMD_VERBOSE}" OUTPUT_VARIABLE _OUT2 ERROR_VARIABLE _ERR2 RESULT_VARIABLE _RC2)
       message(STATUS "  ---- stdout+stderr (replay) ----\n${_OUT2}${_ERR2}\n  -------------------------------")

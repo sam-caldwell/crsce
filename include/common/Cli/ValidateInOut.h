@@ -1,6 +1,7 @@
 /**
  * @file ValidateInOut.h
  * @brief Shared CLI validator for -in/-out argument parsing and filesystem checks.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
@@ -16,4 +17,10 @@ namespace crsce::common::cli {
      * @return 0 on success; non-zero error code on failure with message printed to stderr.
      */
     int validate_in_out(ArgParser& parser, std::span<char*> args);
+
+    /**
+     * @name ValidateInOutTag
+     * @brief Tag type to satisfy one-definition-per-header for CLI validation utilities.
+     */
+    struct ValidateInOutTag {};
 }

@@ -40,6 +40,10 @@ Action::CreateASTConsumer(CompilerInstance &CI, llvm::StringRef InFile) {
   Finder_.addMatcher(enumDecl(isDefinition(), inMain).bind("enum"), CB_.get());
   Finder_.addMatcher(typedefDecl(inMain).bind("typedef"), CB_.get());
   Finder_.addMatcher(typeAliasDecl(inMain).bind("typealias"), CB_.get());
+  // Top-level variable definitions (e.g., constant tables)
+  Finder_.addMatcher(varDecl(isDefinition(), hasGlobalStorage(), inMain).bind("var"), CB_.get());
+  // Class/struct fields (definitions inside TU). Enforce docs; do not count toward one-per-cpp.
+  Finder_.addMatcher(fieldDecl(inMain).bind("field"), CB_.get());
 
   return std::make_unique<Consumer>(Ctx_.get(), &Finder_);
 }

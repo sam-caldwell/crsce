@@ -14,130 +14,151 @@
 using namespace clang;
 
 namespace odpcpp {
+    Ctx::Ctx(CompilerInstance &CI) : CI_(&CI) {
+    }
 
-Ctx::Ctx(CompilerInstance &CI) : CI_(&CI) {}
+    void Ctx::setOptions(Options O) { Opt_ = std::move(O); }
 
-void Ctx::setOptions(Options O) { Opt_ = std::move(O); }
+    CompilerInstance &Ctx::ci() { return *CI_; }
 
-CompilerInstance &Ctx::ci() { return *CI_; }
+    void Ctx::setASTContext(ASTContext &C) {
+        AST_ = &C;
+        SM_ = &C.getSourceManager();
+    }
 
-void Ctx::setASTContext(ASTContext &C) {
-  AST_ = &C;
-  SM_ = &C.getSourceManager();
-}
+    void Ctx::addConstruct(const Decl *D, llvm::StringRef kind, bool countable) {
+        auto &SMgr = SM();
+        SourceLocation Loc = SMgr.getFileLoc(D->getBeginLoc());
+        if (!SMgr.isWrittenInMainFile(Loc)) return;
 
-void Ctx::addConstruct(const Decl *D, llvm::StringRef kind, bool countable) {
-  auto &SMgr = SM();
-  SourceLocation Loc = SMgr.getFileLoc(D->getBeginLoc());
-  if (!SMgr.isWrittenInMainFile(Loc)) return;
-
-  ConstructInfo C;
-  C.line = SMgr.getSpellingLineNumber(Loc);
-  C.kind = kind.str();
-  C.qname = getQualifiedName(D);
-  C.countable = countable;
+        ConstructInfo C;
+        C.line = SMgr.getSpellingLineNumber(Loc);
+        C.kind = kind.str();
+        C.qname = getQualifiedName(D);
+        C.countable = countable;
 
   if (Opt_.enforceDoc) {
-    bool ok = hasDocBrief(*CI_, D, Opt_.requireBrief);
+    // Compute strict doc requirements
+    DocRequirements req{};
+    req.requireBlock = true;
+    req.requireName = true;
+    req.requireBrief = Opt_.requireBrief;
+    req.requireParams = false;
+    req.requireReturn = false;
+
+    if (llvm::isa<FunctionDecl>(D)) {
+      const auto *FD = llvm::dyn_cast<FunctionDecl>(D);
+      const bool isCtor = llvm::isa<CXXConstructorDecl>(FD);
+      const bool isDtor = llvm::isa<CXXDestructorDecl>(FD);
+      // Params: require if any parameters present (strict but realistic)
+      req.requireParams = (FD->getNumParams() > 0);
+      // Return: require for all non-ctor/dtor methods/functions, even void
+      req.requireReturn = !(isCtor || isDtor);
+    } else if (llvm::isa<CXXRecordDecl>(D) || llvm::isa<EnumDecl>(D) ||
+               llvm::isa<TypedefDecl>(D) || llvm::isa<TypeAliasDecl>(D) ||
+               llvm::isa<VarDecl>(D) || llvm::isa<FieldDecl>(D)) {
+      // Non-function constructs need @name and @brief only (default req)
+    }
+
+    std::string missing;
+    bool ok = checkDocForDecl(*CI_, D, req, missing);
     if (!ok) {
       const unsigned id = CI_->getDiagnostics().getCustomDiagID(
           DiagnosticsEngine::Error,
-          "definition must be immediately preceded by a Doxygen block (/** ... */) with @brief");
-      DE().Report(Loc, id);
+          "definition doc missing required Doxygen tags: %0");
+      DE().Report(Loc, id) << missing;
       HadError_ = true;
-      // Always emit a plain stderr line to aid CI triage
-      llvm::errs() << "ODPCPP: doc MISSING for " << C.kind << ' ' << C.qname
-                   << " (line " << C.line << ")\n";
+      llvm::errs() << "ODPCPP: doc MISSING tags [" << missing << "] for "
+                   << C.kind << ' ' << C.qname << " (line " << C.line << ")\n";
     }
     if (Opt_.printConstructs) {
       const unsigned wid = CI_->getDiagnostics().getCustomDiagID(
           DiagnosticsEngine::Warning, "%0");
-      std::string msg = std::string("ODPCPP: ") + C.kind + " " + C.qname +
-                        " at line " + std::to_string(C.line) + (ok ? ": doc OK" : ": doc MISSING");
+      std::string msg = std::string("ODPCPP: ") + C.kind + " " + C.qname
+                        " at line " + std::to_string(C.line) + (ok ? ": doc OK" : ": doc MISSING: ") + missing;
       DE().Report(Loc, wid) << msg;
     }
   }
 
-  Constructs_.push_back(std::move(C));
-}
-
-void Ctx::finalizeTU() {
-  auto &SMgr2 = SM();
-  FileID FID = SMgr2.getMainFileID();
-  if (FID.isInvalid()) return;
-  SourceLocation FL = SMgr2.getLocForStartOfFile(FID);
-  llvm::StringRef Path = SMgr2.getFilename(FL);
-  if (!Path.ends_with(".cpp")) return;
-
-  const bool isSrc = Path.contains("/src/");
-  const bool isCmd = Path.contains("/cmd/");
-
-  bool headerOk = true;
-  if (Opt_.enforceHeader && (isSrc || isCmd)) {
-    headerOk = checkHeaderDoc(Path, FID);
-  }
-
-  unsigned cnt = 0;
-  for (const auto &c : Constructs_) if (c.countable) ++cnt;
-
-  if (isSrc && cnt != 1U) {
-    const unsigned id = CI_->getDiagnostics().getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "exactly one construct must be defined per source file; found %0");
-    auto DB = DE().Report(FL, id);
-    DB << cnt;
-    HadError_ = true;
-    const unsigned noteId = CI_->getDiagnostics().getCustomDiagID(
-        DiagnosticsEngine::Note, "%0");
-    for (const auto &c : Constructs_) {
-      std::string msg = std::string("construct: ") + c.kind + " " + c.qname +
-                        " (line " + std::to_string(c.line) + ")";
-      DE().Report(FL, noteId) << msg;
+        Constructs_.push_back(std::move(C));
     }
-  }
 
-  if (isSrc || isCmd || Opt_.printConstructs) {
-    const unsigned sid = CI_->getDiagnostics().getCustomDiagID(
-        Opt_.debugErrors ? DiagnosticsEngine::Error : DiagnosticsEngine::Warning, "%0");
-    std::string header = std::string("ODPCPP: constructs=") + std::to_string(Constructs_.size()) +
-                         ", countable=" + std::to_string(cnt) +
-                         ", header=" + (headerOk ? "OK" : "FAIL");
-    DE().Report(FL, sid) << header;
-    if (Opt_.printConstructs) {
-      for (const auto &c : Constructs_) {
-        std::string msg = std::string("construct: ") + c.kind + " " + c.qname +
-                          " (line " + std::to_string(c.line) + ")";
-        DE().Report(FL, sid) << msg;
-      }
+    void Ctx::finalizeTU() {
+        auto &SMgr2 = SM();
+        FileID FID = SMgr2.getMainFileID();
+        if (FID.isInvalid()) return;
+        SourceLocation FL = SMgr2.getLocForStartOfFile(FID);
+        llvm::StringRef Path = SMgr2.getFilename(FL);
+        if (!Path.ends_with(".cpp")) return;
+
+        const bool isSrc = Path.contains("/src/");
+        const bool isCmd = Path.contains("/cmd/");
+
+        bool headerOk = true;
+        if (Opt_.enforceHeader && (isSrc || isCmd)) {
+            headerOk = checkHeaderDoc(Path, FID);
+        }
+
+        unsigned cnt = 0;
+        for (const auto &c: Constructs_) if (c.countable) ++cnt;
+
+        if (isSrc && cnt != 1U) {
+            const unsigned id = CI_->getDiagnostics().getCustomDiagID(
+                DiagnosticsEngine::Error,
+                "exactly one construct must be defined per source file; found %0");
+            auto DB = DE().Report(FL, id);
+            DB << cnt;
+            HadError_ = true;
+            const unsigned noteId = CI_->getDiagnostics().getCustomDiagID(
+                DiagnosticsEngine::Note, "%0");
+            for (const auto &c: Constructs_) {
+                std::string msg = std::string("construct: ") + c.kind + " " + c.qname + " (line "
+                                  std::to_string(c.line) + ")";
+                DE().Report(FL, noteId) << msg;
+            }
+        }
+
+        if (isSrc || isCmd || Opt_.printConstructs) {
+            const unsigned sid = CI_->getDiagnostics().getCustomDiagID(
+                Opt_.debugErrors ? DiagnosticsEngine::Error : DiagnosticsEngine::Warning, "%0");
+            std::string header = std::string("ODPCPP: constructs=") + std::to_string(Constructs_.size())
+            ", countable=" + std::to_string(cnt) + ", header=" + (headerOk ? "OK" : "FAIL");
+            DE().Report(FL, sid) << header;
+            if (Opt_.printConstructs) {
+                for (const auto &c: Constructs_) {
+                    std::string msg = std::string("construct: ") + c.kind + " " + c.qname
+                    " (line " + std::to_string(c.line) + ")";
+                    DE().Report(FL, sid) << msg;
+                }
+            }
+        }
+        // Explicit note when no countable constructs found under src
+        if (isSrc && cnt == 0U) {
+            const unsigned nid = CI_->getDiagnostics().getCustomDiagID(
+                DiagnosticsEngine::Note, "no countable constructs matched in source file");
+            DE().Report(FL, nid);
+            llvm::errs() << "ODPCPP: FAIL file: " << Path << " (no constructs matched)\n";
+        }
+        // Always print a stderr summary to aid CI triage (even if no errors)
+        llvm::errs() << (HadError_ ? "ODPCPP: FAIL file: " : "ODPCPP: OK file: ")
+                << Path << " constructs=" << Constructs_.size()
+                << " countable=" << cnt << " header=" << (headerOk ? "OK" : "FAIL") << "\n";
+        if (Opt_.printConstructs || HadError_) {
+            for (const auto &c: Constructs_) {
+                llvm::errs() << "  construct: " << c.kind << ' ' << c.qname << " (line " << c.line << ")\n";
+            }
+        }
     }
-  }
-  // Explicit note when no countable constructs found under src
-  if (isSrc && cnt == 0U) {
-    const unsigned nid = CI_->getDiagnostics().getCustomDiagID(
-        DiagnosticsEngine::Note, "no countable constructs matched in source file");
-    DE().Report(FL, nid);
-    llvm::errs() << "ODPCPP: FAIL file: " << Path << " (no constructs matched)\n";
-  }
-  // Always print a stderr summary to aid CI triage (even if no errors)
-  llvm::errs() << (HadError_ ? "ODPCPP: FAIL file: " : "ODPCPP: OK file: ")
-               << Path << " constructs=" << Constructs_.size()
-               << " countable=" << cnt << " header=" << (headerOk ? "OK" : "FAIL") << "\n";
-  if (Opt_.printConstructs || HadError_) {
-    for (const auto &c : Constructs_) {
-      llvm::errs() << "  construct: " << c.kind << ' ' << c.qname << " (line " << c.line << ")\n";
+
+    // static
+    std::string Ctx::getQualifiedName(const Decl *D) {
+        if (const auto *ND = llvm::dyn_cast<NamedDecl>(D)) {
+            return ND->getQualifiedNameAsString();
+        }
+        return "<unnamed>";
     }
-  }
-}
 
-// static
-std::string Ctx::getQualifiedName(const Decl *D) {
-  if (const auto *ND = llvm::dyn_cast<NamedDecl>(D)) {
-    return ND->getQualifiedNameAsString();
-  }
-  return "<unnamed>";
-}
-
-// static
+    // static
 bool Ctx::hasDocBrief(CompilerInstance &CI, const Decl *D, bool requireBrief) {
   auto &Ctx = CI.getASTContext();
   const RawComment *RC = Ctx.getRawCommentForDeclNoCache(D);
@@ -148,55 +169,135 @@ bool Ctx::hasDocBrief(CompilerInstance &CI, const Decl *D, bool requireBrief) {
   return RCText.contains("@brief");
 }
 
-bool Ctx::checkHeaderDoc(llvm::StringRef Path, FileID FID) {
-  auto &SMgr = SM();
-  bool Invalid = false;
-  llvm::StringRef C = SMgr.getBufferData(FID, &Invalid);
-  if (Invalid) return false;
-  bool startsWithBlock = C.starts_with("/**");
-  bool hasEnd = C.contains("*/");
-  bool hasFile = C.contains("@file ");
-  bool hasBrief = C.contains("@brief");
-  bool hasAuthor = C.contains("Sam Caldwell");
-  bool hasLicense = C.contains("LICENSE.txt");
-  bool headerOk = startsWithBlock && hasEnd && hasFile && hasBrief && hasAuthor && hasLicense;
-  if (!headerOk) {
-    const unsigned id = CI_->getDiagnostics().getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "source must start with Doxygen block containing @file/@brief and copyright");
-    DE().Report(SMgr.getLocForStartOfFile(FID), id);
-    HadError_ = true;
-    const unsigned noteId = CI_->getDiagnostics().getCustomDiagID(
-        DiagnosticsEngine::Note, "%0");
-    if (!startsWithBlock) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing '/**' at line 1";
-    if (!hasEnd) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "unterminated header block (missing '*/')";
-    if (!hasFile) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing '@file <basename>' tag";
-    if (!hasBrief) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing '@brief' line in header";
-    if (!hasAuthor) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing author marker ('Sam Caldwell')";
-    if (!hasLicense) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing license marker ('LICENSE.txt')";
+static bool containsTag(llvm::StringRef txt, llvm::StringRef tag) {
+  return txt.contains(tag);
+}
+
+static bool containsParamFor(llvm::StringRef txt, const std::string &name) {
+  if (name.empty()) return false;
+  // Accept @param name or @param[in] name
+  std::string pat1 = std::string("@param ") + name;
+  if (txt.contains(pat1)) return true;
+  // Find patterns like @param[in] name
+  size_t pos = 0;
+  while (true) {
+    size_t p = txt.find("@param[", pos);
+    if (p == llvm::StringRef::npos) break;
+    size_t rb = txt.find(']', p + 7);
+    if (rb == llvm::StringRef::npos) break;
+    // Expect whitespace then name
+    size_t sp = rb + 1;
+    while (sp < txt.size() && isspace(static_cast<unsigned char>(txt[sp]))) sp++;
+    if (sp < txt.size()) {
+      // Compare token starting at sp to name
+      if (txt.drop_front(sp).starts_with(name)) return true;
+    }
+    pos = rb + 1;
   }
-  // @file must match basename
-  llvm::SmallString<256> base = llvm::sys::path::filename(Path);
-  std::string expect = std::string("@file ") + base.str().str();
-  if (!C.contains(expect)) {
-    const unsigned id2 = CI_->getDiagnostics().getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "source @file tag must match current file basename (%0)");
-    auto DB = DE().Report(SMgr.getLocForStartOfFile(FID), id2);
-    DB << base.str().str();
-    headerOk = false;
-    HadError_ = true;
+  return false;
+}
+
+bool Ctx::checkDocForDecl(CompilerInstance &CI, const Decl *D,
+                          const DocRequirements &Req,
+                          std::string &missingTags) {
+  missingTags.clear();
+  auto &Ctx = CI.getASTContext();
+  const RawComment *RC = Ctx.getRawCommentForDeclNoCache(D);
+  if (!RC) {
+    missingTags = "no Doxygen block";
+    return false;
   }
-  return headerOk;
+  const auto RCText = RC->getRawText(CI.getSourceManager());
+  if (RCText.empty()) {
+    missingTags = "empty Doxygen block";
+    return false;
+  }
+  // Enforce block-style (/** ... */) if requested
+  if (Req.requireBlock && !RCText.ltrim().starts_with("/**")) {
+    missingTags += (missingTags.empty() ? "" : ", ");
+    missingTags += "block-style '/**'";
+  }
+  if (Req.requireName && !containsTag(RCText, "@name")) {
+    missingTags += (missingTags.empty() ? "" : ", ");
+    missingTags += "@name";
+  }
+  if (Req.requireBrief && !containsTag(RCText, "@brief")) {
+    missingTags += (missingTags.empty() ? "" : ", ");
+    missingTags += "@brief";
+  }
+  if (Req.requireReturn) {
+    // Skip constructors/destructors (handled by caller), enforce otherwise
+    if (!containsTag(RCText, "@return")) {
+      missingTags += (missingTags.empty() ? "" : ", ");
+      missingTags += "@return";
+    }
+  }
+  if (Req.requireParams) {
+    if (const auto *FD = llvm::dyn_cast<FunctionDecl>(D)) {
+      for (unsigned i = 0; i < FD->getNumParams(); ++i) {
+        const ParmVarDecl *P = FD->getParamDecl(i);
+        const std::string nm = P->getNameAsString();
+        if (nm.empty() || !containsParamFor(RCText, nm)) {
+          missingTags += (missingTags.empty() ? "" : ", ");
+          missingTags += std::string("@param ") + (nm.empty() ? "<unnamed>" : nm);
+        }
+      }
+    }
+  }
+  return missingTags.empty();
 }
 
-clang::SourceManager &Ctx::SM() {
-  if (SM_) return *SM_;
-  return CI_->getSourceManager();
-}
+    bool Ctx::checkHeaderDoc(llvm::StringRef Path, FileID FID) {
+        auto &SMgr = SM();
+        bool Invalid = false;
+        llvm::StringRef C = SMgr.getBufferData(FID, &Invalid);
+        if (Invalid) return false;
+        bool startsWithBlock = C.starts_with("/**");
+        bool hasEnd = C.contains("*/");
+        bool hasFile = C.contains("@file ");
+        bool hasBrief = C.contains("@brief");
+        bool hasAuthor = C.contains("Sam Caldwell");
+        bool hasLicense = C.contains("LICENSE.txt");
+        bool headerOk = startsWithBlock && hasEnd && hasFile && hasBrief && hasAuthor && hasLicense;
+        if (!headerOk) {
+            const unsigned id = CI_->getDiagnostics().getCustomDiagID(
+                DiagnosticsEngine::Error,
+                "source must start with Doxygen block containing @file/@brief and copyright");
+            DE().Report(SMgr.getLocForStartOfFile(FID), id);
+            HadError_ = true;
+            const unsigned noteId = CI_->getDiagnostics().getCustomDiagID(
+                DiagnosticsEngine::Note, "%0");
+            if (!startsWithBlock) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing '/**' at line 1";
+            if (!hasEnd) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) <<
+                         "unterminated header block (missing '*/')";
+            if (!hasFile) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing '@file <basename>' tag";
+            if (!hasBrief) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) << "missing '@brief' line in header";
+            if (!hasAuthor) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) <<
+                            "missing author marker ('Sam Caldwell')";
+            if (!hasLicense) DE().Report(SMgr.getLocForStartOfFile(FID), noteId) <<
+                             "missing license marker ('LICENSE.txt')";
+        }
+        // @file must match basename
+        llvm::SmallString<256> base = llvm::sys::path::filename(Path);
+        std::string expect = std::string("@file ") + base.str().str();
+        if (!C.contains(expect)) {
+            const unsigned id2 = CI_->getDiagnostics().getCustomDiagID(
+                DiagnosticsEngine::Error,
+                "source @file tag must match current file basename (%0)");
+            auto DB = DE().Report(SMgr.getLocForStartOfFile(FID), id2);
+            DB << base.str().str();
+            headerOk = false;
+            HadError_ = true;
+        }
+        return headerOk;
+    }
 
-clang::DiagnosticsEngine &Ctx::DE() {
-  return CI_->getDiagnostics();
-}
+    clang::SourceManager &Ctx::SM() {
+        if (SM_) return *SM_;
+        return CI_->getSourceManager();
+    }
 
+    clang::DiagnosticsEngine &Ctx::DE() {
+        return CI_->getDiagnostics();
+    }
 } // namespace odpcpp

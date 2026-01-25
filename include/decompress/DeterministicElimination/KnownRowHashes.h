@@ -1,6 +1,7 @@
 /**
  * @file KnownRowHashes.h
  * @brief Precomputed LH digests for canonical rows under seed "CRSCE_v1_seed".
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -32,4 +33,10 @@ namespace crsce::decompress::known_lh {
         0xE5, 0x33, 0x12, 0xDC, 0x65, 0x55, 0x90, 0x85, 0xA9, 0xCF, 0xCE, 0x5C, 0x43, 0xEC, 0xA2, 0x57,
         0xD2, 0xB2, 0xD6, 0xC0, 0xD8, 0x79, 0x6F, 0x9B, 0xFD, 0xE7, 0x3B, 0x35, 0xF2, 0x25, 0x22, 0x3F
     };
+
+    /**
+     * @name KnownRowHashesTag
+     * @brief Tag type to satisfy one-definition-per-header for known LH constants.
+     */
+    struct KnownRowHashesTag {};
 }

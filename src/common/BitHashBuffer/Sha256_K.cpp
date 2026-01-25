@@ -4,10 +4,14 @@
  * @brief SHA-256 round constants table.
  */
 #include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types32.h"
 #include <array>
 
 namespace crsce::common::detail::sha256 {
-    /** @name K */
+    /**
+     * @name K
+     * @brief SHA-256 round constants table (64 entries).
+     */
     const std::array<u32, 64> K{
         0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU,
         0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U, 0xd807aa98U, 0x12835b01U,

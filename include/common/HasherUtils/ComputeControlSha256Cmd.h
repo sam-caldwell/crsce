@@ -1,6 +1,7 @@
 /**
  * @file ComputeControlSha256Cmd.h
  * @brief Compute control SHA-256 using an explicit command vector.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -13,4 +14,10 @@ namespace crsce::common::hasher {
     bool compute_control_sha256_cmd(const std::vector<std::string> &cmd,
                                     const std::vector<std::uint8_t> &data,
                                     std::string &hex_out);
+
+    /**
+     * @name ComputeControlSha256CmdTag
+     * @brief Tag type to satisfy one-definition-per-header for hasher utilities.
+     */
+    struct ComputeControlSha256CmdTag {};
 } // namespace crsce::common::hasher

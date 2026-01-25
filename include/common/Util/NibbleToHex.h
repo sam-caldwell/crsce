@@ -14,4 +14,10 @@ namespace crsce::common::util {
      * @return '0', ..., '9' or 'A', ..., 'F' for inputs 0, ..., 15; otherwise '?' for invalid inputs.
      */
     char nibble_to_hex(unsigned v);
+
+    /**
+     * @name NibbleToHexTag
+     * @brief Tag type to satisfy one-definition-per-header for nibble-to-hex utility.
+     */
+    struct NibbleToHexTag {};
 } // namespace crsce::common::util

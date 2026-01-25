@@ -1,6 +1,7 @@
 /**
  * @file CrossSum.h
  * @brief Cross-sum vector helper (511 elements, 9-bit serialization).
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -12,6 +13,7 @@
 namespace crsce::common {
     /**
      * @class CrossSum
+     * @name CrossSum
      * @brief Maintains a 511-element vector of uint16_t cross-sums and serializes
      *        them as a contiguous 9-bit MSB-first bitstream.
      */
@@ -51,6 +53,10 @@ namespace crsce::common {
         void serialize_append(std::vector<std::uint8_t> &out) const;
 
     private:
+        /**
+         * @name elems_
+         * @brief Backing storage for cross-sum values (511 elements).
+         */
         std::array<ValueType, kSize> elems_{};
     };
 } // namespace crsce::common

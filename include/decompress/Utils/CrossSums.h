@@ -1,6 +1,7 @@
 /**
  * @file CrossSums.h
  * @brief Cross-sum verification helpers for reconstructed CSMs.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -13,7 +14,14 @@
 
 namespace crsce::decompress {
     /**
+     * @name verify_cross_sums
      * @brief Compute row/col/diag/xdiag counts and compare to expected vectors.
+     * @param csm Cross-Sum Matrix to examine.
+     * @param lsm Expected row counts (length S).
+     * @param vsm Expected column counts (length S).
+     * @param dsm Expected diagonal counts (length S).
+     * @param xsm Expected anti-diagonal counts (length S).
+     * @return true if all computed counts match the expected vectors; false otherwise.
      */
     inline bool verify_cross_sums(const Csm &csm,
                                   const std::array<std::uint16_t, Csm::kS> &lsm,
@@ -21,10 +29,7 @@ namespace crsce::decompress {
                                   const std::array<std::uint16_t, Csm::kS> &dsm,
                                   const std::array<std::uint16_t, Csm::kS> &xsm) {
         constexpr std::size_t S = Csm::kS;
-        auto diag_index = [](const std::size_t r, const std::size_t c) -> std::size_t { return (r + c) % S; };
-        auto xdiag_index = [](const std::size_t r, const std::size_t c) -> std::size_t {
-            return (r >= c) ? (r - c) : (r + S - c);
-        };
+        // Inline expressions for diagonal families to avoid introducing lambda types
 
         std::array<std::uint16_t, S> row{};
         std::array<std::uint16_t, S> col{};
@@ -36,8 +41,10 @@ namespace crsce::decompress {
                 if (const bool bit = csm.get(r, c); !bit) { continue; }
                 row.at(r) = static_cast<std::uint16_t>(row.at(r) + 1U);
                 col.at(c) = static_cast<std::uint16_t>(col.at(c) + 1U);
-                diag.at(diag_index(r, c)) = static_cast<std::uint16_t>(diag.at(diag_index(r, c)) + 1U);
-                xdg.at(xdiag_index(r, c)) = static_cast<std::uint16_t>(xdg.at(xdiag_index(r, c)) + 1U);
+                const std::size_t d = (r + c) % S;
+                const std::size_t x = (r >= c) ? (r - c) : (r + S - c);
+                diag.at(d) = static_cast<std::uint16_t>(diag.at(d) + 1U);
+                xdg.at(x) = static_cast<std::uint16_t>(xdg.at(x) + 1U);
             }
         }
         return std::equal(row.begin(), row.end(), lsm.begin()) &&

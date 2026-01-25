@@ -1,6 +1,7 @@
 /**
  * @file RunSha256Stdin.h
  * @brief Execute external SHA-256 tool via stdin and capture hex digest.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -14,4 +15,10 @@ namespace crsce::common::hasher {
     bool run_sha256_stdin(const std::vector<std::string> &cmd,
                           const std::vector<std::uint8_t> &data,
                           std::string &hex_out);
+
+    /**
+     * @name RunSha256StdinTag
+     * @brief Tag type to satisfy one-definition-per-header for hasher utilities.
+     */
+    struct RunSha256StdinTag {};
 } // namespace crsce::common::hasher

@@ -59,6 +59,20 @@ void MatchCB::run(const MatchFinder::MatchResult &Res) {
     Ctx_->addConstruct(TA, "type-alias", /*countable*/true);
     return;
   }
+  if (const auto *VD = Res.Nodes.getNodeAs<VarDecl>("var")) {
+    // Count only file/namespace-scope definitions
+    if (VD->isFileVarDecl() && VD->isThisDeclarationADefinition()) {
+      llvm::errs() << "ODPCPP: MATCH var " << VD->getQualifiedNameAsString() << "\n"; llvm::errs().flush();
+      Ctx_->addConstruct(VD, "var", /*countable*/true);
+      return;
+    }
+  }
+  if (const auto *FD = Res.Nodes.getNodeAs<FieldDecl>("field")) {
+    // Enforce docs on class/struct fields when the record is in this TU. Not countable.
+    llvm::errs() << "ODPCPP: MATCH field " << FD->getQualifiedNameAsString() << "\n"; llvm::errs().flush();
+    Ctx_->addConstruct(FD, "field", /*countable*/false);
+    return;
+  }
 }
 
 } // namespace odpcpp

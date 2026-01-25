@@ -14,4 +14,10 @@ namespace crsce::common::util {
      * @return true if x is one of {1, 2, 4, 8, ...}; false for zero or non-powers.
      */
     bool is_power_of_two(unsigned x);
+
+    /**
+     * @name IsPowerOfTwoTag
+     * @brief Tag type to satisfy one-definition-per-header for power-of-two utility.
+     */
+    struct IsPowerOfTwoTag {};
 } // namespace crsce::common::util

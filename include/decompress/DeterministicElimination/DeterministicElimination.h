@@ -1,6 +1,7 @@
 /**
  * @file DeterministicElimination.h
  * @brief Deterministic elimination solver implementing sound forced moves.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -11,21 +12,14 @@
 
 #include "decompress/Csm/Csm.h"
 #include "decompress/Solver/Solver.h"
+#include "decompress/DeterministicElimination/ConstraintState.h"
 
 namespace crsce::decompress {
-    struct ConstraintState {
-        std::array<std::uint16_t, Csm::kS> R_row{};
-        std::array<std::uint16_t, Csm::kS> R_col{};
-        std::array<std::uint16_t, Csm::kS> R_diag{};
-        std::array<std::uint16_t, Csm::kS> R_xdiag{};
-        std::array<std::uint16_t, Csm::kS> U_row{};
-        std::array<std::uint16_t, Csm::kS> U_col{};
-        std::array<std::uint16_t, Csm::kS> U_diag{};
-        std::array<std::uint16_t, Csm::kS> U_xdiag{};
-    };
+    // ConstraintState moved to a dedicated header to satisfy one-definition-per-header.
 
     /**
      * @class DeterministicElimination
+     * @name DeterministicElimination
      * @brief Enforces forced moves: if R=0 -> all remaining vars become 0; if R=U -> all remaining vars become 1.
      *        Maintains feasibility (0 ≤ R ≤ U) for all four line families; throws on contradictions.
      */
@@ -47,15 +41,38 @@ namespace crsce::decompress {
         std::size_t hash_step();
 
     private:
+        /**
+         * @name csm_
+         * @brief Reference to the target Cross-Sum Matrix being solved.
+         */
         Csm &csm_;
+
+        /**
+         * @name st_
+         * @brief Residual constraint state (R and U for row/col/diag/xdiag).
+         */
         ConstraintState &st_;
 
         static constexpr std::size_t S = Csm::kS;
 
+        /**
+         * @name diag_index
+         * @brief Compute diagonal index for (r,c).
+         * @param r Row index.
+         * @param c Column index.
+         * @return d = (r + c) mod S.
+         */
         static constexpr std::size_t diag_index(std::size_t r, std::size_t c) noexcept {
             return (r + c) % S;
         }
 
+        /**
+         * @name xdiag_index
+         * @brief Compute anti-diagonal index for (r,c).
+         * @param r Row index.
+         * @param c Column index.
+         * @return x = (r >= c) ? (r - c) : (r + S - c).
+         */
         static constexpr std::size_t xdiag_index(std::size_t r, std::size_t c) noexcept {
             return (r >= c) ? (r - c) : (r + S - c);
         }

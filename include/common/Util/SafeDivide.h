@@ -17,4 +17,10 @@ namespace crsce::common::util {
      * @return std::optional<int> containing the quotient if b != 0; otherwise std::nullopt.
      */
     std::optional<int> safe_divide(int a, int b);
+
+    /**
+     * @name SafeDivideTag
+     * @brief Tag type to satisfy one-definition-per-header for safe-divide utility.
+     */
+    struct SafeDivideTag {};
 } // namespace crsce::common::util

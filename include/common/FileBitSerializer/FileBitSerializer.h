@@ -14,6 +14,7 @@
 namespace crsce::common {
     /**
      * @class FileBitSerializer
+     * @name FileBitSerializer
      * @brief Provides a bit-by-bit interface over a file.
      *
      * Reads input in 1 KiB chunks and yields bits MSB-first from each byte. The

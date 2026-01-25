@@ -1,6 +1,7 @@
 /**
  * @file ComputeControlSha256.h
  * @brief Resolve and execute system SHA-256 tool to compute control hash.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
@@ -15,4 +16,10 @@ namespace crsce::common::hasher {
     // digest in hex_out and returns true.
     bool compute_control_sha256(const std::vector<std::uint8_t> &data,
                                 std::string &hex_out);
+
+    /**
+     * @name ComputeControlSha256Tag
+     * @brief Tag type to satisfy one-definition-per-header for hasher utilities.
+     */
+    struct ComputeControlSha256Tag {};
 } // namespace crsce::common::hasher

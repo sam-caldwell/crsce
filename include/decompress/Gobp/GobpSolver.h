@@ -1,6 +1,7 @@
 /**
  * @file GobpSolver.h
  * @brief CPU-based, single-host Generalized Ordered Belief Propagation (GOBP) solver.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -8,13 +9,13 @@
 #include <cstdint>
 
 #include "decompress/Csm/Csm.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h" // for ConstraintState
+#include "decompress/DeterministicElimination/ConstraintState.h"
 #include "decompress/Solver/Solver.h"
 
 namespace crsce::decompress {
-
     /**
      * @class GobpSolver
+     * @name GobpSolver
      * @brief Implements a simple CPU GOBP pass using naive odds-product factor combination
      *        across row/column/diag/xdiag constraints. Writes smoothed beliefs into CSM data layer
      *        and applies deterministic assignments when belief crosses confidence thresholds.
@@ -38,33 +39,93 @@ namespace crsce::decompress {
         void reset() override;
 
         // Accessors for parameters
+        /**
+         * @name damping
+         * @brief Current exponential smoothing in [0,1).
+         * @return Damping factor.
+         */
         [[nodiscard]] double damping() const noexcept { return damping_; }
+
+        /**
+         * @name assign_confidence
+         * @brief Current confidence threshold in (0.5,1].
+         * @return Assignment confidence.
+         */
         [[nodiscard]] double assign_confidence() const noexcept { return assign_confidence_; }
 
+        /**
+         * @name set_damping
+         * @brief Update exponential smoothing factor.
+         * @param d New damping value in [0,1).
+         * @return N/A
+         */
         void set_damping(double d) noexcept { damping_ = clamp01(d); }
+
+        /**
+         * @name set_assign_confidence
+         * @brief Update confidence threshold used for assignments.
+         * @param c New threshold in (0.5,1].
+         * @return N/A
+         */
         void set_assign_confidence(double c) noexcept { assign_confidence_ = clamp_conf(c); }
 
     private:
+        /**
+         * @name csm_
+         * @brief Reference to the target Cross-Sum Matrix being solved.
+         */
         Csm &csm_;
+
+        /**
+         * @name st_
+         * @brief Residual constraint state used to derive line beliefs.
+         */
         ConstraintState &st_;
+
+        /**
+         * @name damping_
+         * @brief Exponential smoothing parameter in [0,1).
+         */
         double damping_{0.5};
+
+        /**
+         * @name assign_confidence_
+         * @brief Threshold in (0.5,1] for making deterministic assignments.
+         */
         double assign_confidence_{0.995};
 
         static constexpr std::size_t S = Csm::kS;
 
         // Utility: compute indexes for diagonal families
+        /**
+         * @name diag_index
+         * @brief Compute diagonal index for (r,c).
+         * @param r Row index.
+         * @param c Column index.
+         * @return d = (r + c) mod S.
+         */
         static constexpr std::size_t diag_index(std::size_t r, std::size_t c) noexcept {
             return (r + c) % S;
         }
+
+        /**
+         * @name xdiag_index
+         * @brief Compute anti-diagonal index for (r,c).
+         * @param r Row index.
+         * @param c Column index.
+         * @return x = (r >= c) ? (r - c) : (r + S - c).
+         */
         static constexpr std::size_t xdiag_index(std::size_t r, std::size_t c) noexcept {
             return (r >= c) ? (r - c) : (r + S - c);
         }
 
         // Probability utilities
         static double clamp01(double v) noexcept;
+
         static double clamp_conf(double v) noexcept;
-        static double odds(double p) noexcept;            // p -> p/(1-p)
-        static double prob_from_odds(double o) noexcept;  // o -> o/(1+o)
+
+        static double odds(double p) noexcept; // p -> p/(1-p)
+        static double prob_from_odds(double o) noexcept; // o -> o/(1+o)
 
         // Compute per-cell belief based on current residuals (naive independent combination)
         [[nodiscard]] double belief_for(std::size_t r, std::size_t c) const;

@@ -2,31 +2,20 @@
  * @file Sha256.h
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Internal SHA-256 declarations used by BitHashBuffer.
- */
+*/
 #pragma once
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/Sha256Types32.h"
+#include "common/BitHashBuffer/detail/Sha256Types64.h"
+
 namespace crsce::common::detail::sha256 {
 
-// Type aliases for clarity in SHA-256 routines
-/**
- * @name u8
- * @brief Unsigned 8-bit integer alias used in SHA-256 routines.
- */
-using u8 = std::uint8_t;
-/**
- * @name u32
- * @brief Unsigned 32-bit integer alias used in SHA-256 routines.
- */
-using u32 = std::uint32_t;
-/**
- * @name u64
- * @brief Unsigned 64-bit integer alias used in SHA-256 routines (length encoding).
- */
-using u64 = std::uint64_t;
+// Type aliases are defined in Sha256Types.h to satisfy one-definition-per-header in this file.
 
 /**
  * @name rotr
@@ -119,5 +108,11 @@ extern const std::array<u32, 64> K;
  * @return 32-byte SHA-256 digest.
  */
 std::array<u8, 32> sha256_digest(const u8* data, std::size_t len);
+
+/**
+ * @name Sha256Tag
+ * @brief Tag type to satisfy one-definition-per-header for SHA-256 declarations.
+ */
+struct Sha256Tag {};
 
 } // namespace crsce::common::detail::sha256

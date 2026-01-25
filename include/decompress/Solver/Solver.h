@@ -1,15 +1,16 @@
 /**
  * @file Solver.h
  * @brief Abstract solver interface for CRSCE v1 decompression.
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
 #include <cstddef>
 
 namespace crsce::decompress {
-
     /**
      * @class Solver
+     * @name Solver
      * @brief Interface for block-level solvers that operate on the CSM and line constraints.
      *
      * Concrete implementations (e.g., DeterministicElimination, GobpSolver) must implement
@@ -18,11 +19,46 @@ namespace crsce::decompress {
      */
     class Solver {
     public:
+        /**
+         * @name Solver
+         * @brief Default construct a Solver base.
+         */
         Solver() = default;
-        Solver(const Solver&) = delete;
-        Solver& operator=(const Solver&) = delete;
-        Solver(Solver&&) = delete;
-        Solver& operator=(Solver&&) = delete;
+
+        /**
+         * @name Solver
+         * @brief Deleted copy constructor (non-copyable interface).
+         * @param other Unused other instance.
+         */
+        Solver(const Solver &other) = delete;
+
+        /**
+         * @name operator=
+         * @brief Deleted copy assignment (non-copyable interface).
+         * @param other Unused other instance.
+         * @return N/A
+         */
+        Solver &operator=(const Solver &other) = delete;
+
+        /**
+         * @name Solver
+         * @brief Deleted move constructor (non-movable interface).
+         * @param other Unused other instance.
+         */
+        Solver(Solver &&other) = delete;
+
+        /**
+         * @name operator=
+         * @brief Deleted move assignment (non-movable interface).
+         * @param other Unused other instance.
+         * @return N/A
+         */
+        Solver &operator=(Solver &&other) = delete;
+
+        /**
+         * @name ~Solver
+         * @brief Virtual destructor for interface.
+         */
         virtual ~Solver() = default;
 
         /**
@@ -41,5 +77,4 @@ namespace crsce::decompress {
          */
         virtual void reset() = 0;
     };
-
 } // namespace crsce::decompress

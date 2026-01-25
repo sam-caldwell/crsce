@@ -9,7 +9,14 @@ include_guard(GLOBAL)
 # - When LINT_CHANGED_ONLY is OFF: glob all .cpp under src/, cmd/, and test/.
 function(_crsce_lint_collect_cpp_files out)
   if (LINT_CHANGED_ONLY)
-    _git_changed_files(_SRC_CPP_LIST -- "*.cpp")
+    # Get changed .cpp files anywhere, then filter down to src/cmd/test only
+    _git_changed_files(_CHANGED_RAW -- "*.cpp")
+    set(_SRC_CPP_LIST "")
+    foreach(_f IN LISTS _CHANGED_RAW)
+      if(_f MATCHES "^src/.*\\.cpp$" OR _f MATCHES "^cmd/.*\\.cpp$" OR _f MATCHES "^test/.*\\.cpp$")
+        list(APPEND _SRC_CPP_LIST "${_f}")
+      endif()
+    endforeach()
   else ()
     # In script mode, CONFIGURE_DEPENDS is not supported; perform a plain glob.
     file(GLOB_RECURSE _SRC_CPP_LIST

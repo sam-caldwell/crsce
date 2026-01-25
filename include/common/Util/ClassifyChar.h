@@ -16,4 +16,10 @@ namespace crsce::common::util {
      * @return CharClass corresponding to the input character.
      */
     CharClass classify_char(char ch);
+
+    /**
+     * @name ClassifyCharTag
+     * @brief Tag type to satisfy one-definition-per-header for ClassifyChar utilities.
+     */
+    struct ClassifyCharTag {};
 } // namespace crsce::common::util

@@ -1,6 +1,7 @@
 /**
  * @file AppendBits.h
  * @brief Helpers to append CSM bits into a byte stream (MSB-first).
+ * © Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -11,8 +12,15 @@
 
 namespace crsce::decompress {
     /**
+     * @name append_bits_from_csm
      * @brief Append up to 'bit_limit' bits from CSM (row-major) to an output byte buffer (MSB-first),
      *        tracking partial byte state across calls via curr/bit_pos.
+     * @param csm Source Cross-Sum Matrix to read bits from.
+     * @param bit_limit Maximum number of bits to append.
+     * @param out Output byte buffer to append into.
+     * @param curr In/out: partial byte accumulator.
+     * @param bit_pos In/out: current bit position within curr [0..7].
+     * @return N/A
      */
     inline void append_bits_from_csm(const Csm &csm,
                                      const std::uint64_t bit_limit,

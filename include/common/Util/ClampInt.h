@@ -16,4 +16,10 @@ namespace crsce::common::util {
      * @return The value v constrained to lie within [lo, hi].
      */
     int clamp_int(int v, int lo, int hi);
+
+    /**
+     * @name ClampIntTag
+     * @brief Tag type to satisfy one-definition-per-header for ClampInt utilities.
+     */
+    struct ClampIntTag {};
 } // namespace crsce::common::util

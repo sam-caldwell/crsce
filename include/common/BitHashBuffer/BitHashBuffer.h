@@ -17,6 +17,7 @@ namespace crsce::common {
 
     /**
      * @class BitHashBuffer
+     * @name BitHashBuffer
      * @brief Accumulates bits into bytes (MSB-first), hashing each 64-byte row.
      * @details The constructor hashes the provided seed string to derive a
      * 32-byte seed hash. Bits are packed MSB-first into a working byte. When 8
@@ -126,7 +127,7 @@ namespace crsce::common {
          * @brief Active 64-byte accumulation buffer; filled one byte at a time.
          * @usage Written by flushByteToRow(); cleared after finalizeRowIfFull().
          */
-        std::array<std::uint8_t, kRowSize> rowBuffer_{};  ///< 64-byte row buffer
+        std::array<std::uint8_t, kRowSize> rowBuffer_{};
 
         /**
          * @name rowIndex_
