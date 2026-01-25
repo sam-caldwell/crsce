@@ -74,7 +74,7 @@ namespace odpcpp {
     if (Opt_.printConstructs) {
       const unsigned wid = CI_->getDiagnostics().getCustomDiagID(
           DiagnosticsEngine::Warning, "%0");
-      std::string msg = std::string("ODPCPP: ") + C.kind + " " + C.qname
+      std::string msg = std::string("ODPCPP: ") + C.kind + " " + C.qname +
                         " at line " + std::to_string(C.line) + (ok ? ": doc OK" : ": doc MISSING: ") + missing;
       DE().Report(Loc, wid) << msg;
     }
@@ -112,7 +112,7 @@ namespace odpcpp {
             const unsigned noteId = CI_->getDiagnostics().getCustomDiagID(
                 DiagnosticsEngine::Note, "%0");
             for (const auto &c: Constructs_) {
-                std::string msg = std::string("construct: ") + c.kind + " " + c.qname + " (line "
+                std::string msg = std::string("construct: ") + c.kind + " " + c.qname + " (line " +
                                   std::to_string(c.line) + ")";
                 DE().Report(FL, noteId) << msg;
             }
@@ -121,12 +121,12 @@ namespace odpcpp {
         if (isSrc || isCmd || Opt_.printConstructs) {
             const unsigned sid = CI_->getDiagnostics().getCustomDiagID(
                 Opt_.debugErrors ? DiagnosticsEngine::Error : DiagnosticsEngine::Warning, "%0");
-            std::string header = std::string("ODPCPP: constructs=") + std::to_string(Constructs_.size())
+            std::string header = std::string("ODPCPP: constructs=") + std::to_string(Constructs_.size()) +
             ", countable=" + std::to_string(cnt) + ", header=" + (headerOk ? "OK" : "FAIL");
             DE().Report(FL, sid) << header;
             if (Opt_.printConstructs) {
                 for (const auto &c: Constructs_) {
-                    std::string msg = std::string("construct: ") + c.kind + " " + c.qname
+                    std::string msg = std::string("construct: ") + c.kind + " " + c.qname +
                     " (line " + std::to_string(c.line) + ")";
                     DE().Report(FL, sid) << msg;
                 }

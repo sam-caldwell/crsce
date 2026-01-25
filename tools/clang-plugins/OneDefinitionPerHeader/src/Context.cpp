@@ -66,7 +66,7 @@ void Ctx::addConstruct(const Decl *D, llvm::StringRef kind, bool countable) {
       const unsigned wid = CI_->getDiagnostics().getCustomDiagID(
           DiagnosticsEngine::Warning, "%0");
       std::string msg = std::string("ODPH: ") + C.kind + " " + C.qname
-                        " at line " + std::to_string(C.line) + (ok ? ": doc OK" : ": doc MISSING: ") + missing;
+                        + " at line " + std::to_string(C.line) + (ok ? ": doc OK" : ": doc MISSING: ") + missing;
       DE().Report(Loc, wid) << msg;
     }
   }
@@ -101,7 +101,7 @@ void Ctx::finalizeTU() {
         DiagnosticsEngine::Note, "%0");
     for (const auto &c : Constructs_) {
       std::string msg = std::string("construct: ") + c.kind + " " + c.qname
-                        " (line " + std::to_string(c.line) + ")";
+                        + " (line " + std::to_string(c.line) + ")";
       DE().Report(FL, noteId) << msg;
     }
   }
@@ -109,13 +109,13 @@ void Ctx::finalizeTU() {
   const unsigned sid = CI_->getDiagnostics().getCustomDiagID(
       Opt_.debugErrors ? DiagnosticsEngine::Error : DiagnosticsEngine::Warning, "%0");
   std::string header = std::string("ODPH: constructs=") + std::to_string(Constructs_.size())
-                       ", countable=" + std::to_string(cnt)
-                       ", header=" + (headerOk ? "OK" : "FAIL");
+                       + ", countable=" + std::to_string(cnt)
+                       + ", header=" + (headerOk ? "OK" : "FAIL");
   DE().Report(FL, sid) << header;
   if (Opt_.printConstructs) {
     for (const auto &c : Constructs_) {
       std::string msg = std::string("construct: ") + c.kind + " " + c.qname
-                        " (line " + std::to_string(c.line) + ")";
+                        + " (line " + std::to_string(c.line) + ")";
       DE().Report(FL, sid) << msg;
     }
   }

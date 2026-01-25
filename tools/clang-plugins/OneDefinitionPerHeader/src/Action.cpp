@@ -38,8 +38,6 @@ Action::CreateASTConsumer(CompilerInstance &CI, llvm::StringRef InFile) {
   // Free function definitions only (exclude methods)
   // Free function declarations (not just definitions) are countable to enforce one-per-header
   Finder_.addMatcher(functionDecl(unless(isImplicit()), unless(cxxMethodDecl()), inMain).bind("func"), CB_.get());
-  // Global variables (definitions or extern declarations) are countable
-  Finder_.addMatcher(varDecl(hasGlobalStorage(), hasParent(translationUnitDecl()), inMain, unless(isImplicit())).bind("var"), CB_.get());
   // Non-countable: method and field definitions should still have docs enforced
   Finder_.addMatcher(cxxMethodDecl(isDefinition(), unless(isImplicit()), inMain).bind("method"), CB_.get());
   Finder_.addMatcher(fieldDecl(inMain).bind("field"), CB_.get());

@@ -19,7 +19,7 @@ namespace crsce::common::detail::sha256 {
 
 /**
  * @name rotr
- * @brief Rotate right utility for 32-bit values.
+ * @brief Rotate-right utility for 32-bit values.
  * @param x Input word.
  * @param n Rotation amount [0..31].
  * @return x rotated right by n bits.
