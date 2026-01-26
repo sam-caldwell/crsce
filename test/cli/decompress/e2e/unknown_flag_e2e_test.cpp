@@ -2,7 +2,7 @@
  * @file unknown_flag_e2e_test.cpp
  * @brief E2E: decompress CLI returns 2 for unknown flag.
  */
-#include "decompress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
 
 #include <gtest/gtest.h>
 #include <span>

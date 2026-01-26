@@ -2,14 +2,14 @@
  * @file BlockSolver.cpp
  * @brief High-level block solver implementation: reconstruct CSM from LH and cross-sum payloads.
  */
-#include "decompress/Block/BlockSolver.h"
-
-#include "decompress/Csm/Csm.h"
+#include "decompress/Block/detail/solve_block.h"
+#include "decompress/Csm/detail/Csm.h"
+#include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Gobp/GobpSolver.h"
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
-#include "decompress/Utils/CrossSums.h"
-#include "decompress/Utils/Decode9.h"
+#include "decompress/Utils/detail/verify_cross_sums.h"
+#include "decompress/Utils/detail/decode9.tcc"
 
 #include <cstddef>
 #include <cstdint>

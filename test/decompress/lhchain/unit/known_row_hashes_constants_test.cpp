@@ -7,7 +7,8 @@
 #include <cstddef>
 #include <string>
 
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include "decompress/DeterministicElimination/KnownRowHashes.h"
 
 using crsce::common::detail::sha256::sha256_digest;

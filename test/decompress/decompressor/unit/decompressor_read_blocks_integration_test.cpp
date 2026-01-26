@@ -14,6 +14,7 @@
 
 #include "compress/Compress/Compress.h"
 #include "decompress/Decompressor/Decompressor.h"
+#include "decompress/Decompressor/HeaderV1Fields.h"
 
 using crsce::compress::Compress;
 using crsce::decompress::Decompressor;

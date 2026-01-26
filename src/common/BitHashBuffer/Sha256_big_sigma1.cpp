@@ -3,7 +3,9 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief SHA-256 Σ1 function.
  */
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types32.h" // u32
+#include "common/BitHashBuffer/detail/sha256/rotr.h"
+#include "common/BitHashBuffer/detail/sha256/big_sigma1.h"
 
 namespace crsce::common::detail::sha256 {
     /**

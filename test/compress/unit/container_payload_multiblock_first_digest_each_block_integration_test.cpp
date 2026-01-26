@@ -3,7 +3,8 @@
  * @brief For a two-block zero input, verify LH[0] of each block matches expected and equals between blocks.
  */
 #include "compress/Compress/Compress.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include <gtest/gtest.h>
 #include <array>
 #include <cstddef>

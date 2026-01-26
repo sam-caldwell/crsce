@@ -1,7 +1,7 @@
 /**
  * @file hasher_compute_control_sha256_env_candidate_ok_test.cpp
  */
-#include "common/HasherUtils/ComputeControlSha256.h"
+#include "common/HasherUtils/detail/compute_control_sha256.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>

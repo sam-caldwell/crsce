@@ -1,7 +1,7 @@
 /**
  * @file: util_safe_divide_ok_test.cpp
  */
-#include "common/Util/SafeDivide.h"
+#include "common/Util/detail/safe_divide.h"
 #include <gtest/gtest.h>
 
 using crsce::common::util::safe_divide;

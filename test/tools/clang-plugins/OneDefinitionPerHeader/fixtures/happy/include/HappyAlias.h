@@ -1,7 +1,7 @@
 /**
  * @file HappyAlias.h
  * @brief One-definition header with type alias and proper docs.
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 
 /**

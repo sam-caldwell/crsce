@@ -4,7 +4,8 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
+#include "decompress/DeterministicElimination/detail/ConstraintState.h"
 
 #include <cstddef>
 #include <stdexcept>

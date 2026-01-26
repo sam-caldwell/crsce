@@ -2,7 +2,7 @@
  * @file hasher_run_sha256_stdin_fail_test.cpp
  * @brief Negative test for run_sha256_stdin (non-hex output should fail).
  */
-#include "common/HasherUtils/RunSha256Stdin.h"
+#include "common/HasherUtils/detail/run_sha256_stdin.h"
 #include <gtest/gtest.h>
 #include <vector>
 #include <string>

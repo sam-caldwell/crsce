@@ -1,6 +1,7 @@
 // Simple helper: reads stdin, computes internal SHA-256, prints hex digest
-#include "common/BitHashBuffer/detail/Sha256.h"
-#include "common/HasherUtils/ToHexLower.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
+#include "common/HasherUtils/detail/to_hex_lower.h"
 #include <array>
 #include <cstddef>
 #include <iostream>

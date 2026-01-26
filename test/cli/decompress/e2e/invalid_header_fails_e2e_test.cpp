@@ -2,7 +2,7 @@
  * @file invalid_header_fails_e2e_test.cpp
  * @brief E2E: decompress CLI returns 4 for invalid header input.
  */
-#include "decompress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"
 #include "helpers/remove_file.h"
 

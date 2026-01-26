@@ -4,9 +4,10 @@
  *        and via internal Sha256, compare, and return 0 on match, 1 otherwise.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "common/BitHashBuffer/detail/Sha256.h"
-#include "common/HasherUtils/ToHexLower.h"
-#include "common/HasherUtils/ComputeControlSha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"        // u8
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
+#include "common/HasherUtils/detail/to_hex_lower.h"
+#include "common/HasherUtils/detail/compute_control_sha256.h"
 
 #include <cstdlib>
 #include <cstddef>

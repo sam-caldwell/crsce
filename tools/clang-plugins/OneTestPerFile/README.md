@@ -19,7 +19,8 @@
 
 - Load the plugin during compilation. Example with `clang++`:
     - macOS:
-      ```
+
+      ```c++
         clang++ -Xclang \
                 -load \
                 -Xclang build/tools/clang-plugins/OneTestPerFile/libOneTestPerFile.dylib \
@@ -28,8 +29,10 @@
                 -Xclang OneTestPerFile \
                 -c test/some/path/foo_test.cpp
       ```
+
     - Linux:
-      ```
+
+      ```c++
         clang++ -Xclang \
                 -load \
                 -Xclang build/tools/clang-plugins/OneTestPerFile/libOneTestPerFile.so \

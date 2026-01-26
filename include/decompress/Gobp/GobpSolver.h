@@ -1,7 +1,7 @@
 /**
  * @file GobpSolver.h
  * @brief CPU-based, single-host Generalized Ordered Belief Propagation (GOBP) solver.
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -23,6 +23,8 @@ namespace crsce::decompress {
     class GobpSolver : public Solver {
     public:
         /**
+         * @name GobpSolver::GobpSolver
+         * @brief Construct a GOBP solver over a CSM.
          * @param csm Target CSM to update (bits/locks and data layer for beliefs)
          * @param state Line residual constraints (R and U for row/col/diag/xdiag)
          * @param damping Exponential smoothing on beliefs in [0,1). 0=no smoothing, 0.5=blend.
@@ -32,10 +34,25 @@ namespace crsce::decompress {
                    double damping = 0.5,
                    double assign_confidence = 0.995);
 
+        /**
+         * @name GobpSolver::solve_step
+         * @brief Perform one iteration of GOBP smoothing and assignments.
+         * @return std::size_t Number of newly solved cells.
+         */
         std::size_t solve_step() override;
 
+        /**
+         * @name GobpSolver::solved
+         * @brief Whether the target matrix is fully solved.
+         * @return bool True if solved; false otherwise.
+         */
         [[nodiscard]] bool solved() const override;
 
+        /**
+         * @name GobpSolver::reset
+         * @brief Reset internal state and parameters to defaults.
+         * @return void
+         */
         void reset() override;
 
         // Accessors for parameters
@@ -54,18 +71,18 @@ namespace crsce::decompress {
         [[nodiscard]] double assign_confidence() const noexcept { return assign_confidence_; }
 
         /**
-         * @name set_damping
+         * @name GobpSolver::set_damping
          * @brief Update exponential smoothing factor.
          * @param d New damping value in [0,1).
-         * @return N/A
+         * @return void
          */
         void set_damping(double d) noexcept { damping_ = clamp01(d); }
 
         /**
-         * @name set_assign_confidence
+         * @name GobpSolver::set_assign_confidence
          * @brief Update confidence threshold used for assignments.
          * @param c New threshold in (0.5,1].
-         * @return N/A
+         * @return void
          */
         void set_assign_confidence(double c) noexcept { assign_confidence_ = clamp_conf(c); }
 
@@ -120,17 +137,57 @@ namespace crsce::decompress {
         }
 
         // Probability utilities
+        /**
+         * @name GobpSolver::clamp01
+         * @brief Clamp probability value to [0,1].
+         * @param v Input value.
+         * @return double Clamped value in [0,1].
+         */
         static double clamp01(double v) noexcept;
 
+        /**
+         * @name GobpSolver::clamp_conf
+         * @brief Clamp assignment confidence to (0.5,1].
+         * @param v Input value.
+         * @return double Clamped value in (0.5,1].
+         */
         static double clamp_conf(double v) noexcept;
 
+        /**
+         * @name GobpSolver::odds
+         * @brief Convert probability to odds ratio p/(1-p).
+         * @param p Probability in (0,1).
+         * @return double Odds value.
+         */
         static double odds(double p) noexcept; // p -> p/(1-p)
+
+        /**
+         * @name GobpSolver::prob_from_odds
+         * @brief Convert odds ratio to probability o/(1+o).
+         * @param o Odds value > 0.
+         * @return double Probability in (0,1).
+         */
         static double prob_from_odds(double o) noexcept; // o -> o/(1+o)
 
         // Compute per-cell belief based on current residuals (naive independent combination)
+        /**
+         * @name GobpSolver::belief_for
+         * @brief Compute per-cell belief based on current residuals.
+         * @param r Row index.
+         * @param c Column index.
+         * @return double Belief value in [0,1].
+         */
         [[nodiscard]] double belief_for(std::size_t r, std::size_t c) const;
 
         // Apply a concrete assignment to a cell, updating residuals and locking the cell.
+        /**
+         * @name GobpSolver::apply_cell
+         * @brief Apply concrete assignment to (r,c), update residuals, lock cell.
+         * @param r Row index.
+         * @param c Column index.
+         * @param value Assigned value.
+         * @return void
+         */
         void apply_cell(std::size_t r, std::size_t c, bool value);
     };
 } // namespace crsce::decompress

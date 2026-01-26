@@ -4,7 +4,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/Format/HeaderV1.h"
-#include "common/Util/Crc32.h"
+#include "common/Util/detail/crc32_ieee.h"
 #include <array>
 #include <cstdint>
 #include <cstddef>

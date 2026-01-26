@@ -10,7 +10,8 @@
 #include <string>
 #include <string_view>
 
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
 using crsce::common::detail::sha256::sha256_digest;
 using u8 = crsce::common::detail::sha256::u8;

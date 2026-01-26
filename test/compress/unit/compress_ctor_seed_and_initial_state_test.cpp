@@ -11,7 +11,8 @@
 #include <algorithm>
 
 #include "compress/Compress/Compress.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
 
 using crsce::compress::Compress;
 using crsce::common::detail::sha256::sha256_digest;

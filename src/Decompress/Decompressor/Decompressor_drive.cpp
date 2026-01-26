@@ -4,6 +4,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
+#include "decompress/Decompressor/HeaderV1Fields.h"
 
 #include <cstddef>
 #include <cstdint>

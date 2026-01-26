@@ -14,7 +14,6 @@
 #include <vector>
 
 namespace crsce::common {
-
     /**
      * @class BitHashBuffer
      * @name BitHashBuffer
@@ -33,13 +32,13 @@ namespace crsce::common {
          * @name kRowSize
          * @brief Row size in bytes.
          */
-        static constexpr std::size_t kRowSize = 64;   ///< Row size in bytes
+        static constexpr std::size_t kRowSize = 64; ///< Row size in bytes
 
         /**
          * @name kHashSize
          * @brief SHA-256 digest length in bytes.
          */
-        static constexpr std::size_t kHashSize = 32;  ///< SHA-256 digest length
+        static constexpr std::size_t kHashSize = 32; ///< SHA-256 digest length
 
         /**
          * @name BitHashBuffer
@@ -68,7 +67,7 @@ namespace crsce::common {
          * @throws None
          * @return Oldest 32-byte digest if available; std::nullopt otherwise.
          */
-        std::optional<std::array<std::uint8_t, kHashSize>> popHash();
+        std::optional<std::array<std::uint8_t, kHashSize> > popHash();
 
         /**
          * @name count
@@ -120,7 +119,7 @@ namespace crsce::common {
          * @brief FIFO queue of computed 32-byte digests.
          * @usage push via finalizeRowIfFull(); retrieve via popHash().
          */
-        std::vector<std::array<std::uint8_t, kHashSize>> hashVector_;
+        std::vector<std::array<std::uint8_t, kHashSize> > hashVector_;
 
         /**
          * @name rowBuffer_
@@ -150,5 +149,4 @@ namespace crsce::common {
          */
         int bitPos_{0};
     };
-
-}  // namespace crsce::common
+} // namespace crsce::common

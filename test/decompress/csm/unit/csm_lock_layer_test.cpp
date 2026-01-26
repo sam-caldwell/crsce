@@ -2,7 +2,7 @@
  * @file csm_lock_layer_test.cpp
  */
 #include <gtest/gtest.h>
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
 #include "decompress/Exceptions/WriteFailureOnLockedCsmElement.h"
 
 using crsce::decompress::Csm;

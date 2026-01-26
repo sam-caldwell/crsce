@@ -1,7 +1,7 @@
 /**
  * @file hasher_run_sha256_stdin_status_fail_test.cpp
  */
-#include "common/HasherUtils/RunSha256Stdin.h"
+#include "common/HasherUtils/detail/run_sha256_stdin.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>

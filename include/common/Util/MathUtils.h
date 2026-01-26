@@ -20,5 +20,6 @@ namespace crsce::common::util {
      * @name MathUtilsTag
      * @brief Tag type to satisfy one-definition-per-header for MathUtils umbrella.
      */
-    struct MathUtilsTag {};
+    struct MathUtilsTag {
+    };
 }

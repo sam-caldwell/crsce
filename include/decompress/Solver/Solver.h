@@ -1,7 +1,7 @@
 /**
  * @file Solver.h
  * @brief Abstract solver interface for CRSCE v1 decompression.
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -33,10 +33,10 @@ namespace crsce::decompress {
         Solver(const Solver &other) = delete;
 
         /**
-         * @name operator=
+         * @name Solver::operator=
          * @brief Deleted copy assignment (non-copyable interface).
          * @param other Unused other instance.
-         * @return N/A
+         * @return Solver& Reference to this.
          */
         Solver &operator=(const Solver &other) = delete;
 
@@ -48,10 +48,10 @@ namespace crsce::decompress {
         Solver(Solver &&other) = delete;
 
         /**
-         * @name operator=
+         * @name Solver::operator=
          * @brief Deleted move assignment (non-movable interface).
          * @param other Unused other instance.
-         * @return N/A
+         * @return Solver& Reference to this.
          */
         Solver &operator=(Solver &&other) = delete;
 
@@ -62,18 +62,23 @@ namespace crsce::decompress {
         virtual ~Solver() = default;
 
         /**
+         * @name Solver::solve_step
          * @brief Perform one iteration of solving.
-         * @return Number of bits newly solved during this step.
+         * @return std::size_t Number of bits newly solved during this step.
          */
         virtual std::size_t solve_step() = 0;
 
         /**
+         * @name Solver::solved
          * @brief Return true if the block is fully solved and consistent.
+         * @return bool True if solved; false otherwise.
          */
         [[nodiscard]] virtual bool solved() const = 0;
 
         /**
+         * @name Solver::reset
          * @brief Reset internal state of the solver (does not mutate external CSM/residuals).
+         * @return void
          */
         virtual void reset() = 0;
     };

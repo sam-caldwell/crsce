@@ -2,7 +2,7 @@
  * @file usage_help_e2e_test.cpp
  * @brief E2E: compress CLI shows usage on -h.
  */
-#include "compress/Cli/run.h"
+#include "compress/Cli/detail/run.h"
 
 #include <gtest/gtest.h>
 #include <span>

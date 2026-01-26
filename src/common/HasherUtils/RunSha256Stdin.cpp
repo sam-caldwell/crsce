@@ -4,7 +4,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/HasherUtils/RunSha256Stdin.h"
-#include "common/HasherUtils/ExtractFirstHex64.h"
+#include "common/HasherUtils/detail/extract_first_hex64.h"
 
 #include <array>
 #include <string>

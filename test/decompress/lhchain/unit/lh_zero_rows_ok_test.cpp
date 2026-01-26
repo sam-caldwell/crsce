@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
 
 using crsce::decompress::LHChainVerifier;
 using crsce::decompress::Csm;

@@ -2,7 +2,7 @@
  * @file output_exists_e2e_test.cpp
  * @brief E2E: compress CLI returns 3 when output already exists.
  */
-#include "compress/Cli/run.h"
+#include "compress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"
 #include "helpers/remove_file.h"
 

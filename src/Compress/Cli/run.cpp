@@ -3,7 +3,7 @@
  * @brief Implements the compressor CLI runner: parse args, validate paths, run compression.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "compress/Cli/run.h"
+#include "compress/Cli/detail/run.h"
 
 #include "common/ArgParser/ArgParser.h"
 #include "compress/Compress/Compress.h"

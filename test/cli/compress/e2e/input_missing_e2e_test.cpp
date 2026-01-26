@@ -2,7 +2,7 @@
  * @file input_missing_e2e_test.cpp
  * @brief E2E: compress CLI returns 3 when input does not exist.
  */
-#include "compress/Cli/run.h"
+#include "compress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"
 #include "helpers/remove_file.h"
 

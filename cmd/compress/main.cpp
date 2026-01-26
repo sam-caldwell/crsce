@@ -3,7 +3,7 @@
  * @brief CLI entry for compressor; validates args and dispatches to runner.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "compress/Cli/run.h"
+#include "compress/Cli/detail/run.h"
 #include <span>
 #include <cstddef>
 

@@ -1,0 +1,20 @@
+/**
+ * @file kSeedHash.h
+ * @brief Precomputed LH seed digest (SHA-256 of seed).
+ * © Sam Caldwell. See LICENSE.txt for details
+ */
+#pragma once
+
+#include <array>
+#include <cstdint>
+
+namespace crsce::decompress::known_lh {
+    /**
+     * @name kSeedHash
+     * @brief LH seed digest for "CRSCE_v1_seed".
+     */
+    inline constexpr std::array<std::uint8_t, 32> kSeedHash{
+        0x22, 0x00, 0x69, 0xC6, 0x23, 0x86, 0x22, 0x54, 0x26, 0x6B, 0xC9, 0x05, 0xF1, 0xD7, 0xFC, 0x01,
+        0x00, 0xC9, 0x28, 0x60, 0xBC, 0x47, 0x49, 0xDF, 0x55, 0x16, 0x00, 0x54, 0x2B, 0x63, 0x98, 0x43
+    };
+} // namespace crsce::decompress::known_lh

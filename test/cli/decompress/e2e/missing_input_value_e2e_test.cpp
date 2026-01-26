@@ -2,7 +2,7 @@
  * @file missing_input_value_e2e_test.cpp
  * @brief E2E: decompress CLI returns insufficient-args (4) on missing -in value.
  */
-#include "decompress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
 
 #include <gtest/gtest.h>
 #include <span>

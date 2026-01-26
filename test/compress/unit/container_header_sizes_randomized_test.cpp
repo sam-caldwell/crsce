@@ -3,7 +3,7 @@
  * @brief Verify header fields and file sizes for a range of input lengths.
  */
 #include "compress/Compress/Compress.h"
-#include "common/Util/Crc32.h"
+#include "common/Util/detail/crc32_ieee.h"
 #include <gtest/gtest.h>
 #include <array>
 #include <cstddef>

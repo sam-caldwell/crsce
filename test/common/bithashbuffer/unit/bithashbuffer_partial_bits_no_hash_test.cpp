@@ -8,7 +8,6 @@
  * © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
-#include <string>
 
 #include "../../../../include/common/BitHashBuffer/BitHashBuffer.h"
 

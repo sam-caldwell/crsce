@@ -3,7 +3,8 @@
  * @brief Integration: Verify LH digest equals sha256(seedHash||rowBytes).
  */
 #include "compress/Compress/Compress.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>

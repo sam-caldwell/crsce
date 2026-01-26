@@ -1,7 +1,7 @@
 /**
  * @file HappyForward.h
  * @brief One-definition header with forward declaration and one definition.
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 
 struct Forward;

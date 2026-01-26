@@ -38,8 +38,16 @@ Action::CreateASTConsumer(CompilerInstance &CI, llvm::StringRef InFile) {
   // Free function definitions only (exclude methods)
   // Free function declarations (not just definitions) are countable to enforce one-per-header
   Finder_.addMatcher(functionDecl(unless(isImplicit()), unless(cxxMethodDecl()), inMain).bind("func"), CB_.get());
-  // Non-countable: method and field definitions should still have docs enforced
-  Finder_.addMatcher(cxxMethodDecl(isDefinition(), unless(isImplicit()), inMain).bind("method"), CB_.get());
+  // Countable: top-level variable declarations (e.g., extern/inline constexpr) at file scope.
+  // Exclude anything nested in a record to avoid class static members.
+  auto fileScopeVar = allOf(
+      unless(isImplicit()), inMain,
+      unless(hasAncestor(cxxRecordDecl())),
+      unless(parmVarDecl())
+  );
+  Finder_.addMatcher(varDecl(fileScopeVar).bind("var"), CB_.get());
+  // Non-countable: method declarations should still have docs enforced (even without bodies)
+  Finder_.addMatcher(cxxMethodDecl(unless(isImplicit()), inMain).bind("method"), CB_.get());
   Finder_.addMatcher(fieldDecl(inMain).bind("field"), CB_.get());
 
   return std::make_unique<Consumer>(Ctx_.get(), &Finder_);

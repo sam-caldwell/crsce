@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "common/BitHashBuffer/BitHashBuffer.h"
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 
 using crsce::common::BitHashBuffer;

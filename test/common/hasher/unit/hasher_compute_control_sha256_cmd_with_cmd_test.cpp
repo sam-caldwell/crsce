@@ -1,7 +1,7 @@
 /**
  * @file hasher_compute_control_sha256_cmd_with_cmd_test.cpp
  */
-#include "common/HasherUtils/ComputeControlSha256Cmd.h"
+#include "common/HasherUtils/detail/compute_control_sha256_cmd.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>

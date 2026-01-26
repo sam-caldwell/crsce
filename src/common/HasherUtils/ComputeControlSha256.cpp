@@ -4,7 +4,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/HasherUtils/ComputeControlSha256.h"
-#include "common/HasherUtils/RunSha256Stdin.h"
+#include "common/HasherUtils/detail/run_sha256_stdin.h"
 
 #include <cstdlib>
 #include <iostream>

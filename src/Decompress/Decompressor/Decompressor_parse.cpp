@@ -4,7 +4,8 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
-#include "common/Util/Crc32.h"
+#include "decompress/Decompressor/HeaderV1Fields.h"
+#include "common/Util/detail/crc32_ieee.h"
 
 #include <algorithm>
 #include <array>

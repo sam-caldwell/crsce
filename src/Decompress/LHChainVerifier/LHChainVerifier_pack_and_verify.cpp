@@ -4,8 +4,8 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
-#include "decompress/Csm/Csm.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "decompress/Csm/detail/Csm.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
 #include <algorithm>
 #include <array>

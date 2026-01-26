@@ -1,7 +1,7 @@
 /**
  * @file HappyEnum.h
  * @brief One-definition header with enum and proper docs.
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 
 /**

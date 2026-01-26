@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "common/BitHashBuffer/detail/Sha256.h" // for u8
+#include "common/BitHashBuffer/detail/Sha256Types.h" // for u8
 #include "compress/Compress/Compress.h"
 
 namespace crsce::testhelpers::compress {

@@ -1,6 +1,6 @@
 /**
  * @file FileBitSerializer_has_next.cpp
- * © 2026 Sam Caldwell.  See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Implementation of FileBitSerializer::has_next.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"

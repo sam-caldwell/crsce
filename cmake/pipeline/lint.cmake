@@ -18,6 +18,7 @@ include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-sh.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-py.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-mk.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-headers.cmake")
 
 if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "ws")
   lint_ws()
@@ -41,6 +42,10 @@ endif()
 
 if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "cpp")
   lint_cpp()
+endif()
+
+if(LINT_TARGET STREQUAL "cpp-headers")
+  lint_cpp_headers()
 endif()
 
 message(STATUS "✅ Lint complete")

@@ -3,7 +3,7 @@
  * @brief Implements the decompressor CLI runner: parse args, validate paths, run decompression.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "decompress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
 
 #include "common/ArgParser/ArgParser.h"
 #include "decompress/Decompressor/Decompressor.h"

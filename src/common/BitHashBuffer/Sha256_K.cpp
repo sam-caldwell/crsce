@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief SHA-256 round constants table.
  */
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/sha256/K.h"
 #include "common/BitHashBuffer/detail/Sha256Types32.h"
 #include <array>
 

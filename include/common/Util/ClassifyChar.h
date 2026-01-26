@@ -4,22 +4,13 @@
  */
 #pragma once
 
-#include "common/Util/CharClass.h"
+#include "common/Util/detail/classify_char.h"
 
 namespace crsce::common::util {
-    /**
-     * @name classify_char
-     * @brief Classify an input character as Digit, Alpha, Space, or Other.
-     * @usage auto c = classify_char('Z'); // CharClass::Alpha
-     * @throws None
-     * @param ch Character to classify.
-     * @return CharClass corresponding to the input character.
-     */
-    CharClass classify_char(char ch);
-
     /**
      * @name ClassifyCharTag
      * @brief Tag type to satisfy one-definition-per-header for ClassifyChar utilities.
      */
-    struct ClassifyCharTag {};
+    struct ClassifyCharTag {
+    };
 } // namespace crsce::common::util

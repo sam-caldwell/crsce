@@ -2,14 +2,13 @@
  * @file hasher_to_hex_lower_test.cpp
  * @brief Unit tests for to_hex_lower utility.
  */
-#include "common/HasherUtils/ToHexLower.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/HasherUtils/detail/to_hex_lower.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include <string>
 #include <gtest/gtest.h>
 
 using crsce::common::hasher::to_hex_lower;
 using crsce::common::detail::sha256::sha256_digest;
-using u8 = crsce::common::detail::sha256::u8;
 
 /**
 

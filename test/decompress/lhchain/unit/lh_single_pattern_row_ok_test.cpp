@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
-#include "decompress/Csm/Csm.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "decompress/Csm/detail/Csm.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
 using crsce::decompress::LHChainVerifier;
 using crsce::decompress::Csm;

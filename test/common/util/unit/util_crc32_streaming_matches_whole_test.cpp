@@ -2,7 +2,7 @@
  * @file util_crc32_streaming_matches_whole_test.cpp
  * @brief CRC-32 streaming continuation should match whole-buffer result.
  */
-#include "common/Util/Crc32.h"
+#include "common/Util/detail/crc32_ieee.h"
 #include <gtest/gtest.h>
 #include <array>
 #include <cstdint>

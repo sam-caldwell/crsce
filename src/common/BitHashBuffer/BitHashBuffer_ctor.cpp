@@ -4,7 +4,7 @@
  * @brief Constructor for BitHashBuffer: derive seed hash and reset state.
  */
 #include "common/BitHashBuffer/BitHashBuffer.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
 #include <cstdint>
 #include <string_view>

@@ -1,7 +1,7 @@
 /**
  * @file CrossSum.h
  * @brief Cross-sum vector helper (511 elements, 9-bit serialization).
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -27,28 +27,58 @@ namespace crsce::common {
         /** Value type for internal storage (sufficient for 9 bits). */
         using ValueType = std::uint16_t;
 
-        /** Construct zero-initialized cross-sums. */
+        /**
+         * @name CrossSum::CrossSum
+         * @brief Construct zero-initialized cross-sums.
+         */
         CrossSum();
 
-        /** Reset all elements to zero. */
+        /**
+         * @name CrossSum::reset
+         * @brief Reset all elements to zero.
+         * @return void
+         */
         void reset();
 
-        /** Increment element i if i < kSize. */
+        /**
+         * @name CrossSum::increment
+         * @brief Increment element i if i < kSize.
+         * @param i Index into the cross-sum array.
+         * @return void
+         */
         void increment(std::size_t i);
 
-        /** Increment diagonal index: d(r,c) = (r + c) mod kSize. */
+        /**
+         * @name CrossSum::increment_diagonal
+         * @brief Increment diagonal index: d(r,c) = (r + c) mod kSize.
+         * @param r Row coordinate.
+         * @param c Column coordinate.
+         * @return void
+         */
         void increment_diagonal(std::size_t r, std::size_t c);
 
-        /** Increment anti-diagonal index: x(r,c) = (r >= c) ? (r - c) : (r + kSize - c). */
+        /**
+         * @name CrossSum::increment_antidiagonal
+         * @brief Increment anti-diagonal index: x(r,c) = (r >= c) ? (r - c) : (r + kSize - c).
+         * @param r Row coordinate.
+         * @param c Column coordinate.
+         * @return void
+         */
         void increment_antidiagonal(std::size_t r, std::size_t c);
 
-        /** Return value at index i (0 if out of range). */
+        /**
+         * @name CrossSum::value
+         * @brief Return value at index i (0 if out of range).
+         * @param i Index into the cross-sum array.
+         * @return ValueType Value at index or 0 if out of range.
+         */
         [[nodiscard]] ValueType value(std::size_t i) const noexcept;
 
         /**
-         * Serialize as contiguous 9-bit values (b8..b0, MSB-first), appending bytes
-         * to the provided vector. No per-vector padding is added, so the output size
-         * will be 575 bytes (511 * 9 bits).
+         * @name CrossSum::serialize_append
+         * @brief Serialize as contiguous 9-bit values (b8..b0, MSB-first), appending bytes.
+         * @param out Output buffer; grows by 575 bytes (511 * 9 bits).
+         * @return void
          */
         void serialize_append(std::vector<std::uint8_t> &out) const;
 

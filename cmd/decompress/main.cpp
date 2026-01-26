@@ -5,7 +5,7 @@
  *
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "decompress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
 #include <span>
 #include <cstddef>
 

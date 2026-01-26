@@ -2,8 +2,8 @@
  * @file ClassifyChar.cpp
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "common/Util/ClassifyChar.h"
-#include "common/Util/CharClass.h" // for direct provider include (include-cleaner)
+#include "common/Util/detail/classify_char.h"
+#include "common/Util/CharClass.h" // direct provider include (include-cleaner)
 #include <cctype>
 
 namespace crsce::common::util {

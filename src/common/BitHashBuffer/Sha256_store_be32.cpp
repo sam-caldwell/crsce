@@ -3,7 +3,9 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Store a 32-bit word in big-endian order.
  */
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"    // u8
+#include "common/BitHashBuffer/detail/Sha256Types32.h"  // u32
+#include "common/BitHashBuffer/detail/sha256/store_be32.h"
 #include <array>
 #include <cstring>
 

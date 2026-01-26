@@ -3,7 +3,8 @@
  * @brief Validate LH chaining across a partial second row via compress_file.
  */
 #include "compress/Compress/Compress.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include <gtest/gtest.h>
 #include <array>
 #include <cstddef>

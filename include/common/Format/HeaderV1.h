@@ -18,6 +18,13 @@ namespace crsce::common::format {
         static constexpr std::size_t kSize = 28;
         static constexpr std::uint16_t kVersion = 1;
 
+        /**
+         * @name HeaderV1::pack
+         * @brief Pack a v1 container header into a 28-byte little-endian buffer.
+         * @param original_size_bytes Original uncompressed size in bytes.
+         * @param block_count Number of compressed blocks.
+         * @return std::array<std::uint8_t, kSize> Packed header bytes (28 bytes).
+         */
         static std::array<std::uint8_t, kSize> pack(std::uint64_t original_size_bytes,
                                                     std::uint64_t block_count);
     };

@@ -3,7 +3,8 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief SHA-256 rotate-right helper.
  */
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types32.h" // u32
+#include "common/BitHashBuffer/detail/sha256/rotr.h"
 
 namespace crsce::common::detail::sha256 {
     /**

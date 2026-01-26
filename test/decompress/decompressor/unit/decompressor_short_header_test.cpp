@@ -9,6 +9,7 @@
 #include <string>
 
 #include "decompress/Decompressor/Decompressor.h"
+#include "decompress/Decompressor/HeaderV1Fields.h"
 
 using crsce::decompress::Decompressor;
 using crsce::decompress::HeaderV1Fields;

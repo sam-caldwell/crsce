@@ -1,7 +1,7 @@
 /**
  * @file HeaderV1Fields.h
  * @brief Parsed CRSCE v1 header fields for decompression.
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -18,5 +18,4 @@ namespace crsce::decompress {
         /** @name block_count @brief Number of blocks in the container. */
         std::uint64_t block_count{0};
     };
-
 } // namespace crsce::decompress

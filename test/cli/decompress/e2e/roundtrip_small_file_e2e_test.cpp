@@ -2,8 +2,8 @@
  * @file roundtrip_small_file_e2e_test.cpp
  * @brief E2E: compress then decompress; bytes match exactly.
  */
-#include "decompress/Cli/run.h"
-#include "compress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
+#include "compress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"
 #include "helpers/remove_file.h"
 

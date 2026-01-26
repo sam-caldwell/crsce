@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "decompress/Decompressor/Decompressor.h"
+#include "decompress/Decompressor/HeaderV1Fields.h"
 #include "common/Format/HeaderV1.h"
 
 using crsce::decompress::Decompressor;

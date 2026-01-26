@@ -2,7 +2,7 @@
  * @file no_args_greets_e2e_test.cpp
  * @brief E2E: compress CLI prints a greeting with no args.
  */
-#include "compress/Cli/run.h"
+#include "compress/Cli/detail/run.h"
 
 #include <gtest/gtest.h>
 #include <span>

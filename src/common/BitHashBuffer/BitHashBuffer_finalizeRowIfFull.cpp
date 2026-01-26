@@ -4,7 +4,7 @@
  * @brief Compute chained hash when a 64-byte row completes.
  */
 #include "../../../include/common/BitHashBuffer/BitHashBuffer.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
 #include <algorithm>
 #include <array>

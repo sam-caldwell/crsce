@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Gobp/GobpSolver.h"
 #include "decompress/LHChainVerifier/LHChainVerifier.h"

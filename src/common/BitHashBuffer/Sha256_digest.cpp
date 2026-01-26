@@ -3,7 +3,19 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief SHA-256 digest function.
  */
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"      // u8
+#include "common/BitHashBuffer/detail/Sha256Types32.h"    // u32
+#include "common/BitHashBuffer/detail/Sha256Types64.h"    // u64
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
+#include "common/BitHashBuffer/detail/sha256/K.h"
+#include "common/BitHashBuffer/detail/sha256/ch.h"
+#include "common/BitHashBuffer/detail/sha256/maj.h"
+#include "common/BitHashBuffer/detail/sha256/big_sigma0.h"
+#include "common/BitHashBuffer/detail/sha256/big_sigma1.h"
+#include "common/BitHashBuffer/detail/sha256/small_sigma0.h"
+#include "common/BitHashBuffer/detail/sha256/small_sigma1.h"
+#include "common/BitHashBuffer/detail/sha256/load_be32.h"
+#include "common/BitHashBuffer/detail/sha256/store_be32.h"
 
 #include <array>
 #include <cstring>

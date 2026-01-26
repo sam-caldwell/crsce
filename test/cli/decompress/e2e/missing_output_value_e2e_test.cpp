@@ -2,7 +2,7 @@
  * @file missing_output_value_e2e_test.cpp
  * @brief E2E: decompress CLI returns 2 on missing -out value.
  */
-#include "decompress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
 
 #include <gtest/gtest.h>
 #include <span>

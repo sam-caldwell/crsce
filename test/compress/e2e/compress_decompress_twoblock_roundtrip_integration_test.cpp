@@ -16,7 +16,8 @@
 
 #include "compress/Compress/Compress.h"
 #include "decompress/Decompressor/Decompressor.h"
-#include "decompress/Csm/Csm.h"
+#include "decompress/Decompressor/HeaderV1Fields.h"
+#include "decompress/Csm/detail/Csm.h"
 #include "helpers/decompress_utils.h"
 
 using crsce::compress::Compress;

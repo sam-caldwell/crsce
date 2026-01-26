@@ -1,7 +1,7 @@
 /**
  * @file: util_is_power_of_two_zero_test.cpp
  */
-#include "common/Util/IsPowerOfTwo.h"
+#include "common/Util/detail/is_power_of_two.h"
 #include <gtest/gtest.h>
 
 using crsce::common::util::is_power_of_two;

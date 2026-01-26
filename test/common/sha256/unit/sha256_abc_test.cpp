@@ -2,7 +2,8 @@
  * @file sha256_abc_test.cpp
  * @brief Verify SHA-256("abc") matches the known vector.
  */
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include <array>
 #include <gtest/gtest.h>
 

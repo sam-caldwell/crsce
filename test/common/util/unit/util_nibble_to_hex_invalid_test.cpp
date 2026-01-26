@@ -1,7 +1,7 @@
 /**
  * @file: util_nibble_to_hex_invalid_test.cpp
  */
-#include "common/Util/NibbleToHex.h"
+#include "common/Util/detail/nibble_to_hex.h"
 #include <gtest/gtest.h>
 
 using crsce::common::util::nibble_to_hex;

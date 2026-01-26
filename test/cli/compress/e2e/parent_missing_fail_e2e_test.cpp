@@ -2,7 +2,7 @@
  * @file parent_missing_fail_e2e_test.cpp
  * @brief E2E: compress CLI returns 4 when parent dir is missing.
  */
-#include "compress/Cli/run.h"
+#include "compress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"
 #include "helpers/remove_file.h"
 

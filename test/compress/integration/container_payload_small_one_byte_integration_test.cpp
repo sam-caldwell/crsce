@@ -3,7 +3,8 @@
  * @brief Compress a 1-byte input and validate LH[0] and all cross-sum vectors.
  */
 #include "compress/Compress/Compress.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/Sha256Types.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include <gtest/gtest.h>
 #include <array>
 #include <cstddef>

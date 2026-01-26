@@ -3,17 +3,17 @@
  * @brief Drive block-wise decompression and write reconstructed bytes to output_path_.
  */
 #include "decompress/Decompressor/Decompressor.h"
+#include "decompress/Decompressor/HeaderV1Fields.h"
 
-#include "decompress/Block/BlockSolver.h"
+#include "decompress/Block/detail/solve_block.h"
 #include "decompress/Utils/AppendBits.h"
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <ios>
 #include <print>
-#include <cstdio>
 #include <span>
 #include <string>
 #include <vector>
@@ -26,7 +26,7 @@ namespace crsce::decompress {
         output_bytes.reserve(1024);
         std::uint8_t curr = 0;
         int bit_pos = 0;
-        constexpr std::string seed = "CRSCE_v1_seed"; // must match compressor default
+        const std::string seed = "CRSCE_v1_seed"; // must match compressor default
         bool ok = true;
 
         const bool drove = for_each_block(hdr, [&](const std::span<const std::uint8_t> lh,

@@ -1,7 +1,7 @@
 /**
  * @file: util_clamp_low_test.cpp
  */
-#include "common/Util/ClampInt.h"
+#include "common/Util/detail/clamp_int.h"
 #include <gtest/gtest.h>
 
 using crsce::common::util::clamp_int;

@@ -2,8 +2,8 @@
  * @file output_exists_e2e_test.cpp
  * @brief E2E: decompress CLI returns 3 when output already exists.
  */
-#include "decompress/Cli/run.h"
-#include "compress/Cli/run.h"
+#include "decompress/Cli/detail/run.h"
+#include "compress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"
 #include "helpers/remove_file.h"
 

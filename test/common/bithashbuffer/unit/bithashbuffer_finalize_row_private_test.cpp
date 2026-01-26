@@ -13,10 +13,9 @@
  */
 #include <gtest/gtest.h>
 #include <iterator>
-#include <string>
 
 #include "../../../../include/common/BitHashBuffer/BitHashBuffer.h"
-#include "common/BitHashBuffer/detail/Sha256.h"
+#include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
 using crsce::common::BitHashBuffer;
 using crsce::common::detail::sha256::sha256_digest;

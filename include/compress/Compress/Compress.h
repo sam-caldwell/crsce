@@ -1,7 +1,7 @@
 /**
  * @file Compress.h
  * @brief CRSCE v1 compressor (block-level accumulator; no container I/O yet).
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -34,15 +34,30 @@ namespace crsce::compress {
         static constexpr std::size_t kRowPadBits = 1; ///< 1 zero pad bit per row
         static constexpr std::size_t kBitsPerBlock = kS * kS; ///< 511*511 data bits per block
 
-        /** Construct with source/destination paths and optional LH seed. */
+        /**
+         * @name Compress::Compress
+         * @brief Construct with source/destination paths and optional LH seed.
+         * @param input_path Source file path to read.
+         * @param output_path Destination CRSCE container path.
+         * @param lh_seed Seed string for LH initialization.
+         */
         explicit Compress(std::string input_path,
                           std::string output_path,
                           const std::string &lh_seed = "CRSCE_v1_seed");
 
-        /** Push a single data bit (row-major: columns advance fastest). */
+        /**
+         * @name Compress::push_bit
+         * @brief Push a single data bit (row-major: columns advance fastest).
+         * @param bit Data bit to push.
+         * @return void
+         */
         void push_bit(bool bit);
 
-        /** Finalize the current row if partial (pads zeros + 1 pad bit for LH). */
+        /**
+         * @name Compress::finalize_block
+         * @brief Finalize the current row if partial (pads zeros + 1 LH pad bit).
+         * @return void
+         */
         void finalize_block();
 
         /**
@@ -77,22 +92,54 @@ namespace crsce::compress {
          */
         [[nodiscard]] const crsce::common::CrossSum &xsm() const noexcept { return xsm_; }
 
-        /** Serialize cross-sums in order LSM,VSM,DSM,XSM (contiguous bytes). */
+        /**
+         * @name Compress::serialize_cross_sums
+         * @brief Serialize cross-sums in order LSM,VSM,DSM,XSM (contiguous bytes).
+         * @return std::vector<std::uint8_t> Concatenated serialization of all cross-sums.
+         */
         [[nodiscard]] std::vector<std::uint8_t> serialize_cross_sums() const;
 
-        /** Pop all available LH digests as a contiguous byte vector (32*N bytes). */
+        /**
+         * @name Compress::pop_all_lh_bytes
+         * @brief Pop all available LH digests as a contiguous byte vector (32*N bytes).
+         * @return std::vector<std::uint8_t> All pending LH bytes; clears LH queue.
+         */
         [[nodiscard]] std::vector<std::uint8_t> pop_all_lh_bytes();
 
-        /** Compress the input file to the CRSCE v1 container at output_path_. */
+        /**
+         * @name Compress::compress_file
+         * @brief Compress the input file to the CRSCE v1 container at output_path_.
+         * @return bool True on success; false on error.
+         */
         bool compress_file();
 
     private:
+        /**
+         * @name Compress::pad_and_finalize_row_if_needed
+         * @brief If the current row is partial, pad zeros and finalize for LH.
+         * @return void
+         */
         void pad_and_finalize_row_if_needed();
 
+        /**
+         * @name Compress::advance_coords_after_bit
+         * @brief Advance row/column coordinates after pushing a bit.
+         * @return void
+         */
         void advance_coords_after_bit();
 
+        /**
+         * @name Compress::reset_block
+         * @brief Reset internal state for a new block.
+         * @return void
+         */
         void reset_block();
 
+        /**
+         * @name Compress::push_zero_row
+         * @brief Push a full row of zeros and finalize its LH.
+         * @return void
+         */
         void push_zero_row();
 
         /**

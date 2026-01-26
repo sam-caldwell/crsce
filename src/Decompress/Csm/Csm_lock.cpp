@@ -3,7 +3,7 @@
  * @brief Implementation
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
 #include <cstddef>
 #include <stdexcept>
 

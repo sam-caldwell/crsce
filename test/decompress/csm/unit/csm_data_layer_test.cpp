@@ -3,7 +3,7 @@
  */
 #include <gtest/gtest.h>
 #include <numbers>
-#include "decompress/Csm/Csm.h"
+#include "decompress/Csm/detail/Csm.h"
 
 using crsce::decompress::Csm;
 

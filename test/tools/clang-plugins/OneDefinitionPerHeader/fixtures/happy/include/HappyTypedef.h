@@ -1,7 +1,7 @@
 /**
  * @file HappyTypedef.h
  * @brief One-definition header with typedef and proper docs.
- * © Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 
 /**

@@ -4,20 +4,13 @@
  */
 #pragma once
 
-namespace crsce::common::util {
-    /**
-     * @name is_power_of_two
-     * @brief Test whether an unsigned integer is a non-zero power of two.
-     * @usage bool ok = is_power_of_two(8); // true
-     * @throws None
-     * @param x Value to test.
-     * @return true if x is one of {1, 2, 4, 8, ...}; false for zero or non-powers.
-     */
-    bool is_power_of_two(unsigned x);
+#include "common/Util/detail/is_power_of_two.h"
 
+namespace crsce::common::util {
     /**
      * @name IsPowerOfTwoTag
      * @brief Tag type to satisfy one-definition-per-header for power-of-two utility.
      */
-    struct IsPowerOfTwoTag {};
+    struct IsPowerOfTwoTag {
+    };
 } // namespace crsce::common::util
