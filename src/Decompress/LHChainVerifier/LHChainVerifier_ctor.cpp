@@ -1,7 +1,7 @@
 /**
  * @file LHChainVerifier_ctor.cpp
- * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @brief Implementation of LHChainVerifier constructor.
+ * © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
@@ -12,7 +12,10 @@
 
 namespace crsce::decompress {
     /**
-     * @brief Implementation detail.
+     * @name LHChainVerifier::LHChainVerifier
+     * @brief Construct an LHChainVerifier and derive the initial seed hash.
+     * @param seed Seed string used to derive the first link hash.
+     * @return void
      */
     LHChainVerifier::LHChainVerifier(std::string seed) {
         const std::vector<std::uint8_t> seed_bytes(seed.begin(), seed.end());

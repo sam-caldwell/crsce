@@ -10,6 +10,7 @@
 
 namespace crsce::common {
     /**
+     * @name ArgParser::parse
      * @brief Parse argv into ArgParser options.
      * @param args Raw argv span (argv[0]...argv[argc-1]). The first element is the program name.
      * @return true if parsing succeeded (or help requested); false on unknown flags or missing values.

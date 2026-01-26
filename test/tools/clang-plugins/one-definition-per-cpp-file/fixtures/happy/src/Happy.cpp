@@ -5,8 +5,12 @@
  */
 
 // NOLINTBEGIN(misc-use-internal-linkage)
+
 /**
  * @brief Return a constant.
  */
-int happy_answer() { return 42; } // NOLINT(readability-identifier-naming)
+int happy_answer() { // NOLINT(readability-identifier-naming)
+    return 42;
+}
+
 // NOLINTEND(misc-use-internal-linkage)

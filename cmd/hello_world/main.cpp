@@ -3,7 +3,7 @@
  * @brief Simple hello world used by CI sanity checks.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include <cstdio>
+#include <cstdio> // NOLINT
 #include <exception>
 #include <print>
 

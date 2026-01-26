@@ -169,20 +169,27 @@ namespace crsce::decompress {
          */
         static double prob_from_odds(double o) noexcept; // o -> o/(1+o)
 
-        // Compute per-cell belief based on current residuals (naive independent combination)
         /**
          * @name GobpSolver::belief_for
-         * @brief Compute per-cell belief based on current residuals.
+         * @brief Compute per-cell belief based on current residuals (naive independent combination)
          * @param r Row index.
          * @param c Column index.
          * @return double Belief value in [0,1].
          */
         [[nodiscard]] double belief_for(std::size_t r, std::size_t c) const;
 
-        // Apply a concrete assignment to a cell, updating residuals and locking the cell.
+        /**
+         * @name GobpSolver::calculate_belief
+         * @brief calculate the belief for belief_for()
+         * @param R element coordinate
+         * @param U element coordinate
+         * @return double Belief value in [0,1].
+         */
+        static auto calculate_belief(std::size_t R, std::size_t U) -> double;
+
         /**
          * @name GobpSolver::apply_cell
-         * @brief Apply concrete assignment to (r,c), update residuals, lock cell.
+         * @brief Apply a concrete assignment to a cell, updating residuals and locking the cell.
          * @param r Row index.
          * @param c Column index.
          * @param value Assigned value.

@@ -12,7 +12,7 @@
 namespace crsce::decompress {
     /**
      * @name Decompressor::read_header
-     * @brief Read and parse the header into fields structure.
+     * @brief Read and parse the header into the fields structure.
      * @param out Parsed fields on success.
      * @return bool True on success; false on I/O or parse error.
      */

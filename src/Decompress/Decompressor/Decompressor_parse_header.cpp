@@ -1,38 +1,29 @@
 /**
- * @file Decompressor_parse.cpp
- * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @file Decompressor_parse_header.cpp
+ * @brief Implementation of Decompressor::parse_header.
+ * © Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 #include "decompress/Decompressor/HeaderV1Fields.h"
+#include "decompress/Decompressor/detail/load_le.h"
 #include "common/Util/detail/crc32_ieee.h"
 
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <span>
-#include <vector>
 
 namespace crsce::decompress {
     using crsce::common::util::crc32_ieee;
+    using crsce::decompress::detail::load_le;
 
-    namespace {
-        /**
-         * @brief Implementation detail.
-         */
-        template<typename T>
-        inline T load_le(std::span<const std::uint8_t> s) {
-            T v = 0;
-            std::size_t shift = 0;
-            for (const auto byte: s) {
-                v = static_cast<T>(v | (static_cast<T>(byte) << shift));
-                shift += 8U;
-            }
-            return v;
-        }
-    } // anonymous namespace
-
+    /**
+     * @name Decompressor::parse_header
+     * @brief Parse header v1 (validates magic, version, sizes, CRC32) into fields.
+     * @param hdr 28-byte header buffer.
+     * @param out Parsed header fields on success.
+     * @return bool True on success; false if invalid.
+     */
     bool Decompressor::parse_header(const std::array<std::uint8_t, kHeaderSize> &hdr,
                                     HeaderV1Fields &out) {
         // Magic "CRSC"
@@ -53,17 +44,5 @@ namespace crsce::decompress {
         const auto crc = crc32_ieee(hdr.data(), 24U);
         const auto crc_field = load_le<std::uint32_t>(head_span.subspan(24, 4));
         return crc == crc_field;
-    }
-
-    bool Decompressor::split_payload(const std::vector<std::uint8_t> &block,
-                                     std::span<const std::uint8_t> &out_lh,
-                                     std::span<const std::uint8_t> &out_sums) {
-        if (block.size() != kBlockBytes) {
-            return false;
-        }
-        const std::span<const std::uint8_t> sp{block};
-        out_lh = sp.first(kLhBytes);
-        out_sums = sp.subspan(kLhBytes, kSumsBytes);
-        return true;
     }
 } // namespace crsce::decompress
