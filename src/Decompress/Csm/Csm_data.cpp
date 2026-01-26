@@ -9,15 +9,12 @@
 
 namespace crsce::decompress {
     /**
-     * @brief Implementation detail.
+     * @name Csm::get_data
+     * @brief Retrieve auxiliary data value for (r,c).
+     * @param r Row index.
+     * @param c Column index.
+     * @return double Stored value.
      */
-    void Csm::set_data(std::size_t r, std::size_t c, double value) {
-        if (!in_bounds(r, c)) {
-            throw std::out_of_range("Csm::set_data: index out of bounds");
-        }
-        data_[index_of(r, c)] = value;
-    }
-
     double Csm::get_data(std::size_t r, std::size_t c) const {
         if (!in_bounds(r, c)) {
             throw std::out_of_range("Csm::get_data: index out of bounds");

@@ -3,7 +3,10 @@
  * @brief Implementation for cross-sum verification helpers for reconstructed CSMs.
  */
 #include "decompress/Utils/detail/verify_cross_sums.h"
-
+#include "decompress/Csm/detail/Csm.h" // direct provider for Csm
+#include <array>    // direct provider for std::array
+#include <cstddef>  // direct provider for std::size_t
+#include <cstdint>  // direct provider for std::uint16_t
 #include <algorithm>
 
 namespace crsce::decompress {
@@ -35,4 +38,3 @@ bool verify_cross_sums(const Csm &csm,
            std::equal(xdg.begin(), xdg.end(), xsm.begin());
 }
 } // namespace crsce::decompress
-

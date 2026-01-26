@@ -1,6 +1,7 @@
 /**
  * @file BlockSolver.cpp
  * @brief High-level block solver implementation: reconstruct CSM from LH and cross-sum payloads.
+ * © Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/solve_block.h"
 #include "decompress/Csm/detail/Csm.h"
@@ -17,6 +18,15 @@
 #include <string>
 
 namespace crsce::decompress {
+    /**
+     * @name solve_block
+     * @brief Reconstruct a block CSM from LH and cross-sum payloads.
+     * @param lh Span of 511 chained LH digests (32 bytes each).
+     * @param sums Span of 4 serialized cross-sum vectors (2300 bytes total).
+     * @param csm_out Output CSM to populate.
+     * @param seed Seed string used by LH chain.
+     * @return bool True on success; false if solving or verification fails.
+     */
     bool solve_block(std::span<const std::uint8_t> lh,
                      std::span<const std::uint8_t> sums,
                      Csm &csm_out,

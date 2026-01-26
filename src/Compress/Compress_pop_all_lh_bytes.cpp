@@ -9,7 +9,9 @@
 
 namespace crsce::compress {
     /**
-     * @brief Implementation detail.
+     * @name Compress::pop_all_lh_bytes
+     * @brief Retrieve and clear all queued LH digests as bytes (32*N bytes).
+     * @return std::vector<std::uint8_t> Concatenated LH bytes.
      */
     std::vector<std::uint8_t> Compress::pop_all_lh_bytes() {
         std::vector<std::uint8_t> out;

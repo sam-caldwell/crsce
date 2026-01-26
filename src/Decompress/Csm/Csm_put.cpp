@@ -11,7 +11,12 @@
 
 namespace crsce::decompress {
     /**
-     * @brief Implementation detail.
+     * @name Csm::put
+     * @brief Store bit value at (r,c), rejecting writes to locked cells.
+     * @param r Row index.
+     * @param c Column index.
+     * @param v Bit value to store.
+     * @return void
      */
     void Csm::put(std::size_t r, std::size_t c, bool v) {
         if (!in_bounds(r, c)) {

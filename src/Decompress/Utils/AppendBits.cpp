@@ -2,13 +2,14 @@
  * @file AppendBits.cpp
  * @brief Implementation for appending CSM bits into a byte stream (MSB-first).
  */
-#include "decompress/Utils/detail/append_bits_from_csm.h"
+#include "decompress/Utils/detail/append_bits_from_csm.h" // NOLINT(misc-include-cleaner) ensure external linkage
 #include "decompress/Csm/detail/Csm.h" // direct provider for Csm (include-cleaner)
-#include <cstdint> // direct provider for std::uint64_t (include-cleaner)
-#include <vector>  // direct provider for std::vector (include-cleaner)
+#include <cstddef>  // direct provider for std::size_t (include-cleaner)
+#include <cstdint>  // direct provider for std::uint64_t (include-cleaner)
+#include <vector>   // direct provider for std::vector (include-cleaner)
 
 namespace crsce::decompress {
-void append_bits_from_csm(const Csm &csm,
+void append_bits_from_csm(const Csm &csm, // NOLINT(misc-use-internal-linkage)
                           const std::uint64_t bit_limit,
                           std::vector<std::uint8_t> &out,
                           std::uint8_t &curr,

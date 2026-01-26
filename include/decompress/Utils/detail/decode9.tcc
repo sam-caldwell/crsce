@@ -12,6 +12,13 @@
 #include <span>
 
 namespace crsce::decompress {
+  /**
+   * @name decode_9bit_stream
+   * @brief Decode a 9-bit MSB-first packed stream into kCount 16-bit values.
+   * @tparam kCount Number of 9-bit values to decode from the input.
+   * @param bytes Input span containing exactly 9*kCount bits (padded to whole bytes).
+   * @return std::array<std::uint16_t, kCount> The decoded values.
+   */
   template<std::size_t kCount>
   inline std::array<std::uint16_t, kCount>
   decode_9bit_stream(const std::span<const std::uint8_t> bytes) {

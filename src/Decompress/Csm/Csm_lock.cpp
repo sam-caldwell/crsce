@@ -9,7 +9,11 @@
 
 namespace crsce::decompress {
     /**
-     * @brief Implementation detail.
+     * @name Csm::lock
+     * @brief Lock the cell at (r,c).
+     * @param r Row index.
+     * @param c Column index.
+     * @return void
      */
     void Csm::lock(std::size_t r, std::size_t c) {
         if (!in_bounds(r, c)) {

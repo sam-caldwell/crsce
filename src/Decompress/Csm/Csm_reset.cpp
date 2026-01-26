@@ -8,6 +8,11 @@
 #include <cstdint>
 
 namespace crsce::decompress {
+    /**
+     * @name Csm::reset
+     * @brief Reset bits, locks, and data to default values.
+     * @return void
+     */
     void Csm::reset() noexcept {
         std::ranges::fill(bits_, static_cast<std::uint8_t>(0));
         std::ranges::fill(locks_, static_cast<std::uint8_t>(0));

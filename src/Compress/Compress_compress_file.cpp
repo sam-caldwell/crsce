@@ -16,9 +16,9 @@
 namespace crsce::compress {
 
 /**
-
- * @brief Implementation detail.
-
+ * @name Compress::compress_file
+ * @brief Implementation detail for writing the CRSCE v1 container.
+ * @return bool True on success; false on any I/O or serialization error.
  */
 
 bool Compress::compress_file() {

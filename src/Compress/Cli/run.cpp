@@ -18,6 +18,7 @@
 
 namespace crsce::compress::cli {
     /**
+     * @name run
      * @brief Run the compression CLI pipeline.
      * @param args Raw argv span (argv[0]..argv[argc-1]).
      * @return Process exit code: 0 on success; non-zero on failure.

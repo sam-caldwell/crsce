@@ -6,5 +6,9 @@
 #include "decompress/Csm/detail/Csm.h"
 
 namespace crsce::decompress {
+    /**
+     * @name Csm::Csm
+     * @brief Construct zero-initialized bit/lock/data layers.
+     */
     Csm::Csm() : bits_(kBytes, 0U), locks_(kTotalBits, 0U), data_(kTotalBits, 0.0) {}
 } // namespace crsce::decompress

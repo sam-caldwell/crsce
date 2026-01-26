@@ -9,11 +9,10 @@
 namespace crsce::compress {
 
 /**
-
- * @brief Implementation detail.
-
+ * @name Compress::reset_block
+ * @brief Reset all accumulators and state for a new block.
+ * @return void
  */
-
 void Compress::reset_block() {
   lsm_.reset();
   vsm_.reset();
@@ -24,12 +23,6 @@ void Compress::reset_block() {
   c_ = 0;
   row_bit_count_ = 0;
   total_bits_ = 0;
-}
-
-void Compress::push_zero_row() {
-  for (std::size_t i = 0; i < kBitsPerRow; ++i) {
-    push_bit(false);
-  }
 }
 
 } // namespace crsce::compress

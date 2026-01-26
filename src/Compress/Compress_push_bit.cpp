@@ -8,7 +8,10 @@
 
 namespace crsce::compress {
     /**
-     * @brief Implementation detail.
+     * @name Compress::push_bit
+     * @brief Push a bit into the block accumulator and update cross-sums/LH.
+     * @param bit Data bit value.
+     * @return void
      */
     void Compress::push_bit(bool bit) {
         // Update cross-sums on bit=1

@@ -2,7 +2,7 @@
  * @file: util_classify_char_alpha_test.cpp
  */
 #include "common/Util/CharClass.h"
-#include "common/Util/ClassifyChar.h"
+#include "common/Util/detail/classify_char.h"
 #include <gtest/gtest.h>
 
 using crsce::common::util::CharClass;

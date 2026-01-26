@@ -9,7 +9,11 @@
 
 namespace crsce::decompress {
     /**
-     * @brief Implementation detail.
+     * @name Csm::get
+     * @brief Retrieve bit value at (r,c).
+     * @param r Row index.
+     * @param c Column index.
+     * @return bool Bit value at the specified cell.
      */
     bool Csm::get(std::size_t r, std::size_t c) const {
         if (!in_bounds(r, c)) {

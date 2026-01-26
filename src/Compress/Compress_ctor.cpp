@@ -9,7 +9,11 @@
 
 namespace crsce::compress {
     /**
-     * @brief Implementation detail.
+     * @name Compress::Compress
+     * @brief Construct compressor with source/destination paths and LH seed.
+     * @param input_path Source file path.
+     * @param output_path Destination container path.
+     * @param lh_seed Seed string for LH initialization.
      */
     Compress::Compress(std::string input_path,
                        std::string output_path,

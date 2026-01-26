@@ -14,7 +14,11 @@
 
 namespace crsce::decompress {
     /**
-     * @brief Implementation detail.
+     * @name Decompressor::for_each_block
+     * @brief Iterate blocks, invoking a callback with LH and sums spans for each.
+     * @param hdr Parsed header fields (input/output for state).
+     * @param fn Callback function receiving LH and sums spans per block.
+     * @return bool True on success; false on I/O or parse error.
      */
     bool Decompressor::for_each_block(HeaderV1Fields &hdr,
                                       const std::function<void(std::span<const std::uint8_t> lh,

@@ -9,7 +9,11 @@
 
 namespace crsce::decompress {
     /**
-     * @brief Implementation detail.
+     * @name Csm::is_locked
+     * @brief Query whether the cell (r,c) is locked.
+     * @param r Row index.
+     * @param c Column index.
+     * @return bool True if locked; false otherwise.
      */
     bool Csm::is_locked(std::size_t r, std::size_t c) const {
         if (!in_bounds(r, c)) {

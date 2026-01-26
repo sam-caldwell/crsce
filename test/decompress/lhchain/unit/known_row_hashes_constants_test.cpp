@@ -9,7 +9,11 @@
 
 #include "common/BitHashBuffer/detail/Sha256Types.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
-#include "decompress/DeterministicElimination/KnownRowHashes.h"
+#include "decompress/DeterministicElimination/detail/kSeedHash.h"
+#include "decompress/DeterministicElimination/detail/kRowZerosDigest.h"
+#include "decompress/DeterministicElimination/detail/kRowOnesDigest.h"
+#include "decompress/DeterministicElimination/detail/kRowAlt0101Digest.h"
+#include "decompress/DeterministicElimination/detail/kRowAlt1010Digest.h"
 
 using crsce::common::detail::sha256::sha256_digest;
 using u8 = crsce::common::detail::sha256::u8;
