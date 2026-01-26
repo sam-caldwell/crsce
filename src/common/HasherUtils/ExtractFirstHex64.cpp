@@ -10,7 +10,11 @@
 
 namespace crsce::common::hasher {
     /**
-     * @brief Implementation detail.
+     * @name extract_first_hex64
+     * @brief Extract the first contiguous 64 hex-digit run from text.
+     * @param src Input text to scan.
+     * @param hex_out Output string to receive the 64-digit lowercase hex run.
+     * @return bool True if a 64-length hex run is found; false otherwise.
      */
     bool extract_first_hex64(const std::string &src, std::string &hex_out) {
         hex_out.clear();

@@ -9,8 +9,11 @@
 namespace crsce::common::detail::sha256 {
     /**
      * @name maj
-     * @brief Majority bit per position among x, y, z.
-     * return u32
+     * @brief Compute the bitwise majority of three 32-bit words.
+     * @param x First 32-bit word operand.
+     * @param y Second 32-bit word operand.
+     * @param z Third 32-bit word operand.
+     * @return u32 Bitwise majority of the corresponding bits of x, y, and z.
      */
     u32 maj(const u32 x, const u32 y, const u32 z) {
         return (x & y) ^ (x & z) ^ (y & z);

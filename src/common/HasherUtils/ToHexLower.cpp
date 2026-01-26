@@ -12,7 +12,10 @@
 
 namespace crsce::common::hasher {
     /**
-     * @brief Implementation detail.
+     * @name to_hex_lower
+     * @brief Convert a 32-byte digest into a 64-char lowercase hex string.
+     * @param digest Input 32-byte SHA-256 digest.
+     * @return std::string Lowercase hex string representation.
      */
     std::string to_hex_lower(const std::array<std::uint8_t, 32> &digest) {
         static constexpr std::array<char, 16> kHex{

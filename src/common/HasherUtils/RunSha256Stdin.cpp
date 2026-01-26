@@ -19,7 +19,12 @@
 
 namespace crsce::common::hasher {
     /**
-     * @brief Implementation detail.
+     * @name run_sha256_stdin
+     * @brief Execute a command, pipe data to stdin, capture stdout, and extract hex digest.
+     * @param cmd Executable and arguments vector.
+     * @param data Bytes to send to the command's stdin.
+     * @param hex_out Output string to receive 64-char lowercase hex digest.
+     * @return bool True on success; false on I/O or process failure.
      */
     bool run_sha256_stdin(const std::vector<std::string> &cmd,
                           const std::vector<std::uint8_t> &data,

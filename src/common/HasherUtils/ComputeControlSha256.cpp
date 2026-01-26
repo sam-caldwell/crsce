@@ -14,7 +14,11 @@
 
 namespace crsce::common::hasher {
     /**
-     * @brief Implementation detail.
+     * @name compute_control_sha256
+     * @brief Compute the SHA-256 digest (hex) using an external tool.
+     * @param data Input bytes to hash.
+     * @param hex_out Output string to receive lowercase hex digest.
+     * @return bool True on success; false if no tool could run or failed.
      */
     bool compute_control_sha256(const std::vector<std::uint8_t> &data,
                                 std::string &hex_out) {

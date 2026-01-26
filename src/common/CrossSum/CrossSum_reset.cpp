@@ -10,6 +10,7 @@ namespace crsce::common {
     /**
      * @name reset
      * @brief reset CrossSum values to all zeros.
+     * @return void No return value.
      */
     void CrossSum::reset() {
         elems_.fill(0);

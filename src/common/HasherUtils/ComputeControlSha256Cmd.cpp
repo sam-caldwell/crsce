@@ -11,7 +11,12 @@
 
 namespace crsce::common::hasher {
     /**
-     * @brief Implementation detail.
+     * @name compute_control_sha256_cmd
+     * @brief Run a specific command to compute SHA-256 over stdin data.
+     * @param cmd Executable and arguments vector (e.g., {"sha256sum", "-"}).
+     * @param data Input bytes to hash.
+     * @param hex_out Output string to receive lowercase hex digest.
+     * @return bool True on success; false on execution or format failure.
      */
     bool compute_control_sha256_cmd(const std::vector<std::string> &cmd,
                                     const std::vector<std::uint8_t> &data,

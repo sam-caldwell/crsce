@@ -15,6 +15,7 @@ namespace crsce::common::detail::sha256 {
      * @brief Store a 32-bit value in big-endian byte order.
      * @param dst Destination buffer (must have space for 4 bytes).
      * @param x   32-bit value to store.
+     * @return void No return value.
      */
     void store_be32(u8 *dst, u32 x) {
         std::array<u8, 4> tmp{};
