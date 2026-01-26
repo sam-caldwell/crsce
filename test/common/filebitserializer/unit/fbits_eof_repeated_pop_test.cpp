@@ -15,17 +15,11 @@
 using crsce::common::FileBitSerializer;
 
 /**
-
  * @name FileBitSerializerTest.RepeatedPopAfterEOFStable
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(FileBitSerializerTest, RepeatedPopAfterEOFStable) {
   const std::string path =
       std::filesystem::temp_directory_path().string() + "/repeated_pop_eof.tmp";

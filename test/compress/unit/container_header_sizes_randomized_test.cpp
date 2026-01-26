@@ -41,17 +41,11 @@ namespace {
 } // namespace
 
 /**
-
  * @name ContainerHeader.RandomizedLengths
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ContainerHeader, RandomizedLengths) { // NOLINT
     const std::vector<std::size_t> sizes{
         0, 1, 2, 7, 8, 15, 16, 63, 64, 127, 128, 255, 256, 511, 512, 1023, 1024

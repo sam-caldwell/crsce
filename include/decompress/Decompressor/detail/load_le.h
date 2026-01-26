@@ -1,7 +1,7 @@
 /**
  * @file load_le.h
  * @brief Little-endian loader utility for fixed-size integral types.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #pragma once
 
@@ -18,13 +18,7 @@ namespace crsce::decompress::detail {
      * @return T Parsed value.
      */
     template<typename T>
-    inline T load_le(std::span<const std::uint8_t> s) {
-        T v = 0;
-        std::size_t shift = 0;
-        for (const auto byte: s) {
-            v = static_cast<T>(v | (static_cast<T>(byte) << shift));
-            shift += 8U;
-        }
-        return v;
-    }
+    T load_le(std::span<const std::uint8_t> s);
 } // namespace crsce::decompress::detail
+
+#include "decompress/Decompressor/detail/load_le.tcc"

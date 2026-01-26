@@ -11,17 +11,11 @@
 using crsce::common::hasher::compute_control_sha256;
 
 /**
-
  * @name HasherUtils.ComputeControlSha256FallbackShasumIfAvailable
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(HasherUtils, ComputeControlSha256FallbackShasumIfAvailable) { // NOLINT(readability-identifier-naming)
     // Only run if a system shasum exists; otherwise skip
     if (std::filesystem::path shasum = "/usr/bin/shasum"; !std::filesystem::exists(shasum)) {

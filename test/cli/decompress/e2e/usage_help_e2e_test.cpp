@@ -14,9 +14,10 @@
  * @brief Expect return 0 when -h is provided.
  */
 TEST(DecompressCLI, UsageHelp) {
-  std::vector<std::string> av = {"decompress", "-h"};
-  std::vector<char*> argv; argv.reserve(av.size());
-  for (auto &s : av) { argv.push_back(s.data()); }
-  const int rc = crsce::decompress::cli::run(std::span<char*>{argv.data(), argv.size()});
-  EXPECT_EQ(rc, 0);
+    std::vector<std::string> av = {"decompress", "-h"};
+    std::vector<char *> argv;
+    argv.reserve(av.size());
+    for (auto &s: av) { argv.push_back(s.data()); }
+    const int rc = crsce::decompress::cli::run(std::span<char *>{argv.data(), argv.size()});
+    EXPECT_EQ(rc, 0);
 }

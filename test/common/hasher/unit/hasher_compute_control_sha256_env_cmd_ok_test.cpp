@@ -10,17 +10,11 @@
 using crsce::common::hasher::compute_control_sha256;
 
 /**
-
  * @name HasherUtils.ComputeControlSha256EnvCmdOk
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(HasherUtils, ComputeControlSha256EnvCmdOk) { // NOLINT(readability-identifier-naming)
     const std::string helper = std::string(TEST_BINARY_DIR) + "/sha256_ok_helper";
     // Point directly to helper via env override

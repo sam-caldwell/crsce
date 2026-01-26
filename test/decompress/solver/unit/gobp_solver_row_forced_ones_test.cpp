@@ -15,17 +15,11 @@ using crsce::decompress::ConstraintState;
 using crsce::decompress::GobpSolver;
 
 /**
-
  * @name GobpSolverHappy.ForceRowAllOnes
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(GobpSolverHappy, ForceRowAllOnes) { // NOLINT
     Csm csm;
     ConstraintState st{};

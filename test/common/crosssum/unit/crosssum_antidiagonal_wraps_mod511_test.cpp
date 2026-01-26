@@ -8,17 +8,11 @@
 using crsce::common::CrossSum;
 
 /**
-
  * @name CrossSumTest.AntiDiagonalMappingWrapsMod511
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CrossSumTest, AntiDiagonalMappingWrapsMod511) {
     CrossSum cs;
     cs.increment_antidiagonal(0, 1); // x(0,1) == 510

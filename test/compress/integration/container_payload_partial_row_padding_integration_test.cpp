@@ -20,17 +20,11 @@ using crsce::common::detail::sha256::sha256_digest;
 using crsce::common::detail::sha256::u8;
 
 /**
-
  * @name ContainerPayload.PartialRowPadsAndChainsFirstTwoLH
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ContainerPayload, PartialRowPadsAndChainsFirstTwoLH) { // NOLINT
     const std::string in_path = std::string(TEST_BINARY_DIR) + "/cp_partial_in.bin";
     const std::string out_path = std::string(TEST_BINARY_DIR) + "/cp_partial_out.crsce";

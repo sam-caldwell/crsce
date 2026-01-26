@@ -16,17 +16,11 @@ using crsce::decompress::ConstraintState;
 using crsce::decompress::GobpSolver;
 
 /**
-
  * @name GobpSolverSad.ThrowsIfULineZeroButAssigns
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(GobpSolverSad, ThrowsIfULineZeroButAssigns) { // NOLINT
     Csm csm;
     ConstraintState st{};

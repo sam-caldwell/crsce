@@ -16,15 +16,10 @@ using crsce::decompress::HeaderV1Fields;
 using crsce::common::format::HeaderV1;
 
 /**
-
  * @name Decompressor.ParseHeaderOk
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
 
 TEST(Decompressor, ParseHeaderOk) { // NOLINT

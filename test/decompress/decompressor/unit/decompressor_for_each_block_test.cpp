@@ -19,17 +19,11 @@ using crsce::decompress::Decompressor;
 using crsce::decompress::HeaderV1Fields;
 
 /**
-
  * @name DecompressorDrive.ForEachBlockHappyTwoBlocks
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(DecompressorDrive, ForEachBlockHappyTwoBlocks) { // NOLINT
     const std::string in_path = std::string(TEST_BINARY_DIR) + "/d_mb_in.bin";
     const std::string out_path = std::string(TEST_BINARY_DIR) + "/d_mb_out.crsc";
@@ -58,17 +52,11 @@ TEST(DecompressorDrive, ForEachBlockHappyTwoBlocks) { // NOLINT
 }
 
 /**
-
  * @name DecompressorDrive.ForEachBlockFailsOnBadHeader
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(DecompressorDrive, ForEachBlockFailsOnBadHeader) { // NOLINT
     const std::string bad_path = std::string(TEST_BINARY_DIR) + "/d_bad_header.crsc";
     // Write 28 bytes of junk header
@@ -89,17 +77,11 @@ TEST(DecompressorDrive, ForEachBlockFailsOnBadHeader) { // NOLINT
 }
 
 /**
-
  * @name DecompressorDrive.ForEachBlockStopsOnTruncatedPayload
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(DecompressorDrive, ForEachBlockStopsOnTruncatedPayload) { // NOLINT
     const std::string in = std::string(TEST_BINARY_DIR) + "/d_trunc2_in.bin";
     const std::string out = std::string(TEST_BINARY_DIR) + "/d_trunc2_out.crsc";

@@ -32,17 +32,11 @@ namespace {
 } // namespace
 
 /**
-
  * @name CrossSumTest.SerializeAppendProduces575BytesAndRoundtrips
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CrossSumTest, SerializeAppendProduces575BytesAndRoundtrips) {
     CrossSum cs;
     // Set a selection of indices to small values via increments

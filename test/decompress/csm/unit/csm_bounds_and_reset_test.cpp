@@ -9,17 +9,11 @@
 using crsce::decompress::Csm;
 
 /**
-
  * @name CsmBounds.MethodsThrowOnOutOfBounds
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CsmBounds, MethodsThrowOnOutOfBounds) { // NOLINT
     Csm cs;
     const std::size_t oob = Csm::kS; // 511 is out of bounds
@@ -39,17 +33,11 @@ TEST(CsmBounds, MethodsThrowOnOutOfBounds) { // NOLINT
 }
 
 /**
-
  * @name CsmReset.ClearsAllLayers
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CsmReset, ClearsAllLayers) { // NOLINT
     Csm cs;
     cs.put(0, 0, true);

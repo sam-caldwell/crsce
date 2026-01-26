@@ -13,17 +13,11 @@
 using crsce::common::FileBitSerializer;
 
 /**
-
  * @name FileBitSerializerTest.EmptyFileHasNoBits
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(FileBitSerializerTest, EmptyFileHasNoBits) {
   const std::string empty_path = tmp_dir() + "/empty.tmp";
   {

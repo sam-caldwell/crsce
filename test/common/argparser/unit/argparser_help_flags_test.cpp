@@ -9,17 +9,11 @@
 using crsce::common::ArgParser;
 
 /**
-
  * @name ArgParserTest.HelpFlagsSetHelpTrue
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ArgParserTest, HelpFlagsSetHelpTrue) {
     {
         // ReSharper disable once CppUseStructuredBinding

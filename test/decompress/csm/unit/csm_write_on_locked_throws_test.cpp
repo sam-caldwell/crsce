@@ -12,17 +12,11 @@ using crsce::decompress::Csm;
 using crsce::decompress::WriteFailureOnLockedCsmElement;
 
 /**
-
  * @name CsmWriteOnLockedElementTest.PutThrowsOnLockedCell
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CsmWriteOnLockedElementTest, PutThrowsOnLockedCell) { // NOLINT
     Csm csm;
     const std::size_t r = 123;

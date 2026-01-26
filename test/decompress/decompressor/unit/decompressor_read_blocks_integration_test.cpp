@@ -21,17 +21,11 @@ using crsce::decompress::Decompressor;
 using crsce::decompress::HeaderV1Fields;
 
 /**
-
  * @name DecompressorIntegration.ReadOneBlockFromCompressedFile
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(DecompressorIntegration, ReadOneBlockFromCompressedFile) { // NOLINT
     namespace fs = std::filesystem;
     const std::string in = std::string(TEST_BINARY_DIR) + "/d_oneblock_in.bin";
@@ -71,17 +65,11 @@ TEST(DecompressorIntegration, ReadOneBlockFromCompressedFile) { // NOLINT
 }
 
 /**
-
  * @name DecompressorIntegration.TruncatedBlockReturnsNullopt
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(DecompressorIntegration, TruncatedBlockReturnsNullopt) { // NOLINT
     namespace fs = std::filesystem;
     const std::string in = std::string(TEST_BINARY_DIR) + "/d_trunc_in.bin";

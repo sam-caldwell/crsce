@@ -24,17 +24,11 @@ namespace {
 }
 
 /**
-
  * @name ContainerHeader.MultiBlockCase
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ContainerHeader, MultiBlockCase) { // NOLINT
     // Bytes needed to exceed one block: ceil(511*511/8) == 32641
     const std::size_t bytes = 32641;

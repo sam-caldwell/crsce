@@ -15,17 +15,11 @@
 using crsce::common::FileBitSerializer;
 
 /**
-
  * @name FileBitSerializerTest.TwoByteSequenceMSBOrder
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(FileBitSerializerTest, TwoByteSequenceMSBOrder) {
   const std::string path =
       std::filesystem::temp_directory_path().string() + "/two_byte_seq.tmp";

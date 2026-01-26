@@ -11,17 +11,11 @@
 using crsce::common::hasher::compute_control_sha256_cmd;
 
 /**
-
  * @name HasherUtils.ComputeControlCmdWithCmdOk
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(HasherUtils, ComputeControlCmdWithCmdOk) { // NOLINT(readability-identifier-naming)
     std::string shasum = "/usr/bin/shasum";
     if (!std::filesystem::exists(shasum)) {

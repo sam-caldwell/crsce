@@ -8,17 +8,11 @@
 using crsce::decompress::Csm;
 
 /**
-
  * @name CsmData.DefaultZeroAndSetGet
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CsmData, DefaultZeroAndSetGet) { // NOLINT
     Csm cs;
     EXPECT_DOUBLE_EQ(cs.get_data(0, 0), 0.0);

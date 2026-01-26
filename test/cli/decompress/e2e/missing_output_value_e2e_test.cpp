@@ -14,9 +14,10 @@
  * @brief Expect return 2 for missing -out value.
  */
 TEST(DecompressCLI, MissingOutputValue) {
-  std::vector<std::string> av = {"decompress", "-in", "some.crsc", "-out"};
-  std::vector<char*> argv; argv.reserve(av.size());
-  for (auto &s : av) { argv.push_back(s.data()); }
-  const int rc = crsce::decompress::cli::run(std::span<char*>{argv.data(), argv.size()});
-  EXPECT_EQ(rc, 2);
+    std::vector<std::string> av = {"decompress", "-in", "some.crsc", "-out"};
+    std::vector<char *> argv;
+    argv.reserve(av.size());
+    for (auto &s: av) { argv.push_back(s.data()); }
+    const int rc = crsce::decompress::cli::run(std::span<char *>{argv.data(), argv.size()});
+    EXPECT_EQ(rc, 2);
 }

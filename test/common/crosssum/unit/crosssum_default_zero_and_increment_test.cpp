@@ -8,17 +8,11 @@
 using crsce::common::CrossSum;
 
 /**
-
  * @name CrossSumTest.DefaultZeroAndDirectIncrement
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CrossSumTest, DefaultZeroAndDirectIncrement) {
     CrossSum cs;
     EXPECT_EQ(cs.value(0), 0);

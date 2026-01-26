@@ -11,17 +11,11 @@ using crsce::common::detail::sha256::sha256_digest;
 using u8 = crsce::common::detail::sha256::u8;
 
 /**
-
  * @name Sha256KnownVectors.ABCDBCDEDerived
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(Sha256KnownVectors, ABCDBCDEDerived) { // NOLINT(readability-identifier-naming)
     const auto *const msg =
             "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";

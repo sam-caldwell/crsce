@@ -7,17 +7,11 @@
 using crsce::decompress::Csm;
 
 /**
-
  * @name CsmBasic.DefaultsAreZero
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CsmBasic, DefaultsAreZero) { // NOLINT
     const Csm cs;
     // Sample a few coordinates including corners and center
@@ -27,17 +21,11 @@ TEST(CsmBasic, DefaultsAreZero) { // NOLINT
 }
 
 /**
-
  * @name CsmBasic.PutAndGetRoundtrip
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CsmBasic, PutAndGetRoundtrip) { // NOLINT
     Csm cs;
     // Set bits at various positions and verify

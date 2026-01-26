@@ -32,17 +32,11 @@ namespace {
 } // namespace
 
 /**
-
  * @name CompressTest.Row0FirstNineBitsSet
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CompressTest, Row0FirstNineBitsSet) {
     Compress c{"in.bin", "out.bin"};
     // Set the first 9 columns of row 0 to 1; rest zero; finalize block

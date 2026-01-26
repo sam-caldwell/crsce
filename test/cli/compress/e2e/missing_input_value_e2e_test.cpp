@@ -14,9 +14,10 @@
  * @brief Expect return 4 when -in has no value.
  */
 TEST(CompressCLI, MissingInputValue) {
-  std::vector<std::string> av = {"compress", "-in"};
-  std::vector<char*> argv; argv.reserve(av.size());
-  for (auto &s : av) { argv.push_back(s.data()); }
-  const int rc = crsce::compress::cli::run(std::span<char*>{argv.data(), argv.size()});
-  EXPECT_EQ(rc, 4);
+    std::vector<std::string> av = {"compress", "-in"};
+    std::vector<char *> argv;
+    argv.reserve(av.size());
+    for (auto &s: av) { argv.push_back(s.data()); }
+    const int rc = crsce::compress::cli::run(std::span<char *>{argv.data(), argv.size()});
+    EXPECT_EQ(rc, 4);
 }

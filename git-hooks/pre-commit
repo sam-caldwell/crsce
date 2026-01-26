@@ -82,6 +82,7 @@ def ensure_make() -> None:
 def main() -> int:
     # 1) Whitespace check on staged changes
     if whitespace_check() != 0:
+        print("git commit failed because whitespace is detected in files.  run 'make whitespace/fix' and try again.")
         return 1
 
     ensure_make()
@@ -89,11 +90,11 @@ def main() -> int:
     # 2) Run linters (fast fail)
     lint_rc = _run_stream(["make", "lint"])
     if lint_rc != 0:
+        print("git commit failed because linter failed")
         return lint_rc
 
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(0)
     sys.exit(main())

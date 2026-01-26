@@ -14,9 +14,10 @@
  * @brief Expect return 2 when -out has no value.
  */
 TEST(CompressCLI, MissingOutputValue) {
-  std::vector<std::string> av = {"compress", "-in", "some.bin", "-out"};
-  std::vector<char*> argv; argv.reserve(av.size());
-  for (auto &s : av) { argv.push_back(s.data()); }
-  const int rc = crsce::compress::cli::run(std::span<char*>{argv.data(), argv.size()});
-  EXPECT_EQ(rc, 2);
+    std::vector<std::string> av = {"compress", "-in", "some.bin", "-out"};
+    std::vector<char *> argv;
+    argv.reserve(av.size());
+    for (auto &s: av) { argv.push_back(s.data()); }
+    const int rc = crsce::compress::cli::run(std::span<char *>{argv.data(), argv.size()});
+    EXPECT_EQ(rc, 2);
 }

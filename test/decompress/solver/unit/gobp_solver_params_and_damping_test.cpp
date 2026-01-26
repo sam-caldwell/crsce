@@ -15,17 +15,11 @@ using crsce::decompress::ConstraintState;
 using crsce::decompress::GobpSolver;
 
 /**
-
  * @name GobpSolverParams.ClampingAndGetters
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(GobpSolverParams, ClampingAndGetters) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -51,17 +45,11 @@ TEST(GobpSolverParams, ClampingAndGetters) { // NOLINT
 }
 
 /**
-
  * @name GobpSolverParams.DampingBlendsPreviousData
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(GobpSolverParams, DampingBlendsPreviousData) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -87,17 +75,11 @@ TEST(GobpSolverParams, DampingBlendsPreviousData) { // NOLINT
 }
 
 /**
-
  * @name GobpSolverParams.SkipsLockedCells
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(GobpSolverParams, SkipsLockedCells) { // NOLINT
     Csm csm;
     ConstraintState st{};
@@ -119,17 +101,11 @@ TEST(GobpSolverParams, SkipsLockedCells) { // NOLINT
 }
 
 /**
-
  * @name GobpSolverParams.SolvedReturnsTrueWhenAllUZero
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(GobpSolverParams, SolvedReturnsTrueWhenAllUZero) { // NOLINT
     Csm csm;
     ConstraintState st{};

@@ -8,17 +8,11 @@
 using crsce::common::CrossSum;
 
 /**
-
  * @name CrossSumTest.IncrementOutOfBoundsIsIgnored
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CrossSumTest, IncrementOutOfBoundsIsIgnored) { // NOLINT
     CrossSum cs;
     // Sanity: all zeros initially

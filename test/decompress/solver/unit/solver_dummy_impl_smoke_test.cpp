@@ -37,17 +37,11 @@ namespace {
 } // namespace
 
 /**
-
  * @name SolverDummyImplSmoke.CallsThroughBasePointer
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(SolverDummyImplSmoke, CallsThroughBasePointer) { // NOLINT
     DummySolver impl;
     Solver *s = &impl; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)

@@ -21,17 +21,11 @@ using crsce::common::detail::sha256::sha256_digest;
 using crsce::common::detail::sha256::u8;
 
 /**
-
  * @name ContainerPayload.MultiBlockFirstDigestPerBlock
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ContainerPayload, MultiBlockFirstDigestPerBlock) { // NOLINT
     namespace fs = std::filesystem;
     const std::string in_path = std::string(TEST_BINARY_DIR) + "/cp_mb_in.bin";

@@ -11,17 +11,11 @@ using crsce::common::hasher::to_hex_lower;
 using crsce::common::detail::sha256::sha256_digest;
 
 /**
-
  * @name HasherUtils.ToHexLowerKnownDigest
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(HasherUtils, ToHexLowerKnownDigest) { // NOLINT(readability-identifier-naming)
     // SHA-256("") known digest
     const auto digest = sha256_digest(nullptr, 0);

@@ -26,17 +26,11 @@ using crsce::common::detail::sha256::sha256_digest;
 using crsce::common::detail::sha256::u8;
 
 /**
-
  * @name CompressIntegration.EightRowsViaFileBitSerializer
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CompressIntegration, EightRowsViaFileBitSerializer) { // NOLINT
     ASSERT_EQ(Compress::kBitsPerRow % 8, 7U); // 511 % 8 = 7
     const std::size_t kRows = 8; // multiple of 8 rows makes bytes integral

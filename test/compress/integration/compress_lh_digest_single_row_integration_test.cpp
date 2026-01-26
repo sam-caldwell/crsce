@@ -45,17 +45,11 @@ namespace {
 } // namespace
 
 /**
-
  * @name CompressIntegration.LHSingleRowMatchesManualSha256
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(CompressIntegration, LHSingleRowMatchesManualSha256) { // NOLINT
     // Build a 511-bit pattern (alternating 1010...) then add one 0 pad bit
     std::vector<bool> bits;

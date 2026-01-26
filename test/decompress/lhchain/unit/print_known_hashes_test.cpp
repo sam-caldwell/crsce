@@ -93,17 +93,11 @@ namespace {
 } // namespace
 
 /**
-
  * @name PrintKnownHashes.Dump
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(PrintKnownHashes, Dump) { // NOLINT
     constexpr std::string seed = "CRSCE_v1_seed";
     const auto seed_h = seed_hash_for(seed);

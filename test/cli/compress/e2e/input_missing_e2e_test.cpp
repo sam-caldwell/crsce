@@ -16,13 +16,14 @@
  * @brief Expect return 3 when an input file is missing.
  */
 TEST(CompressCLI, InputDoesNotExist) {
-  const auto td = tmp_dir();
-  const std::string out = td + "/compress_cli_out.tmp";
-  remove_file(out);
-  std::vector<std::string> av = {"compress", "-in", td+"/no_such_input.bin", "-out", out};
-  std::vector<char*> argv; argv.reserve(av.size());
-  for (auto &s : av) { argv.push_back(s.data()); }
-  const int rc = crsce::compress::cli::run(std::span<char*>{argv.data(), argv.size()});
-  EXPECT_EQ(rc, 3);
-  remove_file(out);
+    const auto td = tmp_dir();
+    const std::string out = td + "/compress_cli_out.tmp";
+    remove_file(out);
+    std::vector<std::string> av = {"compress", "-in", td + "/no_such_input.bin", "-out", out};
+    std::vector<char *> argv;
+    argv.reserve(av.size());
+    for (auto &s: av) { argv.push_back(s.data()); }
+    const int rc = crsce::compress::cli::run(std::span<char *>{argv.data(), argv.size()});
+    EXPECT_EQ(rc, 3);
+    remove_file(out);
 }
