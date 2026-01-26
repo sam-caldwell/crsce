@@ -18,7 +18,7 @@ namespace crsce::decompress {
      * @param v Bit value to store.
      * @return void
      */
-    void Csm::put(std::size_t r, std::size_t c, bool v) {
+    void Csm::put(const std::size_t r, const std::size_t c, const bool v) {
         if (!in_bounds(r, c)) {
             throw std::out_of_range("Csm::put: index out of bounds");
         }

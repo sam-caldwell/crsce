@@ -10,6 +10,7 @@ namespace crsce::common::detail::sha256 {
     /**
      * @name maj
      * @brief Majority bit per position among x, y, z.
+     * return u32
      */
     u32 maj(const u32 x, const u32 y, const u32 z) {
         return (x & y) ^ (x & z) ^ (y & z);

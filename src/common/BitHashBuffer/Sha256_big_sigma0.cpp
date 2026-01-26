@@ -9,6 +9,7 @@
 
 namespace crsce::common::detail::sha256 {
     /**
+     * @name big_sigma0
      * @brief SHA-256 Σ0 function.
      * @param x Input 32-bit value.
      * @return rotr(x,2) ^ rotr(x,13) ^ rotr(x,22)

@@ -15,6 +15,7 @@
 
 namespace crsce::common::cli {
     /**
+     * @name validate_in_out
      * @brief Validate CLI arguments for tools expecting "-in <file> -out <file>".
      * @param parser Parser instance configured with the program name; receives parse() call.
      * @param args Raw argv span (argv[0]..argv[argc-1]).

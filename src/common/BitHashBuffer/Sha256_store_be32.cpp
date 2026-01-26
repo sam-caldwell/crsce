@@ -11,6 +11,7 @@
 
 namespace crsce::common::detail::sha256 {
     /**
+     * @name store_be32
      * @brief Store a 32-bit value in big-endian byte order.
      * @param dst Destination buffer (must have space for 4 bytes).
      * @param x   32-bit value to store.

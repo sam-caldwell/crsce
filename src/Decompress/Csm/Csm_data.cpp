@@ -15,7 +15,7 @@ namespace crsce::decompress {
      * @param c Column index.
      * @return double Stored value.
      */
-    double Csm::get_data(std::size_t r, std::size_t c) const {
+    double Csm::get_data(const std::size_t r, const std::size_t c) const {
         if (!in_bounds(r, c)) {
             throw std::out_of_range("Csm::get_data: index out of bounds");
         }

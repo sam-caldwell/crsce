@@ -10,7 +10,12 @@
 #include <cstring>
 
 namespace crsce::common::detail::sha256 {
-    /** @name load_be32 */
+    /**
+     * @name load_be32
+     * @brief Load a 32-bit word from big-endian order.
+     * @param src Pointer to 4 bytes in big-endian order.
+     * @return u32: The loaded 32-bit word.
+     */
     u32 load_be32(const u8 *src) {
         std::array<u8, 4> tmp{};
         std::memcpy(tmp.data(), src, tmp.size());

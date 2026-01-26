@@ -7,6 +7,7 @@
 
 namespace crsce::common {
     /**
+     * @name CrossSum::CrossSum
      * @brief Construct a CrossSum with all elements zero-initialized.
      */
     CrossSum::CrossSum() = default;

@@ -27,7 +27,7 @@ namespace crsce::decompress {
     bool Decompressor::parse_header(const std::array<std::uint8_t, kHeaderSize> &hdr,
                                     HeaderV1Fields &out) {
         // Magic "CRSC"
-        const std::array<std::uint8_t, 4> magic{'C', 'R', 'S', 'C'};
+        constexpr std::array<std::uint8_t, 4> magic{'C', 'R', 'S', 'C'};
         const auto head_span = std::span<const std::uint8_t>(hdr);
         if (!std::equal(head_span.first<4>().begin(), head_span.first<4>().end(), magic.begin())) {
             return false;

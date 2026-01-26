@@ -15,7 +15,7 @@ namespace crsce::decompress {
      * @param c Column index.
      * @return bool Bit value at the specified cell.
      */
-    bool Csm::get(std::size_t r, std::size_t c) const {
+    bool Csm::get(const std::size_t r, const std::size_t c) const {
         if (!in_bounds(r, c)) {
             throw std::out_of_range("Csm::get: index out of bounds");
         }

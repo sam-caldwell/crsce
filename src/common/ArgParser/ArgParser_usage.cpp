@@ -8,6 +8,7 @@
 
 namespace crsce::common {
     /**
+     * @name ArgParser::usage
      * @brief Generate a short usage synopsis for the program.
      * @return A single-line usage string combining the program name and required flags.
      * @details Example: "compress -in <file> -out <file>".

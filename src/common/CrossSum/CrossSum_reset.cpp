@@ -8,7 +8,8 @@
 
 namespace crsce::common {
     /**
-     * @brief Implementation detail.
+     * @name reset
+     * @brief reset CrossSum values to all zeros.
      */
     void CrossSum::reset() {
         elems_.fill(0);

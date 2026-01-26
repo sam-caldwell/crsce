@@ -15,7 +15,7 @@ namespace crsce::decompress {
      * @param c Column index.
      * @return void
      */
-    void Csm::lock(std::size_t r, std::size_t c) {
+    void Csm::lock(const std::size_t r, const std::size_t c) {
         if (!in_bounds(r, c)) {
             throw std::out_of_range("Csm::lock: index out of bounds");
         }

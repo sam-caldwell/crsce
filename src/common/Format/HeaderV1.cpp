@@ -12,21 +12,26 @@
 namespace crsce::common::format {
     namespace {
         /**
-         * @brief Implementation detail.
+         * @name put_le16
+         * @brief put little endian 15-bit value into buffer
          */
-        inline void put_le16(std::array<std::uint8_t, HeaderV1::kSize> &b, std::size_t off, std::uint16_t v) {
+        inline void put_le16(std::array<std::uint8_t, HeaderV1::kSize> &b, const std::size_t off,
+                             const std::uint16_t v) {
             b.at(off + 0) = static_cast<std::uint8_t>(v & 0xFFU);
             b.at(off + 1) = static_cast<std::uint8_t>((v >> 8U) & 0xFFU);
         }
 
-        inline void put_le32(std::array<std::uint8_t, HeaderV1::kSize> &b, std::size_t off, std::uint32_t v) {
+        // ReSharper disable once CppDFAConstantParameter
+        inline void put_le32(std::array<std::uint8_t, HeaderV1::kSize> &b, const std::size_t off,
+                             const std::uint32_t v) {
             b.at(off + 0) = static_cast<std::uint8_t>(v & 0xFFU);
             b.at(off + 1) = static_cast<std::uint8_t>((v >> 8U) & 0xFFU);
             b.at(off + 2) = static_cast<std::uint8_t>((v >> 16U) & 0xFFU);
             b.at(off + 3) = static_cast<std::uint8_t>((v >> 24U) & 0xFFU);
         }
 
-        inline void put_le64(std::array<std::uint8_t, HeaderV1::kSize> &b, std::size_t off, std::uint64_t v) {
+        inline void put_le64(std::array<std::uint8_t, HeaderV1::kSize> &b, const std::size_t off,
+                             const std::uint64_t v) {
             for (int i = 0; i < 8; ++i) {
                 b.at(off + i) = static_cast<std::uint8_t>((v >> (8U * i)) & 0xFFU);
             }
