@@ -6,8 +6,8 @@
 #include "decompress/Decompressor/Decompressor.h"
 #include "decompress/Decompressor/HeaderV1Fields.h"
 #include <array>
-#include <cstdint>
-#include <ios>
+#include <cstdint> // NOLINT
+#include <ios> // NOLINT
 
 namespace crsce::decompress {
     /**

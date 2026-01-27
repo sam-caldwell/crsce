@@ -132,9 +132,7 @@ inline std::filesystem::path ensure_plugin_built(std::string &log) {
 #endif
 #endif
     auto libpath = build_root / "tools/clang-plugins/OneDefinitionPerHeader" / libname;
-    if (std::filesystem::exists(libpath)) {
-        return libpath;
-    }
+    // Always run deps.cmake for this group; it is incremental and will skip when up-to-date.
     // Simple cross-process lock to avoid concurrent deps.cmake runs under CTest -j
     const auto lock = build_root / ".deps.lock";
     for (int i = 0; i < 300; ++i) {

@@ -25,6 +25,19 @@ namespace crsce::compress::cli {
      */
     int run(const std::span<char *> args) {
         try {
+            if (args.size() <= 1) {
+                // Friendly no-arg behavior: greet and exit successfully.
+                std::println("crsce-compress: ready");
+                return 0;
+            }
+            // Short-circuit help requests to avoid running pipeline.
+            for (std::size_t i = 1; i < args.size(); ++i) {
+                const std::string a = args[i];
+                if (a == "-h" || a == "--help") {
+                    std::println("usage: {}", std::string("compress -in <file> -out <file>"));
+                    return 0;
+                }
+            }
             crsce::common::ArgParser parser("compress");
             if (const int vrc = crsce::common::cli::validate_in_out(parser, args); vrc != 0) {
                 return vrc;

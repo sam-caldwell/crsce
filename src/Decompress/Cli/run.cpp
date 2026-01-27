@@ -13,6 +13,8 @@
 #include <span>
 #include <cstdio>
 #include <cstddef>
+#include <string>
+#include <print>
 
 namespace crsce::decompress::cli {
     /**
@@ -23,6 +25,18 @@ namespace crsce::decompress::cli {
      */
     int run(std::span<char *> const args) {
         try {
+            if (args.size() <= 1) {
+                // No-arg behavior: do nothing and exit successfully.
+                return 0;
+            }
+            // Short-circuit help requests to avoid running pipeline.
+            for (std::size_t i = 1; i < args.size(); ++i) {
+                const std::string a = args[i];
+                if (a == "-h" || a == "--help") {
+                    std::print("usage: {}\n", "decompress -in <file> -out <file>");
+                    return 0;
+                }
+            }
             crsce::common::ArgParser parser("decompress");
             if (const int vrc = crsce::common::cli::validate_in_out(parser, args); vrc != 0) {
                 return vrc;

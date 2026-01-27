@@ -15,6 +15,7 @@
 #if defined(__unix__) || defined(__APPLE__)
 #  include <sys/wait.h>
 #  include <unistd.h>
+#  include <csignal>
 #endif
 
 namespace crsce::common::hasher {
@@ -69,6 +70,9 @@ namespace crsce::common::hasher {
         close(in_pipe[0]);
         close(out_pipe[1]);
 
+        // Ignore SIGPIPE during writes so an early child exit doesn't kill the process
+        const auto prev_sig = std::signal(SIGPIPE, SIG_IGN); // NOLINT(concurrency-mt-unsafe,modernize-deprecated-headers,misc-include-cleaner)
+
         // Write all input
         std::size_t written = 0;
         while (written < data.size()) {
@@ -95,10 +99,17 @@ namespace crsce::common::hasher {
         int status = 0;
         (void) waitpid(pid, &status, 0);
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            if (prev_sig != SIG_ERR) { // NOLINT(misc-include-cleaner)
+                (void) std::signal(SIGPIPE, prev_sig); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+            }
             return false;
         }
 
-        return extract_first_hex64(out, hex_out);
+        const bool ok = extract_first_hex64(out, hex_out);
+        if (prev_sig != SIG_ERR) { // NOLINT(misc-include-cleaner)
+            (void) std::signal(SIGPIPE, prev_sig); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+        }
+        return ok;
 #else
         (void) cmd;
         (void) data;

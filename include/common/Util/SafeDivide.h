@@ -1,5 +1,6 @@
 /**
  * @file SafeDivide.h
+ * @brief Safe divide utility tag header.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once

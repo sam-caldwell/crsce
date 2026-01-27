@@ -37,8 +37,12 @@ function(_crsce_lint_cpp_phase_clang_tidy BIN_DIR CLANG_TIDY_EXE)
   endif ()
 
   # On macOS, clang-tidy sometimes needs the SDK sysroot to parse libc++ headers.
-  if (DEFINED ENV{SDKROOT} AND NOT "$ENV{SDKROOT}" STREQUAL "")
-    list(APPEND _EXTRA_ARGS "-extra-arg=-isysroot=$ENV{SDKROOT}")
+  # Prefer detected SDK via xcrun and avoid relying on potentially stale ENV{SDKROOT}.
+  # (ENV{SDKROOT} may be set by shells or tools to a CommandLineTools path that is not installed.)
+  include("${CMAKE_SOURCE_DIR}/cmake/pipeline/sdk.cmake")
+  crsce_sdk_tidy_extra_args(_SDK_EXTRA)
+  if (_SDK_EXTRA)
+    list(APPEND _EXTRA_ARGS ${_SDK_EXTRA})
   endif ()
 
   # Build a shell command string (because _run uses bash -lc).

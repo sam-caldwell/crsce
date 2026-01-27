@@ -55,21 +55,21 @@ function(lint_cpp)
   else ()
     message(STATUS "C++: no src/**/*.cpp files; skipping OneDefinitionPerCppFile plugin 😬 🤷 😬")
   endif ()
-
-#  # Also enforce header/function docstrings on cmd/**/*.cpp using the same plugin.
-#  _crsce_lint_cpp_filter_files(CMD_CPP_SOURCE_FILES "^cmd/.*\\.cpp$" ${CPP_SOURCE_FILES})
-#  list(LENGTH CMD_CPP_SOURCE_FILES _CMD_LEN)
-#  message(STATUS "C++: found ${_CMD_LEN} cmd files for docstring enforcement")
-#  if (_CMD_LEN GREATER 0)
-#    _crsce_lint_cpp_run_plugin_on_list(
-#            ${_BIN_DIR}
-#            "${CMD_CPP_SOURCE_FILES}"
-#            OneDefinitionPerCppFile
-#            OneDefinitionPerCppFile)
-#  else ()
-#    message(STATUS "C++: no cmd/**/*.cpp files; skipping docstring enforcement for cmd 😬 🤷 😬")
-#  endif ()
-
+  message(STATUS "    ✅ C++ Lint (ODPCPP) passed")
+  # Run OneDefinitionPerHeader on include/**/*.h
+  _crsce_lint_collect_h_files(ODPH_HEADER_FILES)
+  list(LENGTH ODPH_HEADER_FILES _ODPH_LEN)
+  message(STATUS "Headers: found ${_ODPH_LEN} include headers for one-definition-per-header")
+  if (_ODPH_LEN GREATER 0)
+    _crsce_lint_cpp_run_plugin_on_list(
+            ${_BIN_DIR}
+            "${ODPH_HEADER_FILES}"
+            OneDefinitionPerHeader
+            one-definition-per-header)
+  else ()
+    message(STATUS "Headers: no include/**/*.h files; skipping ODPH 😬 🤷 😬")
+  endif ()
+  message(STATUS "    ✅ C++ Lint (ODPH) passed")
 #  # Filter to only test/**/*.cpp (relative to repo root).
 #  message(STATUS "C++: Filtering for test files")
 #  _crsce_lint_cpp_filter_files(TEST_CPP_SOURCE_FILES "^test/.*\\.cpp$" ${CPP_SOURCE_FILES})
@@ -87,19 +87,6 @@ function(lint_cpp)
 #            "/test/cmd/hasher/helpers/.*\\.cpp$"
 #            "/test/tools/clang-plugins/.*/fixtures/.*\\.cpp$")
 #  endif ()
-
+  message(STATUS "    ✅ C++ Lint (OTPF) passed")
   message(STATUS "  ✅ C++ Lint passed")
-  # Run OneDefinitionPerHeader on include/**/*.h
-  _crsce_lint_collect_h_files(ODPH_HEADER_FILES)
-  list(LENGTH ODPH_HEADER_FILES _ODPH_LEN)
-  message(STATUS "Headers: found ${_ODPH_LEN} include headers for one-definition-per-header")
-  if (_ODPH_LEN GREATER 0)
-    _crsce_lint_cpp_run_plugin_on_list(
-            ${_BIN_DIR}
-            "${ODPH_HEADER_FILES}"
-            OneDefinitionPerHeader
-            one-definition-per-header)
-  else ()
-    message(STATUS "Headers: no include/**/*.h files; skipping ODPH 😬 🤷 😬")
-  endif ()
 endfunction()

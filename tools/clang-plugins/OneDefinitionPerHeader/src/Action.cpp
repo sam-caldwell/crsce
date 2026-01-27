@@ -38,11 +38,13 @@ Action::CreateASTConsumer(CompilerInstance &CI, llvm::StringRef InFile) {
   // Free function definitions only (exclude methods)
   // Free function declarations (not just definitions) are countable to enforce one-per-header
   Finder_.addMatcher(functionDecl(unless(isImplicit()), unless(cxxMethodDecl()), inMain).bind("func"), CB_.get());
-  // Countable: top-level variable declarations (e.g., extern/inline constexpr) at file scope.
-  // Exclude anything nested in a record to avoid class static members.
+  // Countable: top-level variable declarations (e.g., extern/inline constexpr) at file scope only.
+  // Exclude anything nested in a record, a function (incl. templates), or parameters.
   auto fileScopeVar = allOf(
       unless(isImplicit()), inMain,
       unless(hasAncestor(cxxRecordDecl())),
+      unless(hasAncestor(functionDecl())),
+      unless(hasAncestor(functionTemplateDecl())),
       unless(parmVarDecl())
   );
   Finder_.addMatcher(varDecl(fileScopeVar).bind("var"), CB_.get());

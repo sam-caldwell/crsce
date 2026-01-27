@@ -15,7 +15,8 @@ endif()
 
 # Shared SDK and utility helpers (relative to this file)
 include("${CMAKE_CURRENT_LIST_DIR}/../sdk.cmake")
-include("${CMAKE_CURRENT_LIST_DIR}/../tools/num_cpus.cmake")
+# tools/ lives under cmake/tools, which is two levels up from cover/
+include("${CMAKE_CURRENT_LIST_DIR}/../../tools/num_cpus.cmake")
 
 # Choose clang/llvm tools for source-based coverage
 find_program(CLANGXX_EXE clang++ HINTS /opt/homebrew/opt/llvm/bin)

@@ -88,7 +88,7 @@ def main() -> int:
     ensure_make()
 
     # 2) Run linters (fast fail)
-    lint_rc = _run_stream(["make", "lint"])
+    lint_rc = _run_stream(["make", "lint", "-j", "4"])
     if lint_rc != 0:
         print("git commit failed because linter failed")
         return lint_rc

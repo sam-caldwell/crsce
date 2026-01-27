@@ -28,15 +28,32 @@ namespace crsce::common::cli {
      * - On insufficient arguments: returns 4.
      */
     int validate_in_out(ArgParser& parser, const std::span<char*> args) {
-        if (args.size() < 3) {
-            std::println(stderr, "error: insufficient arguments (-in <file> -out <file>) are required.");
-            return 4;
-        }
         const bool parsed_ok = parser.parse(args);
         const auto &[input, output, help] = parser.options();
-        if (!parsed_ok || help) {
+        if (help) {
             std::println(stderr, "usage: {}", parser.usage());
-            return parsed_ok && help ? 0 : 2;
+            return 0;
+        }
+        if (!parsed_ok) {
+            // Distinguish between unknown flag (2) and missing value (4).
+            for (std::size_t i = 1; i < args.size(); ++i) {
+                const std::string a = args[i];
+                if ((a == "-in" || a == "-out") && (i + 1 >= args.size())) {
+                    if (a == "-in") {
+                        std::println(stderr, "error: insufficient arguments (-in <file> -out <file>) are required.");
+                        return 4; // treat missing input value as insufficient args
+                    }
+                    // Missing -out value: treat as usage error
+                    std::println(stderr, "usage: {}", parser.usage());
+                    return 2;
+                }
+            }
+            std::println(stderr, "usage: {}", parser.usage());
+            return 2;
+        }
+        if (input.empty() || output.empty()) {
+            std::println(stderr, "error: insufficient arguments (-in <file> -out <file>) are required.");
+            return 4;
         }
 
         // Validate file paths per usage: input must exist; output must NOT exist

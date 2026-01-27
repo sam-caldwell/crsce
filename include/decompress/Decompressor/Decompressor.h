@@ -130,6 +130,6 @@ namespace crsce::decompress {
          * @name output_path_
          * @brief Destination path for decompressed output bytes.
          */
-        std::string output_path_{};
+        std::string output_path_;
     };
 } // namespace crsce::decompress

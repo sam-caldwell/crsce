@@ -1,5 +1,6 @@
 /**
  * @file ClampInt.h
+ * @brief Clamp integer utility tag header.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once

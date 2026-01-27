@@ -37,29 +37,25 @@ void Ctx::addConstruct(const Decl *D, llvm::StringRef kind, bool countable) {
   C.qname = getQualifiedName(D);
   C.countable = countable;
 
-  if (Opt_.enforceDoc) {
+  if (Opt_.enforceDoc && countable) {
     DocRequirements req{};
     req.requireBlock = true;
-    req.requireName = true;
+    // ODPH only requires a brief Doxygen block for the construct; no @name/@param/@return.
+    req.requireName = false;
     req.requireBrief = Opt_.requireBrief;
     req.requireParams = false;
     req.requireReturn = false;
-
-    if (const auto *FD = llvm::dyn_cast<FunctionDecl>(D)) {
-      const bool isCtor = llvm::isa<CXXConstructorDecl>(FD);
-      const bool isDtor = llvm::isa<CXXDestructorDecl>(FD);
-      req.requireParams = (FD->getNumParams() > 0);
-      req.requireReturn = !(isCtor || isDtor);
-    }
     std::string missing;
     bool ok = checkDocForDecl(*CI_, D, req, missing);
     if (!ok) {
       const unsigned id = CI_->getDiagnostics().getCustomDiagID(
           DiagnosticsEngine::Error,
-          "definition doc missing required Doxygen tags: %0");
-      DE().Report(Loc, id) << missing;
+          "%0");
+      std::string msg = "definition must be immediately preceded by a Doxygen block";
+      if (req.requireBrief) msg += " with @brief";
+      DE().Report(Loc, id) << msg;
       HadError_ = true;
-      llvm::errs() << "ODPH: doc MISSING tags [" << missing << "] for "
+      llvm::errs() << "ODPH: doc MISSING: " << msg << " for "
                    << C.kind << ' ' << C.qname << " (line " << C.line << ")\n";
     }
     if (Opt_.printConstructs) {
@@ -169,6 +165,23 @@ bool Ctx::checkDocForDecl(CompilerInstance &CI, const Decl *D,
   auto &Ctx = CI.getASTContext();
   const RawComment *RC = Ctx.getRawCommentForDeclNoCache(D);
   if (!RC) { missingTags = "no Doxygen block"; return false; }
+  // Enforce that the comment is adjacent to the declaration (not just a file header comment).
+  auto &SMgr = CI.getSourceManager();
+  // If the comment begins at the very first line of the file, treat it as the
+  // file header block, not the construct documentation.
+  const unsigned rcBeginLine = SMgr.getSpellingLineNumber(
+      SMgr.getFileLoc(RC->getSourceRange().getBegin()));
+  if (rcBeginLine == 1U) {
+    missingTags = "no Doxygen block";
+    return false;
+  }
+  const unsigned declLine = SMgr.getSpellingLineNumber(SMgr.getFileLoc(D->getBeginLoc()));
+  const unsigned rcEndLine = SMgr.getSpellingLineNumber(SMgr.getFileLoc(RC->getSourceRange().getEnd()));
+  // Allow one intervening line (e.g., a 'template<...>' line) between comment and declaration.
+  if (declLine > rcEndLine + 2) {
+    missingTags = "no Doxygen block";
+    return false;
+  }
   const auto RCText = RC->getRawText(CI.getSourceManager());
   if (RCText.empty()) { missingTags = "empty Doxygen block"; return false; }
   if (Req.requireBlock && !RCText.ltrim().starts_with("/**")) {
@@ -205,8 +218,15 @@ bool Ctx::checkHeaderDoc(llvm::StringRef Path, FileID FID) {
   if (Invalid) return false;
   bool startsWithBlock = C.starts_with("/**");
   bool hasEnd = C.contains("*/");
-  bool hasFile = C.contains("@file ");
-  bool hasBrief = C.contains("@brief");
+  // Limit header tag checks to the leading header block only.
+  llvm::StringRef H = C;
+  if (hasEnd) {
+    size_t endPos = C.find("*/");
+    H = C.take_front(endPos + 2);
+  }
+  // Treat '@file' present only when it appears in a conventional header line (e.g., ' * @file <name>').
+  bool hasFile = H.contains("\n * @file ") || H.contains("\n* @file ");
+  bool hasBrief = H.contains("\n * @brief") || H.contains("\n* @brief");
   bool hasAuthor = C.contains("Sam Caldwell");
   bool hasLicense = C.contains("LICENSE.txt");
   bool headerOk = startsWithBlock && hasEnd && hasFile && hasBrief && hasAuthor && hasLicense;
