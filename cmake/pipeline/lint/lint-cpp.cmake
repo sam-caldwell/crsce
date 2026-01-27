@@ -7,12 +7,11 @@ include_guard(GLOBAL)
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_collect_cpp_files.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_detect_bin_dir.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_phase_clang_tidy.cmake")
-include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_find_or_build_plugin.cmake")
-include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_plugin_base_args.cmake")
-include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_run_plugin.cmake")
-include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_filter_files.cmake")
-include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_run_plugin_on_list.cmake")
-include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_collect_h_files.cmake")
+
+# Breakout plugin passes
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-otpf.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-odpcpp.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-odph.cmake")
 
 function(lint_cpp)
   _crsce_lint_cpp_detect_bin_dir(_BIN_DIR)
@@ -34,6 +33,7 @@ function(lint_cpp)
 
   # Exclude known intentional anti-pattern fixtures from clang-tidy.
   set(TIDY_FILES ${CPP_SOURCE_FILES})
+  include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp_crsce_lint_cpp_filter_files.cmake")
   _crsce_lint_cpp_filter_files(_EXCLUDE_FIXTURES "^test/tools/clang-plugins/.*/fixtures/.*\\.cpp$" ${CPP_SOURCE_FILES})
   if (_EXCLUDE_FIXTURES)
     list(REMOVE_ITEM TIDY_FILES ${_EXCLUDE_FIXTURES})
@@ -42,51 +42,9 @@ function(lint_cpp)
   # IMPORTANT: do not quote the list unless the callee explicitly expects a single string.
   _crsce_lint_cpp_phase_clang_tidy(${_BIN_DIR} ${CLANG_TIDY_EXE} ${TIDY_FILES})
 
-  # Run OneDefinitionPerCppFile on src/**/*.cpp (one-definition rule + docstrings)
-  _crsce_lint_cpp_filter_files(ODPCPP_SOURCE_FILES "^src/.*\\.cpp$" ${CPP_SOURCE_FILES})
-  list(LENGTH ODPCPP_SOURCE_FILES _ODPCPP_LEN)
-  message(STATUS "C++: found ${_ODPCPP_LEN} src files for OneDefinitionPerCppFile")
-  if (_ODPCPP_LEN GREATER 0)
-    _crsce_lint_cpp_run_plugin_on_list(
-            ${_BIN_DIR}
-            "${ODPCPP_SOURCE_FILES}"
-            OneDefinitionPerCppFile
-            OneDefinitionPerCppFile)
-  else ()
-    message(STATUS "C++: no src/**/*.cpp files; skipping OneDefinitionPerCppFile plugin 😬 🤷 😬")
-  endif ()
-  message(STATUS "    ✅ C++ Lint (ODPCPP) passed")
-  # Run OneDefinitionPerHeader on include/**/*.h
-  _crsce_lint_collect_h_files(ODPH_HEADER_FILES)
-  list(LENGTH ODPH_HEADER_FILES _ODPH_LEN)
-  message(STATUS "Headers: found ${_ODPH_LEN} include headers for one-definition-per-header")
-  if (_ODPH_LEN GREATER 0)
-    _crsce_lint_cpp_run_plugin_on_list(
-            ${_BIN_DIR}
-            "${ODPH_HEADER_FILES}"
-            OneDefinitionPerHeader
-            one-definition-per-header)
-  else ()
-    message(STATUS "Headers: no include/**/*.h files; skipping ODPH 😬 🤷 😬")
-  endif ()
-  message(STATUS "    ✅ C++ Lint (ODPH) passed")
-#  # Filter to only test/**/*.cpp (relative to repo root).
-#  message(STATUS "C++: Filtering for test files")
-#  _crsce_lint_cpp_filter_files(TEST_CPP_SOURCE_FILES "^test/.*\\.cpp$" ${CPP_SOURCE_FILES})
-#
-#  list(LENGTH TEST_CPP_SOURCE_FILES _TEST_LEN)
-#  message(STATUS "C++: found ${_TEST_LEN} test files to lint")
-#  if (_TEST_LEN EQUAL 0)
-#    message(STATUS "C++: no test/**/*.cpp files; skipping OneTestPerFile plugin  😬 🤷 😬")
-#  else ()
-#    _crsce_lint_cpp_run_plugin_on_list(
-#            ${_BIN_DIR}
-#            "${TEST_CPP_SOURCE_FILES}"
-#            OneTestPerFile
-#            OneTestPerFile
-#            "/test/cmd/hasher/helpers/.*\\.cpp$"
-#            "/test/tools/clang-plugins/.*/fixtures/.*\\.cpp$")
-#  endif ()
-  message(STATUS "    ✅ C++ Lint (OTPF) passed")
+  # Run plugin passes
+  lint_cpp_otpf()
+  lint_cpp_odpcpp()
+  lint_cpp_odph()
   message(STATUS "  ✅ C++ Lint passed")
 endfunction()

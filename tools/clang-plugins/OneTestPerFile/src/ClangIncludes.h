@@ -11,6 +11,9 @@
 #if __has_include(<clang/AST/RecursiveASTVisitor.h>)
 #include <clang/AST/RecursiveASTVisitor.h>
 #endif
+#if __has_include(<clang/AST/DeclCXX.h>)
+#include <clang/AST/DeclCXX.h>
+#endif
 #if __has_include(<clang/Frontend/CompilerInstance.h>)
 #include <clang/Frontend/CompilerInstance.h>
 #endif
@@ -34,6 +37,9 @@
 #endif
 #if __has_include(<llvm/Support/Path.h>)
 #include <llvm/Support/Path.h>
+#endif
+#if __has_include(<llvm/Support/Casting.h>)
+#include <llvm/Support/Casting.h>
 #endif
 
 namespace crsce::otpf {

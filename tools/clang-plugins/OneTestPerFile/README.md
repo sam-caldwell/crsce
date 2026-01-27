@@ -3,12 +3,12 @@
 ## Purpose
 
 - Enforces for files under `test/**/*.cpp`:
-    - Exactly one `TEST(...)` macro per file.
+    - At most one construct per file: either a single helper free function definition or a single `TEST(...)` macro.
     - File must start at line 1 with a Doxygen header block that contains:
         - `@file <current filename>`
         - `@copyright … Sam Caldwell … LICENSE.txt`
-    - Every function definition and every `TEST(...)` must be immediately preceded by a Doxygen block (`/** ... */`)
-      that includes `@brief`.
+    - Every helper function definition and every `TEST(...)` must be immediately preceded by a Doxygen block (`/** ... */`)
+      that includes `@brief`. For `TEST(...)`, the Doxygen block must include both `@name` and `@brief`.
 
 ## Build
 
@@ -45,6 +45,7 @@
 ## Notes
 
 - Only `.cpp` files whose path contains `/test/` (or `\\test\\` on Windows) are checked.
+- Files under any `fixtures/` directory are excluded from OTPF enforcement.
 - The plugin reports diagnostics as errors when violations are found.
 - The header docstring check is literal and compares the first bytes of the file with the block above, including
   whitespace.

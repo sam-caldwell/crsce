@@ -18,6 +18,9 @@ include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-sh.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-py.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-mk.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-otpf.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-odpcpp.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-odph.cmake")
 include("${CMAKE_SOURCE_DIR}/cmake/pipeline/lint/lint-cpp-headers.cmake")
 
 if(LINT_TARGET STREQUAL "all" OR LINT_TARGET STREQUAL "ws")
@@ -46,6 +49,18 @@ endif()
 
 if(LINT_TARGET STREQUAL "cpp-headers")
   lint_cpp_headers()
+endif()
+
+if(LINT_TARGET STREQUAL "cpp-otpf")
+  lint_cpp_otpf()
+endif()
+
+if(LINT_TARGET STREQUAL "cpp-odpcpp")
+  lint_cpp_odpcpp()
+endif()
+
+if(LINT_TARGET STREQUAL "cpp-odph")
+  lint_cpp_odph()
 endif()
 
 message(STATUS "✅ Lint complete")

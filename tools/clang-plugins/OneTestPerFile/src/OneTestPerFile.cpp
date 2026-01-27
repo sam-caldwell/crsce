@@ -214,6 +214,9 @@ namespace {
             }
         }
 
+        void incrementHelperFuncCount() { ++HelperFuncCount_; }
+        [[nodiscard]] unsigned helperFuncCount() const { return HelperFuncCount_; }
+
         [[nodiscard]] bool headerChecked() const { return HeaderChecked_; }
         void setHeaderChecked(const bool v) { HeaderChecked_ = v; }
         [[nodiscard]] bool headerOk() const { return HeaderOk_; }
@@ -225,6 +228,7 @@ namespace {
         std::string Content_;
         std::vector<unsigned> LineOffsets_;
         unsigned TestCount_{0};
+        unsigned HelperFuncCount_{0};
         SourceLocation FirstTestLoc_;
         bool HeaderChecked_{false};
         bool HeaderOk_{false};
@@ -276,6 +280,19 @@ namespace {
             }
             // Normalize separators and case-sensitively match '/test/'
             return Path.contains("/test/") || Path.contains("\\test\\");
+        }
+
+        [[nodiscard]] bool isTestHeaderPath(llvm::StringRef Path) const {
+            if (!Path.ends_with(".h")) {
+                return false;
+            }
+            return Path.contains("/test/") || Path.contains("\\test\\");
+        }
+
+        [[nodiscard]] bool isFixturePath(llvm::StringRef Path) const {
+            // Exclude fixture directories entirely from OTPF enforcement
+            return Path.contains("/fixtures/") || Path.contains("\\fixtures\\") ||
+                   Path.contains("/fixture/") || Path.contains("\\fixture\\");
         }
 
         void ensureHeaderChecked(FileState &FS) {
@@ -342,20 +359,26 @@ namespace {
             }
         }
 
-        void checkTestCountAndReport(FileState &FS) {
+        void checkTestAndHelperCountsAndReport(FileState &FS) {
             if (!isTestCppPath(FS.path())) {
                 return;
             }
-            if (FS.testCount() <= 1) {
+            if (isFixturePath(FS.path())) {
+                return; // Skip enforcement for fixtures
+            }
+            const unsigned tests = FS.testCount();
+            const unsigned helpers = FS.helperFuncCount();
+            const unsigned total = tests + helpers;
+            if (total <= 1U) {
                 return;
             }
             const auto DiagID = CI_->getDiagnostics().getCustomDiagID(
                 DiagnosticsEngine::Error,
-                "only one TEST(...) is allowed per test file; found %0");
+                "only one helper function or TEST construct is allowed per test file; found %0");
             auto DB = CI_->getDiagnostics().Report(
                 FS.firstTestLoc().isValid() ? FS.firstTestLoc() : SourceLocation(),
                 DiagID);
-            DB << FS.testCount();
+            DB << total;
         }
 
         CompilerInstance &getCI() { return *CI_; }
@@ -395,6 +418,9 @@ namespace {
             if (!Ctx_->isTestCppPath(FS.path())) {
                 return;
             }
+            if (Ctx_->isFixturePath(FS.path())) {
+                return; // Skip fixtures entirely
+            }
 
             Ctx_->ensureHeaderChecked(FS);
 
@@ -427,7 +453,7 @@ namespace {
                 return;
             }
             Ctx_->ensureHeaderChecked(FS);
-            Ctx_->checkTestCountAndReport(FS);
+            Ctx_->checkTestAndHelperCountsAndReport(FS);
         }
 
     private:
@@ -449,7 +475,10 @@ namespace {
             if (FD->isImplicit()) {
                 return true;
             }
-
+            // Exclude methods; we only consider free/helper functions for OTPF
+            if (llvm::isa<CXXMethodDecl>(FD)) {
+                return true;
+            }
             const SourceManager &SM = Ctx_->getCI().getSourceManager();
             const SourceLocation Loc = FD->getBeginLoc();
             const SourceLocation Spelling = SM.getSpellingLoc(Loc);
@@ -457,6 +486,9 @@ namespace {
 
             if (!Ctx_->isTestCppPath(FS.path())) {
                 return true;
+            }
+            if (Ctx_->isFixturePath(FS.path())) {
+                return true; // Skip fixtures entirely
             }
 
             Ctx_->ensureHeaderChecked(FS);
@@ -472,6 +504,9 @@ namespace {
                     Ctx_->getCI().getDiagnostics().Report(Spelling, DiagID);
                 }
             }
+
+            // Count helper function definitions for one-per-file enforcement
+            FS.incrementHelperFuncCount();
 
             return true;
         }
