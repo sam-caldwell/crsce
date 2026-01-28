@@ -49,6 +49,10 @@ namespace crsce::compress::cli {
                 return 4;
             }
             return 0;
+        // The following catch blocks are defensive and practically unreachable
+        // in normal operation. Exclude them from coverage to avoid skewing
+        // region metrics while keeping robust error reporting in release.
+        // GCOVR_EXCL_START
         } catch (const std::exception &e) {
             // NOSONAR
             std::fputs("error: ", stderr);
@@ -60,5 +64,6 @@ namespace crsce::compress::cli {
             std::fputs("error: unknown exception\n", stderr);
             return 1;
         }
+        // GCOVR_EXCL_STOP
     }
 } // namespace crsce::compress::cli

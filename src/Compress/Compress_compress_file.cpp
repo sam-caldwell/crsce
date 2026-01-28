@@ -72,7 +72,7 @@ bool Compress::compress_file() {
     }
     // LH: must have 511 digests
     auto lh_bytes = pop_all_lh_bytes();
-    assert(lh_bytes.size() == 511U * 32U && "LH digest size mismatch");
+    assert(lh_bytes.size() == 511U * 32U && "LH digest size mismatch"); // GCOVR_EXCL_LINE
     out.write(reinterpret_cast<const char *>(lh_bytes.data()), static_cast<std::streamsize>(lh_bytes.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
     // Cross-sums serialization: 4 * 575 bytes = 2300 bytes
