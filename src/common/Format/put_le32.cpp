@@ -17,7 +17,7 @@ namespace crsce::common::format::detail {
      * @param v  32-bit value to store (unsigned).
      * @return void No return value.
      */
-    void put_le32(std::array<std::uint8_t, 28> &b, std::size_t off, std::uint32_t v) {
+    void put_le32(std::array<std::uint8_t, 28> &b, const std::size_t off, std::uint32_t v) {
         b.at(off + 0) = static_cast<std::uint8_t>(v & 0xFFU);
         b.at(off + 1) = static_cast<std::uint8_t>((v >> 8U) & 0xFFU);
         b.at(off + 2) = static_cast<std::uint8_t>((v >> 16U) & 0xFFU);
