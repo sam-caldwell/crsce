@@ -16,10 +16,11 @@
 
 ## Overview
 
-The repository ships two local hooks:
+The repository ships local hooks:
 
 - `pre-commit` (Python 3): blocks commits if whitespace errors are present, linters fail, or coverage is below the
   threshold.
+- `pre-push` (Python 3): runs tests and coverage (`make test cover`) and blocks the push on failure.
 - `commit-msg` (Python 3): enforces a minimal commit message length (≥ 10 characters excluding comments/blank lines).
 
 Hooks run locally and are intended to match CI behavior, so problems are caught early.
@@ -73,6 +74,24 @@ Runs fast, local quality gates and blocks the commit on any failure:
 
 Validates that the commit message contains at least 10 non-comment, non-empty characters. If the requirement is not
 met, the commit is blocked.
+
+### `pre-push`
+
+Runs local test and coverage gates before allowing a push:
+
+1) Tests
+
+   ```bash
+   make test
+   ```
+
+2) Coverage
+
+   ```bash
+   make cover
+   ```
+
+If either step fails, the push is blocked.
 
 ## Prerequisites
 

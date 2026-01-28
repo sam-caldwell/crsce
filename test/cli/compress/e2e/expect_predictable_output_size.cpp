@@ -44,29 +44,31 @@ namespace {
  */
 TEST(CompressCLI, ExpectPredictableOutputSize) {
     const auto td = tmp_dir();
-    constexpr std::size_t kHeaderBytes = 28U;
-    constexpr std::size_t kBlockPayloadBytes = 18652U; // 511*32 (LH) + 4*575 (cross-sums)
 
     // Test the requested block counts
-    const std::array<std::size_t, 5> blocks = {1U, 2U, 5U, 10U, 20U};
+    constexpr std::array<std::size_t, 5> blocks = {1U, 2U, 5U, 10U, 20U};
 
     // Deterministic RNG for repeatability
     std::mt19937 rng(0xC0FFEEU);
     std::uniform_int_distribution<int> dist(0, 255);
 
-    for (const auto n_blocks : blocks) {
+    for (const auto n_blocks: blocks) {
+        // Expected output (compressed) block size...
+        constexpr std::size_t kBlockPayloadBytes = 18652U;
+        // Expected output (compressed) file header size
+        constexpr std::size_t kHeaderBytes = 28U;
         const auto in = td + "/predict_size_in_" + std::to_string(n_blocks) + ".bin";
         const auto out = td + "/predict_size_out_" + std::to_string(n_blocks) + ".crsce";
         remove_file(in);
         remove_file(out);
 
         // Generate a random input sized to produce exactly n_blocks in the container
-        const std::size_t in_bytes = bytes_for_n_blocks(n_blocks);
         {
+            const std::size_t in_bytes = bytes_for_n_blocks(n_blocks);
             std::ofstream f(in, std::ios::binary);
             ASSERT_TRUE(f.good());
             std::vector<char> buf(in_bytes, 0);
-            for (auto &c : buf) { c = static_cast<char>(dist(rng)); }
+            for (auto &c: buf) { c = static_cast<char>(dist(rng)); }
             f.write(buf.data(), static_cast<std::streamsize>(buf.size()));
         }
 
@@ -81,8 +83,11 @@ TEST(CompressCLI, ExpectPredictableOutputSize) {
 
         // Verify total file size: header + N * block_payload_bytes
         const auto sz = fs::file_size(out);
-        const auto expected_total = static_cast<std::uint64_t>(kHeaderBytes) +
-                                    (static_cast<std::uint64_t>(n_blocks) * static_cast<std::uint64_t>(kBlockPayloadBytes));
+        const auto expected_total = static_cast<std::uint64_t>(kHeaderBytes)
+                                    + (
+                                        static_cast<std::uint64_t>(n_blocks)
+                                        * static_cast<std::uint64_t>(kBlockPayloadBytes)
+                                    );
         EXPECT_EQ(sz, expected_total) << "for N=" << n_blocks;
 
         // Verify per-block payload bytes (Cr): (total - header)/N == kBlockPayloadBytes
