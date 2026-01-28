@@ -4,8 +4,8 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/detail/Csm.h"
+#include "common/exceptions/CsmIndexOutOfBounds.h"
 #include <cstddef>
-#include <stdexcept>
 
 namespace crsce::decompress {
     /**
@@ -17,7 +17,7 @@ namespace crsce::decompress {
      */
     bool Csm::get(const std::size_t r, const std::size_t c) const {
         if (!in_bounds(r, c)) {
-            throw std::out_of_range("Csm::get: index out of bounds");
+            throw CsmIndexOutOfBounds(r, c, kS);
         }
         const auto idx = index_of(r, c);
         const auto bidx = byte_index(idx);

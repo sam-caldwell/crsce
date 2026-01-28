@@ -3,7 +3,7 @@
  */
 #include <gtest/gtest.h>
 #include "decompress/Csm/detail/Csm.h"
-#include "decompress/Exceptions/WriteFailureOnLockedCsmElement.h"
+#include "common/exceptions/WriteFailureOnLockedCsmElement.h"
 
 using crsce::decompress::Csm;
 

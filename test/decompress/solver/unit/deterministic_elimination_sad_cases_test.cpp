@@ -4,7 +4,8 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <stdexcept>
+#include "common/exceptions/ConstraintInvariantViolation.h"
+#include "common/exceptions/DeterministicEliminationError.h"
 #include <cstdint>
 
 #include "decompress/Csm/detail/Csm.h"
@@ -30,7 +31,7 @@ TEST(DeterministicEliminationSad, ConstructorRejectsRGreaterThanU) { // NOLINT
     }
     st.U_row.at(2) = 10;
     st.R_row.at(2) = 11; // invalid
-    EXPECT_THROW((DeterministicElimination{csm, st}), std::invalid_argument);
+    EXPECT_THROW((DeterministicElimination{csm, st}), crsce::decompress::ConstraintInvariantViolation);
 }
 
 /**
@@ -53,5 +54,5 @@ TEST(DeterministicEliminationSad, ThrowsWhenULineZeroButCellUnlocked) { // NOLIN
     st.R_col.at(5) = 0;
 
     DeterministicElimination de{csm, st};
-    EXPECT_THROW((void)de.solve_step(), std::runtime_error);
+    EXPECT_THROW((void)de.solve_step(), crsce::decompress::DeterministicEliminationError);
 }

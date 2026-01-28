@@ -32,8 +32,7 @@ TEST(DeterministicEliminationPatterns, AllZerosEliminatedByDE) { // NOLINT
         st.R_xdiag.at(i) = 0;
     }
     DeterministicElimination de{csm, st};
-    // Placeholder hash-based elimination should be a no-op for this scenario
-    EXPECT_EQ(de.hash_step(), 0U);
+    // Hash-based elimination removed; DE performs only forced moves.
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, Csm::kS * Csm::kS);
     // All bits 0 and locked
@@ -64,7 +63,6 @@ TEST(DeterministicEliminationPatterns, AllOnesEliminatedByDE) { // NOLINT
         st.R_xdiag.at(i) = static_cast<std::uint16_t>(Csm::kS);
     }
     DeterministicElimination de{csm, st};
-    EXPECT_EQ(de.hash_step(), 0U);
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, Csm::kS * Csm::kS);
     for (std::size_t r = 0; r < Csm::kS; ++r) {
@@ -82,7 +80,7 @@ TEST(DeterministicEliminationPatterns, AllOnesEliminatedByDE) { // NOLINT
  *         Passing indicates the behavior holds; failing indicates a regression.
  *         Assumptions: default environment and explicit setup within this test.
  */
-TEST(DeterministicEliminationPatterns, AlternatingRowsEliminatedByHashThenDENoop) { // NOLINT
+TEST(DeterministicEliminationPatterns, AlternatingRowsAlreadySolvedNoop) { // NOLINT
     Csm csm;
     ConstraintState st{};
     // Simulate hash-based DE solved rows: lock alternating patterns and set U=0, R=0 across all families.
@@ -100,7 +98,6 @@ TEST(DeterministicEliminationPatterns, AlternatingRowsEliminatedByHashThenDENoop
         st.R_row.at(i) = st.R_col.at(i) = st.R_diag.at(i) = st.R_xdiag.at(i) = 0;
     }
     DeterministicElimination de{csm, st};
-    EXPECT_EQ(de.hash_step(), 0U);
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, 0U);
     EXPECT_TRUE(de.solved());

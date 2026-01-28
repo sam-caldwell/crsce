@@ -5,7 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept>
+#include "common/exceptions/GobpResidualUnderflow.h"
 
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
@@ -41,5 +41,5 @@ TEST(GobpSolverSad, ThrowsIfULineZeroButAssigns) { // NOLINT
     st.R_col.at(c) = st.R_diag.at(d) = st.R_xdiag.at(x) = static_cast<std::uint16_t>(Csm::kS);
 
     GobpSolver gobp{csm, st, /*damping*/ 0.0, /*assign_confidence*/ 0.9};
-    EXPECT_THROW({ (void)gobp.solve_step(); }, std::runtime_error);
+    EXPECT_THROW({ (void)gobp.solve_step(); }, crsce::decompress::GobpResidualUnderflow);
 }

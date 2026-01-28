@@ -54,13 +54,7 @@ namespace crsce::decompress {
          */
         void reset() override;
 
-        /**
-         * @name DeterministicElimination::hash_step
-         * @brief Placeholder for hash-based deterministic elimination pass.
-         *        Intended to lock rows identified by LH/lookup; currently a no-op.
-         * @return std::size_t Number of newly solved bits (currently always 0).
-         */
-        std::size_t hash_step();
+        // Hash-based deterministic elimination removed: chaining prevents safe use during assignment.
 
     private:
         /**

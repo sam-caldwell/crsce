@@ -7,7 +7,8 @@
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 
 #include <cstddef>
-#include <stdexcept>
+#include "common/exceptions/ConstraintBoundsInvalid.h"
+#include "common/exceptions/ConstraintInvariantViolation.h"
 
 namespace crsce::decompress {
     /**
@@ -18,12 +19,29 @@ namespace crsce::decompress {
      */
     void DeterministicElimination::validate_bounds(const ConstraintState &st) {
         for (std::size_t i = 0; i < S; ++i) {
-            if (st.U_row.at(i) > S || st.U_col.at(i) > S || st.U_diag.at(i) > S || st.U_xdiag.at(i) > S) {
-                throw std::invalid_argument("U out of range");
+            if (st.U_row.at(i) > S) {
+                throw ConstraintBoundsInvalid("row", i, st.U_row.at(i), S);
             }
-            if (st.R_row.at(i) > st.U_row.at(i) || st.R_col.at(i) > st.U_col.at(i) ||
-                st.R_diag.at(i) > st.U_diag.at(i) || st.R_xdiag.at(i) > st.U_xdiag.at(i)) {
-                throw std::invalid_argument("R > U invariant violated");
+            if (st.U_col.at(i) > S) {
+                throw ConstraintBoundsInvalid("col", i, st.U_col.at(i), S);
+            }
+            if (st.U_diag.at(i) > S) {
+                throw ConstraintBoundsInvalid("diag", i, st.U_diag.at(i), S);
+            }
+            if (st.U_xdiag.at(i) > S) {
+                throw ConstraintBoundsInvalid("xdiag", i, st.U_xdiag.at(i), S);
+            }
+            if (st.R_row.at(i) > st.U_row.at(i)) {
+                throw ConstraintInvariantViolation("row", i, st.R_row.at(i), st.U_row.at(i));
+            }
+            if (st.R_col.at(i) > st.U_col.at(i)) {
+                throw ConstraintInvariantViolation("col", i, st.R_col.at(i), st.U_col.at(i));
+            }
+            if (st.R_diag.at(i) > st.U_diag.at(i)) {
+                throw ConstraintInvariantViolation("diag", i, st.R_diag.at(i), st.U_diag.at(i));
+            }
+            if (st.R_xdiag.at(i) > st.U_xdiag.at(i)) {
+                throw ConstraintInvariantViolation("xdiag", i, st.R_xdiag.at(i), st.U_xdiag.at(i));
             }
         }
     }

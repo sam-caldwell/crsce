@@ -6,7 +6,7 @@
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/Exceptions/DeterministicEliminationError.h"
+#include "common/exceptions/DeterministicEliminationError.h"
 #include <cstddef>
 
 #include <cstddef>

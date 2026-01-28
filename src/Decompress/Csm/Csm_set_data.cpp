@@ -4,8 +4,8 @@
  * © Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/detail/Csm.h"
+#include "common/exceptions/CsmIndexOutOfBounds.h"
 #include <cstddef>
-#include <stdexcept>
 
 namespace crsce::decompress {
     /**
@@ -18,7 +18,7 @@ namespace crsce::decompress {
      */
     void Csm::set_data(const std::size_t r, const std::size_t c, const double value) {
         if (!in_bounds(r, c)) {
-            throw std::out_of_range("Csm::set_data: index out of bounds");
+            throw CsmIndexOutOfBounds(r, c, kS);
         }
         data_[index_of(r, c)] = value;
     }

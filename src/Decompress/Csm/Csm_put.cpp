@@ -4,10 +4,10 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/detail/Csm.h"
-#include "decompress/Exceptions/WriteFailureOnLockedCsmElement.h"
+#include "common/exceptions/CsmIndexOutOfBounds.h"
+#include "common/exceptions/WriteFailureOnLockedCsmElement.h"
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept>
 
 namespace crsce::decompress {
     /**
@@ -20,7 +20,7 @@ namespace crsce::decompress {
      */
     void Csm::put(const std::size_t r, const std::size_t c, const bool v) {
         if (!in_bounds(r, c)) {
-            throw std::out_of_range("Csm::put: index out of bounds");
+            throw CsmIndexOutOfBounds(r, c, kS);
         }
         const auto idx = index_of(r, c);
         const auto bidx = byte_index(idx);

@@ -4,7 +4,7 @@
  * © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/Exceptions/DeterministicEliminationError.h"
+#include "common/exceptions/DeterministicEliminationError.h"
 
 #include <cstddef>
 

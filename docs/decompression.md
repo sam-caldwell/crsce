@@ -29,23 +29,13 @@ unassigned variables U on that line. Then:
 - If R = U, assign all remaining variables on that line to 1.
 - Update residuals and repeat until a fixed point.
 
-## Known‑hash folding
+## Hash chain verification (no hash‑based DE)
 
-We know certain row-patterns are challenging for LBP/GOBP to solve, and that these are common. To reduce risk and
-increase speed, we can:
+The LH chain remains essential for validation during decompression, but it is not used to drive assignments.
 
-- Maintain a small library of frequently occurring row patterns and their SHA‑256.
-- If R = U, assign all remaining variables on that line to 1.
-- Update residuals and repeat until a fixed point.
-
-## Known‑hash folding
-
-We know certain row-patterns are challenging for LBP/GOBP to solve, and that these are common. To reduce risk and
-increase speed, we can:
-
-- Maintain a small library of frequently occurring row patterns and their SHA‑256.
-- When a row candidate’s structure matches a known pattern, assign bits directly and verify against the LH constraint.
-- This is an engineering shortcut; it does not change acceptance criteria.
+- We do not perform hash‑based deterministic elimination due to chaining constraints.
+- The LH chain serves as a cryptographic oracle only: after reconstructing a CSM that satisfies all cross‑sum
+  constraints, recompute the LH chain and compare. Only exact matches are accepted.
 
 ## Iterative inference (GOBP/LBP)
 

@@ -123,7 +123,7 @@ Implementation MUST treat these as hard constants.
     - [x] Implement `Csm` class (100% feature complete; >99% test coverage; linters/tests green)
     - [x] Implement `LHChainVerifier` class (100% feature complete; tests added; linters/tests green)
     - [x] Implement `Solver` interface (abstract API + tests)
-    - [x] Implement `DeterministicElimination` class (forced-move pass + tests; hash_step placeholder)
+    - [x] Implement `DeterministicElimination` class (forced-move pass only; no hash-based elimination)
     - [x] Implement `GobpSolver` class (CPU single-host; damping + thresholds; full tests; linters green)
     - [ ] Implement `Decompressor` class
         - [x] Header parsing and validation (v1)
@@ -154,11 +154,11 @@ Implementation MUST treat these as hard constants.
             - number of blocks with empty payloads
             - number of blocks with invalid headers
             - number of blocks with invalid payloads
-            - number of CSM elements solved by hash-based deterministic elimination
+            - [removed] number of CSM elements solved by hash-based deterministic elimination
             - number of CSM elements solved by deterministic elimination
             - number of CSM elements solved by GOBP
             - number of cycles through decompression stack
-            - time spent in DE (hashes) (in nanoseconds)
+            - [removed] time spent in DE (hashes) (in nanoseconds)
             - time spent in DE (forced moves) (in nanoseconds)
             - time spend in GOBP (in nanoseconds)
             - time spend decoding blocks to LH and cross-sums vectors (in nanoseconds)
