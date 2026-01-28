@@ -17,7 +17,7 @@ namespace crsce::common::format::detail {
      * @param v  64-bit value to store (unsigned).
      * @return void No return value.
      */
-    void put_le64(std::array<std::uint8_t, 28> &b, std::size_t off, std::uint64_t v) {
+    void put_le64(std::array<std::uint8_t, 28> &b, const std::size_t off, const std::uint64_t v) {
         for (int i = 0; i < 8; ++i) {
             b.at(off + i) = static_cast<std::uint8_t>((v >> (8U * i)) & 0xFFU);
         }
