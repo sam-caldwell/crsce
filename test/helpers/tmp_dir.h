@@ -7,6 +7,9 @@
 #include <filesystem>
 #include <string>
 
-inline std::string tmp_dir() {
-  return std::filesystem::temp_directory_path().string();
-}
+/**
+ * @name tmp_dir
+ * @brief Get the system temporary directory path.
+ * @return Absolute path string of the temp directory.
+ */
+inline std::string tmp_dir() { return std::filesystem::temp_directory_path().string(); }

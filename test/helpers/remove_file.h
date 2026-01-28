@@ -7,6 +7,10 @@
 #include <cstdio>
 #include <string>
 
-inline void remove_file(const std::string& path) {
-  std::remove(path.c_str());
-}
+/**
+ * @name remove_file
+ * @brief Remove file if it exists; ignore errors.
+ * @param path Target file path.
+ * @return void
+ */
+inline void remove_file(const std::string &path) { std::remove(path.c_str()); }
