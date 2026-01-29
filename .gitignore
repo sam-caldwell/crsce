@@ -64,3 +64,4 @@ tools/**/Makefile
 *.gcda
 *.gcno
 *.info
+default.profraw
