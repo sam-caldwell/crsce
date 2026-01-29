@@ -10,10 +10,11 @@
 # Ensure this file is only processed once even if included multiple places
 include_guard(GLOBAL)
 
-# --- GoogleTest dependency (fetched locally) ---
+# --- GoogleTest dependency (vendored via FetchContent to ensure static linkage) ---
 include(FetchContent)
 set(BUILD_GMOCK OFF CACHE BOOL "Build GoogleMock")
 set(INSTALL_GTEST OFF CACHE BOOL "Disable gtest installation")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Force static libraries for gtest")
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
