@@ -1,7 +1,7 @@
 /**
  * @file Decompressor_decompress_file.cpp
  * @brief Drive block-wise decompression and write reconstructed bytes to output_path_.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 #include "decompress/Decompressor/HeaderV1Fields.h"

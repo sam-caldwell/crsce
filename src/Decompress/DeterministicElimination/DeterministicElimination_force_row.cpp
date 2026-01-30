@@ -1,7 +1,7 @@
 /**
  * @file DeterministicElimination_force_row.cpp
  * @brief Implementation of DeterministicElimination::force_row.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include <cstddef>

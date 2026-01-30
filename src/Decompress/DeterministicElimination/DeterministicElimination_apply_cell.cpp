@@ -1,7 +1,7 @@
 /**
  * @file DeterministicElimination_apply_cell.cpp
  * @brief Implementation of DeterministicElimination::apply_cell.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Csm/detail/Csm.h"

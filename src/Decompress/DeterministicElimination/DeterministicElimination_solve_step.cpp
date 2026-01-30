@@ -1,7 +1,7 @@
 /**
  * @file DeterministicElimination_solve_step.cpp
  * @brief Implementation of DeterministicElimination::solve_step.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "common/exceptions/DeterministicEliminationError.h"

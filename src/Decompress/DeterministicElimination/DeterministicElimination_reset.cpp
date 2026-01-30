@@ -1,7 +1,7 @@
 /**
  * @file DeterministicElimination_reset.cpp
  * @brief Implementation of DeterministicElimination::reset.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 

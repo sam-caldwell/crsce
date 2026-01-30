@@ -1,7 +1,7 @@
 /**
  * @file DeterministicElimination_validate_bounds.cpp
  * @brief Implementation of DeterministicElimination::validate_bounds.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"

@@ -1,7 +1,7 @@
 /**
  * @file BlockSolver.cpp
  * @brief High-level block solver implementation: reconstruct CSM from LH and cross-sum payloads.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/solve_block.h"
 #include "decompress/Csm/detail/Csm.h"
