@@ -18,20 +18,3 @@ test: build
 	  cmake -E create_symlink "$$TMP_SRC_DIR" "$$TMP_DST_DIR"; \
 	fi
 	@echo "--- Tests complete ---"
-
-.PHONY: test/random
-test/random: build
-	@echo "--- Running testRunnerRandom (preset: $(PRESET)) ---"
-	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
-	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
-	CRSCE_TESTRUNNER_MIN_BYTES=$(MIN) CRSCE_TESTRUNNER_MAX_BYTES=$(MAX) \
-	"$(BUILD_DIR)/$(PRESET)/testRunnerRandom"
-	@echo "--- ✅ testRunnerRandom complete ---"
-
-.PHONY: test/zeros
-test/zeros: build
-	@echo "--- Running testRunnerZeros (preset: $(PRESET)) ---"
-	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
-	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
-	"$(BUILD_DIR)/$(PRESET)/testRunnerZeros"
-	@echo "--- ✅ testRunnerZeros complete ---"
