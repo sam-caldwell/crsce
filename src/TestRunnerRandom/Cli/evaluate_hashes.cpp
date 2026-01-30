@@ -2,7 +2,7 @@
  * @file evaluate_hashes.cpp
  * @brief Validate output hash equals input hash; throw on mismatch.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/Cli/detail/evaluate_hashes.h"
 
@@ -13,6 +13,9 @@ namespace crsce::testrunner::cli {
     /**
      * @name evaluate_hashes
      * @brief Throw if hashes mismatch; return otherwise.
+     * @param input_sha512
+     * @param output_sha512
+     * @return void
      */
     void evaluate_hashes(const std::string &input_sha512, const std::string &output_sha512) {
         if (input_sha512 != output_sha512) {

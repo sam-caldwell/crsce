@@ -19,6 +19,7 @@ namespace crsce::testrunner::detail {
      * @param end_ms Step end time.
      * @param input Input file path.
      * @param hash SHA-512 digest of the input.
+     * @return void
      */
     void log_hash_input(const std::int64_t start_ms, const std::int64_t end_ms,
                         const std::filesystem::path &input, const std::string &hash) {

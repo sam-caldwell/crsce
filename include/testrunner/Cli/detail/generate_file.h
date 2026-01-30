@@ -2,7 +2,7 @@
  * @file generate_file.h
  * @brief Generate random input, hash it, and log step.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

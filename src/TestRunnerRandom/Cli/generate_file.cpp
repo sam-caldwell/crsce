@@ -26,6 +26,8 @@ namespace crsce::testrunner::cli {
     /**
      * @name generate_file
      * @brief Create a random input file, compute SHA-512, and log.
+     * @param out_dir
+     * @return GeneratedInput
      */
     GeneratedInput generate_file(const std::filesystem::path &out_dir) {
         std::random_device rd;

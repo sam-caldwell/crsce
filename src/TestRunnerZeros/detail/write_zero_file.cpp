@@ -2,7 +2,7 @@
  * @file write_zero_file.cpp
  * @brief Write a file consisting of zero bytes.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/detail/write_zero_file.h"
 #include <filesystem>
@@ -19,6 +19,9 @@ namespace crsce::testrunner::detail {
     /**
      * @name write_zero_file
      * @brief Create a file with the given number of zero bytes.
+     * @param p
+     * @param bytes
+     * @return void
      */
     void write_zero_file(const fs::path &p, const std::uint64_t bytes) {
         std::ofstream os(p, std::ios::binary);

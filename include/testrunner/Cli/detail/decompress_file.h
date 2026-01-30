@@ -2,7 +2,7 @@
  * @file decompress_file.h
  * @brief Run decompress CLI, compute output hash, log, enforce timeout.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

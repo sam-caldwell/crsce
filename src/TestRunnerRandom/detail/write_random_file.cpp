@@ -25,6 +25,7 @@ namespace crsce::testrunner::detail {
      * @param p Destination path.
      * @param bytes Number of bytes to write.
      * @param rng PRNG engine.
+     * @return void
      */
     void write_random_file(const fs::path &p, std::uint64_t bytes, std::mt19937_64 &rng) {
         std::ofstream os(p, std::ios::binary);

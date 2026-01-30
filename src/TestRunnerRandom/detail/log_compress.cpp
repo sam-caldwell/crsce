@@ -19,6 +19,7 @@ namespace crsce::testrunner::detail {
      * @param input Input file path.
      * @param output Output container path.
      * @param input_hash SHA-512 digest of the input.
+     * @return void
      */
     void log_compress(const ProcResult &res,
                       const std::filesystem::path &input,

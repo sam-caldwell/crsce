@@ -25,6 +25,11 @@ namespace crsce::testrunner::cli {
     /**
      * @name compress_file
      * @brief Invoke compress, write stdio artifacts, log, and enforce timeout.
+     * @param in_path Path of the input file to compress.
+     * @param cx_path Destination path for the generated CRSCE container.
+     * @param input_sha512 SHA-512 digest of the input file (used for logging).
+     * @param timeout_ms Maximum allowed elapsed time in milliseconds.
+     * @return ProcResult describing the compress subprocess execution.
      */
     crsce::testrunner::detail::ProcResult compress_file(const std::filesystem::path &in_path,
                                                         const std::filesystem::path &cx_path,

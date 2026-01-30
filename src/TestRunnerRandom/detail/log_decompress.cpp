@@ -20,6 +20,7 @@ namespace crsce::testrunner::detail {
      * @param output Reconstructed output file path.
      * @param input_hash SHA-512 digest of the input.
      * @param output_hash SHA-512 digest of the reconstructed output.
+     * @return void
      */
     void log_decompress(const ProcResult &res,
                         const std::filesystem::path &input,

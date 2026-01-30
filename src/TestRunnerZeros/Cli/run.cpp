@@ -2,7 +2,7 @@
  * @file run.cpp
  * @brief Implements the TestRunnerZeros pipeline: generate zero inputs for specific blocks, hash, compress, decompress, and validate.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunnerZeros/Cli/detail/run.h"
 
@@ -25,9 +25,13 @@ namespace crsce::testrunner_zeros::cli {
     /**
      * @name run
      * @brief Execute zero-filled tests for 1/5/10/20 blocks.
+     * @param out_dir
+     * @return int
      */
     int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
+        // ReSharper disable once CppTooWideScope
         constexpr std::int64_t kCompressPerBlockMs = 1000;
+        // ReSharper disable once CppTooWideScope
         constexpr std::int64_t kDecompressPerBlockMs = 2000;
         constexpr std::uint64_t kBitsPerBlock = 511ULL * 511ULL;
 

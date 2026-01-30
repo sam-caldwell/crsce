@@ -2,7 +2,7 @@
  * @file decompress_file.cpp
  * @brief Run decompress, write artifacts, compute output hash, log, and enforce timeout.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/Cli/detail/decompress_file.h"
 
