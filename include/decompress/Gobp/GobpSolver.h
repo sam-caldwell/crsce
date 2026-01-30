@@ -1,6 +1,6 @@
 /**
  * @file GobpSolver.h
- * @brief CPU-based, single-host Generalized Ordered Belief Propagation (GOBP) solver.
+ * @brief CPU-based, single-host Game Of Beliefs Protocol (GOBP) solver.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
