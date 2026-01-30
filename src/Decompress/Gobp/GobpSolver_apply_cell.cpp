@@ -1,7 +1,7 @@
 /**
  * @file GobpSolver_apply_cell.cpp
  * @brief Implementation of GobpSolver::apply_cell.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Gobp/GobpSolver.h"
 #include <cstddef>

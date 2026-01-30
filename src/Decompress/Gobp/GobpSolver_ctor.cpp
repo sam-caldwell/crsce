@@ -1,7 +1,7 @@
 /**
  * @file GobpSolver_ctor.cpp
  * @brief Implementation of GobpSolver constructor.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Gobp/GobpSolver.h"
 #include "decompress/Csm/detail/Csm.h"

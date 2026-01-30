@@ -1,7 +1,7 @@
 /**
  * @file LHChainVerifier_ctor.cpp
  * @brief Implementation of LHChainVerifier constructor.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"

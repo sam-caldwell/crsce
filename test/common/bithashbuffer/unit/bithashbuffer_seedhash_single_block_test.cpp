@@ -6,7 +6,7 @@
 /**
  * @file bithashbuffer_seedhash_single_block_test.cpp
  * @brief Seed hash is used correctly for the first row block.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <gtest/gtest.h>
 #include <string>

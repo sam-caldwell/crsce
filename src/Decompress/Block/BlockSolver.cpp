@@ -13,7 +13,8 @@
 #include "decompress/Utils/detail/decode9.tcc"
 
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> //NOLINT
+#include <iostream>
 #include <span>
 #include <string>
 
@@ -27,8 +28,8 @@ namespace crsce::decompress {
      * @param seed Seed string used by LH chain.
      * @return bool True on success; false if solving or verification fails.
      */
-    bool solve_block(std::span<const std::uint8_t> lh,
-                     std::span<const std::uint8_t> sums,
+    bool solve_block(const std::span<const std::uint8_t> lh,
+                     const std::span<const std::uint8_t> sums,
                      Csm &csm_out,
                      const std::string &seed) {
         constexpr std::size_t S = Csm::kS;
@@ -40,8 +41,14 @@ namespace crsce::decompress {
         const auto xsm = decode_9bit_stream<S>(sums.subspan(3 * vec_bytes, vec_bytes));
 
         ConstraintState st{};
-        st.R_row = lsm; st.R_col = vsm; st.R_diag = dsm; st.R_xdiag = xsm;
-        st.U_row.fill(S); st.U_col.fill(S); st.U_diag.fill(S); st.U_xdiag.fill(S);
+        st.R_row = lsm;
+        st.R_col = vsm;
+        st.R_diag = dsm;
+        st.R_xdiag = xsm;
+        st.U_row.fill(S);
+        st.U_col.fill(S);
+        st.U_diag.fill(S);
+        st.U_xdiag.fill(S);
 
         csm_out.reset();
         DeterministicElimination det{csm_out, st};
@@ -52,12 +59,35 @@ namespace crsce::decompress {
             std::size_t progress = 0;
             progress += det.solve_step();
             progress += gobp.solve_step();
-            if (det.solved() || gobp.solved()) { break; }
-            if (progress == 0) { (void)gobp.solve_step(); break; }
+            if (det.solved() || gobp.solved()) {
+                std::cerr << "Block Solver terminating with possible solution\n";
+                break;
+            }
+            if (progress == 0) {
+                std::cerr << "Block Solver failed with no progress\n";
+                (void) gobp.solve_step();
+                break;
+            }
+            std::cerr << "Block Solver iteration ended at " << iter << " of " << kMaxIters << " iterations"
+                    << " (with " << progress << " progress)\n";
         }
-        if (!(det.solved() && gobp.solved())) { return false; }
-        if (!verify_cross_sums(csm_out, lsm, vsm, dsm, xsm)) { return false; }
+        std::cerr << "Block Solver terminating...\n";
+        if (!(det.solved() && gobp.solved())) {
+            std::cerr << "Block Solver failed\n";
+            return false;
+        }
+        if (!verify_cross_sums(csm_out, lsm, vsm, dsm, xsm)) {
+            std::cerr << "Block Solver failed to verify cross sums\n";
+            return false;
+        }
+        std::cerr << "Block Solver finished successfully (LH verification pending)\n";
         const LHChainVerifier verifier(seed);
-        return verifier.verify_all(csm_out, lh);
+        const bool result = verifier.verify_all(csm_out, lh);
+        if (result) {
+            std::cerr << "Block Solver finished successfully\n";
+        } else {
+            std::cerr << "Block Solver failed to verify cross sums\n";
+        }
+        return result;
     }
 }

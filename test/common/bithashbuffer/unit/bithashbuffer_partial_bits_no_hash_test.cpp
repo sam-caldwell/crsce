@@ -1,7 +1,7 @@
 /**
  * @file bithashbuffer_partial_bits_no_hash_test.cpp
  * @brief Partial row bits should not produce a hash until padded.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <gtest/gtest.h>
 

@@ -1,7 +1,7 @@
 /**
  * @file AppendBits.cpp
  * @brief Implementation for appending CSM bits into a byte stream (MSB-first).
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Utils/detail/append_bits_from_csm.h" // NOLINT(misc-include-cleaner) ensure external linkage
 #include "decompress/Csm/detail/Csm.h" // direct provider for Csm (include-cleaner)

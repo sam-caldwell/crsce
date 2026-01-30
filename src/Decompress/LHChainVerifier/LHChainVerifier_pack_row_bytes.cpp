@@ -1,7 +1,7 @@
 /**
  * @file LHChainVerifier_pack_row_bytes.cpp
  * @brief Implementation of LHChainVerifier::pack_row_bytes.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 #include "decompress/Csm/detail/Csm.h"

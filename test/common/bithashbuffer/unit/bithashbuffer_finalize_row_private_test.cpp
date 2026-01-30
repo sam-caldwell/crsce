@@ -1,7 +1,7 @@
 /**
  * @file bithashbuffer_finalize_row_private_test.cpp
  * @brief FinalizeRow private path is exercised via test exposure.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <algorithm>
 #include <array>

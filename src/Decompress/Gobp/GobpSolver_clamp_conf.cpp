@@ -1,7 +1,7 @@
 /**
  * @file GobpSolver_clamp_conf.cpp
  * @brief Implementation of GobpSolver::clamp_conf.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Gobp/GobpSolver.h"
 #include <algorithm>

@@ -1,7 +1,7 @@
 /**
  * @file GobpSolver_prob_from_odds.cpp
  * @brief Implementation of GobpSolver::prob_from_odds.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Gobp/GobpSolver.h"
 #include <algorithm>

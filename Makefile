@@ -25,6 +25,8 @@ help:
 	@echo "  build     - Build all tools and targets"
 	@echo "  deps      - Discover and build all tools/** CMake projects"
 	@echo "  test      - Build and run all test programs"
+	@echo "  test/random - Run only the random test runner (cmd/testRunnerRandom)"
+	@echo "  test/zeroes - Run only the zeroes test runner (cmd/testRunnerZeroes)"
 	@echo "  cover     - Ensure minimum test coverage threshold is maintained"
 	@echo "  ready     - Check development environment prerequisites"
 	@echo "  ready/fix - Install missing development environment prerequisites"

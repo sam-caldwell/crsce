@@ -1,7 +1,7 @@
 /**
  * @file LHChainVerifier_verify_all.cpp
  * @brief Implementation of LHChainVerifier::verify_all.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 #include "decompress/Csm/detail/Csm.h"

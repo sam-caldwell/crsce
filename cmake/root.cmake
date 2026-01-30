@@ -25,6 +25,7 @@ include(cmake/projects/decompress.cmake)
 include(cmake/projects/hello_world.cmake)
 include(cmake/projects/hasher.cmake)
 include(cmake/projects/test_runner_random.cmake)
+include(cmake/projects/test_runner_zeros.cmake)
 include(cmake/projects/test_hasher_helpers.cmake)
 include(cmake/pipeline/sources.cmake)
 

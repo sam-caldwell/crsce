@@ -1,7 +1,7 @@
 /**
  * @file CrossSums.cpp
  * @brief Implementation for cross-sum verification helpers for reconstructed CSMs.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Utils/detail/verify_cross_sums.h"
 #include "decompress/Csm/detail/Csm.h" // direct provider for Csm

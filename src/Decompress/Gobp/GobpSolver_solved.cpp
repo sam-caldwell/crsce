@@ -1,7 +1,7 @@
 /**
  * @file GobpSolver_solved.cpp
  * @brief Implementation of GobpSolver::solved.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Gobp/GobpSolver.h"
 #include <cstddef>

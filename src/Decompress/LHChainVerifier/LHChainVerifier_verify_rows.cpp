@@ -1,7 +1,7 @@
 /**
  * @file LHChainVerifier_verify_rows.cpp
  * @brief Implementation of LHChainVerifier::verify_rows.
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 #include "decompress/Csm/detail/Csm.h"
