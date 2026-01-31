@@ -65,3 +65,5 @@ tools/**/Makefile
 *.gcno
 *.info
 default.profraw
+
+.ccache/
