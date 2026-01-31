@@ -25,14 +25,13 @@ help:
 	@echo "  build     - Build all tools and targets"
 	@echo "  deps      - Discover and build all tools/** CMake projects"
 	@echo "  test      - Build and run all test programs"
-	@echo "  test/random - Run only the random test runner (cmd/testRunnerRandom)"
-	@echo "  test/zeroes - Run only the zeroes test runner (cmd/testRunnerZeroes)"
+	@echo "  test/{ones, zeroes, random, alternating01, alternating10} - Run only a given test runner"
+	@echo "  ci/no-gobp-deterministic - Verify zeroes/ones decompressor logs contain no GOBP markers"
 	@echo "  cover     - Ensure minimum test coverage threshold is maintained"
 	@echo "  ready     - Check development environment prerequisites"
 	@echo "  ready/fix - Install missing development environment prerequisites"
 	@echo "  whitespace/fix  - Normalize LF, trim trailing spaces, add final newline"
 	@echo ""
-	@echo "Other targets are available in Makefile.d/."
 
 all:
 	@$(MAKE) clean
