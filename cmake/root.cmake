@@ -8,6 +8,19 @@ include(cmake/pipeline/configure.cmake)
 # --- macOS SDK (Homebrew LLVM) auto-detect to keep toolchain consistent
 include(cmake/pipeline/sdk.cmake)
 
+# --- ccache integration (optional) ---
+option(CRSCE_USE_CCACHE "Use ccache to speed up C/C++ compilation" ON)
+if (CRSCE_USE_CCACHE)
+  find_program(CCACHE_PROGRAM ccache)
+  if (CCACHE_PROGRAM)
+    message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+  else ()
+    message(STATUS "ccache not found; proceeding without compiler launcher")
+  endif ()
+endif ()
+
 # --- Optimization defaults by configuration ---
 # Ensure optimized builds use -O3 (Release) and -O2 (RelWithDebInfo).
 # Debug remains unoptimized for easier debugging and coverage instrumentation.
@@ -24,6 +37,7 @@ include(cmake/projects/compress.cmake)
 include(cmake/projects/decompress.cmake)
 include(cmake/projects/hello_world.cmake)
 include(cmake/projects/hasher.cmake)
+include(cmake/projects/bin_dumper.cmake)
 include(cmake/projects/test_runner_random.cmake)
 include(cmake/projects/test_runner_zeroes.cmake)
 include(cmake/projects/test_runner_ones.cmake)
