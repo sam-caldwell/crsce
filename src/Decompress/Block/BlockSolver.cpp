@@ -54,7 +54,7 @@ namespace crsce::decompress {
         DeterministicElimination det{csm_out, st};
         GobpSolver gobp{csm_out, st, /*damping*/ 0.25, /*assign_confidence*/ 0.995};
 
-        constexpr int kMaxIters = 2000;
+        constexpr int kMaxIters = 200;
         for (int iter = 0; iter < kMaxIters; ++iter) {
             std::size_t progress = 0;
             progress += det.solve_step();
@@ -63,13 +63,8 @@ namespace crsce::decompress {
                 std::cerr << "Block Solver terminating with possible solution\n";
                 break;
             }
-            if (progress == 0) {
-                std::cerr << "Block Solver failed with no progress\n";
-                (void) gobp.solve_step();
-                break;
-            }
-            std::cerr << "Block Solver iteration ended at " << iter << " of " << kMaxIters << " iterations"
-                    << " (with " << progress << " progress)\n";
+            std::cerr << "Block Solver iteration ended at " << iter << " of " << kMaxIters
+                      << " iterations (with " << progress << " progress)\n";
         }
         std::cerr << "Block Solver terminating...\n";
         if (!(det.solved() && gobp.solved())) {
