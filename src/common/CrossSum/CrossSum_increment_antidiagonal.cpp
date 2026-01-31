@@ -1,6 +1,6 @@
 /**
  * @file CrossSum_increment_antidiagonal.cpp
- * @brief Increment along the anti-diagonal mapping (r - c) mod kSize.
+ * @brief Increment XSM index using mapping (r + c) mod kSize.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/CrossSum/CrossSum.h"
@@ -16,7 +16,8 @@ namespace crsce::common {
      * @throws None
      */
     void CrossSum::increment_antidiagonal(const std::size_t r, const std::size_t c) {
-        const std::size_t idx = (r >= c) ? (r - c) : (r + kSize - c);
+        // XSM[x]: cells where r + c ≡ x (mod S)
+        const std::size_t idx = (r + c) % kSize;
         elems_.at(idx) = static_cast<ValueType>(elems_.at(idx) + 1);
     }
 } // namespace crsce::common

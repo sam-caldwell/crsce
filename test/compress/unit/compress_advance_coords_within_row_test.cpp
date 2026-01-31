@@ -25,8 +25,8 @@ TEST(CompressAdvanceCoords, AdvancesColumnWithinRow) { // NOLINT
     EXPECT_EQ(cx.lsm().value(0), 2); // two ones in row 0
     EXPECT_EQ(cx.vsm().value(0), 1); // col 0 incremented once
     EXPECT_EQ(cx.vsm().value(1), 1); // col 1 incremented once (advanced)
-    EXPECT_EQ(cx.dsm().value(0), 1); // (r+c) mod 511 = 0 for (0,0)
-    EXPECT_EQ(cx.dsm().value(1), 1); // (r+c) mod 511 = 1 for (0,1)
-    EXPECT_EQ(cx.xsm().value(0), 1); // x = r-c = 0 for (0,0)
-    EXPECT_EQ(cx.xsm().value(Compress::kS - 1), 1); // x = 510 for (0,1)
+    EXPECT_EQ(cx.dsm().value(0), 1); // d = (c-r) mod S = 0 for (0,0)
+    EXPECT_EQ(cx.dsm().value(1), 1); // d = 1 for (0,1)
+    EXPECT_EQ(cx.xsm().value(0), 1); // x = (r+c) mod S = 0 for (0,0)
+    EXPECT_EQ(cx.xsm().value(1), 1); // x = 1 for (0,1)
 }

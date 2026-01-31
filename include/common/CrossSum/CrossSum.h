@@ -50,7 +50,7 @@ namespace crsce::common {
 
         /**
          * @name CrossSum::increment_diagonal
-         * @brief Increment diagonal index: d(r,c) = (r + c) mod kSize.
+         * @brief Increment DSM index: d(r,c) = (c - r) mod kSize (wrap).
          * @param r Row coordinate.
          * @param c Column coordinate.
          * @return void
@@ -59,7 +59,7 @@ namespace crsce::common {
 
         /**
          * @name CrossSum::increment_antidiagonal
-         * @brief Increment anti-diagonal index: x(r,c) = (r >= c) ? (r - c) : (r + kSize - c).
+         * @brief Increment XSM index: x(r,c) = (r + c) mod kSize.
          * @param r Row coordinate.
          * @param c Column coordinate.
          * @return void

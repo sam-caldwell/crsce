@@ -6,54 +6,21 @@
  */
 #include "testrunnerAlternating01/Cli/detail/run.h"
 
-#include "testrunner/detail/now_ms.h"
-#include "testrunner/detail/min_bytes_for_n_blocks.h"
-#include "testrunner/detail/write_alternating01_file.h"
-#include "testrunner/Cli/detail/generated_input.h"
-#include "testrunner/Cli/detail/make_input.h"
-#include "testrunner/Cli/detail/process_case.h"
-#include "testrunner/detail/env.h"
-
-#include <cstdint>
+// Only default run() is defined here; single-block run() lives in run_single.cpp
+// Include only what is used in this TU
+#include "testrunnerAlternating01/Cli/detail/run_single.h"
 #include <filesystem>
-#include <string>
-#include <vector>
-#include <system_error>
-
-namespace fs = std::filesystem;
 
 namespace crsce::testrunner_alternating01::cli {
     /**
      * @name run
-     * @brief Execute 0x55-filled tests for 1/5/10/20 blocks.
+     * @brief Execute default set of block counts (1,5,10,20).
      * @param out_dir Output directory where artifacts and logs are written.
      * @return 0 on success; non-zero on failure.
      */
-    int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
-        const auto kCompressPerBlockMs = static_cast<std::int64_t>(
-            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_CX_MS", 1000ULL));
-        const auto kDecompressPerBlockMs = static_cast<std::int64_t>(
-            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_DX_MS", 20000ULL));
-
-        std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
-        const auto ts = crsce::testrunner::detail::now_ms();
-        const std::vector<std::uint64_t> blocks = {1ULL, 5ULL, 10ULL, 20ULL};
-
-        for (const auto nblocks : blocks) {
-            const std::string suffix = std::to_string(static_cast<std::uint64_t>(nblocks));
-            const std::uint64_t in_bytes = crsce::testrunner::detail::min_bytes_for_n_blocks(nblocks);
-            const fs::path in_path = out_dir / ("alternating01_input_" + suffix + "_" + std::to_string(ts) + ".bin");
-
-            crsce::testrunner::detail::write_alternating01_file(in_path, in_bytes);
-            const auto gi = crsce::testrunner::cli::make_input(in_path, in_bytes);
-            const crsce::testrunner::cli::GeneratedInput gi_fixed{
-                .path = gi.path,
-                .bytes = gi.bytes,
-                .blocks = nblocks,
-                .sha512 = gi.sha512,
-            };
-            crsce::testrunner::cli::process_case(out_dir, "alternating01", suffix, gi_fixed,
-                                                 kCompressPerBlockMs, kDecompressPerBlockMs);
+    int run(const std::filesystem::path &out_dir) {
+        for (const auto n : {1ULL, 5ULL, 10ULL, 20ULL}) {
+            (void)run(out_dir, n);
         }
         return 0;
     }

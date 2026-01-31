@@ -1,6 +1,6 @@
 /**
  * @file crosssum_diagonal_wraps_mod511_test.cpp
- * @brief Verify diagonal mapping d(r,c) wraps modulo 511.
+ * @brief Verify DSM mapping d(r,c) = (c - r) mod 511 wraps correctly.
  */
 #include "common/CrossSum/CrossSum.h"
 #include <gtest/gtest.h>
@@ -18,9 +18,9 @@ TEST(CrossSumTest, DiagonalMappingWrapsMod511) {
     cs.increment_diagonal(0, 0);
     EXPECT_EQ(cs.value(0), 1);
 
-    cs.increment_diagonal(510, 1); // (510+1)%511 == 0
-    EXPECT_EQ(cs.value(0), 2);
+    cs.increment_diagonal(510, 1); // (1 - 510) mod 511 == 2
+    EXPECT_EQ(cs.value(2), 1);
 
-    cs.increment_diagonal(100, 300); // (100+300)%511 == 400
-    EXPECT_EQ(cs.value(400), 1);
+    cs.increment_diagonal(100, 300); // (300 - 100) mod 511 == 200
+    EXPECT_EQ(cs.value(200), 1);
 }

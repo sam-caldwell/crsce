@@ -17,8 +17,8 @@ namespace crsce::decompress {
      * @param csm Reconstructed Cross-Sum Matrix.
      * @param lsm Left-to-right row sums.
      * @param vsm Top-to-bottom column sums.
-     * @param dsm Diagonal sums (r+c mod S).
-     * @param xsm Anti-diagonal sums (r>=c ? r-c : r+S-c).
+     * @param dsm Diagonal sums: d = (c - r) mod S.
+     * @param xsm Anti-diagonal sums: x = (r + c) mod S.
      * @return bool True if all four families match; false otherwise.
      */
     bool verify_cross_sums(const Csm &csm,
@@ -37,8 +37,8 @@ namespace crsce::decompress {
                 if (const bool bit = csm.get(r, c); !bit) { continue; }
                 row.at(r) = static_cast<std::uint16_t>(row.at(r) + 1U);
                 col.at(c) = static_cast<std::uint16_t>(col.at(c) + 1U);
-                const std::size_t d = (r + c) % S;
-                const std::size_t x = (r >= c) ? (r - c) : (r + S - c);
+                const std::size_t d = (c >= r) ? (c - r) : (c + S - r);
+                const std::size_t x = (r + c) % S;
                 diag.at(d) = static_cast<std::uint16_t>(diag.at(d) + 1U);
                 xdg.at(x) = static_cast<std::uint16_t>(xdg.at(x) + 1U);
             }

@@ -27,7 +27,7 @@ TEST(GobpSolverHappy, ForceDiagAllZeros) { // NOLINT
         st.U_row.at(i) = st.U_col.at(i) = st.U_diag.at(i) = st.U_xdiag.at(i) = static_cast<std::uint16_t>(Csm::kS);
         st.R_row.at(i) = st.R_col.at(i) = st.R_diag.at(i) = st.R_xdiag.at(i) = static_cast<std::uint16_t>(Csm::kS / 2);
     }
-    // Diagonal d: fully forced to zeros
+    // DSM d: fully forced to zeros
     const std::size_t d = 5;
     st.R_diag.at(d) = 0;
 
@@ -37,7 +37,7 @@ TEST(GobpSolverHappy, ForceDiagAllZeros) { // NOLINT
 
     // Check all cells on diagonal d are assigned 0 and locked
     for (std::size_t r = 0; r < Csm::kS; ++r) {
-        const std::size_t c = (d + Csm::kS - (r % Csm::kS)) % Csm::kS; // r + c == d (mod S)
+        const std::size_t c = (r + d) % Csm::kS; // c - r == d (mod S)
         EXPECT_TRUE(csm.is_locked(r, c));
         EXPECT_FALSE(csm.get(r, c));
     }

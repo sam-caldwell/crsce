@@ -27,7 +27,7 @@ TEST(GobpSolverHappy, ForceXdiagAllOnes) { // NOLINT
         st.U_row.at(i) = st.U_col.at(i) = st.U_diag.at(i) = st.U_xdiag.at(i) = static_cast<std::uint16_t>(Csm::kS);
         st.R_row.at(i) = st.R_col.at(i) = st.R_diag.at(i) = st.R_xdiag.at(i) = static_cast<std::uint16_t>(Csm::kS / 2);
     }
-    // Anti-diagonal x: fully forced to ones
+    // XSM x: fully forced to ones
     const std::size_t x = 7;
     st.R_xdiag.at(x) = static_cast<std::uint16_t>(Csm::kS);
 
@@ -37,7 +37,7 @@ TEST(GobpSolverHappy, ForceXdiagAllOnes) { // NOLINT
 
     // Check all cells on anti-diagonal x are assigned 1 and locked
     for (std::size_t r = 0; r < Csm::kS; ++r) {
-        const std::size_t c = (r >= x) ? (r - x) : (r + Csm::kS - x); // r - c == x (mod S)
+        const std::size_t c = (x + Csm::kS - (r % Csm::kS)) % Csm::kS; // r + c == x (mod S)
         EXPECT_TRUE(csm.is_locked(r, c));
         EXPECT_TRUE(csm.get(r, c));
     }
@@ -47,7 +47,7 @@ TEST(GobpSolverHappy, ForceXdiagAllOnes) { // NOLINT
 
     // Sample a specific (r,c) on xdiag x and check row residuals updated correctly for a 1 assignment
     const std::size_t r = 12;
-    const std::size_t c = (r >= x) ? (r - x) : (r + Csm::kS - x);
+    const std::size_t c = (x + Csm::kS - (r % Csm::kS)) % Csm::kS;
     EXPECT_EQ(st.U_row.at(r), static_cast<std::uint16_t>(Csm::kS - 1));
     EXPECT_EQ(st.R_row.at(r), static_cast<std::uint16_t>((Csm::kS / 2) - 1));
 

@@ -140,9 +140,10 @@ TEST(ContainerPayload, OneByteLhAndCrossSums) { // NOLINT
     EXPECT_EQ(vsm.at(4), 0);
     for (std::size_t c = 0; c < 4; ++c) { EXPECT_EQ(dsm.at(c), 1); }
     EXPECT_EQ(dsm.at(4), 0);
+    // XSM mapping is (r + c) mod S; with r=0 and c in {0,1,2,3}, expect hits at x={0,1,2,3}
     EXPECT_EQ(xsm.at(0), 1);
-    EXPECT_EQ(xsm.at(Compress::kS - 1), 1); // c=1 -> 510
-    EXPECT_EQ(xsm.at(Compress::kS - 2), 1); // c=2 -> 509
-    EXPECT_EQ(xsm.at(Compress::kS - 3), 1); // c=3 -> 508
-    EXPECT_EQ(xsm.at(Compress::kS - 4), 0);
+    EXPECT_EQ(xsm.at(1), 1);
+    EXPECT_EQ(xsm.at(2), 1);
+    EXPECT_EQ(xsm.at(3), 1);
+    EXPECT_EQ(xsm.at(4), 0);
 }

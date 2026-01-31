@@ -29,7 +29,7 @@ namespace crsce::decompress::cli {
                 // No-arg behavior: do nothing and exit successfully.
                 return 0;
             }
-            // Short-circuit help requests to avoid running pipeline.
+            // Short-circuit help requests to avoid running a pipeline.
             for (std::size_t i = 1; i < args.size(); ++i) {
                 const std::string a = args[i];
                 if (a == "-h" || a == "--help") {

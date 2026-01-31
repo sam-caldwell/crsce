@@ -16,8 +16,9 @@ namespace crsce::decompress {
      * @return void
      */
     void DeterministicElimination::force_xdiag(const std::size_t x, const bool value, std::size_t &progress) {
+        // XSM[x]: all cells where r + c ≡ x (mod S) -> c = (x - r) mod S
         for (std::size_t r = 0; r < S; ++r) {
-            const std::size_t c = (r + S - (x % S)) % S;
+            const std::size_t c = (x + S - (r % S)) % S;
             const auto before_locked = csm_.is_locked(r, c);
             apply_cell(r, c, value);
             if (!before_locked) {

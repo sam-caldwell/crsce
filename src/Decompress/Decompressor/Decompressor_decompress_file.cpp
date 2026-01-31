@@ -9,6 +9,7 @@
 #include "decompress/Block/detail/solve_block.h"
 #include "decompress/Utils/detail/append_bits_from_csm.h"
 #include "decompress/Csm/detail/Csm.h"
+#include "decompress/Decompressor/detail/log_decompress_failure.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -19,6 +20,8 @@
 #include <span>
 #include <string>
 #include <vector>
+
+#include "decompress/Block/detail/BlockSolverStatus.h"
 
 namespace crsce::decompress {
     /**
@@ -37,18 +40,21 @@ namespace crsce::decompress {
         output_bytes.reserve(1024);
         std::uint8_t curr = 0;
         int bit_pos = 0;
-        const std::string seed = "CRSCE_v1_seed"; // must match compressor default
+        constexpr std::string seed = "CRSCE_v1_seed"; // must match compressor default
         static constexpr std::uint64_t bits_per_block =
                 static_cast<std::uint64_t>(crsce::decompress::Csm::kS) * static_cast<std::uint64_t>(
-                        crsce::decompress::Csm::kS);
+                    crsce::decompress::Csm::kS);
         const std::uint64_t total_bits = hdr.original_size_bytes * 8U;
 
+        std::uint64_t blocks_attempted = 0;
+        std::uint64_t blocks_successful = 0;
         for (std::uint64_t i = 0; i < hdr.block_count; ++i) {
             auto payload = read_block();
             if (!payload.has_value()) {
                 std::println(stderr, "error: short read on block {}", i);
                 return false;
             }
+            ++blocks_attempted;
             std::span<const std::uint8_t> lh;
             std::span<const std::uint8_t> sums;
             if (!split_payload(*payload, lh, sums)) {
@@ -56,17 +62,24 @@ namespace crsce::decompress {
                 return false;
             }
             const std::uint64_t bits_done =
-                    (static_cast<std::uint64_t>(output_bytes.size()) * 8U) + static_cast<std::uint64_t>(bit_pos);
+                    (static_cast<std::uint64_t>(output_bytes.size()) * 8U)
+                    + static_cast<std::uint64_t>(bit_pos);
             if (bits_done >= total_bits) { break; }
-
-            crsce::decompress::Csm csm;
-            if (!crsce::decompress::solve_block(lh, sums, csm, seed)) {
-                std::println(stderr, "error: block {} solve failed", i);
-                return false;
-            }
             const std::uint64_t remain = total_bits - bits_done;
             const std::uint64_t to_take = std::min(remain, bits_per_block);
+
+            crsce::decompress::Csm csm; // NOLINT(misc-const-correctness)
+            // Pass the number of valid bits for this block to enable padding pre-locks in the solver.
+            if (!crsce::decompress::solve_block(lh, sums, csm, seed, to_take)) {
+                std::println(stderr, "error: block {} solve failed", i);
+                if (const auto snap = get_block_solve_snapshot(); snap.has_value()) {
+                    crsce::decompress::detail::log_decompress_failure(
+                        hdr.block_count, blocks_attempted, blocks_successful, i, *snap);
+                }
+                return false;
+            }
             crsce::decompress::append_bits_from_csm(csm, to_take, output_bytes, curr, bit_pos);
+            ++blocks_successful;
         }
 
         // Write all accumulated bytes to the output path

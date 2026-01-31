@@ -16,6 +16,9 @@
 #include <optional>
 #include <cstdint>
 #include <system_error>
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -70,7 +73,11 @@ namespace crsce::testrunner::detail {
         res.start_ms = now_ms();
         const int rc = std::system(exe.c_str()); // NOLINT(concurrency-mt-unsafe)
         res.end_ms = now_ms();
-        res.exit_code = rc;
+        if (WIFEXITED(rc)) {
+            res.exit_code = WEXITSTATUS(rc);
+        } else {
+            res.exit_code = rc;
+        }
     #endif
         res.out = read_file_text(out_tmp);
         res.err = read_file_text(err_tmp);

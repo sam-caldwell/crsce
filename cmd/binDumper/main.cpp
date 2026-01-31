@@ -28,9 +28,11 @@ auto main(const int argc, char *argv[]) -> int {
     }
 
     constexpr std::size_t kBitsPerRow = 511U;
+    constexpr std::size_t kRowsPerBlock = 511U;
     constexpr std::size_t kGroup = 128U;
     std::size_t col = 0;           // column within current row (bits printed in this row)
     std::size_t bit_offset = 0;    // total bits emitted so far
+    std::size_t row_in_block = 0;  // current row index within 511x511 block
     char ch = 0;
     while (is.get(ch)) {
         const auto b = static_cast<unsigned char>(ch);
@@ -56,6 +58,12 @@ auto main(const int argc, char *argv[]) -> int {
             if (col == kBitsPerRow) {
                 std::cout.put('\n');
                 col = 0;
+                ++row_in_block;
+                if (row_in_block == kRowsPerBlock) {
+                    // Separate 511x511 blocks with a blank line
+                    std::cout.put('\n');
+                    row_in_block = 0;
+                }
             }
         }
     }

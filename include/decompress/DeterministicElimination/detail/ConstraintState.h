@@ -28,12 +28,12 @@ namespace crsce::decompress {
         std::array<std::uint16_t, Csm::kS> R_col{};
         /**
          * @name R_diag
-         * @brief Diagonal residuals (remaining ones to place per diag).
+         * @brief Diagonal residuals (DSM): d = (c − r) mod S.
          */
         std::array<std::uint16_t, Csm::kS> R_diag{};
         /**
          * @name R_xdiag
-         * @brief Anti-diagonal residuals (remaining ones per xdiag).
+         * @brief Anti-diagonal residuals (XSM): x = (r + c) mod S.
          */
         std::array<std::uint16_t, Csm::kS> R_xdiag{};
         /**

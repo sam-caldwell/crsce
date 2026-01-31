@@ -6,14 +6,15 @@
  */
 #pragma once
 
-#include <filesystem>
+// Aggregator header for Alternating01 runner; declares a tag and includes detail declarations.
 
 namespace crsce::testrunner_alternating01::cli {
     /**
-     * @name run
-     * @brief Generate alternating 0/1 inputs for 1/5/10/20 blocks, compress+decompress, validate.
-     * @param out_dir Output directory where artifacts and logs are written.
-     * @return 0 on success; non-zero on failure.
+     * @struct RunTag
+     * @brief Tag type for Alternating01 runner aggregator header.
      */
-    int run(const std::filesystem::path &out_dir);
+    struct RunTag { };
 }
+
+#include "testrunnerAlternating01/Cli/detail/run_default.h"
+#include "testrunnerAlternating01/Cli/detail/run_single.h"

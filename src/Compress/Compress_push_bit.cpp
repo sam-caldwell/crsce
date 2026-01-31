@@ -18,9 +18,11 @@ namespace crsce::compress {
         if (bit) {
             lsm_.increment(r_);
             vsm_.increment(c_);
-            const std::size_t d = ((r_ + c_) < kS) ? (r_ + c_) : (r_ + c_ - kS);
+            // DSM: d = (c - r) mod S
+            const std::size_t d = (c_ >= r_) ? (c_ - r_) : (c_ + kS - r_);
             dsm_.increment(d);
-            const std::size_t x = (r_ >= c_) ? (r_ - c_) : (r_ + kS - c_);
+            // XSM: x = (r + c) mod S
+            const std::size_t x = ((r_ + c_) < kS) ? (r_ + c_) : (r_ + c_ - kS);
             xsm_.increment(x);
         }
 

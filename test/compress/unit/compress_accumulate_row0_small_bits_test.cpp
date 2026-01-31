@@ -57,8 +57,8 @@ TEST(CompressTest, Row0FirstNineBitsSet) {
     EXPECT_EQ(c.dsm().value(0), 1); // r=0 => d=c
     EXPECT_EQ(c.dsm().value(8), 1);
     EXPECT_EQ(c.dsm().value(9), 0);
-    EXPECT_EQ(c.xsm().value(0), 1); // x(0,0)=0
-    EXPECT_EQ(c.xsm().value(Compress::kS - 1), 1); // x(0,1)=kS-1
+    EXPECT_EQ(c.xsm().value(0), 1); // x= (r+c) mod S : (0,0)->0
+    EXPECT_EQ(c.xsm().value(1), 1); // (0,1)->1
 
     // Serialized cross-sums (LSM,VSM,DSM,XSM)
     const auto bytes = c.serialize_cross_sums();

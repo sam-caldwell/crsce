@@ -26,12 +26,23 @@ namespace crsce::testrunner::detail {
                         const std::filesystem::path &input, const std::string &hash) {
         std::error_code ec_isz;
         const auto in_sz = std::filesystem::file_size(input, ec_isz);
+        // Compute padded input size in bytes for full CRSCE blocks (511x511 bits per block)
+        const std::uint64_t raw_bytes = ec_isz ? 0ULL : static_cast<std::uint64_t>(in_sz);
+        static constexpr std::uint64_t S = 511ULL;
+        const std::uint64_t bits_per_block = S * S;
+        const std::uint64_t bits = raw_bytes * 8ULL;
+        const std::uint64_t blocks = (bits == 0ULL) ? 0ULL : ((bits + bits_per_block - 1ULL) / bits_per_block);
+        const std::uint64_t padded_bits = blocks * bits_per_block;
+        const std::uint64_t padded_bytes = (padded_bits + 7ULL) / 8ULL;
+        const std::uint64_t padding_bytes = (padded_bytes > raw_bytes) ? (padded_bytes - raw_bytes) : 0ULL;
         std::cout << "{\n"
                   << "  \"step\":\"hashInput\",\n"
                   << "  \"start\":" << start_ms << ",\n"
                   << "  \"end\":" << end_ms << ",\n"
                   << "  \"hashInput\":\"" << json_escape(input.string()) << "\",\n"
-                  << "  \"inputSize\":" << (ec_isz ? 0 : static_cast<std::uint64_t>(in_sz)) << ",\n"
+                  << "  \"rawInputSize\":" << raw_bytes << ",\n"
+                  << "  \"paddingSize\":" << padding_bytes << ",\n"
+                  << "  \"inputSize\":" << padded_bytes << ",\n"
                   << "  \"hash\":\"" << hash << "\"\n"
                   << "}\n";
         std::cout.flush();

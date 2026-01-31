@@ -46,10 +46,8 @@ inline bool verify_cross_sums(const crsce::decompress::Csm &csm,
                               const std::array<std::uint16_t, crsce::decompress::Csm::kS> &xsm) {
     using crsce::decompress::Csm;
     constexpr std::size_t S = Csm::kS;
-    auto diag_index = [](std::size_t r, std::size_t c) -> std::size_t { return (r + c) % S; };
-    auto xdiag_index = [](std::size_t r, std::size_t c) -> std::size_t {
-        return (r >= c) ? (r - c) : (r + S - c);
-    };
+    auto diag_index = [](std::size_t r, std::size_t c) -> std::size_t { return (c >= r) ? (c - r) : (c + S - r); };
+    auto xdiag_index = [](std::size_t r, std::size_t c) -> std::size_t { return (r + c) % S; };
 
     std::array<std::uint16_t, S> row{};
     std::array<std::uint16_t, S> col{};
