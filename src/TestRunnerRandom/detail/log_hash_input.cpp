@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <system_error>
 
 namespace crsce::testrunner::detail {
     /**
@@ -23,11 +24,14 @@ namespace crsce::testrunner::detail {
      */
     void log_hash_input(const std::int64_t start_ms, const std::int64_t end_ms,
                         const std::filesystem::path &input, const std::string &hash) {
+        std::error_code ec_isz;
+        const auto in_sz = std::filesystem::file_size(input, ec_isz);
         std::cout << "{\n"
                   << "  \"step\":\"hashInput\",\n"
                   << "  \"start\":" << start_ms << ",\n"
                   << "  \"end\":" << end_ms << ",\n"
                   << "  \"hashInput\":\"" << json_escape(input.string()) << "\",\n"
+                  << "  \"inputSize\":" << (ec_isz ? 0 : static_cast<std::uint64_t>(in_sz)) << ",\n"
                   << "  \"hash\":\"" << hash << "\"\n"
                   << "}\n";
         std::cout.flush();

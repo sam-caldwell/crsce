@@ -9,6 +9,8 @@
 #include <iostream>
 #include <filesystem>
 #include <string>
+#include <system_error>
+#include <cstdint>
 #include "testrunner/detail/proc_result.h"
 
 namespace crsce::testrunner::detail {
@@ -28,6 +30,8 @@ namespace crsce::testrunner::detail {
                         const std::string &input_hash,
                         const std::string &output_hash) {
         const auto elapsed = res.end_ms - res.start_ms;
+        std::error_code ec_osz;
+        const auto out_sz = std::filesystem::file_size(output, ec_osz);
         std::cout << "{\n"
                   << "  \"step\":\"decompress\",\n"
                   << "  \"start\":" << res.start_ms << ",\n"
@@ -35,6 +39,7 @@ namespace crsce::testrunner::detail {
                   << "  \"input\":\"" << json_escape(input.string()) << "\",\n"
                   << "  \"output\":\"" << json_escape(output.string()) << "\",\n"
                   << "  \"decompressTime\":" << elapsed << ",\n"
+                  << "  \"decompressedSize\":" << (ec_osz ? 0 : static_cast<std::uint64_t>(out_sz)) << ",\n"
                   << "  \"hashInput\":\"" << input_hash << "\",\n"
                   << "  \"hashOutput\":\"" << output_hash << "\"\n"
                   << "}\n";

@@ -9,6 +9,8 @@
 #include <iostream>
 #include <filesystem>
 #include <string>
+#include <system_error>
+#include <cstdint>
 #include "testrunner/detail/proc_result.h"
 
 namespace crsce::testrunner::detail {
@@ -26,6 +28,10 @@ namespace crsce::testrunner::detail {
                       const std::filesystem::path &output,
                       const std::string &input_hash) {
         const auto elapsed = res.end_ms - res.start_ms;
+        std::error_code ec_isz;
+        std::error_code ec_osz;
+        const auto in_sz = std::filesystem::file_size(input, ec_isz);
+        const auto out_sz = std::filesystem::file_size(output, ec_osz);
         std::cout << "{\n"
                   << "  \"step\":\"compress\",\n"
                   << "  \"start\":" << res.start_ms << ",\n"
@@ -33,6 +39,8 @@ namespace crsce::testrunner::detail {
                   << "  \"input\":\"" << json_escape(input.string()) << "\",\n"
                   << "  \"hashInput\":\"" << input_hash << "\",\n"
                   << "  \"output\":\"" << json_escape(output.string()) << "\",\n"
+                  << "  \"inputSize\":" << (ec_isz ? 0 : static_cast<std::uint64_t>(in_sz)) << ",\n"
+                  << "  \"compressedSize\":" << (ec_osz ? 0 : static_cast<std::uint64_t>(out_sz)) << ",\n"
                   << "  \"compressTime\":" << elapsed << "\n"
                   << "}\n";
         std::cout.flush();

@@ -9,6 +9,7 @@
 #include "testrunner/Cli/detail/generate_file.h"
 #include "testrunner/Cli/detail/generated_input.h"
 #include "testrunner/Cli/detail/process_case.h"
+#include "testrunner/detail/env.h"
 
 #include <filesystem>
 #include <system_error>
@@ -25,8 +26,10 @@ namespace crsce::testrunner::cli {
      * @return 0 on success; non-zero on failure.
      */
     int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
-        constexpr std::int64_t kCompressPerBlockMs = 1000;
-        constexpr std::int64_t kDecompressPerBlockMs = 2000;
+        const auto kCompressPerBlockMs = static_cast<std::int64_t>(
+            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_CX_MS", 1000ULL));
+        const auto kDecompressPerBlockMs = static_cast<std::int64_t>(
+            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_DX_MS", 5000ULL));
 
         std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
         const GeneratedInput gi = generate_file(out_dir);
