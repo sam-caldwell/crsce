@@ -54,7 +54,7 @@ namespace crsce::decompress {
         DeterministicElimination det{csm_out, st};
         GobpSolver gobp{csm_out, st, /*damping*/ 0.25, /*assign_confidence*/ 0.995};
 
-        constexpr int kMaxIters = 200;
+        constexpr int kMaxIters = 2000;
         for (int iter = 0; iter < kMaxIters; ++iter) {
             std::size_t progress = 0;
             progress += det.solve_step();
