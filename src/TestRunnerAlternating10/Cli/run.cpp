@@ -12,6 +12,7 @@
 #include "testrunner/Cli/detail/generated_input.h"
 #include "testrunner/Cli/detail/make_input.h"
 #include "testrunner/Cli/detail/process_case.h"
+#include "testrunner/detail/env.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -29,8 +30,10 @@ namespace crsce::testrunner_alternating10::cli {
      * @return 0 on success; non-zero on failure.
      */
     int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
-        constexpr std::int64_t kCompressPerBlockMs = 1000;
-        constexpr std::int64_t kDecompressPerBlockMs = 2000;
+        const auto kCompressPerBlockMs = static_cast<std::int64_t>(
+            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_CX_MS", 1000ULL));
+        const auto kDecompressPerBlockMs = static_cast<std::int64_t>(
+            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_DX_MS", 20000ULL));
 
         std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
         const auto ts = crsce::testrunner::detail::now_ms();
