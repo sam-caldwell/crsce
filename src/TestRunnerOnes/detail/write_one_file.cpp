@@ -37,4 +37,3 @@ namespace crsce::testrunner::detail {
         }
     }
 }
-

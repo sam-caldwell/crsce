@@ -49,3 +49,28 @@ ci/no-gobp-deterministic: build
 	  exit 1; \
 	fi; \
 	echo "--- ✅ CI check passed: deterministic logs are GOBP-free ---"
+.PHONY: ci/scan-logs-alternating
+ci/scan-logs-alternating: build
+	@echo "--- CI: scanning alternating logs for GOBP markers (non-fatal) ---"
+	@set -euo pipefail; \
+	TMPROOT="${TMPDIR:-/tmp}"; \
+	for DIR in "$(BUILD_DIR)/testRunnerAlternating01" "$(BUILD_DIR)/testRunnerAlternating10" \
+	           "$$TMPROOT/tralt01_cli" "$$TMPROOT/tralt10_cli"; do \
+	  if [ ! -d "$$DIR" ]; then \
+	    echo "SKIP: directory '$$DIR' not found"; \
+	    continue; \
+	  fi; \
+	  FILES=$$(find "$$DIR" -maxdepth 1 -type f -name "*.decompress.stderr.txt"); \
+	  if [ -z "$$FILES" ]; then \
+	    echo "SKIP: no decompressor stderr logs found in '$$DIR'"; \
+	    continue; \
+	  fi; \
+	  MATCHES=$$(grep -E -n -i -H -e "$(GOBP_MARKERS)" $$FILES || true); \
+	  if [ -n "$$MATCHES" ]; then \
+	    echo "WARN: GOBP-related markers detected in '$$DIR'"; \
+	    echo "$$MATCHES"; \
+	  else \
+	    echo "OK: no GOBP markers found in '$$DIR'"; \
+	  fi; \
+	done; \
+	echo "--- ✅ CI scan complete (non-fatal) ---"

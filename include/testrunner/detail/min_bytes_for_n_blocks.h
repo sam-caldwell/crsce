@@ -2,6 +2,7 @@
  * @file min_bytes_for_n_blocks.h
  * @brief Compute minimal bytes to span exactly N CRSCE blocks when packed row-major into 511x511 bits.
  * @author Sam Caldwell
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
@@ -16,4 +17,3 @@ namespace crsce::testrunner::detail {
      */
     std::uint64_t min_bytes_for_n_blocks(std::uint64_t nblocks) noexcept;
 }
-

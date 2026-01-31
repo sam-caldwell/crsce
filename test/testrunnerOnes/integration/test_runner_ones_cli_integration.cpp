@@ -58,4 +58,3 @@ TEST(TestRunnerOnes, CliEndToEnd) {
         EXPECT_TRUE(std::equal(a.begin(), a.end(), b.begin()));
     }
 }
-

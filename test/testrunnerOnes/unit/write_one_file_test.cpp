@@ -41,4 +41,3 @@ TEST(TestRunnerOnes, WriteOneFileVariousSizes) {
         }
     }
 }
-

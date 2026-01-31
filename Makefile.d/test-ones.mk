@@ -10,4 +10,3 @@ test/ones: build
 	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
 	"$(BUILD_DIR)/$(PRESET)/testRunnerOnes"
 	@echo "--- ✅ testRunnerOnes complete ---"
-

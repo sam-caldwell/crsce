@@ -17,4 +17,3 @@ namespace crsce::testrunner_ones::cli {
      */
     int run(const std::filesystem::path &out_dir);
 }
-

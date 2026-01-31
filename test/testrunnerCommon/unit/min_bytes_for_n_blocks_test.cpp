@@ -19,4 +19,3 @@ TEST(TestRunnerCommon, MinBytesForNBlocksBasicCases) {
     const std::uint64_t two = (bits_per_block + 1ULL + 7ULL) / 8ULL;
     EXPECT_EQ(min_bytes_for_n_blocks(2), two);
 }
-

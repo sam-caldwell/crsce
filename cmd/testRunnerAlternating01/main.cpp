@@ -20,4 +20,3 @@ int main() try {
     std::cerr << "testRunnerAlternating01 error: unknown exception" << '\n';
     return 1;
 }
-

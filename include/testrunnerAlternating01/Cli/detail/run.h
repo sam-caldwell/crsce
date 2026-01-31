@@ -2,6 +2,7 @@
  * @file run.h
  * @brief Entry for TestRunnerAlternating01 CLI pipeline.
  * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 
@@ -16,4 +17,3 @@ namespace crsce::testrunner_alternating01::cli {
      */
     int run(const std::filesystem::path &out_dir);
 }
-

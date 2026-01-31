@@ -21,4 +21,3 @@ namespace crsce::testrunner::cli {
      */
     GeneratedInput make_input(const std::filesystem::path &in_path, std::uint64_t in_bytes);
 }
-

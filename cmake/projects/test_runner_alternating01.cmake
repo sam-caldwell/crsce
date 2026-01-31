@@ -12,4 +12,3 @@ target_include_directories(testRunnerAlternating01 PUBLIC
 target_compile_definitions(testRunnerAlternating01 PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
 
 target_link_libraries(testRunnerAlternating01 PRIVATE crsce_static)
-

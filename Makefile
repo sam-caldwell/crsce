@@ -26,6 +26,7 @@ help:
 	@echo "  deps      - Discover and build all tools/** CMake projects"
 	@echo "  test      - Build and run all test programs"
 	@echo "  test/{ones, zeroes, random, alternating01, alternating10} - Run only a given test runner"
+	@echo "  ci/scan-logs-alternating - Non-fatal GOBP scan on alternating logs (if present)"
 	@echo "  ci/no-gobp-deterministic - Verify zeroes/ones decompressor logs contain no GOBP markers"
 	@echo "  cover     - Ensure minimum test coverage threshold is maintained"
 	@echo "  ready     - Check development environment prerequisites"

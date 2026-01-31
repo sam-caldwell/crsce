@@ -2,6 +2,7 @@
  * @file run.cpp
  * @brief Implements the TestRunnerAlternating10 pipeline: generate 0xAA inputs for specific blocks, hash, compress, decompress, and validate.
  * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunnerAlternating10/Cli/detail/run.h"
 
@@ -21,6 +22,12 @@
 namespace fs = std::filesystem;
 
 namespace crsce::testrunner_alternating10::cli {
+    /**
+     * @name run
+     * @brief Execute 0xAA-filled tests for 1/5/10/20 blocks.
+     * @param out_dir Output directory where artifacts and logs are written.
+     * @return 0 on success; non-zero on failure.
+     */
     int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
         constexpr std::int64_t kCompressPerBlockMs = 1000;
         constexpr std::int64_t kDecompressPerBlockMs = 2000;
@@ -48,4 +55,3 @@ namespace crsce::testrunner_alternating10::cli {
         return 0;
     }
 }
-

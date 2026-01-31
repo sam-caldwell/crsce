@@ -10,4 +10,3 @@ test/alternating01: build
 	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
 	"$(BUILD_DIR)/$(PRESET)/testRunnerAlternating01"
 	@echo "--- ✅ testRunnerAlternating01 complete ---"
-

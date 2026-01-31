@@ -20,4 +20,3 @@ int main() try {
     std::cerr << "testRunnerOnes error: unknown exception" << '\n';
     return 1;
 }
-

@@ -2,6 +2,7 @@
  * @file process_case.h
  * @brief Shared helper: compress -> decompress -> verify for a single test case.
  * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -29,4 +30,3 @@ namespace crsce::testrunner::cli {
                       std::int64_t compress_per_block_ms,
                       std::int64_t decompress_per_block_ms);
 }
-

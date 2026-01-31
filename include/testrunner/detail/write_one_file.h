@@ -18,4 +18,3 @@ namespace crsce::testrunner::detail {
      */
     void write_one_file(const std::filesystem::path &p, std::uint64_t bytes);
 }
-

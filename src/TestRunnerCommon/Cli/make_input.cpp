@@ -2,6 +2,7 @@
  * @file make_input.cpp
  * @brief Implement make_input: compute SHA-512, blocks, and log for an existing file.
  * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/Cli/detail/make_input.h"
 
@@ -15,6 +16,13 @@
 #include <string>
 
 namespace crsce::testrunner::cli {
+    /**
+     * @name make_input
+     * @brief Compute metadata for an existing input file and log the hash timing.
+     * @param in_path Absolute path of the input file.
+     * @param in_bytes Size of the input file in bytes (precomputed by caller).
+     * @return GeneratedInput containing path, bytes, blocks, and sha512.
+     */
     GeneratedInput make_input(const std::filesystem::path &in_path, const std::uint64_t in_bytes) {
         const auto hash_start = detail::now_ms();
         const std::string input_sha512 = detail::compute_sha512(in_path);
