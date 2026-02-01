@@ -4,7 +4,7 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/now_ms.h"
+#include "testRunnerRandom/detail/now_ms.h"
 #include <chrono>
 #include <cstdint>
 

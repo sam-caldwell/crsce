@@ -4,12 +4,12 @@
  * @author Sam Caldwell
   * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testrunner/Cli/detail/evaluate_hashes.h"
+#include "testRunnerRandom/Cli/detail/evaluate_hashes.h"
 
 #include "common/exceptions/PossibleCollisionException.h"
 #include <string>
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name evaluate_hashes
      * @brief Throw if hashes mismatch; return otherwise.

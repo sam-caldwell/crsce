@@ -11,7 +11,7 @@
 #include <string>
 #include "testRunnerRandom/detail/proc_result.h"
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name compress_file
      * @brief Invoke compress, write stdio artifacts, log, and enforce timeout.

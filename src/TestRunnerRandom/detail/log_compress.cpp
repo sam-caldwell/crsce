@@ -4,14 +4,14 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/log_compress.h"
-#include "testrunner/detail/json_escape.h"
+#include "testRunnerRandom/detail/log_compress.h"
+#include "testRunnerRandom/detail/json_escape.h"
 #include <iostream>
 #include <filesystem>
 #include <string>
 #include <system_error>
 #include <cstdint>
-#include "testrunner/detail/proc_result.h"
+#include "testRunnerRandom/detail/proc_result.h"
 
 namespace crsce::testrunner::detail {
     /**

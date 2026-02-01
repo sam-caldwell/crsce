@@ -15,6 +15,7 @@
 #include <string>
 #include <cstddef>
 #include <cstdio>
+#include <sys/stat.h>
 
 namespace crsce::compress::cli {
     /**
@@ -43,6 +44,16 @@ namespace crsce::compress::cli {
                 return vrc;
             }
             const auto &[input, output, help] = parser.options();
+
+            // Pre-flight: reject empty files as not suitable for CRSCE.
+            struct stat st{};
+            if (stat(input.c_str(), &st) == 0 && st.st_size == 0) {
+                std::println(stderr,
+                             "error: input file '{}' is not big enough to compress with CRSCE.\n"
+                             "       Consider using LZMA, GZIP, or BZIP2 instead.",
+                             input);
+                return 42;
+            }
 
             if (crsce::compress::Compress cx(input, output); !cx.compress_file()) {
                 std::println(stderr, "error: compression failed");

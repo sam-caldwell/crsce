@@ -4,11 +4,11 @@
  * @author Sam Caldwell
  * © Sam Caldwell. See LICENSE.txt for details.
  */
-#include "testrunner/Cli/detail/extract_exit_code.h"
+#include "testRunnerRandom/Cli/detail/extract_exit_code.h"
 
 #include <string>
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name extract_exit_code
      * @brief Parse the trailing integer from a message (e.g., "... code 4").

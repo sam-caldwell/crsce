@@ -9,9 +9,9 @@
 #include <cstdint>
 #include <filesystem>
 
-#include "testrunner/Cli/detail/generated_input.h"
+#include "testRunnerRandom/Cli/detail/generated_input.h"
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name make_input
      * @brief Compute SHA-512 and blocks metadata for an input file and log the hash timing.

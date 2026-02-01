@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include "testrunner/detail/proc_result.h"
+#include "testRunnerRandom/detail/proc_result.h"
 
 namespace crsce::testrunner::detail {
     /**

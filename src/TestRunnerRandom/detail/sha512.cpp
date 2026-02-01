@@ -4,8 +4,8 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/sha512.h"
-#include "testrunner/detail/run_process.h"
+#include "testRunnerRandom/detail/sha512.h"
+#include "testRunnerRandom/detail/run_process.h"
 #include "common/exceptions/Sha512UnavailableException.h"
 #include <optional>
 #include <string>

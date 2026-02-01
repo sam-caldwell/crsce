@@ -7,9 +7,9 @@
 #pragma once
 
 #include <filesystem>
-#include "testrunner/Cli/detail/generated_input.h"
+#include "testRunnerRandom/Cli/detail/generated_input.h"
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name generate_random_file
      * @brief Create a random input file, compute SHA-512, and log.

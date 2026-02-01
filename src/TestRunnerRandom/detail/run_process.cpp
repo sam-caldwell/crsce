@@ -4,10 +4,10 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/run_process.h"
-#include "testrunner/detail/proc_result.h"
-#include "testrunner/detail/read_file_text.h"
-#include "testrunner/detail/now_ms.h"
+#include "testRunnerRandom/detail/run_process.h"
+#include "testRunnerRandom/detail/proc_result.h"
+#include "testRunnerRandom/detail/read_file_text.h"
+#include "testRunnerRandom/detail/now_ms.h"
 #include <cstdlib>
 #include <random>
 #include <cstdint>

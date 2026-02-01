@@ -11,9 +11,9 @@
 #include <system_error>
 #include <string>
 
-#include "testrunner/Cli/detail/compress_file.h"
-#include "testrunner/Cli/detail/decompress_file.h"
-#include "testrunner/detail/sha512.h"
+#include "testRunnerRandom/Cli/detail/compress_file.h"
+#include "testRunnerRandom/Cli/detail/decompress_file.h"
+#include "testRunnerRandom/detail/sha512.h"
 #include "helpers/tmp_dir.h"
 
 namespace fs = std::filesystem;
@@ -42,8 +42,8 @@ TEST(TestRunnerRandom, DecompressFileSucceedsWritesArtifacts) {
     }
     write_small_file(in);
     const auto in_hash = crsce::testrunner::detail::compute_sha512(in);
-    (void)crsce::testrunner::cli::compress_file(in, cx, in_hash, 5000);
-    const auto out_hash = crsce::testrunner::cli::decompress_file(cx, dx, in_hash, 5000);
+    (void)crsce::testrunner_random::cli::compress_file(in, cx, in_hash, 5000);
+    const auto out_hash = crsce::testrunner_random::cli::decompress_file(cx, dx, in_hash, 5000);
     ASSERT_TRUE(fs::exists(dx));
     EXPECT_EQ(out_hash, in_hash);
     ASSERT_TRUE(fs::exists(fs::path(cx).replace_extension(".decompress.stdout.txt")));

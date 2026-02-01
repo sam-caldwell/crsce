@@ -6,12 +6,12 @@
  */
 #include "testrunnerOnes/Cli/detail/run.h"
 
-#include "testrunner/detail/now_ms.h"
-#include "testrunner/detail/min_bytes_for_n_blocks.h"
-#include "testrunner/detail/write_one_file.h"
-#include "testrunner/Cli/detail/generated_input.h"
-#include "testrunner/Cli/detail/make_input.h"
-#include "testrunner/Cli/detail/process_case.h"
+#include "testRunnerRandom/detail/now_ms.h"
+#include "testRunnerRandom/detail/min_bytes_for_n_blocks.h"
+#include "testRunnerRandom/detail/write_one_file.h"
+#include "testRunnerRandom/Cli/detail/generated_input.h"
+#include "testRunnerRandom/Cli/detail/make_input.h"
+#include "testRunnerRandom/Cli/detail/process_case.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -43,14 +43,14 @@ namespace crsce::testrunner_ones::cli {
             const fs::path in_path = out_dir / ("ones_input_" + suffix + "_" + std::to_string(ts) + ".bin");
 
             crsce::testrunner::detail::write_one_file(in_path, in_bytes);
-            const auto gi = crsce::testrunner::cli::make_input(in_path, in_bytes);
-            const crsce::testrunner::cli::GeneratedInput gi_fixed{
+            const auto gi = crsce::testrunner_random::cli::make_input(in_path, in_bytes);
+            const crsce::testrunner_random::cli::GeneratedInput gi_fixed{
                 .path = gi.path,
                 .bytes = gi.bytes,
                 .blocks = nblocks,
                 .sha512 = gi.sha512,
             };
-            crsce::testrunner::cli::process_case(out_dir, "ones", suffix, gi_fixed,
+            crsce::testrunner_random::cli::process_case(out_dir, "ones", suffix, gi_fixed,
                                                  kCompressPerBlockMs, kDecompressPerBlockMs);
         }
         return 0;

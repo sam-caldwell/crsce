@@ -4,21 +4,20 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/Cli/detail/run.h"
+#include "testRunnerRandom/Cli/detail/run.h"
 
-#include "testrunner/Cli/detail/generate_file.h"
-#include "testrunner/Cli/detail/generated_input.h"
-#include "testrunner/Cli/detail/process_case.h"
-#include "testrunner/detail/env.h"
+#include "testRunnerRandom/Cli/detail/generate_file.h"
+#include "testRunnerRandom/Cli/detail/generated_input.h"
+#include "testRunnerRandom/Cli/detail/process_case.h"
 
 #include <filesystem>
 #include <system_error>
-#include <cstdint>
+#include <cstdint> //NOLINT
 #include <string>
 
 namespace fs = std::filesystem;
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name run
      * @brief Execute the random test runner end-to-end.
@@ -38,7 +37,7 @@ namespace crsce::testrunner::cli {
         fs::create_directories(out_dir, ec_mk);
         const GeneratedInput random_input_file = generate_random_file(out_dir, min_bytes, max_bytes);
 
-        crsce::testrunner::cli::process_case(out_dir, "random", "", random_input_file,
+        crsce::testrunner_random::cli::process_case(out_dir, "random", "", random_input_file,
                                              kCompressPerBlockMs, kDecompressPerBlockMs);
         return 0;
     }

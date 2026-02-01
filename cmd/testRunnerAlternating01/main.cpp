@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 #include <cstdint>
-#include "testrunner/detail/json_escape.h"
-#include "testrunner/Cli/detail/extract_exit_code.h"
+#include "testRunnerRandom/detail/json_escape.h"
+#include "testRunnerRandom/Cli/detail/extract_exit_code.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
 
-using crsce::testrunner::cli::extract_exit_code;
+using crsce::testrunner_random::cli::extract_exit_code;
 
 int main() try {
     namespace fs = std::filesystem;

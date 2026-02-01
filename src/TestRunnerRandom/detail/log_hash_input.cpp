@@ -4,8 +4,8 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/log_hash_input.h"
-#include "testrunner/detail/json_escape.h"
+#include "testRunnerRandom/detail/log_hash_input.h"
+#include "testRunnerRandom/detail/json_escape.h"
 #include <iostream>
 #include <cstdint>
 #include <filesystem>

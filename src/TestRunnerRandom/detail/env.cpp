@@ -4,7 +4,7 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/env.h"
+#include "testRunnerRandom/detail/env.h"
 #include <cstdlib>
 #include <cstdint>
 #include <string>

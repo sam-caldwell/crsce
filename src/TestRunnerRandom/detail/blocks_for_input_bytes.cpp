@@ -4,7 +4,7 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/blocks_for_input_bytes.h"
+#include "testRunnerRandom/detail/blocks_for_input_bytes.h"
 #include <cstdint>
 
 namespace crsce::testrunner::detail {

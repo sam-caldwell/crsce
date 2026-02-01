@@ -4,7 +4,7 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/json_escape.h"
+#include "testRunnerRandom/detail/json_escape.h"
 #include <iomanip>
 #include <ios>
 #include <sstream>

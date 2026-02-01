@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name run
      * @brief Execute the random test runner with explicit size bounds.

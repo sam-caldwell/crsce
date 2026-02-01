@@ -6,9 +6,9 @@
 
 #include <cstdlib>
 #include <filesystem>
-#include "testrunner/Cli/detail/generate_file.h"
-#include "testrunner/Cli/detail/generated_input.h"
-#include "testrunner/detail/sha512.h"
+#include "testRunnerRandom/Cli/detail/generate_file.h"
+#include "testRunnerRandom/Cli/detail/generated_input.h"
+#include "testRunnerRandom/detail/sha512.h"
 #include "helpers/tmp_dir.h"
 
 namespace fs = std::filesystem;
@@ -16,7 +16,7 @@ namespace fs = std::filesystem;
 TEST(TestRunnerRandom, GenerateFileCreatesFileAndComputesHash) {
     const fs::path out_dir = fs::path(tmp_dir()) / "trr_gen";
     fs::create_directories(out_dir);
-    const auto gi = crsce::testrunner::cli::generate_random_file(out_dir);
+    const auto gi = crsce::testrunner_random::cli::generate_random_file(out_dir);
 
     ASSERT_TRUE(fs::exists(gi.path));
     EXPECT_GE(gi.blocks, 1ULL);
@@ -28,7 +28,7 @@ TEST(TestRunnerRandom, GenerateFileRespectsBoundsWhenEqual) {
     const fs::path out_dir = fs::path(tmp_dir()) / "trr_gen_fixed";
     fs::create_directories(out_dir);
     // Force a fixed size via explicit bounds
-    const auto gi = crsce::testrunner::cli::generate_random_file(out_dir, 65536ULL, 65536ULL);
+    const auto gi = crsce::testrunner_random::cli::generate_random_file(out_dir, 65536ULL, 65536ULL);
 
     ASSERT_TRUE(fs::exists(gi.path));
     EXPECT_EQ(gi.bytes, 65536ULL);

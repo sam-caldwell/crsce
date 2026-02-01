@@ -11,7 +11,7 @@
 #include <string>
 #include <optional>
 
-#include "testrunner/detail/run_process.h"
+#include "testRunnerRandom/detail/run_process.h"
 #include "helpers/tmp_dir.h"
 
 namespace fs = std::filesystem;

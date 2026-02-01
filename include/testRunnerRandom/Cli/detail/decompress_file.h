@@ -10,7 +10,7 @@
 #include <filesystem>
 #include <string>
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name decompress_file
      * @brief Invoke decompress, write stdio artifacts, compute SHA-512 of output, and log.

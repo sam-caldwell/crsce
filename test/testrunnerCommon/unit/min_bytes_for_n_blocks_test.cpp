@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include "testrunner/detail/min_bytes_for_n_blocks.h"
+#include "testRunnerRandom/detail/min_bytes_for_n_blocks.h"
 #include "decompress/Csm/detail/Csm.h"
 
 TEST(TestRunnerCommon, MinBytesForNBlocksBasicCases) {

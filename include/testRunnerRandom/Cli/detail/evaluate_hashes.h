@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name evaluate_hashes
      * @brief Throw if hashes mismatch; return otherwise.

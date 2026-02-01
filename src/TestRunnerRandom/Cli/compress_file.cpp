@@ -3,13 +3,13 @@
  * @brief Run compress, write artifacts, log, and enforce timeout.
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/Cli/detail/compress_file.h"
+#include "testRunnerRandom/Cli/detail/compress_file.h"
 
-#include "testrunner/detail/proc_result.h"
-#include "testrunner/detail/run_process.h"
-#include "testrunner/detail/log_compress.h"
-#include "testrunner/detail/json_escape.h"
-#include "testrunner/detail/files.h"
+#include "testRunnerRandom/detail/proc_result.h"
+#include "testRunnerRandom/detail/run_process.h"
+#include "testRunnerRandom/detail/log_compress.h"
+#include "testRunnerRandom/detail/json_escape.h"
+#include "testRunnerRandom/detail/files.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
 #include "common/exceptions/CompressTimeoutException.h"
 
@@ -25,7 +25,7 @@
 
 namespace fs = std::filesystem;
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name compress_file
      * @brief Invoke compress, write stdio artifacts, log, and enforce timeout.

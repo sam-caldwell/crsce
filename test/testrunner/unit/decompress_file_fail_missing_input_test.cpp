@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <string>
 
-#include "testrunner/Cli/detail/decompress_file.h"
+#include "testRunnerRandom/Cli/detail/decompress_file.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "helpers/tmp_dir.h"
 
@@ -23,7 +23,7 @@ TEST(TestRunnerRandom, DecompressFileFailsOnMissingInputWritesArtifacts) {
     const fs::path cx = td / "missing.crsce";
     const fs::path dx = td / "out.bin";
     EXPECT_THROW({
-        (void)crsce::testrunner::cli::decompress_file(cx, dx, "nohash", 5000);
+        (void)crsce::testrunner_random::cli::decompress_file(cx, dx, "nohash", 5000);
     }, crsce::common::exceptions::DecompressNonZeroExitException);
     ASSERT_TRUE(fs::exists(fs::path(cx).replace_extension(".decompress.stdout.txt")));
     ASSERT_TRUE(fs::exists(fs::path(cx).replace_extension(".decompress.stderr.txt")));

@@ -4,7 +4,7 @@
  * @author Sam Caldwell
   * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testrunner/detail/write_alternating10_file.h"
+#include "testRunnerRandom/detail/write_alternating10_file.h"
 #include <filesystem>
 #include <fstream>
 #include <ios>

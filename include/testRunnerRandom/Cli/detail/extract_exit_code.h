@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name extract_exit_code
      * @brief Extract the last integer token from a message as an exit code; fallback to def_code.

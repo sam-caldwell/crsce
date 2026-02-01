@@ -4,8 +4,8 @@
  */
 #include <gtest/gtest.h>
 
-#include "testrunner/Cli/detail/evaluate_hashes.h"
+#include "testRunnerRandom/Cli/detail/evaluate_hashes.h"
 
 TEST(TestRunnerRandom, EvaluateHashesNoThrowOnMatch) {
-    EXPECT_NO_THROW({ crsce::testrunner::cli::evaluate_hashes("abc", "abc"); });
+    EXPECT_NO_THROW({ crsce::testrunner_random::cli::evaluate_hashes("abc", "abc"); });
 }

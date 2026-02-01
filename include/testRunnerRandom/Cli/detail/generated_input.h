@@ -10,7 +10,7 @@
 #include <filesystem>
 #include <string>
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name GeneratedInput
      * @brief Metadata produced by random input generator.

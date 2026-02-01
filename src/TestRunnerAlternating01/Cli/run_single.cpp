@@ -6,13 +6,13 @@
  */
 #include "testrunnerAlternating01/Cli/detail/run_single.h"
 
-#include "testrunner/detail/now_ms.h"
-#include "testrunner/detail/min_bytes_for_n_blocks.h"
-#include "testrunner/detail/write_alternating01_file.h"
-#include "testrunner/Cli/detail/generated_input.h"
-#include "testrunner/Cli/detail/make_input.h"
-#include "testrunner/Cli/detail/process_case.h"
-#include "testrunner/detail/env.h"
+#include "testRunnerRandom/detail/now_ms.h"
+#include "testRunnerRandom/detail/min_bytes_for_n_blocks.h"
+#include "testRunnerRandom/detail/write_alternating01_file.h"
+#include "testRunnerRandom/Cli/detail/generated_input.h"
+#include "testRunnerRandom/Cli/detail/make_input.h"
+#include "testRunnerRandom/Cli/detail/process_case.h"
+#include "testRunnerRandom/detail/env.h"
 #include "testrunnerAlternating01/Cli/detail/preflight.h"
 
 #include <cstdint>
@@ -43,8 +43,8 @@ namespace crsce::testrunner_alternating01::cli {
         const fs::path in_path = out_dir / ("alternating01_input_" + suffix + "_" + std::to_string(ts) + ".bin");
 
         crsce::testrunner::detail::write_alternating01_file(in_path, in_bytes);
-        const auto gi = crsce::testrunner::cli::make_input(in_path, in_bytes);
-        const crsce::testrunner::cli::GeneratedInput gi_fixed{
+        const auto gi = crsce::testrunner_random::cli::make_input(in_path, in_bytes);
+        const crsce::testrunner_random::cli::GeneratedInput gi_fixed{
             .path = gi.path,
             .bytes = gi.bytes,
             .blocks = blocks,
@@ -52,7 +52,7 @@ namespace crsce::testrunner_alternating01::cli {
         };
         // Preflight check (only when we have at least one full block available)
         preflight_check_alternating01(gi_fixed.path, gi_fixed.bytes);
-        crsce::testrunner::cli::process_case(out_dir, "alternating01", suffix, gi_fixed,
+        crsce::testrunner_random::cli::process_case(out_dir, "alternating01", suffix, gi_fixed,
                                              kCompressPerBlockMs, kDecompressPerBlockMs);
         return 0;
     }

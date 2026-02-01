@@ -10,9 +10,9 @@
 #include <filesystem>
 #include <string>
 
-#include "testrunner/Cli/detail/generated_input.h"
+#include "testRunnerRandom/Cli/detail/generated_input.h"
 
-namespace crsce::testrunner::cli {
+namespace crsce::testrunner_random::cli {
     /**
      * @name process_case
      * @brief Run compress/decompress and verify hashes for one GeneratedInput, using standard naming.

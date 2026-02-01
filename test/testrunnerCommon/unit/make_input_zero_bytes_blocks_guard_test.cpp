@@ -7,7 +7,7 @@
 #include <fstream>
 #include <ios>
 
-#include "testrunner/Cli/detail/make_input.h"
+#include "testRunnerRandom/Cli/detail/make_input.h"
 #include "helpers/tmp_dir.h"
 
 namespace fs = std::filesystem;
@@ -20,7 +20,7 @@ TEST(TestRunnerCommon, MakeInputZeroBytesSetsBlocksToOne) {
     std::ofstream os(p, std::ios::binary); // zero-length
     os.close();
 
-    const auto gi = crsce::testrunner::cli::make_input(p, 0ULL);
+    const auto gi = crsce::testrunner_random::cli::make_input(p, 0ULL);
     ASSERT_EQ(gi.path, p);
     EXPECT_EQ(gi.bytes, 0ULL);
     EXPECT_EQ(gi.blocks, 1ULL); // clamped

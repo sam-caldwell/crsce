@@ -3,7 +3,7 @@
  * @brief CLI entry for TestRunnerRandom; delegates to testrunner::cli::run().
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "testrunner/Cli/detail/run.h"
+#include "testRunnerRandom/Cli/detail/run.h"
 #include <exception>
 #include <iostream>
 #include <filesystem>
@@ -12,12 +12,12 @@
 #include <span>
 #include <cstddef>
 #include <algorithm>
-#include "testrunner/detail/json_escape.h"
-#include "testrunner/Cli/detail/extract_exit_code.h"
+#include "testRunnerRandom/detail/json_escape.h"
+#include "testRunnerRandom/Cli/detail/extract_exit_code.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
 
-using crsce::testrunner::cli::extract_exit_code;
+using crsce::testrunner_random::cli::extract_exit_code;
 
 /**
  * @brief Program entry point for testRunnerRandom CLI.
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) try {
     }
 
     max_bytes = std::max(max_bytes, min_bytes);
-    return crsce::testrunner::cli::run(out_dir, min_bytes, max_bytes);
+    return crsce::testrunner_random::cli::run(out_dir, min_bytes, max_bytes);
 
 } catch (const crsce::common::exceptions::DecompressNonZeroExitException &e) {
     const int code = extract_exit_code(e.what(), 4);

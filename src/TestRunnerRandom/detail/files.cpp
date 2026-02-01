@@ -4,7 +4,7 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/files.h"
+#include "testRunnerRandom/detail/files.h"
 #include <fstream>
 #include <filesystem>
 #include <string_view>

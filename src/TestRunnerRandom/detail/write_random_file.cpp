@@ -4,7 +4,7 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testrunner/detail/write_random_file.h"
+#include "testRunnerRandom/detail/write_random_file.h"
 #include "common/exceptions/InputOpenException.h"
 #include "common/exceptions/FileWriteException.h"
 #include <filesystem>

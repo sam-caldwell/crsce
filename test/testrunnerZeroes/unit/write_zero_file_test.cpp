@@ -13,7 +13,7 @@
 #include <iterator>
 #include <string>
 
-#include "testrunner/detail/write_zero_file.h"
+#include "testRunnerRandom/detail/write_zero_file.h"
 #include "helpers/tmp_dir.h"
 
 namespace fs = std::filesystem;
