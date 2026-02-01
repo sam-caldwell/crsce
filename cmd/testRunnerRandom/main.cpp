@@ -8,6 +8,10 @@
 #include <iostream>
 #include <filesystem>
 #include <string>
+#include <cstdint>
+#include <span>
+#include <cstddef>
+#include <algorithm>
 #include "testrunner/detail/json_escape.h"
 #include "testrunner/Cli/detail/extract_exit_code.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
@@ -19,12 +23,29 @@ using crsce::testrunner::cli::extract_exit_code;
  * @brief Program entry point for testRunnerRandom CLI.
  * @return Process exit code (0 on success, non-zero represents an error state).
  */
-int main() try {
+int main(int argc, char *argv[]) try {
+
     namespace fs = std::filesystem;
     const fs::path bin_dir{TEST_BINARY_DIR};
     const fs::path root = bin_dir.has_parent_path() ? bin_dir.parent_path() : bin_dir;
     const fs::path out_dir = root / "testRunnerRandom";
-    return crsce::testrunner::cli::run(out_dir);
+
+    // Optional args: --min-bytes <N> --max-bytes <N>
+    std::uint64_t min_bytes = 1024ULL;                          // 1 KiB
+    std::uint64_t max_bytes = 1024ULL * 1024ULL * 1024ULL;      // 1 GiB
+
+    const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
+    for (std::size_t i = 1; i < args.size(); ++i) {
+        if (const std::string arg = args[i]; arg == "--min-bytes" && (i + 1) < args.size()) {
+            min_bytes = static_cast<std::uint64_t>(std::stoull(args[++i]));
+        } else if (arg == "--max-bytes" && (i + 1) < args.size()) {
+            max_bytes = static_cast<std::uint64_t>(std::stoull(args[++i]));
+        }
+    }
+
+    max_bytes = std::max(max_bytes, min_bytes);
+    return crsce::testrunner::cli::run(out_dir, min_bytes, max_bytes);
+
 } catch (const crsce::common::exceptions::DecompressNonZeroExitException &e) {
     const int code = extract_exit_code(e.what(), 4);
     std::cout << "{\n"

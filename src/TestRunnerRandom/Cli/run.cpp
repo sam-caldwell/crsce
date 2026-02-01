@@ -23,17 +23,22 @@ namespace crsce::testrunner::cli {
      * @name run
      * @brief Execute the random test runner end-to-end.
      * @param out_dir Output directory where artifacts and logs are written.
+     * @param min_bytes
+     * @param max_bytes
      * @return 0 on success; non-zero on failure.
      */
-    int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
-        const auto kCompressPerBlockMs = static_cast<std::int64_t>(
-            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_CX_MS", 1000ULL));
-        const auto kDecompressPerBlockMs = static_cast<std::int64_t>(
-            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_DX_MS", 20000ULL));
+    int run(const std::filesystem::path &out_dir,
+            const std::uint64_t min_bytes,
+            const std::uint64_t max_bytes) { // NOLINT(misc-use-internal-linkage)
 
-        std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
-        const GeneratedInput gi = generate_file(out_dir);
-        crsce::testrunner::cli::process_case(out_dir, "random", "", gi,
+        constexpr auto kCompressPerBlockMs = 1000ULL;
+        constexpr auto kDecompressPerBlockMs = 20000ULL;
+
+        std::error_code ec_mk;
+        fs::create_directories(out_dir, ec_mk);
+        const GeneratedInput random_input_file = generate_random_file(out_dir, min_bytes, max_bytes);
+
+        crsce::testrunner::cli::process_case(out_dir, "random", "", random_input_file,
                                              kCompressPerBlockMs, kDecompressPerBlockMs);
         return 0;
     }

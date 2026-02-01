@@ -13,7 +13,7 @@
 namespace crsce::testrunner::cli {
     /**
      * @name GeneratedInput
-     * @brief Metadata produced by generate_file().
+     * @brief Metadata produced by random input generator.
      */
     struct GeneratedInput {
         std::filesystem::path path;

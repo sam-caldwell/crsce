@@ -9,6 +9,13 @@
 #include "testrunner/detail/read_file_text.h"
 #include "testrunner/detail/now_ms.h"
 #include <cstdlib>
+#include <random>
+#include <cstdint>
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#include <process.h>
+#endif
 #include <filesystem>
 #include <string>
 #include <sstream>
@@ -37,8 +44,21 @@ namespace crsce::testrunner::detail {
         const auto ts = now_ms();
         const fs::path tmp_dir = fs::path(".testrunner_");
         std::error_code ec_dir; fs::create_directories(tmp_dir, ec_dir);
-        const fs::path out_tmp = tmp_dir / (std::to_string(ts) + ".stdout.txt");
-        const fs::path err_tmp = tmp_dir / (std::to_string(ts) + ".stderr.txt");
+        // Construct a unique base name to avoid collisions under parallel test runs.
+        std::uint64_t pid = 0ULL;
+#ifdef _WIN32
+        pid = static_cast<std::uint64_t>(_getpid());
+#else
+        pid = static_cast<std::uint64_t>(getpid());
+#endif
+        std::random_device rd;
+        const std::uint64_t rnd =
+            (static_cast<std::uint64_t>(rd()) << 32U) ^ static_cast<std::uint64_t>(rd());
+        const std::string base = std::to_string(static_cast<std::uint64_t>(ts))
+                                 + "_" + std::to_string(pid)
+                                 + "_" + std::to_string(rnd);
+        const fs::path out_tmp = tmp_dir / (base + ".stdout.txt");
+        const fs::path err_tmp = tmp_dir / (base + ".stderr.txt");
 
     #ifdef _WIN32
         std::ostringstream full;

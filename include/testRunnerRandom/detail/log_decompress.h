@@ -8,7 +8,7 @@
 
 #include <filesystem>
 #include <string>
-#include "testrunner/detail/proc_result.h"
+#include "testRunnerRandom/detail/proc_result.h"
 
 namespace crsce::testrunner::detail {
     /**

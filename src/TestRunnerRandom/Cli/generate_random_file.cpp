@@ -1,5 +1,5 @@
 /**
- * @file generate_file.cpp
+ * @file generate_random_file.cpp
  * @brief Generate random input, compute hash, and log step.
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
@@ -7,7 +7,6 @@
 #include "testrunner/Cli/detail/generate_file.h"
 
 #include "testrunner/Cli/detail/generated_input.h"
-#include "testrunner/detail/env.h"
 #include "testrunner/detail/now_ms.h"
 #include "testrunner/detail/write_random_file.h"
 #include "testrunner/detail/sha512.h"
@@ -15,7 +14,7 @@
 #include "testrunner/detail/blocks_for_input_bytes.h"
 
 #include <algorithm>
-#include <cstdint>
+#include <cstdint> //NOLINT
 #include <filesystem>
 #include <random>
 #include <string>
@@ -24,30 +23,21 @@ namespace fs = std::filesystem;
 
 namespace crsce::testrunner::cli {
     /**
-     * @name generate_file
+     * @name generate_random_file
      * @brief Create a random input file, compute SHA-512, and log.
      * @param out_dir
+     * @param min_bytes
+     * @param max_bytes
      * @return GeneratedInput
      */
-    GeneratedInput generate_file(const std::filesystem::path &out_dir) {
+    GeneratedInput generate_random_file(const std::filesystem::path &out_dir,
+                                        std::uint64_t min_bytes,
+                                        std::uint64_t max_bytes) {
         std::random_device rd;
         std::mt19937_64 rng(rd());
 
-        constexpr std::uint64_t kKB = 1024ULL;
-        constexpr std::uint64_t kGB = kKB * kKB * kKB;
-        // Keep the minimum default small so callers (tests/targets) can control size precisely
-        // via CRSCE_TESTRUNNER_MIN_BYTES/MAX_BYTES without being clamped up to large values.
-        constexpr std::uint64_t kMinDefault = 1ULL;
-
-        const std::uint64_t min_bytes = std::max<std::uint64_t>(
-            kMinDefault,
-            detail::getenv_u64("CRSCE_TESTRUNNER_MIN_BYTES", kMinDefault)
-        );
-        const std::uint64_t max_bytes = std::max<std::uint64_t>(
-            min_bytes,
-            detail::getenv_u64("CRSCE_TESTRUNNER_MAX_BYTES", kGB)
-        );
-
+        // Ensure max >= min to keep distribution valid
+        max_bytes = std::max(max_bytes, min_bytes);
         std::uniform_int_distribution<std::uint64_t> dist(min_bytes, max_bytes);
         const std::uint64_t in_bytes = dist(rng);
 
@@ -65,7 +55,9 @@ namespace crsce::testrunner::cli {
         gi.path = in_path;
         gi.bytes = in_bytes;
         gi.blocks = detail::blocks_for_input_bytes(in_bytes);
-        if (gi.blocks == 0) { gi.blocks = 1; } // enforce minimum of 1 for timeout math
+        if (gi.blocks == 0) {
+            gi.blocks = 1;
+        } // enforce a minimum of 1 for timeout math
         gi.sha512 = input_sha512;
         return gi;
     }

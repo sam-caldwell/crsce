@@ -10,7 +10,6 @@
 #include "testrunner/Cli/detail/compress_file.h"
 #include "testrunner/Cli/detail/decompress_file.h"
 #include "testrunner/Cli/detail/evaluate_hashes.h"
-#include "testrunner/detail/sha512.h"
 #include "testrunner/detail/now_ms.h"
 #include "testrunner/detail/json_escape.h"
 
@@ -65,9 +64,10 @@ namespace crsce::testrunner::cli {
         const std::int64_t cx_timeout_ms = static_cast<std::int64_t>(gi.blocks) * compress_per_block_ms;
         const std::int64_t dx_timeout_ms = static_cast<std::int64_t>(gi.blocks) * decompress_per_block_ms;
 
-        // Recompute the input hash here to avoid any possibility of a stale or mismatched value
-        // being propagated from the caller. Use this consistent value for logging and verification.
-        const std::string in_sha = crsce::testrunner::detail::compute_sha512(gi.path);
+        // Use the precomputed input hash from make_input()/generate_file so that all
+        // logs (hashInput/compress/decompress) refer to the same digest value.
+        // This avoids any timing-related discrepancies and keeps outputs consistent.
+        const std::string &in_sha = gi.sha512;
 
         (void)compress_file(gi.path, cx_path, in_sha, cx_timeout_ms);
         const std::string out_sha = decompress_file(cx_path, dx_path, in_sha, dx_timeout_ms);

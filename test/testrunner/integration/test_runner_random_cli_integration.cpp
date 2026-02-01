@@ -19,8 +19,8 @@ TEST(TestRunnerRandom, CliEndToEndSucceeds) {
     }
     // Keep input tiny for fast runs; pass PATH inline
     const std::string exe = std::string(TEST_BINARY_DIR) + "/testRunnerRandom";
-    // Set min/max bytes via inline env in the command
-    const std::string cmd = std::string("CRSCE_TESTRUNNER_MIN_BYTES=128 CRSCE_TESTRUNNER_MAX_BYTES=128 ") + cmd_with_path(exe);
+    // Set min/max bytes via CLI flags
+    const std::string cmd = cmd_with_path(exe) + " --min-bytes 128 --max-bytes 128";
     const int rc = std::system(cmd.c_str()); // NOLINT(concurrency-mt-unsafe)
     if (rc != 0) {
         GTEST_SKIP() << "testRunnerRandom returned non-zero rc=" << rc;
