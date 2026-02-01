@@ -119,13 +119,10 @@ int main(int argc, char *argv[]) try {
     constexpr auto kCompressPerBlockMs = 1000ULL;
     constexpr auto kDecompressPerBlockMs = 20000ULL;
 
-    // Resolve base directory for binaries; allow override via TEST_BINARY_DIR
-    fs::path bin_base = bin_dir;
-    if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
-        bin_base = fs::path(tbd);
-    }
-    const fs::path compress_exe = bin_base / "compress";
-    const fs::path decompress_exe = bin_base / "decompress";
+    // Resolve binaries from project root ./bin
+    const fs::path root = bin_dir.has_parent_path() ? bin_dir.parent_path() : bin_dir;
+    const fs::path compress_exe = root / "bin" / "compress";
+    const fs::path decompress_exe = root / "bin" / "decompress";
 
     // Execute cycles
     for (int i = 0; i < cycles; ++i) {

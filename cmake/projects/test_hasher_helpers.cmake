@@ -10,7 +10,7 @@ add_executable(sha256_bad_helper
 # Stage helpers under build/bin for convenience
 foreach(_tgt sha256_ok_helper sha256_bad_helper)
   add_custom_command(TARGET ${_tgt} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin"
-    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${_tgt}>" "${CMAKE_BINARY_DIR}/bin/"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/bin"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${_tgt}>" "${PROJECT_SOURCE_DIR}/bin/"
     VERBATIM)
 endforeach()

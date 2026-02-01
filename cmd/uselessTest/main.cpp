@@ -106,8 +106,8 @@ int main() try {
     if (ec_mk) { std::cerr << "failed to create output dir\n"; return 1; }
 
     // Determine binary locations: always use build/bin
-    const fs::path cx_exe = bin_dir / "bin" / "compress";
-    const fs::path dx_exe = bin_dir / "bin" / "decompress";
+    const fs::path cx_exe = root / "bin" / "compress";
+    const fs::path dx_exe = root / "bin" / "decompress";
 
     // Compute input hash for logging and comparison
     const std::string input_hash = crsce::testrunner::detail::compute_sha512(src_path);
