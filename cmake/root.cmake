@@ -50,6 +50,7 @@ include(cmake/projects/test_runner_alternating01.cmake)
 include(cmake/projects/test_runner_alternating10.cmake)
 include(cmake/projects/test_hasher_helpers.cmake)
 include(cmake/projects/test_collisions.cmake)
+include(cmake/projects/useless_test.cmake)
 include(cmake/pipeline/sources.cmake)
 
 # --- clang-tidy integration (optional) ---
