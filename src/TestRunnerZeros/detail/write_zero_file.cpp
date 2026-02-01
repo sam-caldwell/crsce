@@ -2,7 +2,7 @@
  * @file write_zero_file.cpp
  * @brief Write a file consisting of zero bytes.
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/detail/write_zero_file.h"
 #include <filesystem>

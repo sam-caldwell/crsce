@@ -2,7 +2,7 @@
  * @file write_alternating01_file.cpp
  * @brief Write a file consisting of bytes 0x55 (01010101...)
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/detail/write_alternating01_file.h"
 #include <filesystem>

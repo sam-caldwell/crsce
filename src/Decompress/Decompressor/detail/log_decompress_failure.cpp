@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <print>
-#include "decompress/Block/detail/BlockSolverStatus.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
     /**

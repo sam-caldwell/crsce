@@ -1,7 +1,7 @@
 /**
  * @file ConstraintState.h
  * @brief Residual constraints (R and U) for CRSCE v1 line families.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

@@ -2,7 +2,7 @@
  * @file process_case.h
  * @brief Shared helper: compress -> decompress -> verify for a single test case.
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

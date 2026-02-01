@@ -2,7 +2,7 @@
  * @file write_one_file.cpp
  * @brief Write a file consisting of 0xFF bytes.
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/detail/write_one_file.h"
 #include <filesystem>

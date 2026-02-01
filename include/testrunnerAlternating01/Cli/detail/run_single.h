@@ -1,6 +1,8 @@
 /**
  * @file run_single.h
  * @brief Declaration of single-block-count Alternating01 run().
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -17,4 +19,3 @@ namespace crsce::testrunner_alternating01::cli {
      */
     int run(const std::filesystem::path &out_dir, std::uint64_t blocks);
 }
-

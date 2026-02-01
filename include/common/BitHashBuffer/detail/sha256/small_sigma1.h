@@ -1,7 +1,7 @@
 /**
  * @file small_sigma1.h
  * @brief SHA-256 σ1 function.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

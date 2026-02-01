@@ -1,7 +1,7 @@
 /**
  * @file ConstraintState.h
  * @brief Aggregator for residual constraints (R and U) declarations.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

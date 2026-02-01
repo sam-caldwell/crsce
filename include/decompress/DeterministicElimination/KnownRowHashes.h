@@ -1,7 +1,7 @@
 /**
  * @file KnownRowHashes.h
  * @brief Precomputed LH digests for canonical rows under seed "CRSCE_v1_seed".
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

@@ -1,13 +1,15 @@
 /**
  * @file log_decompress_failure.h
  * @brief JSON logging helper for block-solve failures during decompression.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 
-#include "decompress/Block/detail/BlockSolverStatus.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -26,4 +28,3 @@ namespace crsce::decompress::detail {
                                 std::uint64_t failed_index,
                                 const crsce::decompress::BlockSolveSnapshot &s);
 }
-

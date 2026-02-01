@@ -2,7 +2,7 @@
  * @file run.cpp
  * @brief Implements the TestRunnerAlternating01 pipeline: generate 0x55 inputs for specific blocks, hash, compress, decompress, and validate.
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunnerAlternating01/Cli/detail/run.h"
 

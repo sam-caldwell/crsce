@@ -1,7 +1,7 @@
 /**
  * @file is_power_of_two.h
  * @brief Power-of-two predicate utility for unsigned ints.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

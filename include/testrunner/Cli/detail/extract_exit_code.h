@@ -1,6 +1,8 @@
 /**
  * @file extract_exit_code.h
  * @brief Helper to parse an exit code from an exception message.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -16,4 +18,3 @@ namespace crsce::testrunner::cli {
      */
     int extract_exit_code(const std::string &msg, int def_code = 1);
 }
-

@@ -1,6 +1,7 @@
 /**
  * @file cmd/testRunnerAlternating10/main.cpp
  * @brief CLI entry for TestRunnerAlternating10; delegates to testrunner_alternating10::cli::run().
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
 #include "testrunnerAlternating10/Cli/detail/run.h"
 #include <exception>

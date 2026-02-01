@@ -2,7 +2,7 @@
  * @file run.cpp
  * @brief Implements the TestRunnerAlternating10 pipeline: generate 0xAA inputs for specific blocks, hash, compress, decompress, and validate.
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunnerAlternating10/Cli/detail/run.h"
 

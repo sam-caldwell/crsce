@@ -2,7 +2,7 @@
  * @file process_case.cpp
  * @brief Implement shared compress/decompress/verify flow for a single test case.
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testrunner/Cli/detail/process_case.h"
 

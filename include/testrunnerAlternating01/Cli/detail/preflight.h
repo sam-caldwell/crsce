@@ -1,6 +1,7 @@
 /**
  * @file preflight.h
  * @brief Alternating01 input preflight checks for CSM bit patterns.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
 #pragma once
 

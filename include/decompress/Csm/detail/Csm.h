@@ -1,7 +1,7 @@
 /**
  * @file Csm.h
  * @brief CRSCE v1 Cross-Sum Matrix (CSM) container for decompression.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

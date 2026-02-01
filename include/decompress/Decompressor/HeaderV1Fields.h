@@ -1,7 +1,7 @@
 /**
  * @file HeaderV1Fields.h
  * @brief Parsed CRSCE v1 header fields for decompression.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

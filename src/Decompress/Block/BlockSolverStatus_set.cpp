@@ -2,16 +2,15 @@
  * @file BlockSolverStatus_set.cpp
  * @brief Implementation of set_block_solve_snapshot().
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "decompress/Block/detail/BlockSolverStatus.h"
+#include "decompress/Block/detail/set_block_solve_snapshot.h"
+#include "decompress/Block/detail/BlockSolverStatus_state.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include <optional>
 
 namespace crsce::decompress {
-    namespace {
-        extern thread_local std::optional<BlockSolveSnapshot> g_last_snapshot; // NOLINT
-    }
 
     /**
      * @name set_block_solve_snapshot
@@ -19,8 +18,7 @@ namespace crsce::decompress {
      * @param s Snapshot to store.
      * @return void
      */
-    void set_block_solve_snapshot(const BlockSolveSnapshot &s) {
-        g_last_snapshot = s;
+    void set_block_solve_snapshot(const BlockSolveSnapshot &s) { // NOLINT(misc-use-internal-linkage)
+        crsce::decompress::detail::g_last_snapshot = s;
     }
 }
-

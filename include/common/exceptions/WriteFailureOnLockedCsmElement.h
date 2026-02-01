@@ -1,7 +1,7 @@
 /**
  * @file WriteFailureOnLockedCsmElement.h
  * @brief Exception thrown when writing to a locked CSM element.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

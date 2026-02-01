@@ -1,7 +1,7 @@
 /**
  * @file store_be32.h
  * @brief Store a 32-bit word in big-endian order.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

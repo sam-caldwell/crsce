@@ -1,7 +1,7 @@
 /**
  * @file Csm.h
  * @brief Aggregator for CRSCE v1 Cross-Sum Matrix declarations.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
