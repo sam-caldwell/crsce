@@ -11,7 +11,8 @@
 #include "decompress/Gobp/GobpSolver.h"
 #include "decompress/Utils/detail/verify_cross_sums.h"
 #include "decompress/Utils/detail/decode9.tcc"
-#include "decompress/Block/detail/BlockSolverStatus.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/Block/detail/set_block_solve_snapshot.h"
 
 #include <cstddef>
 #include <cstdint> //NOLINT

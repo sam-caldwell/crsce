@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "decompress/Block/detail/BlockSolverStatus.h"
+#include "decompress/Block/detail/get_block_solve_snapshot.h"
 
 namespace crsce::decompress {
     /**
