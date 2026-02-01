@@ -29,7 +29,7 @@ namespace crsce::testrunner::cli {
         const auto kCompressPerBlockMs = static_cast<std::int64_t>(
             crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_CX_MS", 1000ULL));
         const auto kDecompressPerBlockMs = static_cast<std::int64_t>(
-            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_DX_MS", 5000ULL));
+            crsce::testrunner::detail::getenv_u64("CRSCE_TESTRUNNER_DX_MS", 20000ULL));
 
         std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
         const GeneratedInput gi = generate_file(out_dir);

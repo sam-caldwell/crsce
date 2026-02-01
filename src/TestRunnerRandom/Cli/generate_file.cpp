@@ -35,7 +35,9 @@ namespace crsce::testrunner::cli {
 
         constexpr std::uint64_t kKB = 1024ULL;
         constexpr std::uint64_t kGB = kKB * kKB * kKB;
-        constexpr std::uint64_t kMinDefault = 32ULL * kKB;
+        // Keep the minimum default small so callers (tests/targets) can control size precisely
+        // via CRSCE_TESTRUNNER_MIN_BYTES/MAX_BYTES without being clamped up to large values.
+        constexpr std::uint64_t kMinDefault = 1ULL;
 
         const std::uint64_t min_bytes = std::max<std::uint64_t>(
             kMinDefault,

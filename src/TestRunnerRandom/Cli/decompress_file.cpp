@@ -56,11 +56,18 @@ namespace crsce::testrunner::cli {
 #ifdef _WIN32
         argv = { exe, "-in", cx_path.string(), "-out", dx_path.string() };
 #else
-        // Enable padding prelock debug and increase DE iteration cap for hard blocks.
-        // CRSCE_DE_MAX_ITERS can be overridden by the environment when invoking the test runner.
-        // This default helps Alternating01 and similar symmetric cases converge.
-        argv = { "env", "CRSCE_PRELOCK_DEBUG=1", "CRSCE_DE_MAX_ITERS=4000", exe,
-                 "-in", cx_path.string(), "-out", dx_path.string() };
+        // Enable padding prelock debug and more generous solver limits for harder inputs.
+        // These can be overridden by the environment by the caller if needed.
+        argv = {
+            "env",
+            "CRSCE_PRELOCK_DEBUG=1",
+            "CRSCE_DE_MAX_ITERS=4000",
+            "CRSCE_GOBP_ITERS=2000",
+            "CRSCE_GOBP_CONF=0.90",
+            "CRSCE_GOBP_DAMP=0.30",
+            exe,
+            "-in", cx_path.string(), "-out", dx_path.string()
+        };
 #endif
         // Debug: show command being executed
         std::ostringstream dbg;
