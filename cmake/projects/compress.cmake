@@ -18,3 +18,9 @@ file(GLOB_RECURSE COMPRESS_SOURCES
 )
 
 target_sources(compress PRIVATE ${COMPRESS_SOURCES})
+
+# Stage binary to a unified bin/ directory for convenience
+add_custom_command(TARGET compress POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/bin"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:compress>" "${PROJECT_SOURCE_DIR}/bin/"
+  VERBATIM)

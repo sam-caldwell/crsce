@@ -3,63 +3,59 @@
  * @brief Runs repeated compress/decompress cycles on random inputs to detect collisions and logs results.
  */
 
-#include <algorithm>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <random>
 #include <span>
-#include <sstream>
 #include <string>
-#include <string_view>
 #include <system_error>
 #include <vector>
+#include <optional>
+#include <stdexcept>
 #include <cstdlib>
 
-#include "testRunnerRandom/Cli/detail/compress_file.h"
-#include "testRunnerRandom/Cli/detail/decompress_file.h"
 #include "testRunnerRandom/detail/now_ms.h"
 #include "testRunnerRandom/detail/sha512.h"
 #include "testRunnerRandom/detail/write_random_file.h"
+#include "testRunnerRandom/detail/run_process.h"
 
 namespace fs = std::filesystem;
 
-namespace crsce::testCollisions {
-
-    namespace detail {
-        // Compute maximum byte count that does not exceed exactly n CRSCE blocks.
-        static inline std::uint64_t max_bytes_within_blocks(std::uint64_t nblocks) {
-            constexpr std::uint64_t kBitsPerBlock = 511ULL * 511ULL; // 261121
-            const std::uint64_t bits = nblocks * kBitsPerBlock;
-            return bits / 8ULL; // floor
-        }
-
-        static inline void write_header_if_new(std::ofstream &os) {
-            // Header row (TSV) matching requested columns
-            os << "cycle_start\t"
-               << "cycle_end\t"
-               << "random_filename\t"
-               << "input_size\t"
-               << "input_file_hash\t"
-               << "compress_start\t"
-               << "compress_end\t"
-               << "compressed_file\t"
-               << "compressed_hash\t"
-               << "compressed_size\t"
-               << "decompress_start\t"
-               << "decompress_ends\t"
-               << "reconstructed_hash\t"
-               << "reconstructed_size\t"
-               << "result"
-               << '\n';
-            os.flush();
-        }
+namespace {
+    // Compute maximum byte count that does not exceed exactly n CRSCE blocks.
+    inline std::uint64_t max_bytes_within_blocks(const std::uint64_t nblocks) {
+        constexpr std::uint64_t kBitsPerBlock = 511ULL * 511ULL; // 261121
+        const std::uint64_t bits = nblocks * kBitsPerBlock;
+        return bits / 8ULL; // floor
     }
 
-    [[nodiscard]] static inline int usage() {
+    inline void write_header_if_new(std::ofstream &os) {
+        // Header row (TSV) matching requested columns
+        os << "cycle_start\t"
+           << "cycle_end\t"
+           << "random_filename\t"
+           << "input_size\t"
+           << "input_file_hash\t"
+           << "compress_start\t"
+           << "compress_end\t"
+           << "compressed_file\t"
+           << "compressed_hash\t"
+           << "compressed_size\t"
+           << "decompress_start\t"
+           << "decompress_ends\t"
+           << "reconstructed_hash\t"
+           << "reconstructed_size\t"
+           << "result"
+           << '\n';
+        os.flush();
+    }
+}
+
+namespace {
+    [[nodiscard]] inline int usage() {
         std::cerr
             << "Usage: testCollisions -min_blocks <int> -max_blocks <int> -cycles <int>\n"
             << "  -min_blocks: minimum number of blocks per file (required; min < max)\n"
@@ -67,6 +63,9 @@ namespace crsce::testCollisions {
             << "  -cycles    : number of files to process (required)\n";
         return 2;
     }
+}
+
+namespace crsce::testCollisions {
 }
 
 int main(int argc, char *argv[]) try {
@@ -81,17 +80,7 @@ int main(int argc, char *argv[]) try {
     }
     std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
 
-    // Ensure child helpers (compress/decompress wrappers) find our binaries.
-    // Respect a pre-existing TEST_BINARY_DIR if the caller explicitly set one.
-#ifdef _WIN32
-    if (!std::getenv("TEST_BINARY_DIR")) {
-        _putenv((std::string("TEST_BINARY_DIR=") + bin_dir.string()).c_str());
-    }
-#else
-    if (!std::getenv("TEST_BINARY_DIR")) {
-        setenv("TEST_BINARY_DIR", bin_dir.string().c_str(), 1);
-    }
-#endif
+    // No process-env mutation here; child binaries are resolved via bin_base below.
 
     // Parse required args: -min_blocks -max_blocks -cycles
     int min_blocks = -1;
@@ -106,7 +95,7 @@ int main(int argc, char *argv[]) try {
         else if (key == "-cycles") { cycles = std::stoi(val); ++i; }
     }
     if (min_blocks < 1 || max_blocks < 1 || cycles < 1 || !(min_blocks < max_blocks)) {
-        return crsce::testCollisions::usage();
+        return usage();
     }
 
     // Select a block count for this run (inclusive range)
@@ -124,11 +113,19 @@ int main(int argc, char *argv[]) try {
         std::cerr << "failed to open log file: " << log_path << "\n";
         return 1;
     }
-    if (new_file) { crsce::testCollisions::detail::write_header_if_new(log); }
+    if (new_file) { write_header_if_new(log); }
 
     // Precompute per-block timeouts similar to testRunnerRandom
     constexpr auto kCompressPerBlockMs = 1000ULL;
     constexpr auto kDecompressPerBlockMs = 20000ULL;
+
+    // Resolve base directory for binaries; allow override via TEST_BINARY_DIR
+    fs::path bin_base = bin_dir;
+    if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
+        bin_base = fs::path(tbd);
+    }
+    const fs::path compress_exe = bin_base / "compress";
+    const fs::path decompress_exe = bin_base / "decompress";
 
     // Execute cycles
     for (int i = 0; i < cycles; ++i) {
@@ -143,15 +140,14 @@ int main(int argc, char *argv[]) try {
 
         std::string input_hash;
         std::string compressed_hash;
-        std::string reconstructed_hash;
+        std::string recon_hash;
         std::uint64_t input_size = 0;
         std::uint64_t compressed_size = 0;
         std::uint64_t reconstructed_size = 0;
         std::string result = "fail"; // pessimistic default
 
-        const auto input_bytes = crsce::testCollisions::detail::max_bytes_within_blocks(static_cast<std::uint64_t>(number_of_blocks));
-        const std::int64_t cx_timeout_ms = static_cast<std::int64_t>(number_of_blocks) * static_cast<std::int64_t>(kCompressPerBlockMs);
-        const std::int64_t dx_timeout_ms = static_cast<std::int64_t>(number_of_blocks) * static_cast<std::int64_t>(kDecompressPerBlockMs);
+        const auto input_bytes = max_bytes_within_blocks(static_cast<std::uint64_t>(number_of_blocks));
+        // Legacy timeouts kept for context (not enforced here)
 
         std::int64_t cx_start = 0;
         std::int64_t cx_end = 0;
@@ -166,7 +162,11 @@ int main(int argc, char *argv[]) try {
 
             // Compress
             cx_start = now_ms();
-            (void)crsce::testrunner_random::cli::compress_file(in_path, cx_path, input_hash, cx_timeout_ms);
+            {
+                const std::vector<std::string> argv = { compress_exe.string(), "-in", in_path.string(), "-out", cx_path.string() };
+                const auto cx_res = crsce::testrunner::detail::run_process(argv, std::nullopt);
+                if (cx_res.exit_code != 0) { throw std::runtime_error("compress failed"); }
+            }
             cx_end = now_ms();
 
             // Hash compressed file
@@ -178,15 +178,19 @@ int main(int argc, char *argv[]) try {
 
             // Decompress
             dx_start = now_ms();
-            reconstructed_hash = crsce::testrunner_random::cli::decompress_file(cx_path, dx_path, input_hash, dx_timeout_ms);
+            {
+                const std::vector<std::string> argv = { decompress_exe.string(), "-in", cx_path.string(), "-out", dx_path.string() };
+                const auto dx_res = crsce::testrunner::detail::run_process(argv, std::nullopt);
+                if (dx_res.exit_code != 0) { throw std::runtime_error("decompress failed"); }
+            }
             dx_end = now_ms();
             {
                 std::error_code ec_sz; const auto sz = fs::file_size(dx_path, ec_sz);
                 if (!ec_sz) { reconstructed_size = static_cast<std::uint64_t>(sz); }
             }
-
+            recon_hash = crsce::testrunner::detail::compute_sha512(dx_path);
             // Compare
-            if (reconstructed_hash == input_hash) {
+            if (recon_hash == input_hash) {
                 result = "pass";
                 // On pass, remove artifacts as requested
                 std::error_code ec_rm; fs::remove(cx_path, ec_rm); fs::remove(dx_path, ec_rm);
@@ -219,7 +223,7 @@ int main(int argc, char *argv[]) try {
             << compressed_size << '\t'
             << dx_start << '\t'
             << dx_end << '\t'
-            << reconstructed_hash << '\t'
+            << recon_hash << '\t'
             << reconstructed_size << '\t'
             << result
             << '\n';

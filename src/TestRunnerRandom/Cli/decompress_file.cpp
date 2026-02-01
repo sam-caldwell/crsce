@@ -44,12 +44,12 @@ namespace crsce::testrunner_random::cli {
         using crsce::testrunner::detail::run_process;
         using crsce::testrunner::detail::ProcResult;
 
+        // Resolve decompressor from build/bin by default, or TEST_BINARY_DIR/bin when set.
         std::string exe;
-        if (fs::exists("decompress")) {
-            exe = "./decompress";
+        if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
+            exe = (fs::path(tbd) / "bin" / "decompress").string();
         } else {
-            const char *tbd = std::getenv("TEST_BINARY_DIR"); // NOLINT(concurrency-mt-unsafe)
-            exe = (tbd && *tbd) ? (std::string(tbd) + "/decompress") : std::string("decompress");
+            exe = (fs::path("build") / "bin" / "decompress").string();
         }
         // On POSIX, prefix with env to enable internal solver debug for padding by default
         std::vector<std::string> argv;

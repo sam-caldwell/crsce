@@ -14,4 +14,3 @@ namespace crsce::decompress {
      */
     void clear_block_solve_snapshot();
 }
-

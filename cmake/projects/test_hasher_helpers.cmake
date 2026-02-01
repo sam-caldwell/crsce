@@ -6,3 +6,11 @@ target_include_directories(sha256_ok_helper PRIVATE ${PROJECT_SOURCE_DIR}/includ
 
 add_executable(sha256_bad_helper
   ${PROJECT_SOURCE_DIR}/test/cmd/hasher/helpers/sha256_bad.cpp)
+
+# Stage helpers under build/bin for convenience
+foreach(_tgt sha256_ok_helper sha256_bad_helper)
+  add_custom_command(TARGET ${_tgt} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${_tgt}>" "${CMAKE_BINARY_DIR}/bin/"
+    VERBATIM)
+endforeach()

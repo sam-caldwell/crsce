@@ -46,8 +46,10 @@ _deps/
 /.cxx/
 /cmake-build*/
 /bin/
+bin/
 /lib/
 /share/
+tools/
 
 # Ninja build files
 .ninja_deps

@@ -18,4 +18,3 @@ namespace crsce::decompress {
      */
     void set_block_solve_snapshot(const BlockSolveSnapshot &s);
 }
-

@@ -6,27 +6,32 @@
 #include <gtest/gtest.h>
 #include <filesystem>
 #include <algorithm>
+#include <optional>
+#include <system_error>
 #include <fstream>
 #include <string>
 #include <vector>
+#include <optional>
 
 #include "testRunnerRandom/detail/run_process.h"
 
 namespace fs = std::filesystem;
 
-static std::vector<fs::path> list_logs3(const fs::path &dir) {
+namespace {
+std::vector<fs::path> list_logs3(const fs::path &dir) {
     std::vector<fs::path> out;
-    if (!fs::exists(dir) || !fs::is_directory(dir)) return out;
+    if (!fs::exists(dir) || !fs::is_directory(dir)) { return out; }
     for (const auto &e: fs::directory_iterator(dir)) {
         if (e.is_regular_file()) {
             const auto name = e.path().filename().string();
-            if (name.rfind("testCollisions_", 0) == 0 && e.path().extension() == ".log") {
+            if (name.starts_with("testCollisions_") && e.path().extension() == ".log") {
                 out.push_back(e.path());
             }
         }
     }
-    std::sort(out.begin(), out.end());
+    std::ranges::sort(out);
     return out;
+}
 }
 
 TEST(TestCollisionsCli, WrappedCompressDecompressForcesPassAndCleanup) {
@@ -69,12 +74,12 @@ TEST(TestCollisionsCli, WrappedCompressDecompressForcesPassAndCleanup) {
               "cp \"$IN\" \"$OUT\"\n";
     }
     // Make wrappers executable
-    (void)std::system((std::string("/bin/chmod +x ") + (wrap_dir / "compress").string()).c_str());
-    (void)std::system((std::string("/bin/chmod +x ") + (wrap_dir / "decompress").string()).c_str());
+    fs::permissions(wrap_dir / "compress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
+    fs::permissions(wrap_dir / "decompress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
 
     const std::string exe = (bin_dir / "bin" / "testCollisions").string();
     // Ensure PATH includes /usr/bin for 'env'
-    const std::string new_path = std::string(getenv("PATH") ? getenv("PATH") : "/usr/bin:/bin");
+    const std::string new_path = std::string("/usr/bin:/bin");
     const std::vector<std::string> argv = {
         "env",
         std::string("TEST_BINARY_DIR=") + wrap_dir.string(),
@@ -90,25 +95,29 @@ TEST(TestCollisionsCli, WrappedCompressDecompressForcesPassAndCleanup) {
 
     const auto after = list_logs3(out_dir);
     ASSERT_GE(after.size(), before.size() + 1);
-    const fs::path log_path = after.back();
+    const fs::path &log_path = after.back();
 
     std::ifstream is(log_path);
     ASSERT_TRUE(is.good());
-    std::string header; std::getline(is, header);
-    std::string last_line, line;
-    while (std::getline(is, line)) { if (!line.empty()) last_line = line; }
+    std::string header;
+    std::getline(is, header);
+    std::string last_line;
+    std::string line;
+    while (std::getline(is, line)) {
+        if (!line.empty()) { last_line = line; }
+    }
     ASSERT_FALSE(last_line.empty());
 
     // Split TSV
     std::vector<std::string> cols;
     {
         std::string cur;
-        for (char c: last_line) {
+        for (const char c: last_line) {
             if (c == '\t') { cols.push_back(cur); cur.clear(); } else { cur.push_back(c); }
         }
         cols.push_back(cur);
     }
-    ASSERT_EQ(cols.size(), 15u) << last_line;
+    ASSERT_EQ(cols.size(), 15U) << last_line;
     const std::string &compressed_file = cols[7];
     const std::string &result = cols[14];
     EXPECT_EQ(result, "pass");

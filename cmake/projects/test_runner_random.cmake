@@ -12,3 +12,9 @@ target_include_directories(testRunnerRandom PUBLIC
 target_compile_definitions(testRunnerRandom PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
 
 target_link_libraries(testRunnerRandom PRIVATE crsce_static)
+
+# Stage under build/bin
+add_custom_command(TARGET testRunnerRandom POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/bin"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:testRunnerRandom>" "${PROJECT_SOURCE_DIR}/bin/"
+  VERBATIM)

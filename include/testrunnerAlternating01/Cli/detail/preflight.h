@@ -20,4 +20,3 @@ namespace crsce::testrunner_alternating01::cli {
     void preflight_check_alternating01(const std::filesystem::path &in_path,
                                        std::uint64_t bytes);
 }
-

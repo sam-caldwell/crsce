@@ -42,12 +42,12 @@ namespace crsce::testrunner_random::cli {
         using crsce::testrunner::detail::ProcResult;
         using crsce::testrunner::detail::run_process;
 
+        // Resolve compressor from build/bin by default, or from TEST_BINARY_DIR/bin when set.
         std::string exe;
-        if (fs::exists("compress")) {
-            exe = "./compress";
+        if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
+            exe = (fs::path(tbd) / "bin" / "compress").string();
         } else {
-            const char *tbd = std::getenv("TEST_BINARY_DIR"); // NOLINT(concurrency-mt-unsafe)
-            exe = (tbd && *tbd) ? (std::string(tbd) + "/compress") : std::string("compress");
+            exe = (fs::path("build") / "bin" / "compress").string();
         }
         // Debug: show command being executed
         std::cout << "[testrunner] running: " << exe

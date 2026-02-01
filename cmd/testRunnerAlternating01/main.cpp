@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <cstdlib>
 #include <cstdint>
 #include "testRunnerRandom/detail/json_escape.h"
 #include "testRunnerRandom/Cli/detail/extract_exit_code.h"
@@ -20,6 +21,12 @@ int main() try {
     namespace fs = std::filesystem;
     const fs::path bin_dir{TEST_BINARY_DIR};
     const fs::path root = bin_dir.has_parent_path() ? bin_dir.parent_path() : bin_dir;
+    // Ensure child helpers use build/bin path via TEST_BINARY_DIR
+#ifndef _WIN32
+    if (!std::getenv("TEST_BINARY_DIR")) { setenv("TEST_BINARY_DIR", bin_dir.string().c_str(), 1); } // NOLINT(concurrency-mt-unsafe)
+#else
+    if (!std::getenv("TEST_BINARY_DIR")) { _putenv((std::string("TEST_BINARY_DIR=") + bin_dir.string()).c_str()); } // NOLINT(concurrency-mt-unsafe)
+#endif
     const fs::path out_dir = root / "testRunnerAlternating01";
     // ReSharper disable once CppTooWideScopeInitStatement
     const std::vector<std::uint64_t> block_sizes = {

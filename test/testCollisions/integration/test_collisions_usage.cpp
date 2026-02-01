@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include <filesystem>
 #include <string>
+#include <optional>
 #include <vector>
 
 #include "testRunnerRandom/detail/run_process.h"

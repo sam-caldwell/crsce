@@ -17,3 +17,9 @@ target_link_libraries(testCollisions PRIVATE crsce_static)
 set_target_properties(testCollisions PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Ensure staged copy (redundant with RUNTIME_OUTPUT_DIRECTORY, but harmless)
+add_custom_command(TARGET testCollisions POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:testCollisions>" "${CMAKE_BINARY_DIR}/bin/"
+  VERBATIM)

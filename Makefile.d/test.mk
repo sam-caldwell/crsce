@@ -18,8 +18,3 @@ test: build
 	  cmake -E create_symlink "$$TMP_SRC_DIR" "$$TMP_DST_DIR"; \
 	fi
 	@echo "--- Tests complete ---"
-
-.PHONY: test/uselessMachine
-test/uselessMachine: build
-	@cmake --build build --target uselessTest -j $$(cmake -P cmake/tools/print_num_cpus.cmake | tail -n1 | sed 's/[^0-9].*//')
-	@"$(BUILD_DIR)/bin/uselessTest"

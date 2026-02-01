@@ -17,4 +17,3 @@ namespace crsce::decompress {
      */
     std::optional<BlockSolveSnapshot> get_block_solve_snapshot();
 }
-

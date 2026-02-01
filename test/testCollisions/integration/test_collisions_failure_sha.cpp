@@ -6,6 +6,8 @@
 #include <gtest/gtest.h>
 #include <filesystem>
 #include <algorithm>
+#include <optional>
+#include <system_error>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -14,19 +16,21 @@
 
 namespace fs = std::filesystem;
 
-static std::vector<fs::path> list_logs2(const fs::path &dir) {
+namespace {
+std::vector<fs::path> list_logs2(const fs::path &dir) {
     std::vector<fs::path> out;
-    if (!fs::exists(dir) || !fs::is_directory(dir)) return out;
+    if (!fs::exists(dir) || !fs::is_directory(dir)) { return out; }
     for (const auto &e: fs::directory_iterator(dir)) {
         if (e.is_regular_file()) {
             const auto name = e.path().filename().string();
-            if (name.rfind("testCollisions_", 0) == 0 && e.path().extension() == ".log") {
+            if (name.starts_with("testCollisions_") && e.path().extension() == ".log") {
                 out.push_back(e.path());
             }
         }
     }
-    std::sort(out.begin(), out.end());
+    std::ranges::sort(out);
     return out;
+}
 }
 
 TEST(TestCollisionsCli, CycleContinuesWhenShaUnavailableLogsFail) {
@@ -45,8 +49,7 @@ TEST(TestCollisionsCli, CycleContinuesWhenShaUnavailableLogsFail) {
         os << "#!/bin/sh\nexit 1\n";
     }
     // Make it executable
-    std::string chmod_cmd = std::string("/bin/chmod +x ") + fake_shasum.string();
-    (void)std::system(chmod_cmd.c_str()); // NOLINT(concurrency-mt-unsafe)
+    fs::permissions(fake_shasum, fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
 
     const std::string exe = (bin_dir / "bin" / "testCollisions").string();
     // Prepend our tmp to PATH but keep /usr/bin for 'env'
@@ -64,24 +67,26 @@ TEST(TestCollisionsCli, CycleContinuesWhenShaUnavailableLogsFail) {
 
     const auto after = list_logs2(out_dir);
     ASSERT_GE(after.size(), before.size() + 1);
-    const fs::path log_path = after.back();
+    const fs::path &log_path = after.back();
 
     std::ifstream is(log_path);
     ASSERT_TRUE(is.good());
-    std::string header; std::getline(is, header);
-    std::string last_line, line;
-    while (std::getline(is, line)) { if (!line.empty()) last_line = line; }
+    std::string header;
+    std::getline(is, header);
+    std::string last_line;
+    std::string line;
+    while (std::getline(is, line)) { if (!line.empty()) { last_line = line; } }
     ASSERT_FALSE(last_line.empty());
 
     // Split TSV
     std::vector<std::string> cols;
     {
         std::string cur;
-        for (char c: last_line) {
+        for (const char c: last_line) {
             if (c == '\t') { cols.push_back(cur); cur.clear(); } else { cur.push_back(c); }
         }
         cols.push_back(cur);
     }
-    ASSERT_EQ(cols.size(), 15u) << last_line;
+    ASSERT_EQ(cols.size(), 15U) << last_line;
     EXPECT_EQ(cols[14], "fail");
 }

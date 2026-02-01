@@ -16,3 +16,8 @@ target_link_libraries(uselessTest PRIVATE crsce_static)
 set_target_properties(uselessTest PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+add_custom_command(TARGET uselessTest POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:uselessTest>" "${CMAKE_BINARY_DIR}/bin/"
+  VERBATIM)

@@ -12,3 +12,8 @@ target_include_directories(testRunnerAlternating10 PUBLIC
 target_compile_definitions(testRunnerAlternating10 PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
 
 target_link_libraries(testRunnerAlternating10 PRIVATE crsce_static)
+
+add_custom_command(TARGET testRunnerAlternating10 POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/bin"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:testRunnerAlternating10>" "${PROJECT_SOURCE_DIR}/bin/"
+  VERBATIM)

@@ -16,4 +16,3 @@ namespace crsce::decompress::detail {
      */
     extern thread_local std::optional<BlockSolveSnapshot> g_last_snapshot; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }
-

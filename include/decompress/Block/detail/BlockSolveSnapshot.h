@@ -37,4 +37,3 @@ namespace crsce::decompress {
         std::vector<std::uint16_t> U_xdiag;
     };
 }
-
