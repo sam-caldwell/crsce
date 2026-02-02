@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <optional>
+#include "helpers/exe_path.h"
 #include <system_error>
 #include <fstream>
 #include <string>
@@ -77,7 +78,7 @@ TEST(TestCollisionsCli, WrappedCompressDecompressForcesPassAndCleanup) {
     fs::permissions(wrap_dir / "compress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
     fs::permissions(wrap_dir / "decompress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
 
-    const std::string exe = (bin_dir / "bin" / "testCollisions").string();
+    const std::string exe = crsce::test::exe_path("testCollisions");
     // Ensure PATH includes /usr/bin for 'env'
     const std::string new_path = std::string("/usr/bin:/bin");
     const std::vector<std::string> argv = {

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include "helpers/exe_path.h"
 #include <vector>
 #include <optional>
 #include <system_error>
@@ -53,7 +54,7 @@ TEST(UselessTestCli, SuccessWithWrappers) {
     fs::permissions(wrap_dir / "compress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
     fs::permissions(wrap_dir / "decompress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
 
-    const std::string exe = (bin_dir / "bin" / "uselessTest").string();
+    const std::string exe = crsce::test::exe_path("uselessTest");
     const std::vector<std::string> argv = {
         "env",
         std::string("TEST_BINARY_DIR=") + wrap_dir.string(),

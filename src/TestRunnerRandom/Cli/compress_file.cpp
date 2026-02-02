@@ -8,6 +8,7 @@
 #include "testRunnerRandom/detail/proc_result.h"
 #include "testRunnerRandom/detail/run_process.h"
 #include "testRunnerRandom/detail/log_compress.h"
+#include "testRunnerRandom/detail/resolve_exe.h"
 #include "testRunnerRandom/detail/json_escape.h"
 #include "testRunnerRandom/detail/files.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
@@ -42,13 +43,7 @@ namespace crsce::testrunner_random::cli {
         using crsce::testrunner::detail::ProcResult;
         using crsce::testrunner::detail::run_process;
 
-        // Resolve compressor from build/bin by default, or from TEST_BINARY_DIR/bin when set.
-        std::string exe;
-        if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
-            exe = (fs::path(tbd).parent_path() / "bin" / "compress").string();
-        } else {
-            exe = (fs::path("bin") / "compress").string();
-        }
+        const std::string exe = crsce::testrunner::detail::resolve_exe("compress");
         // Debug: show command being executed
         std::cout << "[testrunner] running: " << exe
                   << " -in " << in_path.string() << " -out " << cx_path.string() << "\n";

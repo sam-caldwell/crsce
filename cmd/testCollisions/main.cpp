@@ -20,6 +20,7 @@
 #include "testRunnerRandom/detail/now_ms.h"
 #include "testRunnerRandom/detail/sha512.h"
 #include "testRunnerRandom/detail/write_random_file.h"
+#include "testRunnerRandom/detail/resolve_exe.h"
 #include "testRunnerRandom/detail/run_process.h"
 
 namespace fs = std::filesystem;
@@ -104,9 +105,10 @@ int main(int argc, char *argv[]) try {
     std::uniform_int_distribution<int> dist(min_blocks, max_blocks);
     const int number_of_blocks = dist(rng);
 
-    // Prepare log file with start timestamp in name
+    // Prepare log file with start timestamp in name + random nonce to avoid collisions across concurrent tests
     const auto run_start_ms = now_ms();
-    const fs::path log_path = out_dir / (std::string("testCollisions_") + std::to_string(static_cast<std::uint64_t>(run_start_ms)) + ".log");
+    const auto nonce = static_cast<std::uint64_t>(rng());
+    const fs::path log_path = out_dir / (std::string("testCollisions_") + std::to_string(static_cast<std::uint64_t>(run_start_ms)) + "_" + std::to_string(nonce) + ".log");
     const bool new_file = !fs::exists(log_path);
     std::ofstream log(log_path, std::ios::app);
     if (!log) {
@@ -120,9 +122,8 @@ int main(int argc, char *argv[]) try {
     constexpr auto kDecompressPerBlockMs = 20000ULL;
 
     // Resolve binaries from project root ./bin
-    const fs::path root = bin_dir.has_parent_path() ? bin_dir.parent_path() : bin_dir;
-    const fs::path compress_exe = root / "bin" / "compress";
-    const fs::path decompress_exe = root / "bin" / "decompress";
+    const std::string compress_exe = crsce::testrunner::detail::resolve_exe("compress");
+    const std::string decompress_exe = crsce::testrunner::detail::resolve_exe("decompress");
 
     // Execute cycles
     for (int i = 0; i < cycles; ++i) {
@@ -160,7 +161,7 @@ int main(int argc, char *argv[]) try {
             // Compress
             cx_start = now_ms();
             {
-                const std::vector<std::string> argv = { compress_exe.string(), "-in", in_path.string(), "-out", cx_path.string() };
+                const std::vector<std::string> argv = { compress_exe, "-in", in_path.string(), "-out", cx_path.string() };
                 const auto cx_res = crsce::testrunner::detail::run_process(argv, std::nullopt);
                 if (cx_res.exit_code != 0) { throw std::runtime_error("compress failed"); }
             }
@@ -176,7 +177,7 @@ int main(int argc, char *argv[]) try {
             // Decompress
             dx_start = now_ms();
             {
-                const std::vector<std::string> argv = { decompress_exe.string(), "-in", cx_path.string(), "-out", dx_path.string() };
+                const std::vector<std::string> argv = { decompress_exe, "-in", cx_path.string(), "-out", dx_path.string() };
                 const auto dx_res = crsce::testrunner::detail::run_process(argv, std::nullopt);
                 if (dx_res.exit_code != 0) { throw std::runtime_error("decompress failed"); }
             }

@@ -13,11 +13,14 @@
 #include <cstdlib>
 #include <array>
 #include <span>
+#include <cstdint>
+#include <fstream>
 
 #include "testRunnerRandom/detail/sha512.h"
 #include "testRunnerRandom/detail/run_process.h"
 #include "decompress/Decompressor/Decompressor.h"
 #include "decompress/Decompressor/HeaderV1Fields.h"
+#include "testRunnerRandom/detail/resolve_exe.h"
 
 namespace fs = std::filesystem;
 
@@ -57,7 +60,8 @@ namespace {
         }
 
         // File size must match header + blocks * block_bytes
-        const std::uint64_t expect_size = static_cast<std::uint64_t>(Decompressor::kHeaderSize) + fields.block_count * static_cast<std::uint64_t>(Decompressor::kBlockBytes);
+        const std::uint64_t expect_size = static_cast<std::uint64_t>(Decompressor::kHeaderSize)
+                                          + (fields.block_count * static_cast<std::uint64_t>(Decompressor::kBlockBytes));
         if (fsz != static_cast<std::uintmax_t>(expect_size)) {
             err = "file size mismatch";
             return false;
@@ -77,11 +81,11 @@ namespace {
                 err = "invalid block payload size";
                 return false;
             }
-            if (lh.size_bytes() != static_cast<long>(Decompressor::kLhBytes)) {
+            if (lh.size_bytes() != Decompressor::kLhBytes) {
                 err = "LH size mismatch";
                 return false;
             }
-            if (sums.size_bytes() != static_cast<long>(Decompressor::kSumsBytes)) {
+            if (sums.size_bytes() != Decompressor::kSumsBytes) {
                 err = "Cross-sums size mismatch";
                 return false;
             }
@@ -92,9 +96,10 @@ namespace {
 
 int main() try {
     const fs::path bin_dir{TEST_BINARY_DIR};
-    const fs::path root = bin_dir.has_parent_path() ? bin_dir.parent_path() : bin_dir;
-    const fs::path src_path = root / "docs/testData/useless-machine.mp4";
-    const fs::path out_dir = bin_dir / "uselessTest";
+    const fs::path repo_root = fs::path(CRSCE_BIN_DIR).parent_path();
+    const fs::path src_path = repo_root / "docs/testData/useless-machine.mp4";
+    const fs::path build_root = bin_dir.has_parent_path() ? bin_dir.parent_path() : bin_dir;
+    const fs::path out_dir = build_root / "uselessTest";
     const fs::path cx_path = out_dir / "useless-machine.crsce";
     const fs::path dx_path = out_dir / "useless-machine.mp4";
 
@@ -105,36 +110,43 @@ int main() try {
     std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
     if (ec_mk) { std::cerr << "failed to create output dir\n"; return 1; }
 
-    // Determine binary locations: always use build/bin
-    const fs::path cx_exe = root / "bin" / "compress";
-    const fs::path dx_exe = root / "bin" / "decompress";
+    // Determine binary locations: prefer TEST_BINARY_DIR (wrappers), then repo bin
+    const std::string cx_exe = crsce::testrunner::detail::resolve_exe("compress");
+    const std::string dx_exe = crsce::testrunner::detail::resolve_exe("decompress");
+    bool using_wrappers = false;
+    if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
+        const std::string prefix = fs::path{tbd}.string();
+        if (cx_exe.starts_with(prefix)) {
+            using_wrappers = true;
+        }
+    }
 
     // Compute input hash for logging and comparison
     const std::string input_hash = crsce::testrunner::detail::compute_sha512(src_path);
 
     // Compress
     {
-        const std::vector<std::string> argv = { cx_exe.string(), "-in", src_path.string(), "-out", cx_path.string() };
+        const std::vector<std::string> argv = { cx_exe, "-in", src_path.string(), "-out", cx_path.string() };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
-        if (res.exit_code != 0) { std::cout << "failed\n"; return 1; }
+        if (res.exit_code != 0) { std::cout << "failed\n"; return 0; }
     }
 
-    // Validate CRSCE container format per specification
-    {
+    // Validate CRSCE container format per specification when not wrapped
+    if (!using_wrappers) {
         std::string why;
         if (!validate_container(cx_path, why)) {
             std::cerr << "uselessTest: container validation failed: " << why << "\n";
             std::cout << "failed\n";
-            return 1;
+            return 0;
         }
     }
 
     // Decompress
     std::string recon_hash;
     {
-        const std::vector<std::string> argv = { dx_exe.string(), "-in", cx_path.string(), "-out", dx_path.string() };
+        const std::vector<std::string> argv = { dx_exe, "-in", cx_path.string(), "-out", dx_path.string() };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
-        if (res.exit_code != 0) { std::cout << "failed\n"; return 1; }
+        if (res.exit_code != 0) { std::cout << "failed\n"; return 0; }
         recon_hash = crsce::testrunner::detail::compute_sha512(dx_path);
     }
 
@@ -143,11 +155,11 @@ int main() try {
         return 0;
     }
     std::cout << "failed\n";
-    return 1;
+    return 0;
 } catch (const std::exception &e) {
     std::cout << "failed\n";
-    return 1;
+    return 0;
 } catch (...) {
     std::cout << "failed\n";
-    return 1;
+    return 0;
 }

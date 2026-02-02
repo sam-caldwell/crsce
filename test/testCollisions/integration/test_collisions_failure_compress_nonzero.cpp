@@ -11,6 +11,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "helpers/exe_path.h"
 
 #include "testRunnerRandom/detail/run_process.h"
 
@@ -57,7 +58,7 @@ TEST(TestCollisionsCli, CompressNonZeroExitHandledAndLoggedFail) {
     fs::permissions(wrap_dir / "compress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
     fs::permissions(wrap_dir / "decompress", fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
 
-    const std::string exe = (bin_dir / "bin" / "testCollisions").string();
+    const std::string exe = crsce::test::exe_path("testCollisions");
     const std::string path_keep = std::string("/usr/bin:/bin");
     const std::vector<std::string> argv = {
         "env",

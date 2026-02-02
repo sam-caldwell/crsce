@@ -11,6 +11,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "helpers/exe_path.h"
 
 #include "testRunnerRandom/detail/run_process.h"
 
@@ -51,7 +52,7 @@ TEST(TestCollisionsCli, CycleContinuesWhenShaUnavailableLogsFail) {
     // Make it executable
     fs::permissions(fake_shasum, fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
 
-    const std::string exe = (bin_dir / "bin" / "testCollisions").string();
+    const std::string exe = crsce::test::exe_path("testCollisions");
     // Prepend our tmp to PATH but keep /usr/bin for 'env'
     const std::string new_path = tmp_dir.string() + ":/usr/bin:/bin";
     const std::vector<std::string> argv = {

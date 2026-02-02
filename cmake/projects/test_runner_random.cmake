@@ -12,6 +12,9 @@ target_include_directories(testRunnerRandom PUBLIC
 target_compile_definitions(testRunnerRandom PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
 
 target_link_libraries(testRunnerRandom PRIVATE crsce_static)
+set_target_properties(testRunnerRandom PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+)
 
 # Stage under build/bin
 add_custom_command(TARGET testRunnerRandom POST_BUILD

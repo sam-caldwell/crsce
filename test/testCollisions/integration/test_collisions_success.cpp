@@ -10,6 +10,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "helpers/exe_path.h"
 
 #include "testRunnerRandom/detail/run_process.h"
 
@@ -37,7 +38,7 @@ TEST(TestCollisionsCli, SingleCyclePassDeletesArtifactsAndLogs) {
     const fs::path out_dir = bin_dir / "testCollisions";
     const auto before = list_logs(out_dir);
 
-    const std::string exe = (bin_dir / "bin" / "testCollisions").string();
+    const std::string exe = crsce::test::exe_path("testCollisions");
     const std::vector<std::string> argv = {
         exe,
         "-min_blocks", "1",

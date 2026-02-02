@@ -12,7 +12,6 @@
 #include <span>
 #include <cstddef>
 #include <algorithm>
-#include <cstdlib>
 #include "testRunnerRandom/detail/json_escape.h"
 #include "testRunnerRandom/Cli/detail/extract_exit_code.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
@@ -24,19 +23,13 @@ using crsce::testrunner_random::cli::extract_exit_code;
  * @brief Program entry point for testRunnerRandom CLI.
  * @return Process exit code (0 on success, non-zero represents an error state).
  */
-int main(int argc, char *argv[]) try {
+int main(const int argc, char *argv[]) try {
 
     namespace fs = std::filesystem;
     const fs::path bin_dir{TEST_BINARY_DIR};
     const fs::path root = bin_dir.has_parent_path() ? bin_dir.parent_path() : bin_dir;
     const fs::path out_dir = root / "testRunnerRandom";
 
-    // Ensure child helpers use build/bin path via TEST_BINARY_DIR
-#ifndef _WIN32
-    if (!std::getenv("TEST_BINARY_DIR")) { setenv("TEST_BINARY_DIR", bin_dir.string().c_str(), 1); } // NOLINT(concurrency-mt-unsafe)
-#else
-    if (!std::getenv("TEST_BINARY_DIR")) { _putenv((std::string("TEST_BINARY_DIR=") + bin_dir.string()).c_str()); } // NOLINT(concurrency-mt-unsafe)
-#endif
 
     // Optional args: --min-bytes <N> --max-bytes <N>
     std::uint64_t min_bytes = 1024ULL;                          // 1 KiB

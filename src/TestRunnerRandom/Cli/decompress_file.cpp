@@ -11,6 +11,7 @@
 #include "testRunnerRandom/detail/files.h"
 #include "testRunnerRandom/detail/sha512.h"
 #include "testRunnerRandom/detail/log_decompress.h"
+#include "testRunnerRandom/detail/resolve_exe.h"
 #include "testRunnerRandom/detail/json_escape.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/DecompressTimeoutException.h"
@@ -44,13 +45,7 @@ namespace crsce::testrunner_random::cli {
         using crsce::testrunner::detail::run_process;
         using crsce::testrunner::detail::ProcResult;
 
-        // Resolve decompressor from build/bin by default, or TEST_BINARY_DIR/bin when set.
-        std::string exe;
-        if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
-            exe = (fs::path(tbd).parent_path() / "bin" / "decompress").string();
-        } else {
-            exe = (fs::path("bin") / "decompress").string();
-        }
+        const std::string exe = crsce::testrunner::detail::resolve_exe("decompress");
         // On POSIX, prefix with env to enable internal solver debug for padding by default
         std::vector<std::string> argv;
 #ifdef _WIN32

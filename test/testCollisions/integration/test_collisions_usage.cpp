@@ -4,18 +4,15 @@
  */
 
 #include <gtest/gtest.h>
-#include <filesystem>
 #include <string>
 #include <optional>
 #include <vector>
+#include "helpers/exe_path.h"
 
 #include "testRunnerRandom/detail/run_process.h"
 
-namespace fs = std::filesystem;
-
 TEST(TestCollisionsCli, FailsWithoutRequiredArgs) {
-    const fs::path bin_dir{TEST_BINARY_DIR};
-    const std::string exe = (bin_dir / "bin" / "testCollisions").string();
+    const std::string exe = crsce::test::exe_path("testCollisions");
     const std::vector<std::string> argv = { exe };
     const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
     EXPECT_NE(res.exit_code, 0);
@@ -23,8 +20,7 @@ TEST(TestCollisionsCli, FailsWithoutRequiredArgs) {
 }
 
 TEST(TestCollisionsCli, FailsWhenMinNotLessThanMax) {
-    const fs::path bin_dir{TEST_BINARY_DIR};
-    const std::string exe = (bin_dir / "bin" / "testCollisions").string();
+    const std::string exe = crsce::test::exe_path("testCollisions");
     const std::vector<std::string> argv = {
         exe,
         "-min_blocks", "2",

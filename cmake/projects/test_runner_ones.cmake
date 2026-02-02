@@ -12,6 +12,9 @@ target_include_directories(testRunnerOnes PUBLIC
 target_compile_definitions(testRunnerOnes PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
 
 target_link_libraries(testRunnerOnes PRIVATE crsce_static)
+set_target_properties(testRunnerOnes PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+)
 
 add_custom_command(TARGET testRunnerOnes POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/bin"

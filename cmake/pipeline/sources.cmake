@@ -13,9 +13,11 @@ add_library(crsce_sources OBJECT ${CRSCE_PROJECT_SOURCES})
 target_include_directories(crsce_sources PUBLIC
   "${PROJECT_SOURCE_DIR}/include"
 )
+target_compile_definitions(crsce_sources PUBLIC CRSCE_BIN_DIR="${PROJECT_SOURCE_DIR}/bin")
 
 # Also provide a static library for tools/tests to link, which improves coverage attribution
 add_library(crsce_static STATIC ${CRSCE_PROJECT_SOURCES})
 target_include_directories(crsce_static PUBLIC
   "${PROJECT_SOURCE_DIR}/include"
 )
+target_compile_definitions(crsce_static PUBLIC CRSCE_BIN_DIR="${PROJECT_SOURCE_DIR}/bin")
