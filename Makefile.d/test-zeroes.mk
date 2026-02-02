@@ -8,6 +8,6 @@
 test/zeroes: build
 	@echo "--- Running testRunnerZeroes (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
-	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
-	"$(BUILD_DIR)/$(PRESET)/testRunnerZeroes"
+	PATH="$(CURDIR)/bin:$$PATH" \
+	"$(CURDIR)/bin/testRunnerZeroes"
 	@echo "--- ✅ testRunnerZeroes complete ---"

@@ -11,6 +11,6 @@ MAX ?= 128
 test/random: build
 	@echo "--- Running testRunnerRandom (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
-	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
-	"$(BUILD_DIR)/$(PRESET)/testRunnerRandom" --min-bytes $(MIN) --max-bytes $(MAX)
+	PATH="$(CURDIR)/bin:$$PATH" \
+	"$(CURDIR)/bin/testRunnerRandom" --min-bytes $(MIN) --max-bytes $(MAX)
 	@echo "--- ✅ testRunnerRandom complete ---"

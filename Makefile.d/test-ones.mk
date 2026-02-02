@@ -7,6 +7,6 @@
 test/ones: build
 	@echo "--- Running testRunnerOnes (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
-	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
-	"$(BUILD_DIR)/$(PRESET)/testRunnerOnes"
+	PATH="$(CURDIR)/bin:$$PATH" \
+	"$(CURDIR)/bin/testRunnerOnes"
 	@echo "--- ✅ testRunnerOnes complete ---"

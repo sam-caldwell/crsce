@@ -7,6 +7,6 @@
 test/alternating10: build
 	@echo "--- Running testRunnerAlternating10 (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
-	PATH="$(BUILD_DIR)/$(PRESET):$$PATH" \
-	"$(BUILD_DIR)/$(PRESET)/testRunnerAlternating10"
+	PATH="$(CURDIR)/bin:$$PATH" \
+	"$(CURDIR)/bin/testRunnerAlternating10"
 	@echo "--- ✅ testRunnerAlternating10 complete ---"

@@ -3,4 +3,6 @@
 
 .PHONY: test/uselessMachine
 test/uselessMachine: build
-	@"$(BUILD_DIR)/bin/uselessTest"
+	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
+	PATH="$(CURDIR)/bin:$$PATH" \
+	"$(CURDIR)/bin/uselessTest"
