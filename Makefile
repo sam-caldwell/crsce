@@ -8,6 +8,15 @@ NODE_BIN_DIR := $(NODE_DIR)/node_modules/.bin
 BUILD_DIR := $(CURDIR)/build
 LLVMBIN := /opt/homebrew/opt/llvm/bin
 
+# Choose a sensible default preset: prefer Homebrew LLVM if present, otherwise use a portable debug preset
+HAVE_LLVM := $(shell [ -x "$(LLVMBIN)/clang++" ] && echo yes || echo no)
+ifeq ($(HAVE_LLVM),yes)
+  PRESET ?= llvm-debug
+else
+  PRESET ?= cmake-build-debug
+endif
+export PRESET
+
 # Add local binaries to the PATH for make commands
 export PATH := $(LLVMBIN):$(VENV_DIR)/bin:$(NODE_BIN_DIR):$(PATH)
 

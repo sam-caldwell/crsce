@@ -16,6 +16,7 @@
 #include <span>
 #include <cstdint>
 #include <fstream>
+#include <sstream>
 
 #include "testRunnerRandom/detail/sha512.h"
 #include "testRunnerRandom/detail/run_process.h"
@@ -111,6 +112,9 @@ int main() try {
     std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
     if (ec_mk) { std::cerr << "failed to create output dir\n"; return 1; }
 
+    // Always announce useful locations up-front for debugging
+    std::cout << "USL_LOG_DIR=" << out_dir.string() << "\n";
+
     // Determine binary locations: prefer TEST_BINARY_DIR (wrappers), then repo bin
     const std::string cx_exe = crsce::testrunner::detail::resolve_exe("compress");
     const std::string dx_exe = crsce::testrunner::detail::resolve_exe("decompress");
@@ -122,14 +126,45 @@ int main() try {
         }
     }
 
+    std::cout << "USL_COMPRESS_EXE=" << cx_exe << "\n";
+    std::cout << "USL_DECOMPRESS_EXE=" << dx_exe << "\n";
+    std::cout << "USL_SRC=" << src_path.string() << "\n";
+    std::cout << "USL_CONTAINER=" << cx_path.string() << "\n";
+    std::cout << "USL_RECON=" << dx_path.string() << "\n";
+    std::cout << "USL_WRAPPED=" << (using_wrappers ? 1 : 0) << "\n";
+
     // Compute input hash for logging and comparison
     const std::string input_hash = crsce::testrunner::detail::compute_sha512(src_path);
+
+    // Helper for writing small log files
+    auto write_text = [](const fs::path &p, const std::string &text) {
+        std::ofstream os(p, std::ios::binary);
+        if (!os.good()) { return false; }
+        os.write(text.data(), static_cast<std::streamsize>(text.size()));
+        return os.good();
+    };
 
     // Compress
     {
         const std::vector<std::string> argv = { cx_exe, "-in", src_path.string(), "-out", cx_path.string() };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
-        if (res.exit_code != 0) { std::cout << "failed\n"; return 0; }
+        if (res.exit_code != 0) {
+            std::ostringstream cmd;
+            for (std::size_t i = 0; i < argv.size(); ++i) {
+                if (i) { cmd << ' '; }
+                cmd << argv[i];
+            }
+            const fs::path so = out_dir / "compress.stdout.txt";
+            const fs::path se = out_dir / "compress.stderr.txt";
+            (void)write_text(so, res.out);
+            (void)write_text(se, res.err);
+            std::cout << "USL_COMPRESS_CMD=" << cmd.str() << "\n";
+            std::cout << "USL_COMPRESS_EXIT=" << res.exit_code << "\n";
+            std::cout << "USL_COMPRESS_STDOUT=" << so.string() << "\n";
+            std::cout << "USL_COMPRESS_STDERR=" << se.string() << "\n";
+            std::cout << "failed\n";
+            return 2;
+        }
     }
 
     // Validate CRSCE container format per specification when not wrapped
@@ -137,8 +172,10 @@ int main() try {
         std::string why;
         if (!validate_container(cx_path, why)) {
             std::cerr << "uselessTest: container validation failed: " << why << "\n";
+            std::cout << "USL_CONTAINER_VALIDATION=fail\n";
+            std::cout << "USL_CONTAINER_REASON=" << why << "\n";
             std::cout << "failed\n";
-            return 0;
+            return 2;
         }
     }
 
@@ -147,7 +184,23 @@ int main() try {
     {
         const std::vector<std::string> argv = { dx_exe, "-in", cx_path.string(), "-out", dx_path.string() };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
-        if (res.exit_code != 0) { std::cout << "failed\n"; return 0; }
+        if (res.exit_code != 0) {
+            std::ostringstream cmd;
+            for (std::size_t i = 0; i < argv.size(); ++i) {
+                if (i) { cmd << ' '; }
+                cmd << argv[i];
+            }
+            const fs::path so = out_dir / "decompress.stdout.txt";
+            const fs::path se = out_dir / "decompress.stderr.txt";
+            (void)write_text(so, res.out);
+            (void)write_text(se, res.err);
+            std::cout << "USL_DECOMPRESS_CMD=" << cmd.str() << "\n";
+            std::cout << "USL_DECOMPRESS_EXIT=" << res.exit_code << "\n";
+            std::cout << "USL_DECOMPRESS_STDOUT=" << so.string() << "\n";
+            std::cout << "USL_DECOMPRESS_STDERR=" << se.string() << "\n";
+            std::cout << "failed\n";
+            return 2;
+        }
         recon_hash = crsce::testrunner::detail::compute_sha512(dx_path);
     }
 
@@ -155,12 +208,16 @@ int main() try {
         std::cout << "success\n";
         return 0;
     }
+    std::cout << "USL_INPUT_HASH=" << input_hash << "\n";
+    std::cout << "USL_RECON_HASH=" << recon_hash << "\n";
     std::cout << "failed\n";
-    return 0;
+    return 2;
 } catch (const std::exception &e) {
+    std::cout << "USL_EXCEPTION=" << e.what() << "\n";
     std::cout << "failed\n";
-    return 0;
+    return 2;
 } catch (...) {
+    std::cout << "USL_EXCEPTION=unknown\n";
     std::cout << "failed\n";
-    return 0;
+    return 2;
 }

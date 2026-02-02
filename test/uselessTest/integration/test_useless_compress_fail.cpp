@@ -43,6 +43,6 @@ TEST(UselessTestCli, CompressFail) {
         exe
     };
     const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
-    EXPECT_EQ(res.exit_code, 0) << res.out << "\n" << res.err;
+    EXPECT_NE(res.exit_code, 0) << res.out << "\n" << res.err;
     ASSERT_NE(res.out.find("failed"), std::string::npos);
 }
