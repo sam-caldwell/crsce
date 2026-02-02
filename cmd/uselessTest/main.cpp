@@ -1,6 +1,7 @@
 /**
  * @file cmd/uselessTest/main.cpp
  * @brief Compresses and then decompresses docs/testData/useless-machine.mp4 using CRSCE tools.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
 
 #include <exception>

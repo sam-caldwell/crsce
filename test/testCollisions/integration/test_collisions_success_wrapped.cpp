@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <sstream>
 
 #include "testRunnerRandom/detail/run_process.h"
 
@@ -93,10 +94,21 @@ TEST(TestCollisionsCli, WrappedCompressDecompressForcesPassAndCleanup) {
 
     const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
     ASSERT_EQ(res.exit_code, 0) << res.out << "\n" << res.err;
-
-    const auto after = list_logs3(out_dir);
-    ASSERT_GE(after.size(), before.size() + 1);
-    const fs::path &log_path = after.back();
+    // Prefer explicit LOG_PATH from stdout to avoid race with concurrent tests
+    fs::path log_path;
+    {
+        const std::string key = "LOG_PATH=";
+        std::istringstream iss(res.out);
+        std::string line;
+        while (std::getline(iss, line)) {
+            if (line.starts_with(key)) { log_path = fs::path(line.substr(key.size())); break; }
+        }
+    }
+    if (log_path.empty()) {
+        const auto after = list_logs3(out_dir);
+        ASSERT_GE(after.size(), before.size() + 1);
+        log_path = after.back();
+    }
 
     std::ifstream is(log_path);
     ASSERT_TRUE(is.good());

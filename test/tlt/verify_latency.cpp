@@ -19,12 +19,16 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <cstdlib>
 
 /**
  * @name VerifyLatency.BlocksUnderOneSecondPer
  * @brief For 1/2/5/10 blocks, ensure compress time <= 1s per block (on average).
  */
 TEST(VerifyLatency, BlocksUnderOneSecondPer) { // NOLINT(readability-identifier-naming)
+    if (std::getenv("LLVM_PROFILE_FILE") != nullptr) { // NOLINT(concurrency-mt-unsafe)
+        GTEST_SKIP() << "Skipping latency test under coverage instrumentation";
+    }
     const auto td = tmp_dir();
     const std::vector<std::size_t> blocks = {1U, 2U, 5U, 10U};
 

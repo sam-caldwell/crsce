@@ -1,6 +1,7 @@
 /**
  * @file resolve_exe.h
  * @brief Resolve path to a helper executable across common build layouts.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
 #pragma once
 
