@@ -199,10 +199,22 @@ Aggressive GOBP parameters:
 ## Option: Annealing schedule
 - Annealing schedule: vary damping/confidence in phases (already added: CRSCE_GOBP_MULTIPHASE=1), but you can go more
 extreme by lowering final‑phase confidence and damping.
+- Current multiphase schedule (hard-coded) is:
+    - Phase 1: damping 0.60, confidence 0.995
+    - Phase 2: damping 0.40, confidence 0.95
+    - Phase 3: damping 0.20, confidence 0.85
+    - Phase 3: damping 0.20, confidence 0.85
+
+> When CRSCE_GOBP_MULTIPHASE=1 (default now), the env vars CRSCE_GOBP_CONF/DAMP do not affect the phase values; they
+> only apply to the single‑phase path. So even though the make target sets CONF=0.72 and DAMP=0.08, multiphase ignored 
+> those and used the fixed 0.85/0.20 in the final phase.
+
+> We have wired env overrides for multi-phase so we can try more extreme annealing right away, e.g.:
+> - CRSCE_GOBP_PHASE1_CONF/DAMP
+> - CRSCE_GOBP_PHASE2_CONF/DAMP
+> - CRSCE_GOBP_PHASE3_CONF/DAMP
 
 ### Outcome
-
-
 This produced the same outcome
 
 - Restarts with perturbation: after plateau, reset the GOBP state and inject small noise into beliefs, then re‑run phases.
