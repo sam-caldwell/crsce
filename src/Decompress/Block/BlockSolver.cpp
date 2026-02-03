@@ -203,9 +203,10 @@ namespace crsce::decompress {
                 } catch (...) { /* keep default */ }
             }
 
-            bool multiphase = false;
+            bool multiphase = true; // default to multiphase scheduling
             if (const char *e = std::getenv("CRSCE_GOBP_MULTIPHASE"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                multiphase = true;
+                // Interpret "0" as off, anything else as on
+                multiphase = (std::string(e) != "0");
             }
 
             if (multiphase) {

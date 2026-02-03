@@ -20,6 +20,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <cstdlib>
 #include <filesystem>
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
@@ -107,14 +108,73 @@ namespace crsce::decompress {
                         os << "{\n";
                         os << "  \"step\":\"row-completion-stats\",\n";
                         os << "  \"block_index\":" << i << ",\n";
-                        os << "  \"min_pct\":" << minp << ",\n";
-                        os << "  \"avg_pct\":" << avgp << ",\n";
-                        os << "  \"max_pct\":" << maxp << ",\n";
+                        // parameters snapshot from environment (with solver defaults)
+                        int de_max = 200; int gobp_iters = 300; double gobp_conf = 0.995; double gobp_damp = 0.5;
+                        bool multiphase = true; bool backtrack = false; int bt_de_iters = 100;
+                        {
+                            const char *e = std::getenv("CRSCE_DE_MAX_ITERS"); // NOLINT(concurrency-mt-unsafe)
+                            if (e && *e) {
+                                try {
+                                    const auto v = std::strtoll(e, nullptr, 10);
+                                    if (v > 0 && v < 1000000) { de_max = static_cast<int>(v); }
+                                } catch (...) { /* keep default */ }
+                            }
+                        }
+                        {
+                            const char *e = std::getenv("CRSCE_GOBP_ITERS"); // NOLINT(concurrency-mt-unsafe)
+                            if (e && *e) {
+                                try {
+                                    const auto v = std::strtoll(e, nullptr, 10);
+                                    if (v > 0 && v < 1000000) { gobp_iters = static_cast<int>(v); }
+                                } catch (...) { /* keep default */ }
+                            }
+                        }
+                        {
+                            const char *e = std::getenv("CRSCE_GOBP_CONF"); // NOLINT(concurrency-mt-unsafe)
+                            if (e && *e) {
+                                try { gobp_conf = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
+                            }
+                        }
+                        {
+                            const char *e = std::getenv("CRSCE_GOBP_DAMP"); // NOLINT(concurrency-mt-unsafe)
+                            if (e && *e) {
+                                try { gobp_damp = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
+                            }
+                        }
+                        {
+                            const char *e = std::getenv("CRSCE_GOBP_MULTIPHASE"); // NOLINT(concurrency-mt-unsafe)
+                            if (e && *e) { multiphase = (std::string(e) != "0"); }
+                        }
+                        {
+                            const char *e = std::getenv("CRSCE_BACKTRACK"); // NOLINT(concurrency-mt-unsafe)
+                            if (e && *e) { backtrack = true; }
+                        }
+                        {
+                            const char *e = std::getenv("CRSCE_BT_DE_ITERS"); // NOLINT(concurrency-mt-unsafe)
+                            if (e && *e) {
+                                try {
+                                    const auto v = std::strtoll(e, nullptr, 10);
+                                    if (v > 0 && v < 1000000) { bt_de_iters = static_cast<int>(v); }
+                                } catch (...) { /* keep default */ }
+                            }
+                        }
+                        os << "  \"parameters\":{\n";
+                        os << "    \"CRSCE_DE_MAX_ITERS\":" << de_max << ",\n";
+                        os << "    \"CRSCE_GOBP_ITERS\":" << gobp_iters << ",\n";
+                        os << "    \"CRSCE_GOBP_CONF\":" << gobp_conf << ",\n";
+                        os << "    \"CRSCE_GOBP_DAMP\":" << gobp_damp << ",\n";
+                        os << "    \"CRSCE_GOBP_MULTIPHASE\":" << (multiphase ? "true" : "false") << ",\n";
+                        os << "    \"CRSCE_BACKTRACK\":" << (backtrack ? "true" : "false") << ",\n";
+                        os << "    \"CRSCE_BT_DE_ITERS\":" << bt_de_iters << "\n";
+                        os << "  },\n";
+                        os << "  \"min_pct\":" << (minp * 100.0) << ",\n";
+                        os << "  \"avg_pct\":" << (avgp * 100.0) << ",\n";
+                        os << "  \"max_pct\":" << (maxp * 100.0) << ",\n";
                         os << "  \"full_rows\":" << full << ",\n";
                         os << "  \"rows\":[";
                         for (std::size_t r = 0; r < S; ++r) {
                             if (r) { os << ","; }
-                            os << pct[r];
+                            os << (pct[r] * 100.0);
                         }
                         os << "]\n";
                         os << "}\n";
