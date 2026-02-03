@@ -540,3 +540,7 @@ make build test/uselessMachine \
             - Focused row completion:
                 - When a row hits ≥99%, run a localized, deeper DE/backtrack loop targeting just its unknowns to tip it
                   to 100%.
+
+### Outcome
+- After all the above, we are stuck at 226 rows solved of block 0.
+- Because of hash chaining, we have to solve the CSM top to bottom.  Was hash chaining really a bad idea?

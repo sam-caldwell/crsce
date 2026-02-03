@@ -116,6 +116,12 @@ namespace crsce::decompress {
                         static constexpr bool multiphase = true;
                         static constexpr bool backtrack = true;
                         static constexpr int bt_de_iters = 1200;
+                        // Focused row completion parameters (must match solver)
+                        static constexpr int kFocusMaxSteps = 32;
+                        static constexpr int kFocusBtIters = 6000;
+                        // Restart + perturbation parameters (must match solver)
+                        static constexpr int kRestarts = 3;
+                        static constexpr double kPerturb = 0.01;
                         // Multiphase schedule provenance
                         static constexpr std::array<double, 3> pconf{{0.995, 0.80, 0.48}};
                         static constexpr std::array<double, 3> pdamp{{0.50, 0.10, 0.01}};
@@ -127,7 +133,11 @@ namespace crsce::decompress {
                         os << "    \"CRSCE_GOBP_DAMP\":" << gobp_damp << ",\n";
                         os << "    \"CRSCE_GOBP_MULTIPHASE\":" << (multiphase ? "true" : "false") << ",\n";
                         os << "    \"CRSCE_BACKTRACK\":" << (backtrack ? "true" : "false") << ",\n";
-                        os << "    \"CRSCE_BT_DE_ITERS\":" << bt_de_iters << "\n";
+                        os << "    \"CRSCE_BT_DE_ITERS\":" << bt_de_iters << ",\n";
+                        os << "    \"kFocusMaxSteps\":" << kFocusMaxSteps << ",\n";
+                        os << "    \"kFocusBtIters\":" << kFocusBtIters << ",\n";
+                        os << "    \"kRestarts\":" << kRestarts << ",\n";
+                        os << "    \"kPerturb\":" << kPerturb << "\n";
                         os << "  },\n";
                         os << "  \"gobp_phases\":{\n";
                         os << "    \"conf\":[" << pconf[0] << "," << pconf[1] << "," << pconf[2] << "],\n";
