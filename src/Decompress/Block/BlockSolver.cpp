@@ -18,6 +18,7 @@
 #include <cstdint> //NOLINT
 #include <cstdlib>
 #include <iostream>
+#include <array>
 #include <span>
 #include <string>
 #include <exception>
@@ -189,37 +190,104 @@ namespace crsce::decompress {
             double gobp_conf = 0.995; // default assignment confidence
             int gobp_iters = 300; // default iteration cap
             if (const char *e = std::getenv("CRSCE_GOBP_DAMP"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                try { gobp_damp = std::strtod(e, nullptr); } catch (...) {
-                    /* keep default */
-                }
+                try { gobp_damp = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
             }
             if (const char *e = std::getenv("CRSCE_GOBP_CONF"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                try { gobp_conf = std::strtod(e, nullptr); } catch (...) {
-                    /* keep default */
-                }
+                try { gobp_conf = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
             }
             if (const char *e = std::getenv("CRSCE_GOBP_ITERS"); e && *e) { // NOLINT(concurrency-mt-unsafe)
                 try {
                     if (const std::int64_t v = std::strtoll(e, nullptr, 10); v > 0 && v < 1000000) {
                         gobp_iters = static_cast<int>(v);
                     }
-                } catch (...) {
-                    /* keep default */
-                }
+                } catch (...) { /* keep default */ }
             }
 
-            GobpSolver gobp(csm_out, st, gobp_damp, gobp_conf);
+            bool multiphase = false;
+            if (const char *e = std::getenv("CRSCE_GOBP_MULTIPHASE"); e && *e) { // NOLINT(concurrency-mt-unsafe)
+                multiphase = true;
+            }
 
-            for (int gi = 0; gi < gobp_iters; ++gi) {
-                std::size_t gprog = 0;
-                try {
-                    snap.phase = "gobp";
-                    gprog += gobp.solve_step();
-                    // Follow with a DE sweep to propagate any newly forced moves
-                    gprog += det.solve_step();
-                } catch (const std::exception &e) {
+            if (multiphase) {
+                // Three-phase schedule with decreasing damping/confidence.
+                const std::array<double, 3> dampers{{0.6, 0.4, 0.2}};
+                const std::array<double, 3> confs{{0.995, 0.95, 0.85}};
+                const std::array<int, 3> phase_iters{{ gobp_iters/3, gobp_iters/3, gobp_iters - (2 * (gobp_iters/3)) }};
+                for (int ph = 0; ph < 3 && !det.solved(); ++ph) {
+                    GobpSolver gobp(csm_out, st, dampers.at(ph), confs.at(ph));
+                    for (int gi = 0; gi < phase_iters.at(ph); ++gi) {
+                        std::size_t gprog = 0;
+                        try {
+                            snap.phase = "gobp";
+                            gprog += gobp.solve_step();
+                            // Follow with a DE sweep to propagate any newly forced moves
+                            gprog += det.solve_step();
+                        } catch (const std::exception &e) {
+                            snap.iter = static_cast<std::size_t>(gi);
+                            snap.message = e.what();
+                            snap.U_row.assign(st.U_row.begin(), st.U_row.end());
+                            snap.U_col.assign(st.U_col.begin(), st.U_col.end());
+                            snap.U_diag.assign(st.U_diag.begin(), st.U_diag.end());
+                            snap.U_xdiag.assign(st.U_xdiag.begin(), st.U_xdiag.end());
+                            {
+                                std::size_t sumU = 0;
+                                for (const auto u: st.U_row) { sumU += static_cast<std::size_t>(u); }
+                                snap.unknown_total = sumU;
+                                snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
+                            }
+                            set_block_solve_snapshot(snap);
+                            return false;
+                        }
+                        // Update snapshot after this iteration
+                        snap.iter = static_cast<std::size_t>(gi);
+                        snap.U_row.assign(st.U_row.begin(), st.U_row.end());
+                        snap.U_col.assign(st.U_col.begin(), st.U_col.end());
+                        snap.U_diag.assign(st.U_diag.begin(), st.U_diag.end());
+                        snap.U_xdiag.assign(st.U_xdiag.begin(), st.U_xdiag.end());
+                        {
+                            std::size_t sumU = 0;
+                            for (const auto u: st.U_row) { sumU += static_cast<std::size_t>(u); }
+                            snap.unknown_total = sumU;
+                            snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
+                        }
+                        set_block_solve_snapshot(snap);
+                        if (det.solved()) {
+                            std::cerr << "GOBP converged to a solution\n";
+                            break;
+                        }
+                        if (gprog == 0) {
+                            std::cerr << "GOBP reached steady state (no progress)\n";
+                            break;
+                        }
+                    }
+                }
+            } else {
+                GobpSolver gobp(csm_out, st, gobp_damp, gobp_conf);
+                for (int gi = 0; gi < gobp_iters; ++gi) {
+                    std::size_t gprog = 0;
+                    try {
+                        snap.phase = "gobp";
+                        gprog += gobp.solve_step();
+                        // Follow with a DE sweep to propagate any newly forced moves
+                        gprog += det.solve_step();
+                    } catch (const std::exception &e) {
+                        snap.iter = static_cast<std::size_t>(gi);
+                        snap.message = e.what();
+                        snap.U_row.assign(st.U_row.begin(), st.U_row.end());
+                        snap.U_col.assign(st.U_col.begin(), st.U_col.end());
+                        snap.U_diag.assign(st.U_diag.begin(), st.U_diag.end());
+                        snap.U_xdiag.assign(st.U_xdiag.begin(), st.U_xdiag.end());
+                        {
+                            std::size_t sumU = 0;
+                            for (const auto u: st.U_row) { sumU += static_cast<std::size_t>(u); }
+                            snap.unknown_total = sumU;
+                            snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
+                        }
+                        set_block_solve_snapshot(snap);
+                        return false;
+                    }
+                    // Update snapshot after this iteration
                     snap.iter = static_cast<std::size_t>(gi);
-                    snap.message = e.what();
                     snap.U_row.assign(st.U_row.begin(), st.U_row.end());
                     snap.U_col.assign(st.U_col.begin(), st.U_col.end());
                     snap.U_diag.assign(st.U_diag.begin(), st.U_diag.end());
@@ -231,28 +299,76 @@ namespace crsce::decompress {
                         snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
                     }
                     set_block_solve_snapshot(snap);
-                    return false;
+                    if (det.solved()) {
+                        std::cerr << "GOBP converged to a solution\n";
+                        break;
+                    }
+                    if (gprog == 0) {
+                        std::cerr << "GOBP reached steady state (no progress)\n";
+                        break;
+                    }
                 }
-                // Update snapshot after this iteration
-                snap.iter = static_cast<std::size_t>(gi);
-                snap.U_row.assign(st.U_row.begin(), st.U_row.end());
-                snap.U_col.assign(st.U_col.begin(), st.U_col.end());
-                snap.U_diag.assign(st.U_diag.begin(), st.U_diag.end());
-                snap.U_xdiag.assign(st.U_xdiag.begin(), st.U_xdiag.end());
-                {
-                    std::size_t sumU = 0;
-                    for (const auto u: st.U_row) { sumU += static_cast<std::size_t>(u); }
-                    snap.unknown_total = sumU;
-                    snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
+            }
+
+            // Optional backtracking: try a single high-uncertainty cell if enabled
+            if (!det.solved()) {
+                bool enable_bt = false;
+                if (const char *e = std::getenv("CRSCE_BACKTRACK"); e && *e) { // NOLINT(concurrency-mt-unsafe)
+                    enable_bt = true;
                 }
-                set_block_solve_snapshot(snap);
-                if (det.solved()) {
-                    std::cerr << "GOBP converged to a solution\n";
-                    break;
-                }
-                if (gprog == 0) {
-                    std::cerr << "GOBP reached steady state (no progress)\n";
-                    break;
+                if (enable_bt) {
+                    // Pick row with the most unknowns
+                    std::size_t r_pick = 0;
+                    std::uint16_t maxU = 0;
+                    for (std::size_t r = 0; r < S; ++r) {
+                        if (st.U_row.at(r) > maxU) { maxU = st.U_row.at(r); r_pick = r; }
+                    }
+                    // Find an unlocked column in that row
+                    bool found = false; std::size_t c_pick = 0;
+                    for (std::size_t c = 0; c < S; ++c) {
+                        if (!csm_out.is_locked(r_pick, c)) { c_pick = c; found = true; break; }
+                    }
+                    if (found && maxU > 0) {
+                        bool adopted = false;
+                        for (int vv = 0; vv < 2 && !adopted; ++vv) {
+                            const bool assume_one = (vv == 1);
+                            Csm c_try = csm_out;
+                            ConstraintState st_try = st;
+                            c_try.put(r_pick, c_pick, assume_one);
+                            c_try.lock(r_pick, c_pick);
+                            if (st_try.U_row.at(r_pick) > 0) { --st_try.U_row.at(r_pick); }
+                            if (st_try.U_col.at(c_pick) > 0) { --st_try.U_col.at(c_pick); }
+                            const std::size_t d = (c_pick >= r_pick) ? (c_pick - r_pick) : (c_pick + S - r_pick);
+                            const std::size_t x = (r_pick + c_pick) % S;
+                            if (st_try.U_diag.at(d) > 0) { --st_try.U_diag.at(d); }
+                            if (st_try.U_xdiag.at(x) > 0) { --st_try.U_xdiag.at(x); }
+                            DeterministicElimination det_bt{c_try, st_try};
+                            int bt_iters = 100;
+                            if (const char *e = std::getenv("CRSCE_BT_DE_ITERS"); e && *e) { // NOLINT(concurrency-mt-unsafe)
+                                try {
+                                    if (const std::int64_t v = std::strtoll(e, nullptr, 10); v > 0 && v < 1000000) {
+                                        bt_iters = static_cast<int>(v);
+                                    }
+                                } catch (...) { /* keep default */ }
+                            }
+                            for (int it = 0; it < bt_iters; ++it) {
+                                const std::size_t prog = det_bt.solve_step();
+                                if (det_bt.solved()) { break; }
+                                if (prog == 0) { break; }
+                            }
+                            if (det_bt.solved()) {
+                                csm_out = c_try;
+                                st = st_try;
+                                adopted = true;
+                            }
+                        }
+                        if (adopted) {
+                            // After adoption, run a quick DE sweep to stabilize
+                            for (int it = 0; it < 50 && !det.solved(); ++it) {
+                                if (det.solve_step() == 0) { break; }
+                            }
+                        }
+                    }
                 }
             }
 

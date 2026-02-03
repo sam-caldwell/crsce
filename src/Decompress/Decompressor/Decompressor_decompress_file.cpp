@@ -20,6 +20,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <filesystem>
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 
@@ -75,6 +76,52 @@ namespace crsce::decompress {
                 if (const auto snap = get_block_solve_snapshot(); snap.has_value()) {
                     crsce::decompress::detail::log_decompress_failure(
                         hdr.block_count, blocks_attempted, blocks_successful, i, *snap);
+                }
+                // Row-completion statistics (write to structured log file alongside output)
+                namespace fs = std::filesystem;
+                try {
+                    const fs::path outp = fs::path(output_path_);
+                    const fs::path outdir = outp.has_parent_path() ? outp.parent_path() : fs::path(".");
+                    const fs::path rowlog = outdir / "row_completion_stats.log";
+                    // Compute per-row completion percentages
+                    const std::size_t S = crsce::decompress::Csm::kS;
+                    std::vector<double> pct(S, 0.0);
+                    double minp = 1.0;
+                    double maxp = 0.0;
+                    double sump = 0.0;
+                    std::size_t full = 0;
+                    for (std::size_t r = 0; r < S; ++r) {
+                        std::size_t solved = 0;
+                        for (std::size_t c = 0; c < S; ++c) {
+                            if (csm.is_locked(r, c)) { ++solved; }
+                        }
+                        const double p = static_cast<double>(solved) / static_cast<double>(S);
+                        pct[r] = p;
+                        minp = std::min(p, minp);
+                        maxp = std::max(p, maxp);
+                        sump += p;
+                        if (solved == S) { ++full; }
+                    }
+                    const double avgp = sump / static_cast<double>(S);
+                    if (std::ofstream os(rowlog, std::ios::binary); os.good()) {
+                        os << "{\n";
+                        os << "  \"step\":\"row-completion-stats\",\n";
+                        os << "  \"block_index\":" << i << ",\n";
+                        os << "  \"min_pct\":" << minp << ",\n";
+                        os << "  \"avg_pct\":" << avgp << ",\n";
+                        os << "  \"max_pct\":" << maxp << ",\n";
+                        os << "  \"full_rows\":" << full << ",\n";
+                        os << "  \"rows\":[";
+                        for (std::size_t r = 0; r < S; ++r) {
+                            if (r) { os << ","; }
+                            os << pct[r];
+                        }
+                        os << "]\n";
+                        os << "}\n";
+                    }
+                    std::print("ROW_COMPLETION_LOG={}\n", rowlog.string());
+                } catch (...) {
+                    // ignore log write errors
                 }
                 return false;
             }

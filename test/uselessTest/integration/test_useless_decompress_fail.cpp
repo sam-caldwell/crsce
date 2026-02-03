@@ -49,6 +49,7 @@ TEST(UselessTestCli, DecompressFail) {
     const std::vector<std::string> argv = {
         "env",
         std::string("TEST_BINARY_DIR=") + wrap_dir.string(),
+        std::string("CRSCE_WRAPPED_BINARIES=1"),
         exe
     };
     const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);

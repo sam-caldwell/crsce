@@ -111,6 +111,12 @@ int main() try {
     }
     std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
     if (ec_mk) { std::cerr << "failed to create output dir\n"; return 1; }
+    // Clean up any stale artifacts from a prior run to avoid CLI preflight failures
+    {
+        std::error_code ec;
+        if (fs::exists(cx_path)) { fs::remove(cx_path, ec); }
+        if (fs::exists(dx_path)) { fs::remove(dx_path, ec); }
+    }
 
     // Always announce useful locations up-front for debugging
     std::cout << "USL_LOG_DIR=" << out_dir.string() << "\n";
@@ -119,11 +125,9 @@ int main() try {
     const std::string cx_exe = crsce::testrunner::detail::resolve_exe("compress");
     const std::string dx_exe = crsce::testrunner::detail::resolve_exe("decompress");
     bool using_wrappers = false;
-    if (const char *tbd = std::getenv("TEST_BINARY_DIR"); tbd && *tbd) { // NOLINT(concurrency-mt-unsafe)
-        const std::string prefix = fs::path{tbd}.string();
-        if (cx_exe.starts_with(prefix)) {
-            using_wrappers = true;
-        }
+    if (const char *w = std::getenv("CRSCE_WRAPPED_BINARIES"); w && *w) { // NOLINT(concurrency-mt-unsafe)
+        const std::string v = w;
+        using_wrappers = (v != "0");
     }
 
     std::cout << "USL_COMPRESS_EXE=" << cx_exe << "\n";
@@ -167,15 +171,21 @@ int main() try {
         }
     }
 
-    // Validate CRSCE container format per specification when not wrapped
-    if (!using_wrappers) {
-        std::string why;
-        if (!validate_container(cx_path, why)) {
-            std::cerr << "uselessTest: container validation failed: " << why << "\n";
-            std::cout << "USL_CONTAINER_VALIDATION=fail\n";
-            std::cout << "USL_CONTAINER_REASON=" << why << "\n";
-            std::cout << "failed\n";
-            return 2;
+    // Validate CRSCE container format per specification
+    {
+        if (using_wrappers) {
+            std::cout << "USL_CONTAINER_VALIDATION=skipped\n";
+            std::cout << "USL_CONTAINER_REASON=wrapped-binaries\n";
+        } else {
+            std::string why;
+            if (!validate_container(cx_path, why)) {
+                std::cerr << "uselessTest: container validation failed: " << why << "\n";
+                std::cout << "USL_CONTAINER_VALIDATION=fail\n";
+                std::cout << "USL_CONTAINER_REASON=" << why << "\n";
+                std::cout << "failed\n";
+                return 2;
+            }
+            std::cout << "USL_CONTAINER_VALIDATION=ok\n";
         }
     }
 
@@ -198,6 +208,19 @@ int main() try {
             std::cout << "USL_DECOMPRESS_EXIT=" << res.exit_code << "\n";
             std::cout << "USL_DECOMPRESS_STDOUT=" << so.string() << "\n";
             std::cout << "USL_DECOMPRESS_STDERR=" << se.string() << "\n";
+            // Extract row completion log path if present in stdout
+            {
+                const std::string key = "ROW_COMPLETION_LOG=";
+                const auto p = res.out.find(key);
+                if (p != std::string::npos) {
+                    const auto eol = res.out.find('\n', p);
+                    const auto start = p + key.size();
+                    const std::string path = (eol == std::string::npos) ? res.out.substr(start) : res.out.substr(start, eol - start);
+                    if (!path.empty()) {
+                        std::cout << "USL_ROW_COMPLETION_LOG=" << path << "\n";
+                    }
+                }
+            }
             std::cout << "failed\n";
             return 2;
         }
