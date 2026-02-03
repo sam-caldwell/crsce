@@ -5,11 +5,11 @@
 test/uselessMachine:
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
 	PATH="$(CURDIR)/bin:$$PATH" \
-	CRSCE_DE_MAX_ITERS=60000 \
-	CRSCE_GOBP_ITERS=100000 \
-	CRSCE_GOBP_CONF=0.72 \
-	CRSCE_GOBP_DAMP=0.08 \
-	CRSCE_GOBP_MULTIPHASE=1 \
-	CRSCE_BACKTRACK=1 \
-	CRSCE_BT_DE_ITERS=300 \
+	"$(CURDIR)/bin/uselessTest"
+
+# More extreme annealing schedule (per-phase overrides)
+.PHONY: test/uselessMachine-anneal
+test/uselessMachine-anneal:
+	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
+	PATH="$(CURDIR)/bin:$$PATH" \
 	"$(CURDIR)/bin/uselessTest"

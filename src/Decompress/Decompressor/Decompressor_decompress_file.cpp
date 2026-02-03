@@ -20,7 +20,7 @@
 #include <span>
 #include <string>
 #include <vector>
-#include <cstdlib>
+#include <array>
 #include <filesystem>
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
@@ -81,7 +81,7 @@ namespace crsce::decompress {
                 // Row-completion statistics (write to structured log file alongside output)
                 namespace fs = std::filesystem;
                 try {
-                    const fs::path outp = fs::path(output_path_);
+                    const auto outp = fs::path(output_path_);
                     const fs::path outdir = outp.has_parent_path() ? outp.parent_path() : fs::path(".");
                     const fs::path rowlog = outdir / "row_completion_stats.log";
                     // Compute per-row completion percentages
@@ -108,56 +108,18 @@ namespace crsce::decompress {
                         os << "{\n";
                         os << "  \"step\":\"row-completion-stats\",\n";
                         os << "  \"block_index\":" << i << ",\n";
-                        // parameters snapshot from environment (with solver defaults)
-                        int de_max = 200; int gobp_iters = 300; double gobp_conf = 0.995; double gobp_damp = 0.5;
-                        bool multiphase = true; bool backtrack = false; int bt_de_iters = 100;
-                        {
-                            const char *e = std::getenv("CRSCE_DE_MAX_ITERS"); // NOLINT(concurrency-mt-unsafe)
-                            if (e && *e) {
-                                try {
-                                    const auto v = std::strtoll(e, nullptr, 10);
-                                    if (v > 0 && v < 1000000) { de_max = static_cast<int>(v); }
-                                } catch (...) { /* keep default */ }
-                            }
-                        }
-                        {
-                            const char *e = std::getenv("CRSCE_GOBP_ITERS"); // NOLINT(concurrency-mt-unsafe)
-                            if (e && *e) {
-                                try {
-                                    const auto v = std::strtoll(e, nullptr, 10);
-                                    if (v > 0 && v < 1000000) { gobp_iters = static_cast<int>(v); }
-                                } catch (...) { /* keep default */ }
-                            }
-                        }
-                        {
-                            const char *e = std::getenv("CRSCE_GOBP_CONF"); // NOLINT(concurrency-mt-unsafe)
-                            if (e && *e) {
-                                try { gobp_conf = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
-                            }
-                        }
-                        {
-                            const char *e = std::getenv("CRSCE_GOBP_DAMP"); // NOLINT(concurrency-mt-unsafe)
-                            if (e && *e) {
-                                try { gobp_damp = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
-                            }
-                        }
-                        {
-                            const char *e = std::getenv("CRSCE_GOBP_MULTIPHASE"); // NOLINT(concurrency-mt-unsafe)
-                            if (e && *e) { multiphase = (std::string(e) != "0"); }
-                        }
-                        {
-                            const char *e = std::getenv("CRSCE_BACKTRACK"); // NOLINT(concurrency-mt-unsafe)
-                            if (e && *e) { backtrack = true; }
-                        }
-                        {
-                            const char *e = std::getenv("CRSCE_BT_DE_ITERS"); // NOLINT(concurrency-mt-unsafe)
-                            if (e && *e) {
-                                try {
-                                    const auto v = std::strtoll(e, nullptr, 10);
-                                    if (v > 0 && v < 1000000) { bt_de_iters = static_cast<int>(v); }
-                                } catch (...) { /* keep default */ }
-                            }
-                        }
+                        // Hard-coded provenance parameters (no environment reads)
+                        static constexpr int de_max = 60000;
+                        static constexpr int gobp_iters = 100000;
+                        static constexpr double gobp_conf = 0.995;
+                        static constexpr double gobp_damp = 0.5;
+                        static constexpr bool multiphase = true;
+                        static constexpr bool backtrack = true;
+                        static constexpr int bt_de_iters = 1200;
+                        // Multiphase schedule provenance
+                        static constexpr std::array<double, 3> pconf{{0.995, 0.80, 0.48}};
+                        static constexpr std::array<double, 3> pdamp{{0.50, 0.10, 0.01}};
+                        static constexpr std::array<int, 3> piter{{500, 4500, 95000}};
                         os << "  \"parameters\":{\n";
                         os << "    \"CRSCE_DE_MAX_ITERS\":" << de_max << ",\n";
                         os << "    \"CRSCE_GOBP_ITERS\":" << gobp_iters << ",\n";
@@ -166,6 +128,11 @@ namespace crsce::decompress {
                         os << "    \"CRSCE_GOBP_MULTIPHASE\":" << (multiphase ? "true" : "false") << ",\n";
                         os << "    \"CRSCE_BACKTRACK\":" << (backtrack ? "true" : "false") << ",\n";
                         os << "    \"CRSCE_BT_DE_ITERS\":" << bt_de_iters << "\n";
+                        os << "  },\n";
+                        os << "  \"gobp_phases\":{\n";
+                        os << "    \"conf\":[" << pconf[0] << "," << pconf[1] << "," << pconf[2] << "],\n";
+                        os << "    \"damp\":[" << pdamp[0] << "," << pdamp[1] << "," << pdamp[2] << "],\n";
+                        os << "    \"iters\":[" << piter[0] << "," << piter[1] << "," << piter[2] << "]\n";
                         os << "  },\n";
                         os << "  \"min_pct\":" << (minp * 100.0) << ",\n";
                         os << "  \"avg_pct\":" << (avgp * 100.0) << ",\n";

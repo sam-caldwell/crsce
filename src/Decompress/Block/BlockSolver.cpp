@@ -119,19 +119,8 @@ namespace crsce::decompress {
         }
         set_block_solve_snapshot(snap);
 
-        // Allow overriding the deterministic elimination iteration cap via env.
-        // The default remains 200 to keep normal runs fast.
-        int kMaxIters = 200;
-        if (const char *e = std::getenv("CRSCE_DE_MAX_ITERS"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-            try {
-                // clamp to a sane upper bound
-                if (const std::int64_t v = std::strtoll(e, nullptr, 10); v > 0 && v < 1000000) {
-                    kMaxIters = static_cast<int>(v);
-                }
-            } catch (...) {
-                // ignore parse errors; keep default
-            }
-        }
+        // Hard-coded deterministic elimination iteration cap
+        static constexpr int kMaxIters = 60000;
 
         for (int iter = 0; iter < kMaxIters; ++iter) {
             std::size_t progress = 0;
@@ -185,35 +174,17 @@ namespace crsce::decompress {
         }
         std::cerr << "Block Solver terminating...\n";
         if (!det.solved()) {
-            // --- GOBP fallback to help convergence on symmetric patterns ---
-            double gobp_damp = 0.5; // default damping
-            double gobp_conf = 0.995; // default assignment confidence
-            int gobp_iters = 300; // default iteration cap
-            if (const char *e = std::getenv("CRSCE_GOBP_DAMP"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                try { gobp_damp = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
-            }
-            if (const char *e = std::getenv("CRSCE_GOBP_CONF"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                try { gobp_conf = std::strtod(e, nullptr); } catch (...) { /* keep default */ }
-            }
-            if (const char *e = std::getenv("CRSCE_GOBP_ITERS"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                try {
-                    if (const std::int64_t v = std::strtoll(e, nullptr, 10); v > 0 && v < 1000000) {
-                        gobp_iters = static_cast<int>(v);
-                    }
-                } catch (...) { /* keep default */ }
-            }
-
-            bool multiphase = true; // default to multiphase scheduling
-            if (const char *e = std::getenv("CRSCE_GOBP_MULTIPHASE"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                // Interpret "0" as off, anything else as on
-                multiphase = (std::string(e) != "0");
-            }
+            // --- GOBP fallback (hard-coded schedule) ---
+            static constexpr double gobp_damp = 0.50;
+            static constexpr double gobp_conf = 0.995;
+            static constexpr int gobp_iters = 100000;
+            static constexpr bool multiphase = true;
 
             if (multiphase) {
-                // Three-phase schedule with decreasing damping/confidence.
-                const std::array<double, 3> dampers{{0.6, 0.4, 0.2}};
-                const std::array<double, 3> confs{{0.995, 0.95, 0.85}};
-                const std::array<int, 3> phase_iters{{ gobp_iters/3, gobp_iters/3, gobp_iters - (2 * (gobp_iters/3)) }};
+                // Three-phase schedule (hard-coded)
+                static constexpr std::array<double, 3> dampers{{0.50, 0.10, 0.01}};
+                static constexpr std::array<double, 3> confs{{0.995, 0.80, 0.48}};
+                static constexpr std::array<int, 3> phase_iters{{500, 4500, 95000}};
                 for (int ph = 0; ph < 3 && !det.solved(); ++ph) {
                     GobpSolver gobp(csm_out, st, dampers.at(ph), confs.at(ph));
                     for (int gi = 0; gi < phase_iters.at(ph); ++gi) {
@@ -300,6 +271,55 @@ namespace crsce::decompress {
                         snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
                     }
                     set_block_solve_snapshot(snap);
+                    // Prefix-LH gating always on
+                    {
+                        std::size_t prefix_rows = 0;
+                        for (std::size_t r0 = 0; r0 < S; ++r0) {
+                            if (st.U_row.at(r0) == 0) { ++prefix_rows; } else { break; }
+                        }
+                        if (prefix_rows > 0) {
+                            const LHChainVerifier verifier(seed);
+                            if (!verifier.verify_rows(csm_out, lh, prefix_rows)) {
+                                std::cerr << "LH prefix gating failed at rows=" << prefix_rows << "\n";
+                                break; // exit phase early to allow fallback/backtracking
+                            }
+                        }
+                    }
+                    // Focused row completion: tip 99% rows to 100%
+                    {
+                        const auto near_thresh = static_cast<std::uint16_t>((S + 99U) / 100U);
+                        bool improved = false;
+                        for (std::size_t r0 = 0; r0 < S && !improved; ++r0) {
+                            if (st.U_row.at(r0) > 0 && st.U_row.at(r0) <= near_thresh) {
+                                bool found = false; std::size_t c_pick = 0;
+                                for (std::size_t c0 = 0; c0 < S; ++c0) { if (!csm_out.is_locked(r0, c0)) { c_pick = c0; found = true; break; } }
+                                if (found) {
+                                    for (int vv = 0; vv < 2 && !improved; ++vv) {
+                                        const bool assume_one = (vv == 1);
+                                        Csm c_try = csm_out;
+                                        ConstraintState st_try = st;
+                                        c_try.put(r0, c_pick, assume_one);
+                                        c_try.lock(r0, c_pick);
+                                        if (st_try.U_row.at(r0) > 0) { --st_try.U_row.at(r0); }
+                                        if (st_try.U_col.at(c_pick) > 0) { --st_try.U_col.at(c_pick); }
+                                        const std::size_t d0 = (c_pick >= r0) ? (c_pick - r0) : (c_pick + S - r0);
+                                        const std::size_t x0 = (r0 + c_pick) % S;
+                                        if (st_try.U_diag.at(d0) > 0) { --st_try.U_diag.at(d0); }
+                                        if (st_try.U_xdiag.at(x0) > 0) { --st_try.U_xdiag.at(x0); }
+                                        DeterministicElimination det_bt{c_try, st_try};
+                                        static constexpr int bt_iters = 1200;
+                                        for (int it0 = 0; it0 < bt_iters; ++it0) {
+                                            const std::size_t prog0 = det_bt.solve_step();
+                                            if (det_bt.solved()) { break; }
+                                            if (prog0 == 0) { break; }
+                                        }
+                                        if (det_bt.solved()) { csm_out = c_try; st = st_try; improved = true; }
+                                    }
+                                }
+                            }
+                        }
+                        if (improved) { for (int it1 = 0; it1 < 50 && !det.solved(); ++it1) { if (det.solve_step() == 0) { break; } } }
+                    }
                     if (det.solved()) {
                         std::cerr << "GOBP converged to a solution\n";
                         break;
@@ -311,13 +331,9 @@ namespace crsce::decompress {
                 }
             }
 
-            // Optional backtracking: try a single high-uncertainty cell if enabled
+            // Backtracking: try a single high-uncertainty cell (always on)
             if (!det.solved()) {
-                bool enable_bt = false;
-                if (const char *e = std::getenv("CRSCE_BACKTRACK"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                    enable_bt = true;
-                }
-                if (enable_bt) {
+                {
                     // Pick row with the most unknowns
                     std::size_t r_pick = 0;
                     std::uint16_t maxU = 0;
@@ -344,14 +360,7 @@ namespace crsce::decompress {
                             if (st_try.U_diag.at(d) > 0) { --st_try.U_diag.at(d); }
                             if (st_try.U_xdiag.at(x) > 0) { --st_try.U_xdiag.at(x); }
                             DeterministicElimination det_bt{c_try, st_try};
-                            int bt_iters = 100;
-                            if (const char *e = std::getenv("CRSCE_BT_DE_ITERS"); e && *e) { // NOLINT(concurrency-mt-unsafe)
-                                try {
-                                    if (const std::int64_t v = std::strtoll(e, nullptr, 10); v > 0 && v < 1000000) {
-                                        bt_iters = static_cast<int>(v);
-                                    }
-                                } catch (...) { /* keep default */ }
-                            }
+                            static constexpr int bt_iters = 1200;
                             for (int it = 0; it < bt_iters; ++it) {
                                 const std::size_t prog = det_bt.solve_step();
                                 if (det_bt.solved()) { break; }
