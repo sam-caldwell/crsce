@@ -542,5 +542,126 @@ make build test/uselessMachine \
                   to 100%.
 
 ### Outcome
+
 - After all the above, we are stuck at 226 rows solved of block 0.
-- Because of hash chaining, we have to solve the CSM top to bottom.  Was hash chaining really a bad idea?
+- Because of hash chaining, we have to solve the CSM top to bottom. Was hash chaining really a bad idea?
+
+## Option: Shake, Rattle and Roll
+
+- Add a fourth phase to GOBP with a reheat/polish to shake loose from the plateaus.
+
+### Outcome:
+
+```text
+% cat /Users/samcaldwell/git/sam-caldwell/crsce/build/uselessTest/row_completion_stats.log
+{
+  "step":"row-completion-stats",
+  "block_index":0,
+  "parameters":{
+    "CRSCE_DE_MAX_ITERS":60000,
+    "CRSCE_GOBP_ITERS":100000,
+    "CRSCE_GOBP_CONF":0.995,
+    "CRSCE_GOBP_DAMP":0.5,
+    "CRSCE_GOBP_MULTIPHASE":true,
+    "CRSCE_BACKTRACK":true,
+    "CRSCE_BT_DE_ITERS":1200,
+    "kFocusMaxSteps":48,
+    "kFocusBtIters":8000,
+    "kRestarts":8,
+    "kPerturb":0.0125,
+    "kPolishShakes":3,
+    "kPolishShakeJitter":0.005
+  },
+  "restarts":[
+    {"restart_index":0,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":0,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":0,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":208700,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":208714,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":208714,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":208714,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":208714,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":208714,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":208714,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":208706,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":208706,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":208706,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":208712,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":208712,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":208712,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":208712,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":208712,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":208712,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":208713,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":208713,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":208713,"action":"polish-shake"}
+  ],
+  "gobp_phases":{
+    "conf":[0.995,0.8,0.9,0.6],
+    "damp":[0.5,0.1,0.35,0],
+    "iters":[500,3500,7000,89000]
+  },
+  "min_pct":0,
+  "avg_pct":20.0704,
+  "max_pct":97.6517,
+  "full_rows":0,
+  "rows":[54.2074,95.499,71.82,97.6517,65.7534,68.8845,74.7554,69.0802,79.4521,87.2798,77.2994,74.5597,69.6673,74.5597,
+  72.7984,72.7984,71.2329,73.7769,72.0157,76.3209,77.1037,75.3425,74.1683,71.6243,72.7984,73.9726,76.3209,77.6908,
+  72.9941,79.0607,78.2779,74.1683,73.7769,73.5812,70.8415,74.7554,73.9726,76.908,71.82,70.6458,74.364,79.6477,
+  74.1683,71.0372,73.1898,72.407,75.5382,73.9726,77.6908,76.908,72.9941,74.1683,73.9726,78.4736,75.1468,74.364,
+  81.6047,66.3405,64.775,83.953,67.9061,70.0587,82.3875,61.6438,65.1663,76.7123,76.908,76.7123,75.7339,75.7339,
+  75.3425,76.3209,75.9295,75.9295,75.5382,75.9295,75.7339,74.9511,75.7339,76.1252,76.1252,76.3209,76.1252,75.9295,
+  75.9295,75.3425,75.7339,75.3425,74.9511,74.9511,74.5597,75.3425,74.7554,74.9511,75.1468,75.1468,75.3425,74.7554,
+  75.3425,74.7554,74.364,74.1683,73.9726,73.7769,73.7769,75.1468,66.1448,62.6223,58.1213,64.1879,61.6438,62.818,
+  56.7515,58.1213,55.1859,51.4677,55.1859,57.3386,54.2074,56.1644,55.3816,56.5558,55.5773,47.1624,55.3816,59.0998,
+  55.1859,52.0548,54.2074,50.8806,52.2505,58.7084,52.4462,57.1429,55.773,53.4247,51.272,41.683,64.5793,3.32681,
+  1.95695,2.54403,1.76125,4.50098,2.54403,3.91389,4.10959,1.56556,3.32681,5.08806,2.15264,1.95695,2.73973,1.36986,
+  1.76125,1.36986,1.36986,0.782779,1.17417,0.391389,1.36986,0.587084,0.391389,1.36986,0.195695,0.391389,0.391389,
+  4.50098,0.782779,0.978474,0.195695,0.587084,0.195695,0.391389,2.54403,0.587084,0.587084,0.782779,0.391389,0.391389,
+  2.73973,0.978474,0.978474,3.5225,0.782779,1.17417,0.391389,0.195695,4.89237,0.782779,0.391389,0.587084,3.32681,
+  2.15264,2.34834,1.76125,0.391389,0.587084,0.195695,2.54403,4.89237,0.391389,0.391389,0.195695,0.391389,0.782779,
+  0.782779,8.41487,2.73973,0.587084,4.50098,0.195695,0,0,0.391389,0.195695,1.36986,3.91389,1.76125,0.391389,0.782779,
+  2.73973,5.47945,0.391389,0.195695,0,0,3.32681,0.391389,0,0.195695,0,9.78474,0,0.587084,0,0.391389,0,1.95695,2.54403,
+  1.17417,3.5225,0.195695,0,0,0.195695,0.195695,2.73973,0,2.54403,0.978474,0.587084,0.195695,1.56556,3.5225,1.17417,
+  0.391389,2.34834,2.73973,0.195695,0.391389,1.17417,0.782779,0.391389,0.978474,0,1.56556,0,2.34834,0.587084,3.91389,
+  0.978474,0,0.587084,1.56556,1.56556,0.587084,0.978474,0.587084,1.36986,3.5225,0.782779,2.73973,0.782779,0.587084,
+  1.17417,6.26223,0.587084,0.391389,3.7182,0.782779,3.91389,0.195695,0.587084,0.782779,0.978474,0.195695,10.3718,
+  3.32681,0,0.195695,0.978474,0.391389,1.17417,0.391389,0.587084,0.782779,0.195695,0.195695,0.782779,0.587084,2.93542,
+  0.391389,6.26223,1.36986,1.17417,1.76125,2.73973,0.587084,2.73973,0.978474,8.80626,0,0.195695,0.391389,0.195695,
+  0.978474,0.195695,0.195695,2.34834,0.587084,0.782779,2.15264,0.391389,1.17417,0.587084,0.391389,0.587084,0.391389,
+  0.587084,6.84932,2.93542,2.54403,0.587084,0.195695,0.587084,1.36986,0.195695,2.54403,0.195695,0,0.587084,0,0.587084,
+  1.17417,0.195695,1.76125,0.782779,0.587084,0,0,0.195695,0,0.587084,0.782779,0.391389,1.76125,0.782779,0,1.17417,
+  0.782779,1.36986,0,2.73973,0,0,0.978474,0.195695,1.76125,0.978474,1.76125,0,0,2.73973,0,0,0,0,0,0,0.391389,0,0,
+  1.36986,1.56556,4.50098,1.95695,1.56556,0.978474,0.391389,0,0.782779,0.195695,0,0,0,0,2.93542,0.195695,0,2.34834,
+  0.391389,0.195695,0.391389,0,0,0.195695,3.32681,1.36986,0.587084,0.391389,0,0.391389,0,0.782779,1.17417,0.195695,
+  2.15264,1.36986,0,0.391389,0,1.95695,0,0,0,0.587084,0,2.54403,0,1.17417,1.76125,0,0,0.587084,0,0,0,0,0.782779,0,
+  0.978474,0.195695,0.195695,2.15264,0.195695,0,0,3.7182,0.978474,0.391389,2.93542,0,2.54403,0.195695,0.391389,2.93542,
+  1.17417,1.36986,4.89237,0.782779,2.15264,0.978474,0.978474,1.76125,0,6.65362,0.978474,0.782779,1.76125,2.93542,
+  1.17417,0,0.587084,2.73973,1.76125,1.36986,0.587084,6.26223,1.17417,1.36986,1.36986,1.76125,1.76125,0.195695,
+  0.587084,1.56556,1.76125,1.56556,3.5225,1.95695,1.36986,7.04501,1.95695,2.54403,3.91389,1.36986,0.978474,1.36986,
+  5.08806,2.93542]
+}
+```
+
+## Next steps...
+
+- More permissive polish:
+    - Stage 4 damping: 0.01 (was 0.00).
+    - Stage 4 confidence: 0.48 (was 0.60).
+- Wider focused completion:
+    - Triggers when a row has ≤ ~5% unknowns instead of ≤1%. For S=511 this is ≤26 unknowns, so those 95–98% rows get actively
+      finished.
+- Kept reheat stage and shake behavior as-is.
+- Updated row log’s phase arrays to match.
+
+### Outcome
+
+- That was a bit of a regression but we are doing 227 rows instead of 226.  *whomp, whomp*
+- Boundary at 99.8043%: That’s a single undecided bit in row 227. Without the focus running inside multiphase, it never tipped
+  to 100%, so the prefix couldn’t advance.  It's like me in Junior high...so close, yet so far away.
+- 
