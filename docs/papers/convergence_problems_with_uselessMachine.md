@@ -664,4 +664,6 @@ make build test/uselessMachine \
 - That was a bit of a regression but we are doing 227 rows instead of 226.  *whomp, whomp*
 - Boundary at 99.8043%: That’s a single undecided bit in row 227. Without the focus running inside multiphase, it never tipped
   to 100%, so the prefix couldn’t advance.  It's like me in Junior high...so close, yet so far away.
-- 
+- The boundary row (≈99.8043%) should have tipped; I missed immediately re‑verifying/locking after boundary focus 
+  inside the multiphase loop.
+
