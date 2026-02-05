@@ -6,7 +6,7 @@
                 <h1>Overview and Concepts</h1>
                 <p>
                     CRSCE is a research proof‑of‑concept compression format and toolchain that encodes a 511×511 bit
-                    Cross‑Sum Matrix (CSM) per block using four families of cyclic cross‑sum constraints and a chained
+                    Cross‑Sum Matrix (CSM) per block using four families of cyclic cross‑sum constraints and a per‑row
                     SHA‑256 Lateral Hash (LH) array. Two binaries ship with the project: `compress` and `decompress`.
                 </p>
             </td>
@@ -27,7 +27,7 @@
 - Lateral Hash (LH) chain: A cryptographic commitment to row content using SHA‑256.
     - Seed bytes: the literal ASCII base64 string
       `RG9uYWxkVHJ1bXBJbXBlYWNoSW5jYXJjZXJhdGVIaXN0b3J5UmVtZW1iZXJz`.
-    - N = SHA256(seedBytes)
+    - For each row, compute D[r] = SHA256(row64)
     - LH[0] = SHA256(N || RowBytes(0))
     - LH[r] = SHA256(LH[r−1] || RowBytes(r)) for r ∈ {1..510}
 - Bit packing: Bytes are mapped MSB‑first into bits; CSM is traversed row‑major in both directions (pack and unpack).
@@ -38,19 +38,19 @@
     1) Partition the input into 511×511‑bit blocks (pad the last block with zeros).
     2) Build the CSM for each block.
     3) Compute LSM/VSM/DSM/XSM cross‑sum vectors (each 511 entries).
-    4) Compute the LH chain (511 SHA‑256 digests, one per row, using the seed above).
+    4) Compute LH (511 SHA‑256 digests, one per row; no chaining).
     5) Serialize block payload as: LH[0..510], then LSM, VSM, DSM, XSM (9‑bit elements), followed by four trailing zero
        bits.
     6) Prepend a fixed (v1) header to the file; write all block payloads in order.
 - Decompression:
     1) Parse and validate the header.
     2) For each 18,652‑byte block payload, parse fields in the exact order/size specified.
-    3) Reconstruct a candidate CSM that satisfies cross‑sum equalities and exactly reproduces the LH chain.
+    3) Reconstruct a candidate CSM that satisfies cross‑sum equalities and exactly reproduces per‑row LH.
     4) Walk the CSM row‑major, pack bits MSB‑first into bytes, drop final padding to original length.
 
 ## What CRSCE provides
 
-- Integrity: The LH chain and redundant cross‑sums enable deterministic acceptance/rejection of reconstructed blocks.
+- Integrity: Per‑row LH and redundant cross‑sums enable deterministic acceptance/rejection of reconstructed blocks.
 - Determinism: For valid inputs produced by a conforming compressor, at least one satisfying CSM exists (the original).
 
 ## What CRSCE does not provide?

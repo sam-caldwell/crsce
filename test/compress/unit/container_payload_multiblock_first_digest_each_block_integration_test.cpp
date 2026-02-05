@@ -9,9 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <algorithm>
 #include <filesystem>
-#include <iterator>
 #include <fstream>
 #include <ios>
 #include <string>
@@ -57,15 +55,9 @@ TEST(ContainerPayload, MultiBlockFirstDigestPerBlock) { // NOLINT
         ASSERT_EQ(f.gcount(), 32);
     }
 
-    // Expected digest for zero row with seed hash
-    const std::string seed = "CRSCE_v1_seed";
-    const std::vector<u8> seed_bytes(seed.begin(), seed.end());
-    const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
+    // Expected digest for zero row (per-row hashing; seed ignored)
     std::array<u8, 64> zeros{};
-    std::array<u8, 96> buf{};
-    std::ranges::copy(seed_hash, buf.begin());
-    std::ranges::copy(zeros, std::next(buf.begin(), 32));
-    const auto expected = sha256_digest(buf.data(), buf.size());
+    const auto expected = sha256_digest(zeros.data(), zeros.size());
 
     for (std::size_t i = 0; i < 32; ++i) { // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         EXPECT_EQ(d_b0[i], expected[i]);   // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)

@@ -1,7 +1,7 @@
 /**
  * @file BitHashBuffer.h
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
- * @brief Bitwise buffer that emits chained SHA-256 hashes per 64-byte row.
+ * @brief Bitwise buffer that emits per-row SHA-256 digests (no chaining).
  */
 #pragma once
 
@@ -18,13 +18,11 @@ namespace crsce::common {
      * @class BitHashBuffer
      * @name BitHashBuffer
      * @brief Accumulates bits into bytes (MSB-first), hashing each 64-byte row.
-     * @details The constructor hashes the provided seed string to derive a
-     * 32-byte seed hash. Bits are packed MSB-first into a working byte. When 8
-     * bits are accumulated, the byte is flushed to a 64-byte row buffer. When
-     * the row fills, a digest is computed as sha256(prevHash||rowBuffer), where
-     * prevHash is the original seed hash for the first row and the previous
-     * digest for subsequent rows. Each digest is enqueued; popHash() returns
-     * them FIFO.
+     * @details Bits are packed MSB-first into a working byte. When 8 bits
+     * are accumulated, the byte is flushed to a 64-byte row buffer. When the
+     * row fills, a digest is computed as sha256(rowBuffer). Each digest is
+     * enqueued; popHash() returns them FIFO. The constructor accepts a seed
+     * but chaining using the seed is disabled.
      */
     class BitHashBuffer {
     public:
@@ -78,13 +76,7 @@ namespace crsce::common {
          */
         [[nodiscard]] std::size_t count() const noexcept { return hashVector_.size(); }
 
-        /**
-         * @name seedHash
-         * @brief Return the current seed hash (32 bytes).
-         * @usage const auto &seed = buf.seedHash();
-         * @throws None
-         * @return Const reference to the 32-byte seed hash.
-         */
+        // seedHash() retained for ABI stability; not used in per-row hashing.
         [[nodiscard]] const std::array<std::uint8_t, kHashSize> &seedHash() const noexcept { return seedHash_; }
 
     private:
@@ -106,12 +98,7 @@ namespace crsce::common {
          */
         void finalizeRowIfFull();
 
-        /**
-         * @name seedHash_
-         * @brief Initial/previous digest used for chained row hashing.
-         * @usage seedHash_ is computed from the constructor seed; for the first
-         * row hash, SHA-256(seedHash_ || rowBuffer_) is used.
-         */
+        // Retained for compatibility; unused by per-row hashing.
         std::array<std::uint8_t, kHashSize> seedHash_{};
 
         /**

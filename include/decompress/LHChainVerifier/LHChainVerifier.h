@@ -55,6 +55,18 @@ namespace crsce::decompress {
                                       std::span<const std::uint8_t> lh_bytes) const;
 
         /**
+         * @name LHChainVerifier::longest_valid_prefix_up_to
+         * @brief Return the number of leading rows [0..limit) whose chained hashes match.
+         * @param csm CSM providing row bits.
+         * @param lh_bytes Buffer containing chained LH digests.
+         * @param limit Upper bound on rows to check.
+         * @return std::size_t Count of matching leading rows (0..limit).
+         */
+        [[nodiscard]] std::size_t longest_valid_prefix_up_to(const Csm &csm,
+                                                             std::span<const std::uint8_t> lh_bytes,
+                                                             std::size_t limit) const;
+
+        /**
          * @name seed_hash
          * @brief Access the current seed hash H(-1).
          * @return Const reference to 32-byte seed hash.

@@ -1,6 +1,6 @@
 /**
  * @file container_payload_partial_row_padding_integration_test.cpp
- * @brief Validate LH chaining across a partial second row via compress_file.
+ * @brief Validate per-row LH across a partial second row via compress_file.
  */
 #include "compress/Compress/Compress.h"
 #include "common/BitHashBuffer/detail/Sha256Types.h"
@@ -9,9 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <algorithm>
 #include <fstream>
-#include <iterator>
 #include <ios>
 #include <string>
 #include <vector>
@@ -54,19 +52,10 @@ TEST(ContainerPayload, PartialRowPadsAndChainsFirstTwoLH) { // NOLINT
         ASSERT_EQ(f.gcount(), static_cast<std::streamsize>(payload.size()));
     }
 
-    // Expected: D0 = sha256(seedHash || 64 zeros), D1 = sha256(D0 || 64 zeros)
-    const std::string seed = "CRSCE_v1_seed";
-    const std::vector<u8> seed_bytes(seed.begin(), seed.end());
-    const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
+    // Expected: D0 = sha256(64 zeros), D1 = sha256(64 zeros) (no chaining)
     std::array<u8, 64> zeros{};
-    std::array<u8, 96> buf{}; // 32 + 64
-    std::ranges::copy(seed_hash, buf.begin());
-    std::ranges::copy(zeros, std::next(buf.begin(), 32));
-    const auto d0 = sha256_digest(buf.data(), buf.size());
-    std::array<u8, 96> buf1{};
-    std::ranges::copy(d0, buf1.begin());
-    std::ranges::copy(zeros, std::next(buf1.begin(), 32));
-    const auto d1 = sha256_digest(buf1.data(), buf1.size());
+    const auto d0 = sha256_digest(zeros.data(), zeros.size());
+    const auto d1 = d0;
 
     for (std::size_t i = 0; i < 32; ++i) { // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         EXPECT_EQ(first_two[i + 0], d0[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)

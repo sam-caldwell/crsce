@@ -6,15 +6,13 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
-#include <string>
 #include <vector>
 
-#include "decompress/LHChainVerifier/LHChainVerifier.h"
+#include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
-using crsce::decompress::LHChainVerifier;
+using crsce::decompress::RowHashVerifier;
 using crsce::decompress::Csm;
 using crsce::common::detail::sha256::sha256_digest;
 
@@ -44,12 +42,12 @@ namespace {
 } // namespace
 
 /**
- * @name LHChainVerifier.SinglePatternRowOk
+ * @name RowHashVerifier.SinglePatternRowOk
  * @brief Intent: exercise the expected behavior of this test.
  *         Passing indicates the behavior holds; failing indicates a regression.
  *         Assumptions: default environment and explicit setup within this test.
  */
-TEST(LHChainVerifier, SinglePatternRowOk) { // NOLINT
+TEST(RowHashVerifier, SinglePatternRowOk) { // NOLINT
     // Build a 511-bit alternating pattern in CSM row 0
     Csm csm;
     for (std::size_t c = 0; c < Csm::kS; ++c) {
@@ -65,17 +63,11 @@ TEST(LHChainVerifier, SinglePatternRowOk) { // NOLINT
     bits.push_back(false); // pad bit
     const auto row64 = pack_row_64(bits);
 
-    constexpr std::string seed = "CRSCE_v1_seed";
-    const std::vector<std::uint8_t> seed_bytes(seed.begin(), seed.end());
-    const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
-    std::array<std::uint8_t, 32 + 64> buf{};
-    std::ranges::copy(seed_hash, buf.begin());
-    std::ranges::copy(row64, std::next(buf.begin(), 32));
-    const auto expected = sha256_digest(buf.data(), buf.size());
+    const auto expected = sha256_digest(row64.data(), row64.size());
 
     std::vector<std::uint8_t> lh_bytes(32U);
     std::ranges::copy(expected, lh_bytes.begin());
 
-    const LHChainVerifier v{seed};
+    const RowHashVerifier v{};
     EXPECT_TRUE(v.verify_rows(csm, lh_bytes, 1));
 }

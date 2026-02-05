@@ -8,13 +8,12 @@
 #include <cstdint>
 #include <iterator>
 #include <vector>
-#include <string>
 
-#include "decompress/LHChainVerifier/LHChainVerifier.h"
+#include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
-using crsce::decompress::LHChainVerifier;
+using crsce::decompress::RowHashVerifier;
 using crsce::decompress::Csm;
 using crsce::common::detail::sha256::sha256_digest;
 
@@ -24,25 +23,16 @@ using crsce::common::detail::sha256::sha256_digest;
  *         Passing indicates the behavior holds; failing indicates a regression.
  *         Assumptions: default environment and explicit setup within this test.
  */
-TEST(LHChainVerifier, ZerosFirstTwoRowsOk) { // NOLINT
-    constexpr std::string seed = "CRSCE_v1_seed";
-    const LHChainVerifier v{seed};
+TEST(RowHashVerifier, ZerosFirstTwoRowsOk) { // NOLINT
+    const RowHashVerifier v{};
     const Csm csm; // all zeros rows
 
-    // Build expected LH for the first two zero rows
-    const std::vector<std::uint8_t> seed_bytes(seed.begin(), seed.end());
-    const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
-    std::array<std::uint8_t, LHChainVerifier::kRowSize> zero_row{};
+    // Build expected hashes for the first two zero rows (per-row hashing)
+    std::array<std::uint8_t, RowHashVerifier::kRowSize> zero_row{};
+    const auto lh0 = sha256_digest(zero_row.data(), zero_row.size());
+    const auto lh1 = lh0; // identical zero rows produce identical digests
 
-    std::array<std::uint8_t, 32 + LHChainVerifier::kRowSize> buf{};
-    std::ranges::copy(seed_hash, buf.begin());
-    std::ranges::copy(zero_row, std::next(buf.begin(), 32));
-    const auto lh0 = sha256_digest(buf.data(), buf.size());
-
-    std::ranges::copy(lh0, buf.begin());
-    const auto lh1 = sha256_digest(buf.data(), buf.size());
-
-    std::vector<std::uint8_t> lh_bytes(2U * LHChainVerifier::kHashSize);
+    std::vector<std::uint8_t> lh_bytes(2U * RowHashVerifier::kHashSize);
     std::ranges::copy(lh0, lh_bytes.begin());
     std::ranges::copy(lh1, std::next(lh_bytes.begin(), 32));
 

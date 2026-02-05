@@ -46,7 +46,7 @@ TEST(BitHashBufferPushAndFlushTest, PublicBehaviorMatchesExpectedRowHash) {
     // Build one full row of 0xAB bytes via MSB-first bit pushes
     std::array<std::uint8_t, BitHashBuffer::kRowSize> row{};
     row.fill(0xAB); // 0b10101011 (MSB-first pushes: 1,0,1,0,1,0,1,1)
-    const auto seed = buf.seedHash();
+    (void)buf.seedHash(); // v1 semantics: seed not used for per-row hash
     for (std::size_t i = 0; i < BitHashBuffer::kRowSize; ++i) {
         buf.pushBit(true);
         buf.pushBit(false);
@@ -59,7 +59,7 @@ TEST(BitHashBufferPushAndFlushTest, PublicBehaviorMatchesExpectedRowHash) {
     }
 
     ASSERT_EQ(buf.count(), 1U);
-    const auto expected = hash_row(seed, row);
+    const auto expected = sha256_digest(row.data(), row.size());
     auto got = buf.popHash();
     ASSERT_TRUE(got.has_value());
     EXPECT_EQ(got.value(), expected);

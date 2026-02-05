@@ -37,11 +37,11 @@ Line families (CRSCE v1 mapping):
 
 ## Hash chain verification (no hash‑based DE)
 
-The LH chain remains essential for validation during decompression, but it is not used to drive assignments.
+Per-row LH remains essential for validation during decompression, but it is not used to drive assignments.
 
 - We do not perform hash‑based deterministic elimination due to chaining constraints.
-- The LH chain serves as a cryptographic oracle only: after reconstructing a CSM that satisfies all cross‑sum
-  constraints, recompute the LH chain and compare. Only exact matches are accepted.
+- LH serves as a cryptographic oracle only: after reconstructing a CSM that satisfies all cross‑sum
+  constraints, recompute the per-row LH and compare. Only exact matches are accepted.
 
 ## Iterative inference (GOBP/LBP)
 
@@ -51,8 +51,8 @@ The LH chain remains essential for validation during decompression, but it is no
 
 ## LH‑based selection/oracle
 
-- The LH chain is not for search; it is a cryptographic oracle to reject cross‑sum‑consistent but incorrect candidates.
-- For any candidate CSM that satisfies all cross‑sum equalities, recompute the LH chain and compare. Only exact matches
+- LH is not for search; it is a cryptographic oracle to reject cross‑sum‑consistent but incorrect candidates.
+- For any candidate CSM that satisfies all cross‑sum equalities, recompute per‑row LH and compare. Only exact matches
   are accepted.
 
 ## Performance notes

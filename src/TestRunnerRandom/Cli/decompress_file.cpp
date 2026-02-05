@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
+#include <fstream>
 #include <system_error>
 
 namespace fs = std::filesystem;
@@ -57,9 +58,8 @@ namespace crsce::testrunner_random::cli {
             "env",
             "CRSCE_PRELOCK_DEBUG=1",
             "CRSCE_DE_MAX_ITERS=4000",
-            "CRSCE_GOBP_ITERS=2000",
-            "CRSCE_GOBP_CONF=0.90",
-            "CRSCE_GOBP_DAMP=0.30",
+            // per-phase overrides can be provided by the caller if desired:
+            // e.g., CRSCE_GOBP_PHASE4_CONF=0.60, CRSCE_GOBP_PHASE4_DAMP=0.02
             exe,
             "-in", cx_path.string(), "-out", dx_path.string()
         };
@@ -120,9 +120,38 @@ namespace crsce::testrunner_random::cli {
             throw crsce::common::exceptions::DecompressNonZeroExitException(oss.str());
         }
 
-        // Compute output hash and log
+        // Compute output hash and extract gobp cells solved from completion_stats.log
         const std::string output_sha512 = crsce::testrunner::detail::compute_sha512(dx_path);
-        crsce::testrunner::detail::log_decompress(dx_res, cx_path, dx_path, input_sha512, output_sha512);
+        std::uint64_t gobp_cells_solved = 0;
+        try {
+            namespace fs = std::filesystem;
+            const fs::path outdir = fs::path(dx_path).has_parent_path() ? fs::path(dx_path).parent_path() : fs::path(".");
+            const fs::path rowlog = outdir / "completion_stats.log";
+            std::ifstream is(rowlog);
+            if (is.good()) {
+                std::string line;
+                std::string best;
+                while (std::getline(is, line)) {
+                    if (line.find("\"gobp_cells_solved\"") != std::string::npos) { best = line; }
+                }
+                if (!best.empty()) {
+                    auto pos = best.find(':');
+                    if (pos != std::string::npos) {
+                        std::string num = best.substr(pos + 1);
+                        // Trim trailing comma/space
+                        while (!num.empty() && (num.back() == ',' || num.back() == ' ' || num.back() == '\n' || num.back()=='\r')) { num.pop_back(); }
+                        // Trim leading space
+                        while (!num.empty() && (num.front()==' ')) { num.erase(num.begin()); }
+                        try {
+                            gobp_cells_solved = static_cast<std::uint64_t>(std::stoull(num));
+                        } catch (...) { gobp_cells_solved = 0; }
+                    }
+                }
+            }
+        } catch (...) {
+            gobp_cells_solved = 0;
+        }
+        crsce::testrunner::detail::log_decompress(dx_res, cx_path, dx_path, input_sha512, output_sha512, gobp_cells_solved);
         return output_sha512;
     }
 }

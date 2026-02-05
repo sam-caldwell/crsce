@@ -1,16 +1,14 @@
 /**
  * @file compress_lh_digest_single_row_integration_test.cpp
- * @brief Integration: Verify LH digest equals sha256(seedHash||rowBytes).
+ * @brief Integration: Verify LH digest equals sha256(rowBytes) (no chaining).
  */
 #include "compress/Compress/Compress.h"
 #include "common/BitHashBuffer/detail/Sha256Types.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include <gtest/gtest.h>
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <string>
 #include <vector>
 
@@ -60,16 +58,8 @@ TEST(CompressIntegration, LHSingleRowMatchesManualSha256) { // NOLINT
     bits.push_back(false); // pad bit
     const auto row64 = pack_row_64(bits);
 
-    // Compute seed hash (sha256 of seed string)
-    const std::string seed = "CRSCE_v1_seed";
-    const std::vector<u8> seed_bytes(seed.begin(), seed.end());
-    const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
-
-    // Compute expected digest of seed_hash || row64
-    std::array<u8, 32 + 64> buf{};
-    std::ranges::copy(seed_hash, buf.begin());
-    std::ranges::copy(row64, std::next(buf.begin(), 32));
-    const auto expected = sha256_digest(buf.data(), buf.size());
+    // Compute expected digest of the row bytes only
+    const auto expected = sha256_digest(row64.data(), row64.size());
 
     // Drive the Compress class with matching row bits and finalize
     Compress c{"in.bin", "out.bin"};

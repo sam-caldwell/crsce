@@ -14,7 +14,7 @@
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Gobp/GobpSolver.h"
-#include "decompress/LHChainVerifier/LHChainVerifier.h"
+#include "decompress/RowHashVerifier/RowHashVerifier.h"
 
 namespace crsce::testhelpers {
 
@@ -103,7 +103,7 @@ inline bool solve_block(std::span<const std::uint8_t> lh,
     using crsce::decompress::ConstraintState;
     using crsce::decompress::DeterministicElimination;
     using crsce::decompress::GobpSolver;
-    using crsce::decompress::LHChainVerifier;
+    using crsce::decompress::RowHashVerifier;
     constexpr std::size_t S = Csm::kS;
     constexpr std::size_t vec_bytes = 575U;
     const auto lsm = decode_9bit_stream<S>(sums.subspan(0 * vec_bytes, vec_bytes));
@@ -128,7 +128,8 @@ inline bool solve_block(std::span<const std::uint8_t> lh,
     }
     if (!(det.solved() && gobp.solved())) { return false; }
     if (!verify_cross_sums(csm_out, lsm, vsm, dsm, xsm)) { return false; }
-    const LHChainVerifier verifier(seed);
+    (void)seed; // unused in per-row verification
+    const RowHashVerifier verifier;
     return verifier.verify_all(csm_out, lh);
 }
 

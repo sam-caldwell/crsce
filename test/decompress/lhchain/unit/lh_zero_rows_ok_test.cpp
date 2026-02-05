@@ -4,10 +4,10 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <vector>
-#include "decompress/LHChainVerifier/LHChainVerifier.h"
+#include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Csm/detail/Csm.h"
 
-using crsce::decompress::LHChainVerifier;
+using crsce::decompress::RowHashVerifier;
 using crsce::decompress::Csm;
 
 /**
@@ -16,8 +16,8 @@ using crsce::decompress::Csm;
  *         Passing indicates the behavior holds; failing indicates a regression.
  *         Assumptions: default environment and explicit setup within this test.
  */
-TEST(LHChainVerifier, ZeroRowsOk) { // NOLINT
-    const LHChainVerifier v{"CRSCE_v1_seed"};
+TEST(RowHashVerifier, ZeroRowsOk) { // NOLINT
+    const RowHashVerifier v{};
     const Csm csm; // default zeros
     constexpr std::vector<std::uint8_t> empty{};
     EXPECT_TRUE(v.verify_rows(csm, empty, 0));

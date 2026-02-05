@@ -3,12 +3,10 @@
  * @brief FinalizeRow private path is exercised via test exposure.
   * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
-#include <iterator>
 
 #include "../../../../include/common/BitHashBuffer/BitHashBuffer.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
@@ -16,19 +14,7 @@
 using crsce::common::BitHashBuffer;
 using crsce::common::detail::sha256::sha256_digest;
 
-namespace {
-    std::array<std::uint8_t, BitHashBuffer::kHashSize>
-    hash_row(const std::array<std::uint8_t, BitHashBuffer::kHashSize> &prev,
-             const std::array<std::uint8_t, BitHashBuffer::kRowSize> &row) {
-        std::array<std::uint8_t, BitHashBuffer::kHashSize + BitHashBuffer::kRowSize>
-                buf{};
-        std::ranges::copy(prev, buf.begin());
-        std::ranges::copy(
-            row, std::ranges::next(buf.begin(), static_cast<std::ptrdiff_t>(
-                                       BitHashBuffer::kHashSize)));
-        return sha256_digest(buf.data(), buf.size());
-    }
-} // anonymous namespace
+namespace {} // anonymous namespace
 
 /**
  * @name BitHashBufferFinalizeRowPathsTest.FinalizeRowEarlyAndFullPaths
@@ -53,7 +39,6 @@ TEST(BitHashBufferFinalizeRowPathsTest, FinalizeRowEarlyAndFullPaths) {
     // Full path: push exactly 64 bytes of 0x3C, expect a single hash
     {
         BitHashBuffer buf("zz");
-        const auto seed = buf.seedHash();
         std::array<std::uint8_t, BitHashBuffer::kRowSize> row{};
         row.fill(0x3C);
         // 0x3C = 0b00111100; MSB-first: 0,0,1,1,1,1,0,0
@@ -68,7 +53,7 @@ TEST(BitHashBufferFinalizeRowPathsTest, FinalizeRowEarlyAndFullPaths) {
             buf.pushBit(false);
         }
         ASSERT_EQ(buf.count(), 1U);
-        const auto expected = hash_row(seed, row);
+        const auto expected = sha256_digest(row.data(), row.size());
         auto got = buf.popHash();
         ASSERT_TRUE(got.has_value());
         EXPECT_EQ(got.value(), expected);

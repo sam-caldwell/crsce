@@ -45,6 +45,6 @@
 A block is accepted if and only if the reconstructed CSM simultaneously:
 
 - Reproduces the stored LSM/VSM/DSM/XSM vectors exactly for all indices; and
-- Recomputes the LH chain from the reconstructed rows exactly (same seed, same chaining) for all r ∈ {0..510}.
+- Recomputes per-row LH from the reconstructed rows exactly (digest = sha256(row64)) for all r ∈ {0..510}.
 
 Any mismatch results in rejection of that block. Decoders should fail‑hard by default and not produce partial output.

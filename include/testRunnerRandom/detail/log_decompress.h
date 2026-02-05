@@ -19,5 +19,6 @@ namespace crsce::testrunner::detail {
                         const std::filesystem::path &input,
                         const std::filesystem::path &output,
                         const std::string &input_hash,
-                        const std::string &output_hash);
+                        const std::string &output_hash,
+                        std::uint64_t gobp_cells_solved);
 }

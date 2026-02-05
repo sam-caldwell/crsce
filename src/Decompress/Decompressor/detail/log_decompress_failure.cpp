@@ -96,8 +96,9 @@ namespace crsce::decompress::detail {
         }
         std::print("],\n");
 
-        std::print("  \"unknown_sums\":{{\"rows\":{},\"cols\":{},\"diags\":{},\"xdiags\":{}}},\n",
-                   sumU_row, sumU_col, sumU_diag, sumU_xdg);
+        std::print(
+            "  \"unknown_sums\":{{\"rows\":{},\"cols\":{},\"diags\":{},\"xdiags\":{}}},\n",
+            sumU_row, sumU_col, sumU_diag, sumU_xdg);
         std::print("  \"message\":\"{}\"\n", s.message);
         std::print("}}\n");
     }

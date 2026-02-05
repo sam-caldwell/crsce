@@ -9,8 +9,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <algorithm>
-#include <iterator>
 #include <fstream>
 #include <ios>
 #include <string>
@@ -92,10 +90,7 @@ TEST(ContainerPayload, OneByteLhAndCrossSums) { // NOLINT
         ASSERT_EQ(f.gcount(), static_cast<std::streamsize>(payload.size()));
     }
 
-    // LH region: first 32 bytes should equal sha256(seedHash || row0_bytes)
-    const std::string seed = "CRSCE_v1_seed";
-    const std::vector<u8> seed_bytes(seed.begin(), seed.end());
-    const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
+    // LH region: first 32 bytes should equal sha256(row0_bytes)
     std::vector<bool> row0(Compress::kBitsPerRow, false);
     // Map 0xF0 into first 8 columns (MSB-first): 1111 0000 => ones at c=0..3
     row0[0] = true;
@@ -103,10 +98,7 @@ TEST(ContainerPayload, OneByteLhAndCrossSums) { // NOLINT
     row0[2] = true;
     row0[3] = true;
     const auto row64 = pack_row512_with_pad_from_first_bits(row0);
-    std::array<u8, 32 + 64> buf{};
-    std::ranges::copy(seed_hash, buf.begin());
-    std::ranges::copy(row64, std::next(buf.begin(), 32));
-    const auto expected_d0 = sha256_digest(buf.data(), buf.size());
+    const auto expected_d0 = sha256_digest(row64.data(), row64.size());
     ASSERT_GE(payload.size(), 32U);
     for (std::size_t i = 0; i < 32; ++i) { // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         EXPECT_EQ(payload[i], expected_d0[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)

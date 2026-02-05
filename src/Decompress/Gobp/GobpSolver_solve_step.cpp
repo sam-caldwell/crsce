@@ -42,34 +42,86 @@ namespace crsce::decompress {
         double sum_delta = 0.0;
         constexpr double kAmbiEps = 1e-2; // |p-0.5| < 0.01 considered ambiguous
 
-        for (std::size_t r = 0; r < S; ++r) {
-            for (std::size_t c = 0; c < S; ++c) {
-                if (csm_.is_locked(r, c)) {
-                    continue; // skip assigned cells
-                }
-                ++unlocked_before;
-                const double belief = belief_for(r, c);
-                min_bel = std::min(belief, min_bel);
-                max_bel = std::max(belief, max_bel);
-                // Exponential smoothing (damping)
-                const double prev = csm_.get_data(r, c);
-                const double blended = (damping_ * prev) + ((1.0 - damping_) * belief);
-                csm_.set_data(r, c, blended);
-                min_blend = std::min(blended, min_blend);
-                max_blend = std::max(blended, max_blend);
-                const double d = std::fabs(blended - prev);
-                sum_delta += d;
-                max_delta = std::max(d, max_delta);
-                if (std::fabs(blended - 0.5) < kAmbiEps) { ++ambiguous; }
+        if (!scan_flipped_) {
+            // Default traversal: row-major, top-to-bottom, left-to-right
+            for (std::size_t r = 0; r < S; ++r) {
+                for (std::size_t c = 0; c < S; ++c) {
+                    if (csm_.is_locked(r, c)) { continue; }
+                    ++unlocked_before;
+                    const std::size_t d = diag_index(r, c);
+                    const std::size_t x = xdiag_index(r, c);
+                    const double belief = belief_for(r, c);
+                    min_bel = std::min(belief, min_bel);
+                    max_bel = std::max(belief, max_bel);
+                    const double prev = csm_.get_data(r, c);
+                    const double blended = (damping_ * prev) + ((1.0 - damping_) * belief);
+                    csm_.set_data(r, c, blended);
+                    min_blend = std::min(blended, min_blend);
+                    max_blend = std::max(blended, max_blend);
+                    const double delta = std::fabs(blended - prev);
+                    sum_delta += delta;
+                    max_delta = std::max(delta, max_delta);
+                    if (std::fabs(blended - 0.5) < kAmbiEps) { ++ambiguous; }
 
-                if (blended >= hi) {
-                    apply_cell(r, c, true);
-                    ++progress;
-                    ++hi_hits;
-                } else if (blended <= lo) {
-                    apply_cell(r, c, false);
-                    ++progress;
-                    ++lo_hits;
+                    // Feasibility guards: avoid proposing assignments that are known-impossible
+                    const bool line_forbids_one = (st_.R_row.at(r) == 0
+                                                || st_.R_col.at(c) == 0
+                                                || st_.R_diag.at(d) == 0
+                                                || st_.R_xdiag.at(x) == 0);
+                    const bool line_forbids_zero = (st_.R_row.at(r) == st_.U_row.at(r)
+                                                 || st_.R_col.at(c) == st_.U_col.at(c)
+                                                 || st_.R_diag.at(d) == st_.U_diag.at(d)
+                                                 || st_.R_xdiag.at(x) == st_.U_xdiag.at(x));
+
+                    if (blended >= hi && !line_forbids_one) {
+                        apply_cell(r, c, true);
+                        ++progress; ++hi_hits;
+                    } else if (blended <= lo && !line_forbids_zero) {
+                        apply_cell(r, c, false);
+                        ++progress; ++lo_hits;
+                    }
+                }
+            }
+        } else {
+            // Flipped perspective: column-major, bottom-up, right-to-left
+            for (std::size_t c0 = S; c0-- > 0;) {
+                for (std::size_t r0 = S; r0-- > 0;) {
+                    const std::size_t r = r0;
+                    const std::size_t c = c0;
+                    if (csm_.is_locked(r, c)) { continue; }
+                    ++unlocked_before;
+                    const std::size_t d = diag_index(r, c);
+                    const std::size_t x = xdiag_index(r, c);
+                    const double belief = belief_for(r, c);
+                    min_bel = std::min(belief, min_bel);
+                    max_bel = std::max(belief, max_bel);
+                    const double prev = csm_.get_data(r, c);
+                    const double blended = (damping_ * prev) + ((1.0 - damping_) * belief);
+                    csm_.set_data(r, c, blended);
+                    min_blend = std::min(blended, min_blend);
+                    max_blend = std::max(blended, max_blend);
+                    const double delta = std::fabs(blended - prev);
+                    sum_delta += delta;
+                    max_delta = std::max(delta, max_delta);
+                    if (std::fabs(blended - 0.5) < kAmbiEps) { ++ambiguous; }
+
+                    // Feasibility guards: avoid proposing assignments that are known-impossible
+                    const bool line_forbids_one = (st_.R_row.at(r) == 0
+                                                || st_.R_col.at(c) == 0
+                                                || st_.R_diag.at(d) == 0
+                                                || st_.R_xdiag.at(x) == 0);
+                    const bool line_forbids_zero = (st_.R_row.at(r) == st_.U_row.at(r)
+                                                 || st_.R_col.at(c) == st_.U_col.at(c)
+                                                 || st_.R_diag.at(d) == st_.U_diag.at(d)
+                                                 || st_.R_xdiag.at(x) == st_.U_xdiag.at(x));
+
+                    if (blended >= hi && !line_forbids_one) {
+                        apply_cell(r, c, true);
+                        ++progress; ++hi_hits;
+                    } else if (blended <= lo && !line_forbids_zero) {
+                        apply_cell(r, c, false);
+                        ++progress; ++lo_hits;
+                    }
                 }
             }
         }

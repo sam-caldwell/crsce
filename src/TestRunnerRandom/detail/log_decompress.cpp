@@ -22,13 +22,15 @@ namespace crsce::testrunner::detail {
      * @param output Reconstructed output file path.
      * @param input_hash SHA-512 digest of the input.
      * @param output_hash SHA-512 digest of the reconstructed output.
+     * @param gobp_cells_solved Total number of cells assigned by GOBP during this block's solve.
      * @return void
      */
     void log_decompress(const ProcResult &res,
                         const std::filesystem::path &input,
                         const std::filesystem::path &output,
                         const std::string &input_hash,
-                        const std::string &output_hash) {
+                        const std::string &output_hash,
+                        const std::uint64_t gobp_cells_solved) {
         const auto elapsed = res.end_ms - res.start_ms;
         std::error_code ec_osz;
         const auto out_sz = std::filesystem::file_size(output, ec_osz);
@@ -41,7 +43,8 @@ namespace crsce::testrunner::detail {
                   << "  \"decompressTime\":" << elapsed << ",\n"
                   << "  \"decompressedSize\":" << (ec_osz ? 0 : static_cast<std::uint64_t>(out_sz)) << ",\n"
                   << "  \"hashInput\":\"" << input_hash << "\",\n"
-                  << "  \"hashOutput\":\"" << output_hash << "\"\n"
+                  << "  \"hashOutput\":\"" << output_hash << "\",\n"
+                  << "  \"gobpCellsSolved\":" << gobp_cells_solved << "\n"
                   << "}\n";
         std::cout.flush();
     }

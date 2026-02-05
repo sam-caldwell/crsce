@@ -86,6 +86,13 @@ namespace crsce::decompress {
          */
         void set_assign_confidence(double c) noexcept { assign_confidence_ = clamp_conf(c); }
 
+        /**
+         * @name set_scan_flipped
+         * @brief Toggle alternative scan order. When true, iterate bottom-up/right-to-left in column-major order.
+         * @param v True to enable flipped perspective; false for default row-major top-down.
+         */
+        void set_scan_flipped(bool v) noexcept { scan_flipped_ = v; }
+
     private:
         /**
          * @name csm_
@@ -112,6 +119,9 @@ namespace crsce::decompress {
         double assign_confidence_{0.995};
 
         static constexpr std::size_t S = Csm::kS;
+
+        // When true, traverse cells in an alternate perspective (column-major, bottom-up) to break plateaus.
+        bool scan_flipped_{false};
 
         // Utility: compute indexes for diagonal families
         /**

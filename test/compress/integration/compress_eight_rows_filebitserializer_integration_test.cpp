@@ -1,7 +1,7 @@
 /**
  * @file compress_eight_rows_filebitserializer_integration_test.cpp
  * @brief Integration: Feed 8 rows (multiple of 8 bytes) through FileBitSerializer -> Compress
- *        and validate LH chaining and cross-sum aggregates.
+ *        and validate per-row LH and cross-sum aggregates.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "compress/Compress/Compress.h"
@@ -9,13 +9,11 @@
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include "helpers/compress_utils.h"
 #include <gtest/gtest.h>
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <ios>
-#include <iterator>
 #include <string>
 #include <cstdio>
 #include <vector>
@@ -85,21 +83,13 @@ TEST(CompressIntegration, EightRowsViaFileBitSerializer) { // NOLINT
     cx.finalize_block();
     ASSERT_EQ(cx.lh_count(), kRows);
 
-    // Compute expected chained digests across 8 rows
-    const std::string seed = "CRSCE_v1_seed";
-    const std::vector<u8> seed_bytes(seed.begin(), seed.end());
-    const auto seed_hash = sha256_digest(seed_bytes.data(), seed_bytes.size());
-    std::array<u8, 96> buf{}; // 32 (prev) + 64 (row)
-    std::array<u8, 32> prev = seed_hash;
+    // Compute expected per-row digests across 8 rows
     std::vector<u8> expected_concat;
     expected_concat.reserve(kRows * 32);
     for (std::size_t r = 0; r < kRows; ++r) {
         const auto row64 = crsce::testhelpers::compress::pack_row_with_pad(rows[r]);
-        std::ranges::copy(prev, buf.begin());
-        std::ranges::copy(row64, std::next(buf.begin(), 32));
-        const auto d = sha256_digest(buf.data(), buf.size());
+        const auto d = sha256_digest(row64.data(), row64.size());
         expected_concat.insert(expected_concat.end(), d.begin(), d.end());
-        prev = d;
     }
 
     const auto lh = cx.pop_all_lh_bytes();

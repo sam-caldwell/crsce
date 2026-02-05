@@ -6,8 +6,9 @@
 
 #   MIN=<bytes>  MAX=<bytes>
 # Provide reasonable defaults to keep runs predictable and fast.
-MIN ?= 128
-MAX ?= 128
+# Increase defaults to exercise GOBP more often
+MIN ?= 262144
+MAX ?= 262144
 test/random: build
 	@echo "--- Running testRunnerRandom (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \

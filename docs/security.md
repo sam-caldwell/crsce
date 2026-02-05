@@ -15,7 +15,7 @@
 
 ## Principles
 
-- Integrity first: Use the LH chain (SHA‑256) and cross‑sum equality checks as strict acceptance criteria. Any mismatch
+- Integrity first: Use per-row LH (SHA‑256 of each 64-byte row) and cross‑sum equality checks as strict acceptance criteria. Any mismatch
   must reject the block.
 - Untrusted input: Treat all `decompress` inputs as hostile. Validate all headers, sizes, and indices before allocation
   or processing.
@@ -27,7 +27,7 @@
 - Payload length: Each block payload is exactly 18,652 bytes; reject deviations.
 - Bounds checks: Guard all index math for 0..510 line ranges and modulo operations on diagonals.
 - Timeouts: Apply an implementation‑defined timeout (DecoderTimeout) to bound worst‑case reconstruction time per block.
-- Cryptographic correctness: SHA‑256 must match the standard exactly in LH chain computations.
+- Cryptographic correctness: SHA‑256 must match the standard exactly in per-row LH computations.
 
 ## Reporting
 

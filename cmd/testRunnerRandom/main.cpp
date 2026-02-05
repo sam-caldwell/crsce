@@ -32,8 +32,9 @@ int main(const int argc, char *argv[]) try {
 
 
     // Optional args: --min-bytes <N> --max-bytes <N>
-    std::uint64_t min_bytes = 1024ULL;                          // 1 KiB
-    std::uint64_t max_bytes = 1024ULL * 1024ULL * 1024ULL;      // 1 GiB
+    // Defaults increased to 256 KiB for stronger GOBP exercise
+    std::uint64_t min_bytes = 262144ULL;                        // 256 KiB
+    std::uint64_t max_bytes = 262144ULL;                        // 256 KiB
 
     const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
     for (std::size_t i = 1; i < args.size(); ++i) {

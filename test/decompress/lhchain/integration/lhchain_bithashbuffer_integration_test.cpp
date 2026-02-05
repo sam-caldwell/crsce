@@ -1,6 +1,6 @@
 /**
  * @file lhchain_bithashbuffer_integration_test.cpp
- * @brief End-to-end: BitHashBuffer produces LH chain for 511 rows; LHChainVerifier validates against CSM.
+ * @brief End-to-end: BitHashBuffer produces per-row LH for 511 rows; RowHashVerifier validates against CSM.
  */
 #include <gtest/gtest.h>
 
@@ -13,22 +13,22 @@
 
 #include "common/BitHashBuffer/BitHashBuffer.h"
 #include "decompress/Csm/detail/Csm.h"
-#include "decompress/LHChainVerifier/LHChainVerifier.h"
+#include "decompress/RowHashVerifier/RowHashVerifier.h"
 
 using crsce::common::BitHashBuffer;
 using crsce::decompress::Csm;
-using crsce::decompress::LHChainVerifier;
+using crsce::decompress::RowHashVerifier;
 
 /**
- * @name LHChainIntegration.BitHashBufferEndToEndChainVerification
+ * @name RowHashIntegration.BitHashBufferEndToEndVerification
  * @brief Intent: exercise the expected behavior of this test.
  *         Passing indicates the behavior holds; failing indicates a regression.
  *         Assumptions: default environment and explicit setup within this test.
  */
-TEST(LHChainIntegration, BitHashBufferEndToEndChainVerification) { // NOLINT
+TEST(RowHashIntegration, BitHashBufferEndToEndVerification) { // NOLINT
     constexpr std::string seed = "CRSCE_v1_seed";
     BitHashBuffer hasher(seed);
-    const LHChainVerifier verifier(seed);
+    const RowHashVerifier verifier{};
     Csm csm;
 
     // Deterministic pseudo-random generator
