@@ -538,7 +538,7 @@ make build test/uselessMachine \
 - After all the above, we are stuck at 226 rows solved of block 0.
 - Because of hash chaining, we have to solve the CSM top to bottom. Was hash chaining really a bad idea?
 
-## Option: Shake, Rattle and Roll
+## Option: Shake, Rattle, and Roll
 
 - Add a fourth phase to GOBP with a reheat/polish to shake loose from the plateaus.
 
@@ -647,7 +647,8 @@ make build test/uselessMachine \
     - Stage 4 damping: 0.01 (was 0.00).
     - Stage 4 confidence: 0.48 (was 0.60).
 - Wider focused completion:
-    - Triggers when a row has ≤ ~5% unknowns instead of ≤1%. For S=511 this is ≤26 unknowns, so those 95–98% rows get actively
+    - Triggers when a row has ≤ ~5% unknowns instead of ≤1%. For S=511 this is ≤26 unknowns, so those 95–98% rows get
+      actively
       finished.
 - Kept reheat stage and shake behavior as-is.
 - Updated row log’s phase arrays to match.
@@ -655,16 +656,18 @@ make build test/uselessMachine \
 ### Outcome
 
 - That was a bit of a regression but we are doing 227 rows instead of 226.  *whomp, whomp*
-- Boundary at 99.8043%: That’s a single undecided bit in row 227. Without the focus running inside multiphase, it never tipped
-  to 100%, so the prefix couldn’t advance.  It's like me in Junior high...so close, yet so far away.
-- The boundary row (≈99.8043%) should have tipped; I missed immediately re‑verifying/locking after boundary focus 
+- Boundary at 99.8043%: That’s a single undecided bit in row 227. Without the focus running inside multiphase, it never
+  tipped
+  to 100%, so the prefix couldn’t advance. It's like me in Junior high...so close, yet so far away.
+- The boundary row (≈99.8043%) should have tipped; I missed immediately re‑verifying/locking after boundary focus
   inside the multiphase loop.
 
 ## Option: row-based hashing
 
-We are not making progress anymore.  Let's move to row-based hashing.
+We are not making progress anymore. Let's move to row-based hashing.
 
 Thsi is our last outcome:
+
 ```text
 {
   "step":"row-completion-stats",
@@ -716,38 +719,43 @@ Thsi is our last outcome:
 ```
 
 ## Status Update
+
 - Refactored the hash chaining for row-based chaining.
 - Updated tests, etc.
 - I need to switch to true per‑row gating.
-- We are still focusing on top-left first.  It's reflected in the answer.  It's the same issue as Raddiz Sift (1990s)
+- We are still focusing on top-left first. It's reflected in the answer. It's the same issue as Raddiz Sift (1990s)
     - We need to get GOBP to focus less on top-left and look at the entire CSM, where solutions may unlock the plateau.
 
 ## Status Update:
-- I have made absolutely no progress.  I've added more telemetry, but chain hashes weren't causing the problem and
+
+- I have made absolutely no progress. I've added more telemetry, but chain hashes weren't causing the problem and
   row-level hashes didn't fix anything.
 - We still reach a plateau around row 232, and we are not solving the first row (or any row)
 - I have a hypothesis that plateaus may be defeated if we just back off and try again from a different perspective.
-  - GobpSolver scan mode:
-      - Added set_scan_flipped(bool) and a private flag to switch traversal.
-      - Default: row-major, top→bottom, left→right.
-      - Flipped: column-major, bottom→top, right→left.
-      - Files: include/decompress/Gobp/GobpSolver.h, src/Decompress/Gobp/GobpSolver_solve_step.cpp.
-      - Files: include/decompress/Gobp/GobpSolver.h, src/Decompress/Gobp/GobpSolver_solve_step.cpp.
-  - Plateau handling (flip up to 3 passes):
-    - In the GOBP loops, when gprog == 0, toggle scan mode and retry immediately, up to 3 consecutive flips without progress; reset counter when progress is made.
-    - Only after 3 flip attempts do we allow micro‑shakes and “steady state” termination.
-  - Expected Behavior summary
-    - Start with normal (r,c) traversal.
-    - On first plateau: flip perspective (c,r) and retry with current beliefs (no reset).
-    - On next plateau(s): alternate back to top‑down, up to three consecutive flips.
-    - If still stuck after flips: proceed with existing micro‑shake and phase termination logic.
-  - other changes:
-    - removed the non-multiphase code (it's not used anymore).
-    - clean up documentation
-    - purge old code to just do some housekeeping...and because I want to feel like Felix Dzerzhinski tonight...
+    - GobpSolver scan mode:
+        - Added set_scan_flipped(bool) and a private flag to switch traversal.
+        - Default: row-major, top→bottom, left→right.
+        - Flipped: column-major, bottom→top, right→left.
+        - Files: include/decompress/Gobp/GobpSolver.h, src/Decompress/Gobp/GobpSolver_solve_step.cpp.
+        - Files: include/decompress/Gobp/GobpSolver.h, src/Decompress/Gobp/GobpSolver_solve_step.cpp.
+    - Plateau handling (flip up to 3 passes):
+        - In the GOBP loops, when gprog == 0, toggle scan mode and retry immediately, up to 3 consecutive flips without
+          progress; reset counter when progress is made.
+        - Only after 3 flip attempts do we allow micro‑shakes and “steady state” termination.
+    - Expected Behavior summary
+        - Start with normal (r,c) traversal.
+        - On first plateau: flip perspective (c,r) and retry with current beliefs (no reset).
+        - On next plateau(s): alternate back to top‑down, up to three consecutive flips.
+        - If still stuck after flips: proceed with existing micro‑shake and phase termination logic.
+    - other changes:
+        - removed the non-multiphase code (it's not used anymore).
+        - clean up documentation
+        - purge old code to just do some housekeeping...and because I want to feel like Felix Dzerzhinski tonight...
 
 ### Outcome
+
 Woohoo...227 to 229 rows...still no cigars, but we have more beliefs than a Republican caught in a New Orleans Bordello.
+
 ```text
  % cat build/uselessTest/completion_stats.log
 {
@@ -857,16 +865,19 @@ Woohoo...227 to 229 rows...still no cigars, but we have more beliefs than a Repu
 ```
 
 ## Update
+
 - Houston: we have a problem...and maybe a solution!  We are hitting plateaus because we are mathematically running
   into unconstrained or lightly constrained areas of the CSM. We need to borrow from our freinds with the green hats
   and side step these traps rather than trying to muscle our way through them.
 - Solution: We will implement a detect-and-avoid strategy to solve highly constrained regions first, which will create
-  more constraints for the less constrained regions.  Call it Asymmetric Algorithmic problem solving.  If this doesn't
+  more constraints for the less constrained regions. Call it Asymmetric Algorithmic problem solving. If this doesn't
   work, I'm gonna stop and do the other thing the guys with the green hats taught me...drink until I can't think.
 
 ### Outcome
+
 - No change on the uselessTest data.
 - However, we have found the bug in test/random. We can now reproduce the issue
+
 ```text
  % make test/random && cat /Users/samcaldwell/git/sam-caldwell/crsce/build/testRunnerRandom/completion_stats.log
 --- Building project with preset: llvm-debug ---
@@ -999,13 +1010,14 @@ make: *** [test/random] Error 4
 ```
 
 ## Update
+
 - What we know:
-  - useless-machine.mp4 fails consistently.
-  - testRunnerRandom fails consistently after we fixed a bug.
-  - GOBP is failing to converge on a solution
-  - Our latest refinements maybe showing some progress (below)
+    - useless-machine.mp4 fails consistently.
+    - testRunnerRandom fails consistently after we fixed a bug.
+    - GOBP is failing to converge on a solution
+    - Our latest refinements maybe showing some progress (below)
 - What we don't know:
-  - we do not know why the bug is happening.
+    - we do not know why the bug is happening.
 
 ```text
 {
@@ -1129,3 +1141,201 @@ make: *** [test/random] Error 4
   73.3855,70.4501,69.6673,68.1018,67.1233,65.7534,66.1448,64.1879,64.3836,63.6008,58.9041,45.9883]
 }
 ```
+
+# Status
+
+- Forcing focus worked: focus_boundary_attempts is non‑zero now; so gating was the blocker.
+- Broadening Mode A to K1=24 did not change adoption (still 1 attempt, 0 locks).
+- Micro‑solver did not produce a verified prefix on this input yet.
+
+# Status
+
+where we are
+
+```text
+{
+  "step":"row-completion-stats",
+  "block_index":0,
+  "start_ms":1770358931563,
+  "end_ms":1770359279356,
+  "parameters":{
+    "CRSCE_DE_MAX_ITERS":60000,
+    "CRSCE_GOBP_MULTIPHASE":true,
+    "CRSCE_BACKTRACK":true,
+    "CRSCE_BT_DE_ITERS":1200,
+    "kFocusMaxSteps":48,
+    "kFocusBtIters":8000,
+    "kRestarts":12,
+    "kPerturbBase":0.008,
+    "kPerturbStep":0.006,
+    "kPolishShakes":6,
+    "kPolishShakeJitter":0.008
+  },
+  "restarts":[
+    {"restart_index":0,"prefix_rows":0,"unknown_total":171799,"action":"polish-shake"},
+    {"restart_index":0,"prefix_rows":0,"unknown_total":171799,"action":"polish-shake"},
+    {"restart_index":0,"prefix_rows":0,"unknown_total":171799,"action":"polish-shake"},
+    {"restart_index":0,"prefix_rows":0,"unknown_total":171799,"action":"polish-shake"},
+    {"restart_index":0,"prefix_rows":0,"unknown_total":171799,"action":"polish-shake"},
+    {"restart_index":0,"prefix_rows":0,"unknown_total":171799,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":171707,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":171707,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":171707,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":171707,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":171707,"action":"polish-shake"},
+    {"restart_index":1,"prefix_rows":0,"unknown_total":171707,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":172013,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":172013,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":172013,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":172013,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":172013,"action":"polish-shake"},
+    {"restart_index":2,"prefix_rows":0,"unknown_total":172013,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":171852,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":171852,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":171852,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":171852,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":171852,"action":"polish-shake"},
+    {"restart_index":3,"prefix_rows":0,"unknown_total":171852,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":171983,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":171983,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":171983,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":171983,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":171983,"action":"polish-shake"},
+    {"restart_index":4,"prefix_rows":0,"unknown_total":171983,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":172133,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":172133,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":172133,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":172133,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":172133,"action":"polish-shake"},
+    {"restart_index":5,"prefix_rows":0,"unknown_total":172133,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":6,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":171901,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":171901,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":171901,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":171901,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":171901,"action":"polish-shake"},
+    {"restart_index":7,"prefix_rows":0,"unknown_total":171901,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":171987,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":171987,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":171987,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":171987,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":171987,"action":"polish-shake"},
+    {"restart_index":8,"prefix_rows":0,"unknown_total":171987,"action":"polish-shake"},
+    {"restart_index":9,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":9,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":9,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":9,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":9,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":9,"prefix_rows":0,"unknown_total":171971,"action":"polish-shake"},
+    {"restart_index":10,"prefix_rows":129,"unknown_total":171099,"action":"polish-shake"},
+    {"restart_index":10,"prefix_rows":129,"unknown_total":171099,"action":"polish-shake"},
+    {"restart_index":10,"prefix_rows":129,"unknown_total":171099,"action":"polish-shake"},
+    {"restart_index":10,"prefix_rows":129,"unknown_total":171099,"action":"polish-shake"},
+    {"restart_index":10,"prefix_rows":129,"unknown_total":171099,"action":"polish-shake"},
+    {"restart_index":10,"prefix_rows":129,"unknown_total":171099,"action":"polish-shake"},
+    {"restart_index":11,"prefix_rows":129,"unknown_total":171316,"action":"polish-shake"},
+    {"restart_index":11,"prefix_rows":129,"unknown_total":171316,"action":"polish-shake"},
+    {"restart_index":11,"prefix_rows":129,"unknown_total":171316,"action":"polish-shake"},
+    {"restart_index":11,"prefix_rows":129,"unknown_total":171316,"action":"polish-shake"},
+    {"restart_index":11,"prefix_rows":129,"unknown_total":171316,"action":"polish-shake"},
+    {"restart_index":11,"prefix_rows":129,"unknown_total":171316,"action":"polish-shake"},
+    {"restart_index":12,"prefix_rows":0,"unknown_total":171448,"action":"polish-shake"},
+    {"restart_index":12,"prefix_rows":0,"unknown_total":171448,"action":"polish-shake"},
+    {"restart_index":12,"prefix_rows":0,"unknown_total":171448,"action":"polish-shake"},
+    {"restart_index":12,"prefix_rows":0,"unknown_total":171448,"action":"polish-shake"},
+    {"restart_index":12,"prefix_rows":0,"unknown_total":171448,"action":"polish-shake"},
+    {"restart_index":12,"prefix_rows":0,"unknown_total":171448,"action":"polish-shake"}
+  ],
+  "restarts_total":78,
+  "rng_seed_belief":50159747054,
+  "rng_seed_restarts":12648430,
+  "gobp_cells_solved":1020531,
+  "rows_committed":0,
+  "cols_finished":0,
+  "boundary_finisher_attempts":511,
+  "boundary_finisher_successes":0,
+  "focus_boundary_attempts":0,
+  "focus_boundary_prefix_locks":0,
+  "focus_boundary_partials":0,
+  "final_backtrack1_attempts":1,
+  "final_backtrack1_prefix_locks":0,
+  "final_backtrack2_attempts":0,
+  "final_backtrack2_prefix_locks":0,
+  "lock_in_prefix_count":0,
+  "lock_in_row_count":0,
+  "restart_contradiction_count":0,
+  "gobp_iters_run":471,
+  "gating_calls":302,
+  "partial_adoptions":55992,
+  "micro_solver_attempts":714,
+  "micro_solver_dp_attempts":0,
+  "micro_solver_dp_feasible":0,
+  "micro_solver_dp_infeasible":0,
+  "micro_solver_dp_solutions_tested":0,
+  "micro_solver_lh_verifications":0,
+  "micro_solver_successes":0,
+  "micro_solver_time_ms":0,
+  "micro_solver_bnb_attempts":0,
+  "micro_solver_bnb_nodes":0,
+  "micro_solver_bnb_successes":0,
+  "unknown_history":[208800,208800,208800,208800,208800,208800,188209,181233,175979,172475,171977,171971,171971,171971,171971,171971,171971,171971,171971,171971,171971,171971,261121,261121,261121,261121,210423,209127,208915,208802,208802,208802,208802,208802,208802,208802,208802,208802,188172,181130,175837,172392,171913,171902,171902,171901,171901,171901,171901,171901,171901,171901,171901,171901,171901,171901,261121,261121,261121,261121,210424,209127,208918,208805,208803,208803,208803,208803,208803,208803,208803,208803,208803,188220,181236,175948,172480,172107,171988,171987,171987,171987,171987,171987,171987,171987,171987,171987,171987,171987,261121,261121,261121,261121,210423,209126,208915,208805,208804,208804,208804,208804,208804,208804,208804,208804,208804,188199,181157,175893,172352,171978,171972,171971,171971,171971,171971,171971,171971,171971,171971,171971,171971,171971,261121,261121,261121,261120,261106,261054,261016,260996,260992,260991,260990,260990,260990,260990,260990,210403,209096,208892,208781,208779,208779,208779,208779,208779,208779,208779,208779,208779,187954,180890,175612,171842,171217,171099,171099,171099,171099,171099,171099,171099,171099,171099,171099,171099,261121,261121,261119,261118,261101,261061,261017,260998,260992,260992,260992,260991,260991,260991,260991,260991,210401,209093,208889,208778,208776,208776,208776,208776,208776,208776,208776,208776,208776,187961,180915,175669,172292,171540,171316,171316,171316,171316,171316,171316,171316,171316,171316,171316,171316,261121,261121,261120,261113,261091,261056,261017,260995,260992,260990,260990,260990,260990,260990,210405,209098,208895,208784,208782,208782,208782,208782,208782,208782,208782,208782,208782,187955,180858,175636,172041,171563,171448,171448,171448,171448,171448,171448,171448,171448,171448,171448,171448],
+  "valid_prefix":0,
+  "verified_rows":[],
+  "lh_debug":{
+    "row0Packed":"000000000000000000000000000000000000000000000000000197220004c169001bfffd827bfff727ffffe800000100001820000000040000050e9000000300",
+    "expectedRow0":"b0ffead36d398d75f59a98e4866212542c7e25eec4d086ff137e0283594cc054",
+    "computedRow0":"32785fabb08fe872d46699afca83722535c1cf7e08eb079ba5dc79545609bb5e"
+  },
+  "gobp_phases":{
+    "conf":[0.995,0.7,0.85,0.55],
+    "damp":[0.5,0.1,0.35,0.02],
+    "iters":[8000,12000,300000,2000000]
+  },
+  "row_min_pct":0,
+  "row_avg_pct":34.3416,
+  "row_max_pct":100,
+  "full_rows":133,
+  "rows":[79.4521,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,79.0607,100,100,100,100,78.2779,75.7339,73.5812,63.9922,100,43.6399,47.5538,43.4442,40.1174,42.0744,35.4207,34.4423,34.2466,27.2016,30.137,31.8982,26.8102,27.0059,24.0705,24.2661,22.8963,20.7436,16.047,18.0039,19.9609,18.7867,19.5695,15.4599,16.2427,17.2211,13.3072,13.5029,13.6986,20.7436,13.6986,13.3072,10.9589,12.3288,8.80626,9.39335,13.8943,10.5675,9.39335,11.546,8.02348,7.63209,12.3288,5.87084,6.26223,13.3072,5.87084,8.41487,6.84932,8.41487,15.8513,7.04501,8.80626,6.06654,11.9374,11.3503,12.7202,10.7632,8.80626,7.2407,7.4364,12.3288,12.5245,4.69667,9.00196,4.69667,10.3718,4.30528,10.9589,18.1996,13.8943,7.4364,15.8513,9.19765,7.63209,11.1546,10.5675,10.1761,12.7202,16.4384,13.5029,7.63209,11.7417,14.6771,17.4168,8.61057,8.21918,7.04501,8.21918,14.6771,11.1546,7.82779,9.00196,10.3718,20.5479,6.45793,10.1761,7.63209,8.61057,7.63209,12.7202,13.1115,11.3503,15.0685,7.82779,7.4364,6.84932,7.4364,9.00196,15.0685,8.41487,13.5029,10.7632,8.21918,8.41487,11.3503,15.0685,11.1546,8.02348,13.5029,12.5245,7.04501,8.41487,10.3718,8.21918,6.65362,8.61057,6.45793,9.00196,7.63209,11.3503,7.04501,13.6986,10.5675,6.06654,5.67515,10.1761,11.3503,5.28376,8.21918,6.45793,8.21918,13.6986,10.1761,12.9159,7.2407,7.2407,10.1761,16.4384,9.00196,8.41487,15.6556,10.5675,13.5029,8.02348,10.3718,11.3503,7.82779,6.84932,20.1566,13.8943,6.84932,5.28376,9.98043,8.61057,9.39335,9.39335,7.63209,8.21918,8.21918,7.2407,9.00196,7.4364,12.7202,7.82779,15.6556,9.19765,9.00196,9.78474,12.1331,10.3718,12.7202,9.98043,19.1781,6.26223,4.50098,7.2407,5.87084,8.02348,5.28376,4.89237,10.7632,7.4364,7.82779,9.39335,3.7182,6.06654,2.15264,4.69667,6.26223,2.34834,4.50098,14.4814,10.1761,10.1761,4.69667,1.76125,2.34834,6.45793,3.32681,10.1761,2.54403,0.195695,5.87084,0.782779,5.28376,8.61057,1.56556,7.04501,6.06654,4.69667,2.54403,4.10959,0,0.587084,5.47945,4.69667,2.15264,5.67515,3.32681,3.7182,3.91389,2.93542,8.21918,1.56556,7.82779,1.76125,0.391389,6.45793,1.36986,6.45793,6.26223,6.26223,1.76125,1.76125,8.02348,0,4.69667,0.587084,0.195695,1.76125,0.782779,0.978474,0,1.95695,7.04501,7.2407,10.1761,7.04501,5.47945,6.06654,0.978474,2.73973,5.08806,0.978474,0.391389,0.587084,0.195695,1.76125,8.41487,0.391389,1.95695,8.21918,1.36986,0.978474,2.73973,1.17417,0.978474,1.95695,10.1761,8.02348,7.2407,3.91389,3.32681,8.80626,4.69667,4.89237,5.87084,2.73973,7.2407,6.65362,9.58904,10.9589,4.69667,6.84932,6.84932,4.69667,6.65362,4.69667,7.2407,7.04501,10.9589,14.6771,5.67515,9.39335,10.5675,6.26223,12.9159,9.39335,12.1331,12.3288,14.6771,13.3072,7.63209,9.00196,12.9159,15.2642,9.39335,11.1546,11.3503,9.39335,13.3072,11.3503,15.8513,11.1546,7.4364,9.39335,9.19765,13.5029,12.5245,5.67515,16.047,7.4364,12.5245,10.9589,10.5675,14.8728,11.7417,18.9824,8.61057,8.61057,8.02348,15.0685,14.6771,11.546,13.1115,16.6341,9.78474,8.80626,12.5245,14.4814,10.5675,10.7632,16.6341,17.8082,10.3718,16.047,12.9159,18.7867,17.4168,12.1331,18.7867,13.5029,13.5029,19.9609,19.7652,20.5479,15.6556,18.9824,17.4168,19.7652,19.3738,17.0254],
+  "col_min_pct":26.8102,
+  "col_avg_pct":34.3416,
+  "col_max_pct":47.3581,
+  "cols":[39.9217,34.8337,33.4638,42.4658,38.7476,36.5949,38.9432,36.7906,39.726,37.5734,34.638,38.1605,41.0959,36.9863,38.9432,40.5088,38.1605,43.0528,41.0959,41.2916,33.4638,41.2916,36.5949,40.1174,39.9217,36.0078,37.9648,38.9432,34.8337,39.1389,34.8337,36.2035,41.683,40.9002,40.1174,38.1605,39.3346,41.4873,39.9217,39.5303,44.6184,46.9667,43.2485,40.1174,36.0078,39.3346,34.2466,39.9217,33.4638,40.7045,39.1389,40.3131,36.3992,42.6614,42.2701,42.8571,36.0078,37.3777,32.0939,34.8337,36.5949,38.3562,33.6595,35.0294,31.5068,35.4207,31.8982,32.4853,33.2681,32.4853,33.4638,35.6164,37.5734,32.8767,38.7476,34.0509,30.5284,31.5068,32.2896,30.5284,34.0509,30.5284,31.5068,30.7241,30.9198,32.2896,33.0724,29.9413,30.5284,30.9198,31.3112,30.3327,31.8982,30.9198,36.0078,31.7025,31.3112,34.2466,34.2466,33.4638,32.2896,31.8982,35.225,31.3112,31.7025,33.0724,32.681,32.2896,33.0724,35.4207,32.2896,34.0509,32.0939,34.8337,31.8982,33.4638,33.0724,31.7025,31.5068,31.7025,33.4638,31.3112,30.9198,33.4638,31.7025,31.8982,34.638,42.0744,34.0509,32.2896,35.4207,33.6595,33.2681,34.638,35.6164,33.8552,34.2466,36.5949,35.8121,34.638,33.8552,33.6595,34.8337,36.5949,34.4423,37.3777,36.7906,35.6164,36.0078,35.6164,35.0294,35.4207,35.8121,35.6164,36.3992,36.0078,37.7691,37.9648,37.3777,36.9863,37.182,38.1605,39.5303,38.1605,38.9432,38.9432,40.3131,40.5088,41.2916,43.4442,40.1174,41.8787,41.4873,41.683,42.8571,41.0959,42.4658,42.0744,42.2701,42.2701,41.2916,40.1174,40.1174,40.7045,39.1389,39.5303,39.1389,37.7691,39.1389,39.3346,38.1605,39.3346,36.7906,39.5303,34.8337,35.225,34.0509,35.225,33.4638,36.0078,34.638,40.1174,33.8552,32.4853,34.2466,32.681,32.681,32.681,31.5068,30.7241,33.4638,30.5284,30.7241,29.9413,29.5499,29.3542,29.1585,32.0939,32.0939,31.7025,28.9628,30.7241,30.3327,29.3542,29.7456,30.5284,30.137,28.9628,30.5284,29.9413,27.9843,28.5714,28.7671,30.7241,28.9628,30.5284,30.3327,29.9413,29.7456,29.3542,30.3327,29.7456,29.5499,29.3542,30.3327,29.3542,28.3757,29.3542,29.3542,28.18,28.5714,28.18,29.3542,28.9628,27.7886,28.18,32.0939,30.3327,29.9413,28.3757,28.18,28.3757,27.9843,27.9843,27.3973,28.9628,27.9843,27.7886,28.18,28.3757,28.7671,28.5714,29.7456,28.9628,28.5714,28.3757,28.18,29.9413,27.9843,27.9843,26.8102,28.18,28.5714,28.18,27.9843,27.3973,27.7886,28.5714,28.18,27.3973,27.3973,28.5714,29.7456,27.3973,29.9413,31.8982,29.5499,32.2896,32.0939,34.0509,31.3112,31.3112,33.2681,31.1155,31.1155,30.9198,31.8982,30.5284,32.681,32.2896,33.8552,32.2896,34.8337,32.8767,33.6595,32.4853,32.8767,32.4853,32.8767,31.1155,32.4853,32.8767,31.8982,32.681,31.8982,32.2896,33.6595,35.0294,33.6595,34.2466,34.638,33.8552,35.8121,34.4423,34.0509,33.8552,35.8121,35.6164,36.7906,36.3992,34.4423,34.638,35.8121,34.4423,36.3992,34.8337,36.2035,33.6595,35.6164,33.2681,34.4423,34.0509,34.8337,34.638,33.8552,34.0509,33.0724,32.8767,35.0294,33.6595,34.4423,36.3992,35.0294,35.0294,35.8121,34.638,34.2466,35.6164,34.638,35.225,34.2466,34.0509,35.225,33.6595,34.638,34.4423,35.6164,34.638,35.0294,34.2466,34.0509,33.6595,33.8552,34.2466,33.8552,34.638,33.8552,33.2681,33.6595,34.2466,34.638,35.4207,34.0509,33.6595,34.0509,33.4638,34.0509,36.2035,36.0078,34.8337,34.8337,34.0509,33.4638,34.2466,34.638,34.0509,33.6595,32.681,33.2681,32.681,33.2681,32.681,34.8337,33.6595,33.2681,33.8552,33.4638,34.0509,33.2681,33.4638,33.6595,37.3777,35.4207,32.8767,33.8552,36.3992,32.681,32.0939,36.2035,34.4423,36.5949,34.0509,35.4207,33.8552,34.4423,33.0724,33.0724,33.4638,33.4638,34.4423,31.5068,33.0724,34.2466,32.681,34.2466,33.0724,35.4207,33.6595,35.4207,35.6164,35.6164,35.225,37.9648,33.0724,33.0724,31.8982,31.7025,36.2035,34.2466,40.7045,34.8337,34.2466,34.8337,32.0939,35.4207,31.7025,31.3112,37.5734,32.8767,33.2681,37.9648,37.182,39.5303,35.0294,37.3777,33.0724,37.182,37.9648,34.8337,31.7025,35.8121,35.8121,32.8767,35.225,33.0724,32.0939,35.6164,39.1389,35.4207,32.2896,36.5949,36.2035,39.5303,35.4207,37.182,36.2035,34.8337,37.182,33.8552,38.7476,39.1389,36.7906,35.8121,33.2681,38.1605,44.227,38.7476,40.3131,42.4658,39.9217,47.3581]
+}
+```
+
+### Analysis:
+
+Compare the last two snapshots:
+
+- Earlier (short run): 13 GOBP iters, gobp_cells_solved=245,009, gating_calls=4, restarts_total=0,
+  partial_adoptions=100, boundary_finisher_attempts=0, valid_prefix=0. The row/col averages are very high (
+  row_avg_pct≈93.93%, col_avg_pct≈93.93%), but no rows are LH‑verified at the prefix (valid_prefix=0). That
+  is a cosmetically “complete” but unverified state produced by a brief pass with almost no gating or finishers.
+- Earlier (short run): 13 GOBP iters, gobp_cells_solved=245,009, gating_calls=4, restarts_total=0,
+  partial_adoptions=100, boundary_finisher_attempts=0, valid_prefix=0. The row/col averages are very high (
+  row_avg_pct≈93.93%, col_avg_pct≈93.93%), but no rows are LH‑verified at the prefix (valid_prefix=0). That
+  is a cosmetically “complete” but unverified state produced by a brief pass with almost no gating or finishers.
+- Latest (full, instrumented run): 471 GOBP iters, gobp_cells_solved=1,020,531, gating_calls=302, restarts_total=78,
+  partial_adoptions=55,992,boundary_finisher_attempts=511, valid_prefix=0. We plateaued around unknown≈171–172k
+  repeatedly and refused to lock rows that don’t pass LH. That conservatism drops row_avg_pct to ≈34.34% and
+  full_rows=133, but it prevents the solver from cementing contradictions. In other words: we explored more (4× cells
+  processed; heavy restarts and gating) and accepted less unless it survived LH gates.
+
+What changed under the hood:
+
+- Finishers actually engage (boundary_finisher_attempts=511 vs 0), with focused boundary gating; micro‑solvers now run
+  late and only under feasibility/LH gates instead of spraying speculative locks early.
+- Restarts and “polish shakes” are doing their job: we shake out brittle plateaus and revert to a safe baseline when
+  LH/prefix can’t advance, rather than keeping misleadingly “complete” rows.
+
+Bottom line: 
+
+Both runs end with valid_prefix=0. The earlier “high completion” wasn’t real progress toward a verified
+prefix; it was an optimistic transient with minimal gating. The current pipeline is stricter, more instrumented, and
+actively avoids locking wrong rows. That’s the right direction for turning effort into LH‑verified prefix growth rather
+than cosmetic fill — and the counters show the system is now plumbed to try, measure, and iterate where it matters.
