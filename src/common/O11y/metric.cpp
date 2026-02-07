@@ -12,22 +12,30 @@
 #include <initializer_list>
 #include <utility>
 #include <ios>
-#include <thread>
-#include <condition_variable>
-#include <deque>
 #include <mutex>
 #include <string>
 #include <sstream>
 #include <unordered_map>
-#include <coroutine>
 #include <atomic>
 
 namespace crsce::o11y {
     namespace {
+        /**
+         * @name hex_nibble
+         * @brief Convert a hex nibble to ASCII.
+         * @param v Unsigned 4-bit value (low nibble used).
+         * @return char ASCII hex digit.
+         */
         inline char hex_nibble(unsigned char v) {
             return (v < 10U) ? static_cast<char>('0' + v) : static_cast<char>('a' + (v - 10U));
         }
 
+        /**
+         * @name escape_json
+         * @brief Escape a string for JSON output.
+         * @param s Input string.
+         * @return std::string Escaped string.
+         */
         inline std::string escape_json(const std::string &s) {
             std::string out;
             out.reserve(s.size() + 8U);
@@ -53,95 +61,49 @@ namespace crsce::o11y {
             return out;
         }
 
+        /**
+         * @name now_ms
+         * @brief Milliseconds since UNIX epoch.
+         * @return std::uint64_t Milliseconds since epoch.
+         */
         inline std::uint64_t now_ms() {
             using namespace std::chrono;
             return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
         }
 
-        class AsyncSink {
-        public:
-            AsyncSink() {
-                const char *p = std::getenv("CRSCE_METRICS_PATH"); // NOLINT(concurrency-mt-unsafe)
-                if (p && *p) { path_ = p; } else { path_ = "metrics.jsonl"; }
-                os_.open(path_, std::ios::out | std::ios::app | std::ios::binary);
-                worker_ = std::thread([this]() { this->run(); });
-            }
-            ~AsyncSink() {
-                {
-                    const std::scoped_lock lk(mu_);
-                    stop_ = true;
-                }
-                cv_.notify_all();
-                if (worker_.joinable()) { worker_.join(); }
-            }
-            struct WorkItem {
-                enum class Kind : std::uint8_t { Line, Resume };
-                Kind kind{Kind::Line};
-                std::string line;
-                std::coroutine_handle<> h;
-            };
-            void enqueue_line(const std::string &line) {
-                {
-                    const std::scoped_lock lk(mu_);
-                    q_.push_back(WorkItem{.kind=WorkItem::Kind::Line, .line=line, .h={}});
-                }
-                cv_.notify_one();
-            }
-            void post_resume(std::coroutine_handle<> h) {
-                {
-                    const std::scoped_lock lk(mu_);
-                    q_.push_back(WorkItem{.kind=WorkItem::Kind::Resume, .line=std::string{}, .h=h});
-                }
-                cv_.notify_one();
-            }
-            // Counter registry is only touched on sink thread
-            std::uint64_t incr_counter_and_get(const std::string &name) {
-                return ++counters_[name];
-            }
-            AsyncSink(const AsyncSink&) = delete;
-            AsyncSink& operator=(const AsyncSink&) = delete;
-            AsyncSink(AsyncSink&&) = delete;
-            AsyncSink& operator=(AsyncSink&&) = delete;
-        private:
-            void run() {
-                const bool do_flush = ([](){ if (const char *p = std::getenv("CRSCE_METRICS_FLUSH") /* NOLINT(concurrency-mt-unsafe) */) { return (*p!='0'); } return false; })();
-                for (;;) {
-                    WorkItem it;
-                    {
-                        std::unique_lock<std::mutex> lk(mu_);
-                        cv_.wait(lk, [this](){ return stop_ || !q_.empty(); });
-                        if (stop_ && q_.empty()) { break; }
-                        it = std::move(q_.front());
-                        q_.pop_front();
-                    }
-                    if (it.kind == WorkItem::Kind::Line) {
-                        if (!os_.is_open()) {
-                            os_.open(path_, std::ios::out | std::ios::app | std::ios::binary);
-                        }
-                        os_ << it.line << '\n';
-                        if (do_flush) { os_.flush(); }
-                    } else {
-                        if (it.h) { it.h.resume(); }
-                    }
-                }
-                os_.flush();
-            }
-            std::string path_;
-            std::ofstream os_;
-            std::mutex mu_;
-            std::condition_variable cv_;
-            std::deque<WorkItem> q_;
-            bool stop_{false};
-            std::thread worker_;
-            std::unordered_map<std::string, std::uint64_t> counters_;
-        };
-
-        inline AsyncSink &sink() {
-            static AsyncSink s;
-            return s;
+        // Synchronous output helpers (test-friendly, avoids background threads)
+        inline std::string current_path() {
+            if (const char *p = std::getenv("CRSCE_METRICS_PATH") /* NOLINT(concurrency-mt-unsafe) */; p && *p) { return std::string(p); }
+            return std::string("metrics.jsonl");
+        }
+        inline bool flush_enabled() {
+            if (const char *p = std::getenv("CRSCE_METRICS_FLUSH") /* NOLINT(concurrency-mt-unsafe) */; p && *p) { return (*p!='0'); }
+            return false;
+        }
+        inline void write_line_sync(const std::string &line) {
+            static std::mutex mu;
+            const std::scoped_lock lk(mu);
+            std::ofstream os(current_path(), std::ios::out | std::ios::app | std::ios::binary);
+            if (!os.is_open()) { return; }
+            os << line << '\n';
+            if (flush_enabled()) { os.flush(); }
+        }
+        inline std::uint64_t incr_counter_and_get_sync(const std::string &name) {
+            static std::mutex mu;
+            static std::unordered_map<std::string, std::uint64_t> counters;
+            const std::scoped_lock lk(mu);
+            return ++counters[name];
         }
 
         template <typename Value>
+        /**
+         * @name metric_impl
+         * @brief Serialize a simple metric value with optional tags.
+         * @param name Metric name.
+         * @param value Metric value (overloaded on type).
+         * @param tags Optional key/value tags.
+         * @return void
+         */
         void metric_impl(const std::string &name, const Value &value,
                          const std::initializer_list<std::pair<std::string, std::string>> &tags) {
             std::ostringstream oss;
@@ -169,44 +131,53 @@ namespace crsce::o11y {
                 oss << '}';
             }
             oss << '}';
-            sink().enqueue_line(oss.str());
+            write_line_sync(oss.str());
         }
     } // namespace
 
+    /** @name metric @brief Emit integral metric. */
     void metric(const std::string &name, std::int64_t value,
                 std::initializer_list<std::pair<std::string, std::string>> tags) {
         metric_impl(name, value, tags);
     }
 
+    /** @name metric @brief Emit floating-point metric. */
     void metric(const std::string &name, double value,
                 std::initializer_list<std::pair<std::string, std::string>> tags) {
         metric_impl(name, value, tags);
     }
 
+    /** @name metric @brief Emit string metric. */
     void metric(const std::string &name, const std::string &value,
                 std::initializer_list<std::pair<std::string, std::string>> tags) {
         metric_impl(name, value, tags);
     }
 
+    /** @name metric @brief Emit boolean metric. */
     void metric(const std::string &name, bool value,
                 std::initializer_list<std::pair<std::string, std::string>> tags) {
         metric_impl(name, value, tags);
     }
 
     // Obj builder methods
+    /** @name Obj::add @brief Add integer field. */
     Obj &Obj::add(const std::string &key, std::int64_t v) {
         ObjField f; f.t = ObjField::Type::I64; f.k = key; f.i64 = v; fields_.push_back(std::move(f)); return *this;
     }
+    /** @name Obj::add @brief Add double field. */
     Obj &Obj::add(const std::string &key, double v) {
         ObjField f; f.t = ObjField::Type::F64; f.k = key; f.f64 = v; fields_.push_back(std::move(f)); return *this;
     }
+    /** @name Obj::add @brief Add string field. */
     Obj &Obj::add(const std::string &key, const std::string &v) {
         ObjField f; f.t = ObjField::Type::STR; f.k = key; f.str = v; fields_.push_back(std::move(f)); return *this;
     }
+    /** @name Obj::add @brief Add boolean field. */
     Obj &Obj::add(const std::string &key, bool v) {
         ObjField f; f.t = ObjField::Type::BOOL; f.k = key; f.b = v; fields_.push_back(std::move(f)); return *this;
     }
 
+    /** @name metric @brief Emit structured object metric. */
     void metric(const Obj &o) {
         std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
         oss << '{';
@@ -226,42 +197,22 @@ namespace crsce::o11y {
             }
         }
         oss << "}}";
-        sink().enqueue_line(oss.str());
+        write_line_sync(oss.str());
     }
 
-    // Coroutine plumbing: fire-and-forget + scheduler switch to sink thread
-    namespace {
-        struct fire_and_forget {
-            struct promise_type {
-                fire_and_forget get_return_object() noexcept { return {}; }
-                [[nodiscard]] std::suspend_never initial_suspend() const noexcept { return {}; }
-                [[nodiscard]] std::suspend_never final_suspend() const noexcept { return {}; }
-                void return_void() const noexcept {}
-                void unhandled_exception() const noexcept {}
-            };
-        };
-        struct SwitchToSink {
-            [[nodiscard]] bool await_ready() const noexcept { return false; }
-            void await_suspend(std::coroutine_handle<> h) const { sink().post_resume(h); }
-            void await_resume() const noexcept {}
-        };
-        fire_and_forget counter_coro(std::string name) {
-            co_await SwitchToSink{}; // hop to sink thread
-            const auto cnt = sink().incr_counter_and_get(name);
-            std::ostringstream oss;
-            oss << '{';
-            oss << "\"ts_ms\":" << now_ms() << ',';
-            oss << "\"name\":\"" << escape_json(name) << "\",";
-            oss << "\"count\":" << cnt;
-            oss << '}';
-            sink().enqueue_line(oss.str());
-        }
-    } // namespace
-
+    /** @name counter @brief Emit an increment-only counter event. */
     void counter(const std::string &name) {
-        (void)counter_coro(std::string{name});
+        const auto cnt = incr_counter_and_get_sync(name);
+        std::ostringstream oss;
+        oss << '{';
+        oss << "\"ts_ms\":" << now_ms() << ',';
+        oss << "\"name\":\"" << escape_json(name) << "\",";
+        oss << "\"count\":" << cnt;
+        oss << '}';
+        write_line_sync(oss.str());
     }
 
+    /** @name event @brief Emit a one-off event with optional tags. */
     void event(const std::string &name,
                std::initializer_list<std::pair<std::string, std::string>> tags) {
         std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
@@ -279,10 +230,11 @@ namespace crsce::o11y {
             oss << '}';
         }
         oss << '}';
-        sink().enqueue_line(oss.str());
+        write_line_sync(oss.str());
     }
 
     // Debug gating for GOBP
+    /** @name gobp_debug_enabled @brief Check if GOBP debug events are enabled via env var. */
     bool gobp_debug_enabled() noexcept {
         static std::atomic<int> flag{-1};
         const int v = flag.load(std::memory_order_relaxed);
@@ -293,6 +245,7 @@ namespace crsce::o11y {
         return nv == 1;
     }
 
+    /** @name debug_event_gobp @brief Conditionally emit a GOBP debug event. */
     void debug_event_gobp(const std::string &name,
                           std::initializer_list<std::pair<std::string, std::string>> tags) {
         if (!gobp_debug_enabled()) { return; }
