@@ -1,5 +1,6 @@
 /**
  * @file OneTestPerFile.cpp
+ * @brief Plugin to enforce one test per file in Google Test.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #if __has_include(<clang/AST/AST.h>)

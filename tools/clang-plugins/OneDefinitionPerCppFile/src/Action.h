@@ -1,6 +1,7 @@
 /**
  * @file Action.h
  * @brief Declaration of the plugin FrontendAction for ODPCPP.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

@@ -1,6 +1,7 @@
 /**
  * @file Action.cpp
  * @brief Definition of the plugin FrontendAction for ODPCPP.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include "Action.h"

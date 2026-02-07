@@ -1,6 +1,7 @@
 /**
  * @file MatchCB.cpp
  * @brief Definition of AST matcher callback for ODPCPP.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include "MatchCB.h"

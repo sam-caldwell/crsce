@@ -1,6 +1,7 @@
 /**
  * @file MatchCB.h
  * @brief Declaration of AST matcher callback for ODPH.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

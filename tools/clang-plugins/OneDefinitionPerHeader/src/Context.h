@@ -1,6 +1,7 @@
 /**
  * @file Context.h
  * @brief Declarations for ODPH plugin context, options, and construct tracking.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

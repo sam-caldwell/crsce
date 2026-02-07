@@ -1,6 +1,7 @@
 /**
  * @file Context.cpp
  * @brief Definitions for ODPH plugin context, options, and checks.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include "Context.h"

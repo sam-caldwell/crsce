@@ -1,6 +1,7 @@
 /**
  * @file ClangIncludes.h
  * @brief System-marked aggregation of Clang/LLVM headers for tidy.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 #pragma clang system_header

@@ -1,6 +1,7 @@
 /**
  * @file Consumer.cpp
  * @brief Definition of AST consumer for ODPCPP.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include "Consumer.h"

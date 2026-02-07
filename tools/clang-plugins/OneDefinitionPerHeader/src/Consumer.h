@@ -1,6 +1,7 @@
 /**
  * @file Consumer.h
  * @brief Declaration of AST consumer for ODPH.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

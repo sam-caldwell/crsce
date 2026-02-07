@@ -1,6 +1,7 @@
 /**
  * @file Context.cpp
  * @brief Definitions for plugin context, options, and construct checks.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include "Context.h"
