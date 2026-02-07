@@ -1,16 +1,38 @@
 /**
  * @file compute_prefix.cpp
  * @brief Incrementally compute verified LH prefix for current CSM/state.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/compute_prefix.h"
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <vector>
+
+#include "decompress/Csm/detail/Csm.h"
+#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 
 namespace crsce::decompress::detail {
 
-std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen,
+/**
+ * @name compute_prefix
+ * @brief Extend the verified LH prefix if leading rows remain fully determined and valid.
+ * @param pc_ver_seen Per-row version numbers cached when last verified.
+ * @param pc_ok Per-row verification flags (nonzero if row verified).
+ * @param pc_prefix_len In/out current prefix length [0..pc_prefix_len).
+ * @param csm Current CSM.
+ * @param st Current constraint state.
+ * @param lh LH digest span.
+ * @param snap In/out snapshot for accumulating LH verification time.
+ * @return New prefix length (same as updated pc_prefix_len).
+ */
+std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen, // NOLINT(misc-use-internal-linkage)
                            std::vector<char> &pc_ok,
                            std::size_t &pc_prefix_len,
                            const Csm &csm,
@@ -53,4 +75,3 @@ std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen,
 }
 
 } // namespace crsce::decompress::detail
-

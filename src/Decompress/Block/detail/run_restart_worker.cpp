@@ -29,7 +29,7 @@ namespace crsce::decompress::detail {
  * @name run_restart_worker
  * @brief Per-restart parallel worker that jitter-perturbs a baseline state and runs mini-GOBP phases.
  */
-void run_restart_worker(std::size_t wi,
+void run_restart_worker(std::size_t wi, // NOLINT(misc-use-internal-linkage)
                         const Csm &baseline_csm,
                         const ConstraintState &baseline_st,
                         Csm &c_winner,
