@@ -27,10 +27,15 @@ namespace crsce::decompress {
     bool RowHashVerifier::verify_row(const Csm &csm,
                                      const std::span<const std::uint8_t> lh_bytes,
                                      const std::size_t r) const {
-        if (lh_bytes.size() < (r + 1) * kHashSize) { return false; }
+
+        if (lh_bytes.size() < (r + 1) * kHashSize) {
+            return false;
+        }
+
         const auto row64 = pack_row_bytes(csm, r);
         const auto digest = sha256_digest(row64.data(), row64.size());
         const auto expected = lh_bytes.subspan(r * kHashSize, kHashSize);
+
         return std::equal(expected.begin(), expected.end(), digest.begin());
     }
 }
