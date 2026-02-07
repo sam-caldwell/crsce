@@ -17,6 +17,9 @@
 #include <mutex>
 #include <string>
 #include <sstream>
+#include <unordered_map>
+#include <coroutine>
+#include <atomic>
 
 namespace crsce::o11y {
     namespace {
@@ -70,12 +73,29 @@ namespace crsce::o11y {
                 cv_.notify_all();
                 if (worker_.joinable()) { worker_.join(); }
             }
-            void enqueue(const std::string &line) {
+            struct WorkItem {
+                enum class Kind : std::uint8_t { Line, Resume };
+                Kind kind{Kind::Line};
+                std::string line;
+                std::coroutine_handle<> h{};
+            };
+            void enqueue_line(const std::string &line) {
                 {
                     const std::scoped_lock lk(mu_);
-                    q_.push_back(line);
+                    q_.push_back(WorkItem{WorkItem::Kind::Line, line, {}});
                 }
                 cv_.notify_one();
+            }
+            void post_resume(std::coroutine_handle<> h) {
+                {
+                    const std::scoped_lock lk(mu_);
+                    q_.push_back(WorkItem{WorkItem::Kind::Resume, std::string{}, h});
+                }
+                cv_.notify_one();
+            }
+            // Counter registry is only touched on sink thread
+            std::uint64_t incr_counter_and_get(const std::string &name) {
+                return ++counters_[name];
             }
             AsyncSink(const AsyncSink&) = delete;
             AsyncSink& operator=(const AsyncSink&) = delete;
@@ -83,19 +103,25 @@ namespace crsce::o11y {
             AsyncSink& operator=(AsyncSink&&) = delete;
         private:
             void run() {
+                const bool do_flush = ([](){ if (const char *p = std::getenv("CRSCE_METRICS_FLUSH") /* NOLINT(concurrency-mt-unsafe) */) { return (*p!='0'); } return false; })();
                 for (;;) {
-                    std::string line;
+                    WorkItem it;
                     {
                         std::unique_lock<std::mutex> lk(mu_);
                         cv_.wait(lk, [this](){ return stop_ || !q_.empty(); });
                         if (stop_ && q_.empty()) { break; }
-                        line = std::move(q_.front());
+                        it = std::move(q_.front());
                         q_.pop_front();
+                    }
+                    if (it.kind == WorkItem::Kind::Line) {
                         if (!os_.is_open()) {
                             os_.open(path_, std::ios::out | std::ios::app | std::ios::binary);
                         }
+                        os_ << it.line << '\n';
+                        if (do_flush) { os_.flush(); }
+                    } else {
+                        if (it.h) { it.h.resume(); }
                     }
-                    os_ << line << '\n';
                 }
                 os_.flush();
             }
@@ -103,9 +129,10 @@ namespace crsce::o11y {
             std::ofstream os_;
             std::mutex mu_;
             std::condition_variable cv_;
-            std::deque<std::string> q_;
+            std::deque<WorkItem> q_;
             bool stop_{false};
             std::thread worker_;
+            std::unordered_map<std::string, std::uint64_t> counters_;
         };
 
         inline AsyncSink &sink() {
@@ -141,7 +168,7 @@ namespace crsce::o11y {
                 oss << '}';
             }
             oss << '}';
-            sink().enqueue(oss.str());
+            sink().enqueue_line(oss.str());
         }
     } // namespace
 
@@ -198,6 +225,76 @@ namespace crsce::o11y {
             }
         }
         oss << "}}";
-        sink().enqueue(oss.str());
+        sink().enqueue_line(oss.str());
+    }
+
+    // Coroutine plumbing: fire-and-forget + scheduler switch to sink thread
+    namespace {
+        struct fire_and_forget {
+            struct promise_type {
+                fire_and_forget get_return_object() noexcept { return {}; }
+                std::suspend_never initial_suspend() const noexcept { return {}; }
+                std::suspend_never final_suspend() const noexcept { return {}; }
+                void return_void() const noexcept {}
+                void unhandled_exception() const noexcept {}
+            };
+        };
+        struct SwitchToSink {
+            bool await_ready() const noexcept { return false; }
+            void await_suspend(std::coroutine_handle<> h) const { sink().post_resume(h); }
+            void await_resume() const noexcept {}
+        };
+        fire_and_forget counter_coro(std::string name) {
+            co_await SwitchToSink{}; // hop to sink thread
+            const auto cnt = sink().incr_counter_and_get(name);
+            std::ostringstream oss;
+            oss << '{';
+            oss << "\"ts_ms\":" << now_ms() << ',';
+            oss << "\"name\":\"" << escape_json(name) << "\",";
+            oss << "\"count\":" << cnt;
+            oss << '}';
+            sink().enqueue_line(oss.str());
+        }
+    } // namespace
+
+    void counter(const std::string &name) {
+        (void)counter_coro(std::string{name});
+    }
+
+    void event(const std::string &name,
+               std::initializer_list<std::pair<std::string, std::string>> tags) {
+        std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
+        oss << '{';
+        oss << "\"ts_ms\":" << now_ms() << ',';
+        oss << "\"name\":\"" << escape_json(name) << "\"";
+        if (tags.size() != 0) {
+            oss << ",\"tags\":{";
+            bool first = true;
+            for (const auto &kv : tags) {
+                if (!first) { oss << ','; }
+                first = false;
+                oss << "\"" << escape_json(kv.first) << "\":\"" << escape_json(kv.second) << "\"";
+            }
+            oss << '}';
+        }
+        oss << '}';
+        sink().enqueue_line(oss.str());
+    }
+
+    // Debug gating for GOBP
+    bool gobp_debug_enabled() noexcept {
+        static std::atomic<int> flag{-1};
+        int v = flag.load(std::memory_order_relaxed);
+        if (v >= 0) { return v == 1; }
+        const char *e = std::getenv("CRSCE_GOBP_DEBUG"); // NOLINT(concurrency-mt-unsafe)
+        const int nv = (e && *e) ? 1 : 0;
+        flag.store(nv, std::memory_order_relaxed);
+        return nv == 1;
+    }
+
+    void debug_event_gobp(const std::string &name,
+                          std::initializer_list<std::pair<std::string, std::string>> tags) {
+        if (!gobp_debug_enabled()) { return; }
+        event(name, tags);
     }
 }

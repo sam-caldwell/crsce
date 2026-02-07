@@ -1333,9 +1333,50 @@ What changed under the hood:
 - Restarts and “polish shakes” are doing their job: we shake out brittle plateaus and revert to a safe baseline when
   LH/prefix can’t advance, rather than keeping misleadingly “complete” rows.
 
-Bottom line: 
+Bottom line:
 
 Both runs end with valid_prefix=0. The earlier “high completion” wasn’t real progress toward a verified
 prefix; it was an optimistic transient with minimal gating. The current pipeline is stricter, more instrumented, and
 actively avoids locking wrong rows. That’s the right direction for turning effort into LH‑verified prefix growth rather
 than cosmetic fill — and the counters show the system is now plumbed to try, measure, and iterate where it matters.
+
+### GOBP Beliefs, a sudden review
+
+I need to step back and review the beliefs of the GOBP solver. Questioning your beliefs is a good way to learn.
+
+Each cell’s belief is derived from four independent “line” constraints: its row, column, diagonal, and anti-diagonal.
+For each line, GOBP uses the residual ones R and unknowns U to form a line-level probability p_line with
+short-circuits: U==0 → 0.5 (neutral), R==0 → 0.0, R==U → 1.0, else R/U. The per-cell belief combines the four line
+probabilities by multiplying odds (naive independence), then converts back to probability. The result is optionally
+smoothed with exponential damping against the cell’s previous belief before applying assignment thresholds.
+
+Core formula (from GobpSolver::belief_for and helpers):
+
+```c++
+// Line probability from residuals:
+double p_line(std::size_t R, std::size_t U){
+    if (U==0) return 0.5;
+    if (R==0) return 0.0;
+    if (R==U) return 1.0;
+    return double(R)/double(U);
+}
+
+// Combine four lines via odds-product:
+auto o = odds(pr) * odds(pc) * odds(pd) * odds(px);     // odds(p)=p/(1-p), clamped to [1e-12,1-1e-12]
+double belief = prob_from_odds(o);                      // o/(1+o), clamped to >1e-12
+
+// Damping and writeback:
+double blended = d * prev + (1.0 - d) * belief;        // d in [0,1)
+csm.set_data(r,c, blended);
+```
+
+Feasibility guards prevent impossible assignments:
+
+- if any line has R==0 the solver won’t assign a 1
+- if any line has R==U it won’t assign a 0.
+  Deterministic assignments fire when blended ≥ conf (assign 1) or ≤ 1−conf (assign 0), with default conf=0.995 and
+  d=0.5. Residuals are updated atomically in apply_cell, which throws on underflow.
+
+> Example: pr=0.625 (5/8), pc=0.6 (6/10), pd=px=0.5714 (8/14 and 4/7).
+> Odds: 1.6667, 1.5, 1.3333, 1.3333 product ≈ 4.4445 prob ≈ 4.4445/5.4445 ≈ 0.816. 
+> With d=0.25 and prev=1.0, blended = 0.251.0 + 0.750.816 ≈ 0.862.

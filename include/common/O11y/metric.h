@@ -6,6 +6,7 @@
 
 #include <string>
 #include <cstdint>
+#include <vector>
 #include <initializer_list>
 #include <utility>
 
@@ -43,7 +44,7 @@ namespace crsce::o11y {
         std::string name_;
         std::vector<ObjField> fields_;
     public:
-        explicit Obj(std::string n) : name_(std::move(n)), fields_() {}
+        explicit Obj(std::string n) : name_(std::move(n)) {}
         Obj &add(const std::string &key, std::int64_t v);
         Obj &add(const std::string &key, double v);
         Obj &add(const std::string &key, const std::string &v);
@@ -54,4 +55,17 @@ namespace crsce::o11y {
 
     // Emit a structured object: {ts_ms, name, fields:{...}}
     void metric(const Obj &o);
+
+    // Increment a named counter asynchronously and emit a time-stamped count.
+    void counter(const std::string &name);
+
+    // Record a named event with optional tags (no numeric value), asynchronously.
+    void event(const std::string &name,
+               std::initializer_list<std::pair<std::string, std::string>> tags = {});
+
+    // Debug gating for GOBP: controlled by env var CRSCE_GOBP_DEBUG.
+    // Uses an internal cached flag; evaluation and emission remain asynchronous.
+    bool gobp_debug_enabled() noexcept;
+    void debug_event_gobp(const std::string &name,
+                          std::initializer_list<std::pair<std::string, std::string>> tags = {});
 }

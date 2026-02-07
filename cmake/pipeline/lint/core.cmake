@@ -53,13 +53,9 @@ function(_git_changed_files out)
   endif ()
   string(REPLACE ";" " " _GIT_PATHSPEC "${ARGN}")
   set(_cmd "set -euo pipefail;\n\
-  upstream=\"\$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true)\";\n\
   {\n\
     git diff --name-only --diff-filter=ACMR --cached -- ${_GIT_PATHSPEC} || true;\n\
     git diff --name-only --diff-filter=ACMR -- ${_GIT_PATHSPEC} || true;\n\
-    if [ -n \"$upstream\" ]; then\n\
-      git diff --name-only --diff-filter=ACMR \"$upstream\"...HEAD -- ${_GIT_PATHSPEC} || true;\n\
-    fi;\n\
   } | sort -u | awk 'NF' | while IFS= read -r f; do [ -e \"$f\" ] && printf '%s\n' \"$f\"; done")
   execute_process(
           COMMAND bash -lc "${_cmd}"
