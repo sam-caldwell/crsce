@@ -17,6 +17,14 @@
 #include <fstream>
 #include <ios>
 #include <print>
+#include <iostream>
+
+// replaced logging with structured metrics
+// Local logging macros (avoid extra constructs for ODPCPP)
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
+#define CRSCE_NOW_MS() (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count())
+#include "common/O11y/metric.h"
+// NOLINTEND(cppcoreguidelines-macro-usage)
 #include <cstdio> // for stderr (include-cleaner)
 #include <span>
 #include <string>
@@ -25,10 +33,38 @@
 #include <array>
 #include <filesystem>
 #include <exception>
+namespace {
+    // Minimal JSON escaper for names/outcomes in thread_events
+    std::string js_escape(const std::string &s) {
+        std::string out; out.reserve(s.size()+8);
+        for (const unsigned char ch : s) {
+            switch (ch) {
+                case '"': out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\n': out += "\\n"; break;
+                case '\r': out += "\\r"; break;
+                case '\t': out += "\\t"; break;
+                default:
+                    if (ch < 0x20) {
+                        static constexpr std::array<char,16> hex = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+                        out += "\\u00";
+                        out.push_back(hex.at((ch >> 4) & 0xF));
+                        out.push_back(hex.at(ch & 0xF));
+                    } else {
+                        out.push_back(static_cast<char>(ch));
+                    }
+            }
+        }
+        return out;
+    }
+}
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 #include "decompress/Decompressor/detail/to_hex.h"
+#include <chrono>
+#include <iostream>
+#include <cstdlib>
 
 namespace crsce::decompress {
     /**
@@ -39,7 +75,23 @@ namespace crsce::decompress {
     bool Decompressor::decompress_file() {
         const auto run_start = std::chrono::system_clock::now();
         HeaderV1Fields hdr{};
+        // File-level block counters (summary)
+        std::uint64_t blocks_attempted = 0;
+        std::uint64_t blocks_successful = 0;
+        const auto emit_summary = [&](const char *status) {
+            const bool enabled = ([](){ if (const char *p = std::getenv("CRSCE_DECOMPRESS_FILE_SUMMARY") /* NOLINT(concurrency-mt-unsafe) */) { return (*p!='0'); } return false; })();
+            if (!enabled) { return; }
+            ::crsce::o11y::Obj o{"decompress_file_summary"};
+            const std::uint64_t failed = (blocks_attempted >= blocks_successful) ? (blocks_attempted - blocks_successful) : 0ULL;
+            o.add("status", std::string(status))
+             .add("blocks_attempted", static_cast<std::int64_t>(blocks_attempted))
+             .add("blocks_successful", static_cast<std::int64_t>(blocks_successful))
+             .add("blocks_failed", static_cast<std::int64_t>(failed));
+            ::crsce::o11y::metric(o);
+        };
         if (!read_header(hdr)) {
+            ::crsce::o11y::event("decompress_error", {{"type", std::string("invalid_header")}});
+            emit_summary("invalid_header");
             std::println(stderr, "error: invalid header");
             return false;
         }
@@ -54,8 +106,7 @@ namespace crsce::decompress {
                     crsce::decompress::Csm::kS);
         const std::uint64_t total_bits = hdr.original_size_bytes * 8U;
 
-        std::uint64_t blocks_attempted = 0;
-        std::uint64_t blocks_successful = 0;
+        // counters declared above for summary
 
         // Announce the expected completion stats log location up-front for test harnesses.
         try {
@@ -67,17 +118,24 @@ namespace crsce::decompress {
         } catch (...) {
             // best-effort announcement only
         }
+        // Announce file-level begin with block count
+        ::crsce::o11y::metric("decompress_begin_blocks", static_cast<std::int64_t>(hdr.block_count));
         for (std::uint64_t i = 0; i < hdr.block_count; ++i) {
+            ::crsce::o11y::metric("block_open", static_cast<std::int64_t>(i));
             auto payload = read_block();
             if (!payload.has_value()) {
+                ::crsce::o11y::event("decompress_error", {{"type", std::string("short_read")}, {"block", std::to_string(i)}});
                 std::println(stderr, "error: short read on block {}", i);
+                emit_summary("short_read");
                 return false;
             }
             ++blocks_attempted;
             std::span<const std::uint8_t> lh;
             std::span<const std::uint8_t> sums;
             if (!split_payload(*payload, lh, sums)) {
+                ::crsce::o11y::event("decompress_error", {{"type", std::string("bad_block_payload")}, {"block", std::to_string(i)}});
                 std::println(stderr, "error: bad block payload {}", i);
+                emit_summary("bad_block_payload");
                 return false;
             }
             const std::uint64_t bits_done =
@@ -86,18 +144,30 @@ namespace crsce::decompress {
             if (bits_done >= total_bits) { break; }
             const std::uint64_t remain = total_bits - bits_done;
             const std::uint64_t to_take = std::min(remain, bits_per_block);
+            {
+                ::crsce::o11y::metric(
+                    "block_pre_solve",
+                    static_cast<std::int64_t>(i),
+                    {{"remain_bits", std::to_string(remain)},
+                     {"take_bits", std::to_string(to_take)}});
+            }
 
             crsce::decompress::Csm csm; // NOLINT(misc-const-correctness)
             // Pass the number of valid bits for this block to enable padding pre-locks in the solver.
             bool solved_ok = false;
             try {
+                ::crsce::o11y::metric("block_solve_begin", static_cast<std::int64_t>(i), {{"valid_bits", std::to_string(to_take)}});
                 solved_ok = crsce::decompress::solve_block(lh, sums, csm, seed, to_take);
+                ::crsce::o11y::metric("block_solve_end", static_cast<std::int64_t>(i), {{"ok", (solved_ok ? std::string("true") : std::string("false"))}});
             } catch (const std::exception &ex) {
+                ::crsce::o11y::event("decompress_error", {{"type", std::string("solve_exception")}, {"block", std::to_string(i)}, {"what", std::string(ex.what())}});
                 std::println(stderr, "error: block {} solve exception: {}", i, ex.what());
             } catch (...) {
+                ::crsce::o11y::event("decompress_error", {{"type", std::string("solve_exception_unknown")}, {"block", std::to_string(i)}});
                 std::println(stderr, "error: block {} solve exception: unknown", i);
             }
             if (!solved_ok) {
+                ::crsce::o11y::event("decompress_error", {{"type", std::string("solve_failed")}, {"block", std::to_string(i)}});
                 std::println(stderr, "error: block {} solve failed", i);
                 if (const auto snap = get_block_solve_snapshot(); snap.has_value()) {
                     // Failure logger is best-effort; must not interfere with row-log emission
@@ -178,9 +248,9 @@ namespace crsce::decompress {
                         static constexpr int kPolishShakes = 6;
                         static constexpr double kPolishShakeJitter = 0.008;
                         // Multiphase schedule provenance (four-stage: bootstrap, smoothing, reheat, polish)
-                        static constexpr std::array<double, 4> pconf{{0.995, 0.80, 0.90, 0.48}};
-                        static constexpr std::array<double, 4> pdamp{{0.50, 0.10, 0.35, 0.01}};
-                        static constexpr std::array<int, 4> piter{{5000, 7000, 140000, 890000}};
+                        static constexpr std::array<double, 4> pconf{{0.995, 0.70, 0.85, 0.55}};
+                        static constexpr std::array<double, 4> pdamp{{0.50, 0.10, 0.35, 0.02}};
+                        static constexpr std::array<int, 4> piter{{8000, 12000, 300000, 2000000}};
                         os << "  \"parameters\":{\n";
                         os << "    \"CRSCE_DE_MAX_ITERS\":" << de_max << ",\n";
                         os << "    \"CRSCE_GOBP_MULTIPHASE\":" << (multiphase ? "true" : "false") << ",\n";
@@ -198,12 +268,28 @@ namespace crsce::decompress {
                         if (const auto s2 = get_block_solve_snapshot(); s2.has_value()) {
                             const auto &ev = s2->restarts;
                             os << "  \"restarts\":[\n";
+                            auto action_to_cstr = [](const crsce::decompress::BlockSolveSnapshot::RestartAction a)->const char*{
+                                using A = crsce::decompress::BlockSolveSnapshot::RestartAction;
+                                switch (a) {
+                                    case A::lockIn: return "lock-in";
+                                    case A::lockInRow: return "lock-in-row";
+                                    case A::lockInMicro: return "lock-in-micro";
+                                    case A::lockInPrefix: return "lock-in-prefix";
+                                    case A::restart: return "restart";
+                                    case A::restartContradiction: return "restart-contradiction";
+                                    case A::lockInParRs: return "lock-in-par-rs";
+                                    case A::polishShake: return "polish-shake";
+                                    case A::lockInFinal: return "lock-in-final";
+                                    case A::lockInPair: return "lock-in-pair";
+                                }
+                                return "unknown";
+                            };
                             for (std::size_t qi = 0; qi < ev.size(); ++qi) {
                                 const auto &e = ev[qi];
                                 os << "    {\"restart_index\":" << e.restart_index
                                    << ",\"prefix_rows\":" << e.prefix_rows
                                    << ",\"unknown_total\":" << e.unknown_total
-                                   << ",\"action\":\"" << e.action << "\"}";
+                                   << ",\"action\":\"" << action_to_cstr(e.action) << "\"}";
                                 if (qi + 1U < ev.size()) { os << ","; }
                                 os << "\n";
                             }
@@ -239,12 +325,31 @@ namespace crsce::decompress {
                             os << "  \"cols_finished\":" << s2->cols_finished << ",\n";
                             os << "  \"boundary_finisher_attempts\":" << s2->boundary_finisher_attempts << ",\n";
                             os << "  \"boundary_finisher_successes\":" << s2->boundary_finisher_successes << ",\n";
+                            os << "  \"focus_boundary_attempts\":" << s2->focus_boundary_attempts << ",\n";
+                            os << "  \"focus_boundary_prefix_locks\":" << s2->focus_boundary_prefix_locks << ",\n";
+                            os << "  \"focus_boundary_partials\":" << s2->focus_boundary_partials << ",\n";
+                            os << "  \"final_backtrack1_attempts\":" << s2->final_backtrack1_attempts << ",\n";
+                            os << "  \"final_backtrack1_prefix_locks\":" << s2->final_backtrack1_prefix_locks << ",\n";
+                            os << "  \"final_backtrack2_attempts\":" << s2->final_backtrack2_attempts << ",\n";
+                            os << "  \"final_backtrack2_prefix_locks\":" << s2->final_backtrack2_prefix_locks << ",\n";
                             os << "  \"lock_in_prefix_count\":" << s2->lock_in_prefix_count << ",\n";
                             os << "  \"lock_in_row_count\":" << s2->lock_in_row_count << ",\n";
                             os << "  \"restart_contradiction_count\":" << s2->restart_contradiction_count << ",\n";
                             os << "  \"gobp_iters_run\":" << s2->gobp_iters_run << ",\n";
                             os << "  \"gating_calls\":" << s2->gating_calls << ",\n";
                             os << "  \"partial_adoptions\":" << s2->partial_adoptions << ",\n";
+                            // Micro-solver metrics
+                            os << "  \"micro_solver_attempts\":" << s2->micro_solver_attempts << ",\n";
+                            os << "  \"micro_solver_dp_attempts\":" << s2->micro_solver_dp_attempts << ",\n";
+                            os << "  \"micro_solver_dp_feasible\":" << s2->micro_solver_dp_feasible << ",\n";
+                            os << "  \"micro_solver_dp_infeasible\":" << s2->micro_solver_dp_infeasible << ",\n";
+                            os << "  \"micro_solver_dp_solutions_tested\":" << s2->micro_solver_dp_solutions_tested << ",\n";
+                            os << "  \"micro_solver_lh_verifications\":" << s2->micro_solver_lh_verifications << ",\n";
+                            os << "  \"micro_solver_successes\":" << s2->micro_solver_successes << ",\n";
+                            os << "  \"micro_solver_time_ms\":" << s2->micro_solver_time_ms << ",\n";
+                            os << "  \"micro_solver_bnb_attempts\":" << s2->micro_solver_bnb_attempts << ",\n";
+                            os << "  \"micro_solver_bnb_nodes\":" << s2->micro_solver_bnb_nodes << ",\n";
+                            os << "  \"micro_solver_bnb_successes\":" << s2->micro_solver_bnb_successes << ",\n";
                             // Unknown total history (truncated to last 256)
                             os << "  \"unknown_history\":[";
                             const std::size_t uh_n = s2->unknown_history.size();
@@ -326,6 +431,7 @@ namespace crsce::decompress {
                 } catch (...) {
                     // ignore log write errors
                 }
+                emit_summary("solve_failed");
                 return false;
             }
             crsce::decompress::append_bits_from_csm(csm, to_take, output_bytes, curr, bit_pos);
@@ -375,9 +481,9 @@ namespace crsce::decompress {
                     // print the main algorithm parameters for reference
                     {
                         static constexpr bool multiphase = true;
-                        static constexpr std::array<double, 4> pconf{{0.995, 0.80, 0.90, 0.48}};
-                        static constexpr std::array<double, 4> pdamp{{0.50, 0.10, 0.35, 0.01}};
-                        static constexpr std::array<int, 4> piter{{5000, 7000, 140000, 890000}};
+                        static constexpr std::array<double, 4> pconf{{0.995, 0.70, 0.85, 0.55}};
+                        static constexpr std::array<double, 4> pdamp{{0.50, 0.10, 0.35, 0.02}};
+                        static constexpr std::array<int, 4> piter{{8000, 12000, 300000, 2000000}};
                         static constexpr std::int64_t de_max = 60000;
                         static constexpr std::int64_t gobp_iters = 10000000;
                         static constexpr double gobp_conf = 0.995;
@@ -455,13 +561,29 @@ namespace crsce::decompress {
                     // Also dump restarts/counters/schedule if available from snapshot
                         if (const auto s3 = get_block_solve_snapshot(); s3.has_value()) {
                         const auto &ev2 = s3->restarts;
+                        auto action_to_cstr = [](const crsce::decompress::BlockSolveSnapshot::RestartAction a)->const char*{
+                            using A = crsce::decompress::BlockSolveSnapshot::RestartAction;
+                            switch (a) {
+                                case A::lockIn: return "lock-in";
+                                case A::lockInRow: return "lock-in-row";
+                                case A::lockInMicro: return "lock-in-micro";
+                                case A::lockInPrefix: return "lock-in-prefix";
+                                case A::restart: return "restart";
+                                case A::restartContradiction: return "restart-contradiction";
+                                case A::lockInParRs: return "lock-in-par-rs";
+                                case A::polishShake: return "polish-shake";
+                                case A::lockInFinal: return "lock-in-final";
+                                case A::lockInPair: return "lock-in-pair";
+                            }
+                            return "unknown";
+                        };
                         os << ",\n  \"restarts\":[\n";
                         for (std::size_t qi = 0; qi < ev2.size(); ++qi) {
                             const auto &e = ev2[qi];
                             os << "    {\"restart_index\":" << e.restart_index
                                << ",\"prefix_rows\":" << e.prefix_rows
                                << ",\"unknown_total\":" << e.unknown_total
-                               << ",\"action\":\"" << e.action << "\"}";
+                               << ",\"action\":\"" << action_to_cstr(e.action) << "\"}";
                             if (qi + 1U < ev2.size()) { os << ","; }
                             os << "\n";
                         }
@@ -496,12 +618,49 @@ namespace crsce::decompress {
                         os << "  \"cols_finished\":" << s3->cols_finished << ",\n";
                         os << "  \"boundary_finisher_attempts\":" << s3->boundary_finisher_attempts << ",\n";
                         os << "  \"boundary_finisher_successes\":" << s3->boundary_finisher_successes << ",\n";
+                        os << "  \"focus_boundary_attempts\":" << s3->focus_boundary_attempts << ",\n";
+                        os << "  \"focus_boundary_prefix_locks\":" << s3->focus_boundary_prefix_locks << ",\n";
+                        os << "  \"focus_boundary_partials\":" << s3->focus_boundary_partials << ",\n";
+                        os << "  \"final_backtrack1_attempts\":" << s3->final_backtrack1_attempts << ",\n";
+                        os << "  \"final_backtrack1_prefix_locks\":" << s3->final_backtrack1_prefix_locks << ",\n";
+                        os << "  \"final_backtrack2_attempts\":" << s3->final_backtrack2_attempts << ",\n";
+                        os << "  \"final_backtrack2_prefix_locks\":" << s3->final_backtrack2_prefix_locks << ",\n";
                         os << "  \"lock_in_prefix_count\":" << s3->lock_in_prefix_count << ",\n";
                         os << "  \"lock_in_row_count\":" << s3->lock_in_row_count << ",\n";
                         os << "  \"restart_contradiction_count\":" << s3->restart_contradiction_count << ",\n";
                         os << "  \"gobp_iters_run\":" << s3->gobp_iters_run << ",\n";
+                        // Timing (ms)
+                        os << "  \"time_de_ms\":" << s3->time_de_ms << ",\n";
+                        os << "  \"time_de_in_gobp_ms\":" << s3->time_de_in_gobp_ms << ",\n";
+                        os << "  \"time_gobp_ms\":" << s3->time_gobp_ms << ",\n";
+                        os << "  \"time_lh_ms\":" << s3->time_lh_ms << ",\n";
+                        os << "  \"time_cross_verify_ms\":" << s3->time_cross_verify_ms << ",\n";
+                        os << "  \"time_verify_all_ms\":" << s3->time_verify_all_ms << ",\n";
                         os << "  \"gating_calls\":" << s3->gating_calls << ",\n";
                         os << "  \"partial_adoptions\":" << s3->partial_adoptions << ",\n";
+                        // Micro-solver metrics
+                        os << "  \"micro_solver_attempts\":" << s3->micro_solver_attempts << ",\n";
+                        os << "  \"micro_solver_dp_attempts\":" << s3->micro_solver_dp_attempts << ",\n";
+                        os << "  \"micro_solver_dp_feasible\":" << s3->micro_solver_dp_feasible << ",\n";
+                        os << "  \"micro_solver_dp_infeasible\":" << s3->micro_solver_dp_infeasible << ",\n";
+                        os << "  \"micro_solver_dp_solutions_tested\":" << s3->micro_solver_dp_solutions_tested << ",\n";
+                        os << "  \"micro_solver_lh_verifications\":" << s3->micro_solver_lh_verifications << ",\n";
+                        os << "  \"micro_solver_successes\":" << s3->micro_solver_successes << ",\n";
+                        os << "  \"micro_solver_time_ms\":" << s3->micro_solver_time_ms << ",\n";
+                        os << "  \"micro_solver_bnb_attempts\":" << s3->micro_solver_bnb_attempts << ",\n";
+                        os << "  \"micro_solver_bnb_nodes\":" << s3->micro_solver_bnb_nodes << ",\n";
+                        os << "  \"micro_solver_bnb_successes\":" << s3->micro_solver_bnb_successes << ",\n";
+                        // Thread events
+                        os << "  \"threads\":[";
+                        for (std::size_t ti = 0; ti < s3->thread_events.size(); ++ti) {
+                            const auto &te = s3->thread_events[ti];
+                            os << "{\"name\":\"" << js_escape(te.name)
+                               << "\",\"start_ms\":" << te.start_ms
+                               << ",\"stop_ms\":" << te.stop_ms
+                               << ",\"outcome\":\"" << js_escape(te.outcome) << "\"}";
+                            if (ti + 1U < s3->thread_events.size()) { os << ","; }
+                        }
+                        os << "],\n";
                         os << "  \"unknown_history\":[";
                         const std::size_t uh2_n = s3->unknown_history.size();
                         const std::size_t uh2_start = (uh2_n > 256) ? (uh2_n - 256) : 0;
@@ -526,9 +685,11 @@ namespace crsce::decompress {
         }
 
         // Write all accumulated bytes to the output path
-        std::ofstream out(output_path_, std::ios::binary);
+        std::ofstream out(output_path_, std::ios::binary); // NOLINT(misc-const-correctness)
         if (!out.good()) {
+            ::crsce::o11y::event("decompress_error", {{"type", std::string("open_output_failed")}, {"path", output_path_}});
             std::println(stderr, "error: could not open output for write: {}", output_path_);
+            emit_summary("open_output_failed");
             return false;
         }
         if (!output_bytes.empty()) {
@@ -537,9 +698,12 @@ namespace crsce::decompress {
             }
         }
         if (!out.good()) {
+            ::crsce::o11y::event("decompress_error", {{"type", std::string("write_failed")}, {"path", output_path_}});
             std::println(stderr, "error: write failed: {}", output_path_);
+            emit_summary("write_failed");
             return false;
         }
+        emit_summary("ok");
         return true;
     }
 } // namespace crsce::decompress

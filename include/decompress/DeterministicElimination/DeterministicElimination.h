@@ -79,7 +79,6 @@ namespace crsce::decompress {
          * @return d = (r + c) mod S.
          */
         static constexpr std::size_t diag_index(std::size_t r, std::size_t c) noexcept {
-            // DSM[d]: d = (c - r) mod S
             return (c >= r) ? (c - r) : (c + S - r);
         }
 
@@ -91,7 +90,6 @@ namespace crsce::decompress {
          * @return x = (r >= c) ? (r - c) : (r + S - c).
          */
         static constexpr std::size_t xdiag_index(std::size_t r, std::size_t c) noexcept {
-            // XSM[x]: x = (r + c) mod S
             return (r + c) % S;
         }
 

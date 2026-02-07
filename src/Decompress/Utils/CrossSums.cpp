@@ -5,6 +5,7 @@
  */
 #include "decompress/Utils/detail/verify_cross_sums.h"
 #include "decompress/Csm/detail/Csm.h" // direct provider for Csm
+#include "decompress/Utils/detail/index_calc.h"
 #include <array>    // direct provider for std::array
 #include <cstddef>  // direct provider for std::size_t
 #include <cstdint>  // direct provider for std::uint16_t
@@ -37,8 +38,8 @@ namespace crsce::decompress {
                 if (const bool bit = csm.get(r, c); !bit) { continue; }
                 row.at(r) = static_cast<std::uint16_t>(row.at(r) + 1U);
                 col.at(c) = static_cast<std::uint16_t>(col.at(c) + 1U);
-                const std::size_t d = (c >= r) ? (c - r) : (c + S - r);
-                const std::size_t x = (r + c) % S;
+                const std::size_t d = ::crsce::decompress::detail::calc_d(r, c);
+                const std::size_t x = ::crsce::decompress::detail::calc_x(r, c);
                 diag.at(d) = static_cast<std::uint16_t>(diag.at(d) + 1U);
                 xdg.at(x) = static_cast<std::uint16_t>(xdg.at(x) + 1U);
             }

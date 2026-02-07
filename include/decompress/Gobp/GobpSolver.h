@@ -123,6 +123,8 @@ namespace crsce::decompress {
         // When true, traverse cells in an alternate perspective (column-major, bottom-up) to break plateaus.
         bool scan_flipped_{false};
 
+        // No additional transient state at this time.
+
         // Utility: compute indexes for diagonal families
         /**
          * @name diag_index

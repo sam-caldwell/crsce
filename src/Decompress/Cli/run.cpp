@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <string>
 #include <print>
+#include "common/O11y/metric.h"
 
 namespace crsce::decompress::cli {
     /**
@@ -43,17 +44,32 @@ namespace crsce::decompress::cli {
             }
             const auto &[input, output, help] = parser.options();
 
+            ::crsce::o11y::metric("decompress_begin", 1LL, {{"in", input}, {"out", output}});
+            ::crsce::o11y::counter("decompress_files_attempted");
+            bool ok = true;
             if (crsce::decompress::Decompressor dx(input, output); !dx.decompress_file()) {
-                return 4;
+                ok = false;
             }
+            if (ok) {
+                ::crsce::o11y::counter("decompress_files_success");
+            } else {
+                ::crsce::o11y::event("decompress_error", {{"type", std::string("pipeline_failed")}});
+                ::crsce::o11y::counter("decompress_files_failed");
+            }
+            ::crsce::o11y::metric("decompress_end", 1LL, {{"status", (ok ? std::string("OK") : std::string("FAIL"))}});
+            if (!ok) { return 4; }
             return 0;
         } catch (const std::exception &e) {
             std::fputs("error: ", stderr);
             std::fputs(e.what(), stderr);
             std::fputs("\n", stderr);
+            ::crsce::o11y::event("decompress_error", {{"type", std::string("exception")}, {"what", std::string(e.what())}});
+            ::crsce::o11y::counter("decompress_files_failed");
             return 1;
         } catch (...) {
             std::fputs("error: unknown exception\n", stderr);
+            ::crsce::o11y::event("decompress_error", {{"type", std::string("exception_unknown")}});
+            ::crsce::o11y::counter("decompress_files_failed");
             return 1;
         }
     }

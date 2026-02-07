@@ -16,12 +16,14 @@ namespace crsce::decompress {
      * @return void
      */
     void DeterministicElimination::force_row(const std::size_t r, const bool value, std::size_t &progress) {
+        const auto to_assign = static_cast<std::size_t>(st_.U_row.at(r));
+        std::size_t assigned = 0;
         for (std::size_t c = 0; c < S; ++c) {
-            const auto before_locked = csm_.is_locked(r, c);
+            if (assigned >= to_assign) { break; }
+            if (csm_.is_locked(r, c)) { continue; }
             apply_cell(r, c, value);
-            if (!before_locked) {
-                ++progress;
-            }
+            ++progress;
+            ++assigned;
         }
     }
 } // namespace crsce::decompress

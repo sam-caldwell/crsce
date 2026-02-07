@@ -52,14 +52,11 @@ namespace crsce::testrunner_random::cli {
 #ifdef _WIN32
         argv = { exe, "-in", cx_path.string(), "-out", dx_path.string() };
 #else
-        // Enable padding prelock debug and more generous solver limits for harder inputs.
-        // These can be overridden by the environment by the caller if needed.
+        // Enable padding prelock debug. GOBP schedule is fixed in code; no env overrides.
         argv = {
             "env",
             "CRSCE_PRELOCK_DEBUG=1",
             "CRSCE_DE_MAX_ITERS=4000",
-            // per-phase overrides can be provided by the caller if desired:
-            // e.g., CRSCE_GOBP_PHASE4_CONF=0.60, CRSCE_GOBP_PHASE4_DAMP=0.02
             exe,
             "-in", cx_path.string(), "-out", dx_path.string()
         };

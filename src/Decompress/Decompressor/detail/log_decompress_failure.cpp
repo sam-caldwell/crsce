@@ -10,8 +10,22 @@
 #include <cstdint>
 #include <print>
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "common/O11y/metric.h"
 
 namespace crsce::decompress::detail {
+    namespace {
+    const char *phase_to_cstr(const crsce::decompress::BlockSolveSnapshot::Phase p) {
+        using P = crsce::decompress::BlockSolveSnapshot::Phase;
+        switch (p) {
+            case P::init: return "init";
+            case P::de: return "de";
+            case P::gobp: return "gobp";
+            case P::verify: return "verify";
+            case P::endOfIterations: return "end-of-iterations";
+        }
+        return "unknown";
+    }
+    } // anonymous namespace
     /**
      * @name log_decompress_failure
      * @brief Emit a structured JSON record for a failed block solve using the last snapshot.
@@ -33,6 +47,23 @@ namespace crsce::decompress::detail {
         std::size_t sumU_diag = 0; for (auto v : s.U_diag) { sumU_diag += static_cast<std::size_t>(v); }
         std::size_t sumU_xdg = 0; for (auto v : s.U_xdiag) { sumU_xdg += static_cast<std::size_t>(v); }
 
+        // Emit a compact o11y summary (avoid large arrays)
+        ::crsce::o11y::Obj o{"decompress_failure"};
+        o.add("total_blocks", static_cast<std::int64_t>(total_blocks))
+         .add("blocks_attempted", static_cast<std::int64_t>(blocks_attempted))
+         .add("blocks_successful", static_cast<std::int64_t>(blocks_successful))
+         .add("block_index", static_cast<std::int64_t>(failed_index))
+         .add("phase", std::string(phase_to_cstr(s.phase)))
+         .add("iter", static_cast<std::int64_t>(s.iter))
+         .add("solved", static_cast<std::int64_t>(s.solved))
+         .add("unknown_total", static_cast<std::int64_t>(s.unknown_total))
+         .add("U_rows_sum", static_cast<std::int64_t>(sumU_row))
+         .add("U_cols_sum", static_cast<std::int64_t>(sumU_col))
+         .add("U_diags_sum", static_cast<std::int64_t>(sumU_diag))
+         .add("U_xdiags_sum", static_cast<std::int64_t>(sumU_xdg))
+         .add("message", s.message);
+        ::crsce::o11y::metric(o);
+
         // Print JSON (stdout) for test runners to capture
         std::print("{{\n");
         std::print("  \"step\":\"decompress-failure\",\n");
@@ -41,7 +72,7 @@ namespace crsce::decompress::detail {
         std::print("  \"blocks_successful\":{},\n", blocks_successful);
         std::print("  \"blocks_failed\":{},\n", static_cast<std::uint64_t>(1));
         std::print("  \"block_index\":{},\n", failed_index);
-        std::print("  \"phase\":\"{}\",\n", s.phase);
+        std::print("  \"phase\":\"{}\",\n", phase_to_cstr(s.phase));
         std::print("  \"iter\":{},\n", s.iter);
         std::print("  \"solved\":{},\n", s.solved);
         std::print("  \"unknown_total\":{},\n", s.unknown_total);

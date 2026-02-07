@@ -13,7 +13,7 @@
 
 namespace crsce::common::util::detail {
     void watchdog(unsigned int seconds) {
-        const unsigned int used = (seconds == 0 ? 300U : seconds);
+        const unsigned int used = (seconds == 0 ? 1800U : seconds);
         const auto dur = std::chrono::seconds(static_cast<std::int64_t>(used));
         std::thread([dur, used]() {
             std::this_thread::sleep_for(dur);

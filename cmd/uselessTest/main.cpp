@@ -23,6 +23,7 @@
 #include "decompress/Decompressor/Decompressor.h"
 #include "decompress/Decompressor/HeaderV1Fields.h"
 #include "testRunnerRandom/detail/resolve_exe.h"
+#include "common/Util/detail/watchdog.h"
 
 namespace fs = std::filesystem;
 
@@ -97,6 +98,9 @@ namespace {
 }
 
 int main() try {
+    // Arm process watchdog (default 10 minutes)
+    crsce::common::util::detail::watchdog();
+    std::cout << "Starting uselessTest...\n";
     const fs::path bin_dir{TEST_BINARY_DIR};
     const fs::path repo_root = fs::path(CRSCE_BIN_DIR).parent_path();
     const fs::path src_path = repo_root / "docs/testData/useless-machine.mp4";
@@ -150,6 +154,7 @@ int main() try {
 
     // Compress
     {
+        std::cout << "Starting compress phase...\n";
         const std::vector<std::string> argv = { cx_exe, "-in", src_path.string(), "-out", cx_path.string() };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
         if (res.exit_code != 0) {
@@ -173,6 +178,7 @@ int main() try {
 
     // Validate CRSCE container format per specification
     {
+        std::cout << "Validating container format...\n";
         if (using_wrappers) {
             std::cout << "USL_CONTAINER_VALIDATION=skipped\n";
             std::cout << "USL_CONTAINER_REASON=wrapped-binaries\n";
@@ -192,8 +198,10 @@ int main() try {
     // Decompress
     std::string recon_hash;
     {
+        std::cout << "Starting decompress phase...\n";
         const std::vector<std::string> argv = { dx_exe, "-in", cx_path.string(), "-out", dx_path.string() };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
+        std::cout << "USL_DECOMPRESS_EXIT=" << res.exit_code << "\n";
         if (res.exit_code != 0) {
             std::ostringstream cmd;
             for (std::size_t i = 0; i < argv.size(); ++i) {

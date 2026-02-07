@@ -46,11 +46,7 @@ namespace crsce::testrunner::detail {
         std::error_code ec_dir; fs::create_directories(tmp_dir, ec_dir);
         // Construct a unique base name to avoid collisions under parallel test runs.
         std::uint64_t pid = 0ULL;
-#ifdef _WIN32
-        pid = static_cast<std::uint64_t>(_getpid());
-#else
         pid = static_cast<std::uint64_t>(getpid());
-#endif
         std::random_device rd;
         const std::uint64_t rnd =
             (static_cast<std::uint64_t>(rd()) << 32U) ^ static_cast<std::uint64_t>(rd());
@@ -60,24 +56,6 @@ namespace crsce::testrunner::detail {
         const fs::path out_tmp = tmp_dir / (base + ".stdout.txt");
         const fs::path err_tmp = tmp_dir / (base + ".stderr.txt");
 
-    #ifdef _WIN32
-        std::ostringstream full;
-        for (std::size_t i = 0; i < argv.size(); ++i) {
-            if (i) { full << ' '; }
-            full << '"';
-            for (const char ch: argv[i]) {
-                if (ch == '"') { full << "\\\""; } else { full << ch; }
-            }
-            full << '"';
-        }
-        // Redirect stdout/stderr to temp files with quoting
-        full << " 1>\"" << out_tmp.string() << "\" 2>\"" << err_tmp.string() << "\"";
-        const std::string exe = std::string("cmd /c ") + full.str();
-        res.start_ms = now_ms();
-        const int rc = std::system(exe.c_str()); // NOLINT(concurrency-mt-unsafe)
-        res.end_ms = now_ms();
-        res.exit_code = rc;
-    #else
         std::ostringstream full;
         for (std::size_t i = 0; i < argv.size(); ++i) {
             if (i) { full << ' '; }
@@ -98,7 +76,6 @@ namespace crsce::testrunner::detail {
         } else {
             res.exit_code = rc;
         }
-    #endif
         res.out = read_file_text(out_tmp);
         res.err = read_file_text(err_tmp);
         std::error_code ec; fs::remove(out_tmp, ec); fs::remove(err_tmp, ec);

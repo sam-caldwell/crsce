@@ -20,6 +20,6 @@ namespace crsce::decompress {
         if (!in_bounds(r, c)) {
             throw CsmIndexOutOfBounds(r, c, kS);
         }
-        data_[index_of(r, c)] = value;
+        data_[index_of(r, c)] = static_cast<float>(value);
     }
 } // namespace crsce::decompress

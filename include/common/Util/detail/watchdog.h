@@ -7,12 +7,12 @@
 namespace crsce::common::util::detail {
     /**
      * @brief Launch a detached timer that terminates the process with exit code 250
-     *        after the given tombstone (in seconds). Defaults to 300 seconds (5 minutes).
+     *        after the given tombstone (in seconds). Defaults to 1800 seconds (15 minutes).
      *
      * The function returns immediately; the timer runs in the background while main()
      * performs work.
      *
-     * @param seconds Tombstone timeout in seconds (defaults to 300).
+     * @param seconds Tombstone timeout in seconds (defaults to 1800).
      */
-    void watchdog(unsigned int seconds = 300);
+    void watchdog(unsigned int seconds = 1800);
 }

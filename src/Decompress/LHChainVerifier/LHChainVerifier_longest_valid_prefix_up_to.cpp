@@ -1,6 +1,8 @@
 /**
  * @file LHChainVerifier_longest_valid_prefix_up_to.cpp
  * @brief Implementation of LHChainVerifier::longest_valid_prefix_up_to.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/LHChainVerifier/LHChainVerifier.h"
 #include "decompress/Csm/detail/Csm.h"
@@ -16,6 +18,14 @@
 namespace crsce::decompress {
     using crsce::common::detail::sha256::sha256_digest;
 
+    /**
+     * @name LHChainVerifier::longest_valid_prefix_up_to
+     * @brief Compute the longest contiguous prefix of rows (from r=0) that match the chained SHA-256 digests.
+     * @param csm Candidate CSM to verify against the LH chain.
+     * @param lh_bytes Span of chained LH digests (kHashSize bytes per row).
+     * @param limit Upper bound on rows to verify.
+     * @return Number of leading rows that verify.
+     */
     std::size_t LHChainVerifier::longest_valid_prefix_up_to(const Csm &csm,
                                                             const std::span<const std::uint8_t> lh_bytes,
                                                             const std::size_t limit) const {

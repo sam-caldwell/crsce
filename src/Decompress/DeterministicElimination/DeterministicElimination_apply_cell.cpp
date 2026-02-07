@@ -4,6 +4,7 @@
   * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Utils/detail/index_calc.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "common/exceptions/DeterministicEliminationError.h"
@@ -21,8 +22,8 @@ namespace crsce::decompress {
      * @return void
      */
     void DeterministicElimination::apply_cell(const std::size_t r, const std::size_t c, const bool value) {
-        const auto d = diag_index(r, c);
-        const auto x = xdiag_index(r, c);
+        const auto d = ::crsce::decompress::detail::calc_d(r, c);
+        const auto x = ::crsce::decompress::detail::calc_x(r, c);
 
         if (csm_.is_locked(r, c)) {
             // Already assigned; forced moves apply only to remaining unassigned vars on the line.

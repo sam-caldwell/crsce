@@ -1,14 +1,22 @@
 /**
  * @file solver_env_read_seed.cpp
  * @brief Implementation of read_seed_or_default() helper.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "decompress/Block/detail/solver_env.h"
+#include "decompress/Block/detail/solver_env_read_seed.h"
 
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
 
 namespace crsce::decompress::detail {
+    /**
+     * @name read_seed_or_default
+     * @brief Read solver seed from environment or compute a randomized seed when enabled.
+     * @param fallback Default seed value when no environment override is set.
+     * @return Seed value.
+     */
     std::uint64_t read_seed_or_default(const std::uint64_t fallback) {
         if (const char *s = std::getenv("CRSCE_SOLVER_SEED"); s && *s) { // NOLINT(concurrency-mt-unsafe)
             char *end = nullptr; // NOLINT(misc-const-correctness)

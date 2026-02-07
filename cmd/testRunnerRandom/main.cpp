@@ -12,8 +12,11 @@
 #include <span>
 #include <cstddef>
 #include <algorithm>
+#include <cstdlib>
+#include "common/O11y/metric.h"
 #include "testRunnerRandom/detail/json_escape.h"
 #include "testRunnerRandom/Cli/detail/extract_exit_code.h"
+#include "common/Util/detail/watchdog.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
 
@@ -24,6 +27,8 @@ using crsce::testrunner_random::cli::extract_exit_code;
  * @return Process exit code (0 on success, non-zero represents an error state).
  */
 int main(const int argc, char *argv[]) try {
+    // Arm process watchdog (default 10 minutes)
+    crsce::common::util::detail::watchdog();
 
     namespace fs = std::filesystem;
     const fs::path bin_dir{TEST_BINARY_DIR};
@@ -46,10 +51,27 @@ int main(const int argc, char *argv[]) try {
     }
 
     max_bytes = std::max(max_bytes, min_bytes);
-    return crsce::testrunner_random::cli::run(out_dir, min_bytes, max_bytes);
+    const bool o11y_on = ([](){ if (const char *p = std::getenv("CRSCE_TESTRUNNER_O11Y") /* NOLINT(concurrency-mt-unsafe) */) { return (*p!='0'); } return false; })();
+    if (o11y_on) {
+        ::crsce::o11y::metric("testrunner_begin", 1LL, {{"runner", std::string("testRunnerRandom")}});
+        ::crsce::o11y::counter("testrunner_runs_attempted");
+    }
+    const int rc = crsce::testrunner_random::cli::run(out_dir, min_bytes, max_bytes);
+    if (o11y_on) {
+        if (rc == 0) { ::crsce::o11y::counter("testrunner_runs_success"); }
+        else { ::crsce::o11y::event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("nonzero_rc")}});
+               ::crsce::o11y::counter("testrunner_runs_failed"); }
+        ::crsce::o11y::metric("testrunner_end", 1LL, {{"runner", std::string("testRunnerRandom")}, {"status", (rc==0?std::string("OK"):std::string("FAIL"))}});
+    }
+    return rc;
 
 } catch (const crsce::common::exceptions::DecompressNonZeroExitException &e) {
     const int code = extract_exit_code(e.what(), 4);
+    if (const char *p = std::getenv("CRSCE_TESTRUNNER_O11Y") /* NOLINT(concurrency-mt-unsafe) */; p && *p && *p!='0') {
+        ::crsce::o11y::event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("decompress_exception")}});
+        ::crsce::o11y::counter("testrunner_runs_failed");
+        ::crsce::o11y::metric("testrunner_end", 1LL, {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
+    }
     std::cout << "{\n"
               << "  \"step\":\"error\",\n"
               << "  \"runner\":\"testRunnerRandom\",\n"
@@ -60,6 +82,16 @@ int main(const int argc, char *argv[]) try {
     return code;
 } catch (const crsce::common::exceptions::CompressNonZeroExitException &e) {
     const int code = extract_exit_code(e.what(), 3);
+    if (const char *p = std::getenv("CRSCE_TESTRUNNER_O11Y") /* NOLINT(concurrency-mt-unsafe) */; p && *p && *p!='0') {
+        ::crsce::o11y::event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("compress_exception")}});
+        ::crsce::o11y::counter("testrunner_runs_failed");
+        ::crsce::o11y::metric("testrunner_end", 1LL, {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
+    }
+    if (const char *p = std::getenv("CRSCE_TESTRUNNER_O11Y") /* NOLINT(concurrency-mt-unsafe) */; p && *p && *p!='0') {
+        ::crsce::o11y::event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("std_exception")}});
+        ::crsce::o11y::counter("testrunner_runs_failed");
+        ::crsce::o11y::metric("testrunner_end", 1LL, {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
+    }
     std::cout << "{\n"
               << "  \"step\":\"error\",\n"
               << "  \"runner\":\"testRunnerRandom\",\n"
@@ -69,6 +101,11 @@ int main(const int argc, char *argv[]) try {
     std::cout.flush();
     return code;
 } catch (const std::exception &e) {
+    if (const char *p = std::getenv("CRSCE_TESTRUNNER_O11Y") /* NOLINT(concurrency-mt-unsafe) */; p && *p && *p!='0') {
+        ::crsce::o11y::event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("unknown_exception")}});
+        ::crsce::o11y::counter("testrunner_runs_failed");
+        ::crsce::o11y::metric("testrunner_end", 1LL, {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
+    }
     std::cout << "{\n"
               << "  \"step\":\"error\",\n"
               << "  \"runner\":\"testRunnerRandom\",\n"

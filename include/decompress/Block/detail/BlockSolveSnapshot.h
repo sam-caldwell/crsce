@@ -17,9 +17,10 @@ namespace crsce::decompress {
      * @brief Snapshot of solver state captured at failure or last iteration.
      */
     struct BlockSolveSnapshot {
+        enum class Phase : std::uint8_t { init, de, gobp, verify, endOfIterations };
         std::size_t S{0};
         std::size_t iter{0};
-        std::string phase;     // "de", "gobp", "verify", or "end-of-iterations"
+        Phase phase{Phase::init};
         std::string message;   // optional error message
         std::size_t solved{0}; // number of cells locked/assigned
         std::size_t unknown_total{0};
@@ -41,11 +42,24 @@ namespace crsce::decompress {
         std::vector<std::uint16_t> U_xdiag;
 
         // Restart/gating events captured during GOBP (for provenance)
+        enum class RestartAction : std::uint8_t {
+            lockIn,
+            lockInRow,
+            lockInMicro,
+            lockInPrefix,
+            restart,
+            restartContradiction,
+            lockInParRs,
+            polishShake,
+            lockInFinal,
+            lockInPair
+        };
+
         struct RestartEvent {
             int restart_index{0};
             std::size_t prefix_rows{0};
             std::size_t unknown_total{0};
-            std::string action; // "lock-in" or "restart"
+            RestartAction action{RestartAction::lockIn};
         };
         std::vector<RestartEvent> restarts;
 
@@ -68,11 +82,53 @@ namespace crsce::decompress {
         std::size_t partial_adoptions{0};         // non-verified partial improvements adopted
         std::size_t gobp_cells_solved_total{0};   // total cells assigned by GOBP (not DE)
 
+        // Focused boundary completion (inside GOBP phases)
+        std::size_t focus_boundary_attempts{0};
+        std::size_t focus_boundary_prefix_locks{0};
+        std::size_t focus_boundary_partials{0};
+
+        // Final backtracking escalations (end of GOBP attempts)
+        std::size_t final_backtrack1_attempts{0};       // single-cell boundary trials
+        std::size_t final_backtrack1_prefix_locks{0};
+        std::size_t final_backtrack2_attempts{0};       // two-cell boundary trials
+        std::size_t final_backtrack2_prefix_locks{0};
+
         // Prefix progress summary (only on change)
         struct PrefixSample { std::size_t iter; std::size_t prefix_len; };
         std::vector<PrefixSample> prefix_progress;
 
         // Unknown totals history (truncated)
         std::vector<std::size_t> unknown_history;
+
+        // Timing accumulators (milliseconds)
+        std::size_t time_de_ms{0};              // total time in DeterministicElimination
+        std::size_t time_de_in_gobp_ms{0};      // DE time executed as part of GOBP loop
+        std::size_t time_gobp_ms{0};            // time in GobpSolver::solve_step
+        std::size_t time_lh_ms{0};              // time spent in LH verifications (row/prefix/all)
+        std::size_t time_cross_verify_ms{0};    // time verifying cross sums at the end
+        std::size_t time_verify_all_ms{0};      // time for final LH verify_all
+
+        // Micro-solver metrics (boundary row helper)
+        std::size_t micro_solver_attempts{0};
+        std::size_t micro_solver_dp_attempts{0};
+        std::size_t micro_solver_dp_feasible{0};
+        std::size_t micro_solver_dp_infeasible{0};
+        std::size_t micro_solver_dp_solutions_tested{0};
+        std::size_t micro_solver_lh_verifications{0};
+        std::size_t micro_solver_successes{0};
+        std::size_t micro_solver_time_ms{0};
+        // Branch-and-bound (BnB) details for boundary row micro-solver
+        std::size_t micro_solver_bnb_attempts{0};
+        std::size_t micro_solver_bnb_nodes{0};
+        std::size_t micro_solver_bnb_successes{0};
+
+        // Concurrency thread events (start/stop and outcome for worker tasks)
+        struct ThreadEvent {
+            std::string name;
+            std::uint64_t start_ms{0};
+            std::uint64_t stop_ms{0};
+            std::string outcome;
+        };
+        std::vector<ThreadEvent> thread_events;
     };
 }

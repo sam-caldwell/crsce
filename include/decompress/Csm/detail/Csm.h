@@ -95,6 +95,14 @@ namespace crsce::decompress {
         [[nodiscard]] double get_data(std::size_t r, std::size_t c) const;
 
         /**
+         * @name Csm::row_version
+         * @brief Monotonic counter incremented when any bit in row r changes.
+         * @param r Row index.
+         * @return std::uint64_t Version number for the row.
+         */
+        [[nodiscard]] std::uint64_t row_version(std::size_t r) const noexcept { return row_versions_[r]; }
+
+        /**
          * @name bytes_capacity
          * @brief Access raw backing size in bytes for the bit layer.
          * @return Number of bytes in bits_ buffer (kBytes).
@@ -162,6 +170,7 @@ namespace crsce::decompress {
          * @name data_
          * @brief Auxiliary floating-point data per cell (beliefs or scores), size kTotalBits.
          */
-        std::vector<double> data_;
+        std::vector<float> data_;
+        std::vector<std::uint64_t> row_versions_;
     };
 } // namespace crsce::decompress

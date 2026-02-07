@@ -8,7 +8,6 @@
 
 #include <cstddef>
 #include <array>
-#include <iostream>
 
 namespace crsce::decompress {
     /**
@@ -92,8 +91,7 @@ namespace crsce::decompress {
                 }
             }
         }
-        // Note: This function intentionally aggregates progress across all families in one step.
-        std::cerr << "Deterministic Elimination exit with no error (progress: " << progress << ")\n";
+        // Aggregate progress across all families in one step.
         return progress;
     }
 } // namespace crsce::decompress

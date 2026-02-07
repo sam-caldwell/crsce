@@ -28,10 +28,15 @@ namespace crsce::decompress {
             throw WriteFailureOnLockedCsmElement("Csm::put: write to locked element");
         }
         const auto mask = bit_mask(idx);
-        if (v) {
-            bits_[bidx] = static_cast<std::uint8_t>(bits_[bidx] | mask);
-        } else {
-            bits_[bidx] = static_cast<std::uint8_t>(bits_[bidx] & static_cast<std::uint8_t>(~mask));
+        const bool old_v = (static_cast<bool>(bits_[bidx] & mask));
+        if (v != old_v) {
+            if (v) {
+                bits_[bidx] = static_cast<std::uint8_t>(bits_[bidx] | mask);
+            } else {
+                bits_[bidx] = static_cast<std::uint8_t>(bits_[bidx] & static_cast<std::uint8_t>(~mask));
+            }
+            // bump row version on change
+            if (r < row_versions_.size()) { row_versions_[r] += 1ULL; }
         }
     }
 } // namespace crsce::decompress

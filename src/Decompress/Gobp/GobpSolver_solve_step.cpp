@@ -6,9 +6,11 @@
 #include "decompress/Gobp/GobpSolver.h"
 #include <cstddef>
 #include <cstdlib>    // getenv
-#include <iostream>   // std::cerr
+#include "common/O11y/metric.h"
 #include <cmath>      // std::fabs
 #include <algorithm>  // std::min,std::max
+
+// no local helpers
 
 namespace crsce::decompress {
     /**
@@ -17,12 +19,7 @@ namespace crsce::decompress {
      * @return std::size_t Number of newly solved cells.
      */
     std::size_t GobpSolver::solve_step() {
-        // Debug flag (cached): enable aggregated diagnostics when CRSCE_GOBP_DEBUG is set.
-        static int kDbg = -1; // -1=unset, 0=off, 1=on
-        if (kDbg < 0) {
-            const char *e = std::getenv("CRSCE_GOBP_DEBUG"); // NOLINT(concurrency-mt-unsafe)
-            kDbg = (e && *e) ? 1 : 0;
-        }
+        // Debug gating is centralized in o11y (CRSCE_GOBP_DEBUG)
 
         std::size_t progress = 0;
         const double hi = assign_confidence_;
@@ -41,6 +38,7 @@ namespace crsce::decompress {
         double max_delta = 0.0;
         double sum_delta = 0.0;
         constexpr double kAmbiEps = 1e-2; // |p-0.5| < 0.01 considered ambiguous
+        // no TTL cooldown in this version
 
         if (!scan_flipped_) {
             // Default traversal: row-major, top-to-bottom, left-to-right
@@ -126,26 +124,30 @@ namespace crsce::decompress {
             }
         }
 
-        if (kDbg == 1) {
+        if (::crsce::o11y::gobp_debug_enabled()) {
             // Summarize residuals and unknowns remaining (use U_row sum as unknown cell count)
             std::size_t sum_U_row = 0;
             std::size_t sum_R_row = 0;
             for (const auto u : st_.U_row) { sum_U_row += static_cast<std::size_t>(u); }
             for (const auto r : st_.R_row) { sum_R_row += static_cast<std::size_t>(r); }
             const double avg_delta = (unlocked_before > 0) ? (sum_delta / static_cast<double>(unlocked_before)) : 0.0;
-            std::cerr
-                << "GOBP step: unlocked=" << unlocked_before
-                << ", assign_progress=" << progress
-                << ", hi_hits=" << hi_hits
-                << ", lo_hits=" << lo_hits
-                << ", unknown_cells=" << sum_U_row
-                << ", row_ones_remaining=" << sum_R_row
-                << ", belief[min=" << min_bel << ", max=" << max_bel << "]"
-                << ", blended[min=" << min_blend << ", max=" << max_blend << "]"
-                << ", delta[avg=" << avg_delta << ", max=" << max_delta << "]"
-                << ", ambiguous@0.5=" << ambiguous
-                << ", params[damping=" << damping_ << ", conf=" << assign_confidence_ << "]"
-                << '\n';
+            ::crsce::o11y::debug_event_gobp(
+                "gobp_step_diag",
+                {{"unlocked", std::to_string(unlocked_before)},
+                 {"assign_progress", std::to_string(progress)},
+                 {"hi_hits", std::to_string(hi_hits)},
+                 {"lo_hits", std::to_string(lo_hits)},
+                 {"unknown_cells", std::to_string(sum_U_row)},
+                 {"row_ones_remaining", std::to_string(sum_R_row)},
+                 {"belief_min", std::to_string(min_bel)},
+                 {"belief_max", std::to_string(max_bel)},
+                 {"blended_min", std::to_string(min_blend)},
+                 {"blended_max", std::to_string(max_blend)},
+                 {"delta_avg", std::to_string(avg_delta)},
+                 {"delta_max", std::to_string(max_delta)},
+                 {"ambiguous_at_0_5", std::to_string(ambiguous)},
+                 {"damping", std::to_string(damping_)},
+                 {"conf", std::to_string(assign_confidence_)}});
         }
         return progress;
     }
