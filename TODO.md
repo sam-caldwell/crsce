@@ -121,7 +121,6 @@ Implementation MUST treat these as hard constants.
 
 - [ ] **Phase 3 — CRSCE Decompression Features**
     - [x] Implement `Csm` class (100% feature complete; >99% test coverage; linters/tests green)
-    - [x] Implement `LHChainVerifier` class (100% feature complete; tests added; linters/tests green)
     - [x] Implement `Solver` interface (abstract API + tests)
     - [x] Implement `DeterministicElimination` class (forced-move pass only; no hash-based elimination)
     - [x] Implement `GobpSolver` class (CPU single-host; damping + thresholds; full tests; linters green)
@@ -333,24 +332,6 @@ Implementation MUST treat these as hard constants.
 - `getData(r,c)`
     - returns the underlying data value at bit position (r,c) in the CSM matrix. This is separate from the bit value.
 
-### Dependency: `LHChainVerifier` Class
-
-#### Purpose
-
-- Verify reconstructed rows against LH using chained SHA‑256 chaining:
-
-  ```text
-  seedHash = SHA256(seedBytes)
-  LH[0] = SHA256(seedHash || Row[0])
-  LH[i] = SHA256(LH[i−1] || Row[i])  // i > 0
-  ```
-
-#### Theory of Operation
-
-- For each row r ∈ [0..510]:
-    - Pack 511 bits MSB‑first and append one pad bit (0) to form a 64‑byte row
-    - Compute chain and compare Hi to LH[r]; reject on any mismatch
-
 ### Dependency: LoopyBeliefsPropagation (implements LBP)
 
 #### Purpose
@@ -454,7 +435,7 @@ Implementation MUST treat these as hard constants.
         - call `loadBlock(block_data)` to initialize the cross-sum and `LH` vectors.
         - set the residual vector values to the cross-sum values (indicating zero bits solved in `CSM`).
         - call `deterministicElimination()` to solve obvious `CSM` states.
-        - Verify each row’s `LH` via chained SHA‑256 (see `LHChainVerifier`).
+        - Verify each row’s `LH` via SHA‑256.
         - Pack rows MSB‑first and append to the output buffer.
         - After all blocks, trim trailing padding using the header’s original size and write the output file.
 - `deterministicElimination()` method (solves for obvious states in the `CSM` matrix):
