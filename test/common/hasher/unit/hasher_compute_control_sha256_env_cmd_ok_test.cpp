@@ -4,6 +4,7 @@
 #include "common/HasherUtils/detail/compute_control_sha256.h"
 #include <gtest/gtest.h>
 #include <string>
+#include <cstdlib>
 #include <vector>
 #include <cstdint>
 

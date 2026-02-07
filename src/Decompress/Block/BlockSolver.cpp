@@ -32,8 +32,6 @@
 #include <cstddef>
 #include <cstdint> //NOLINT
 #include <cstdlib>
-#include <iostream>
-#include <sstream>
 #include <array>
 #include <chrono>
 #include <algorithm>
@@ -1920,6 +1918,8 @@ namespace crsce::decompress {
             ::crsce::o11y::metric("block_end_verify_fail", 1LL);
         }
         return result;
+        // Fallback return to satisfy some analyzers about control paths
+        return false; // NOLINT(clang-diagnostic-unreachable-code)
     }
 }
 }

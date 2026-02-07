@@ -14,7 +14,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include "common/O11y/metric.h"
 #include <span>
 #include <string>

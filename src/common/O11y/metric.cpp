@@ -77,19 +77,19 @@ namespace crsce::o11y {
                 enum class Kind : std::uint8_t { Line, Resume };
                 Kind kind{Kind::Line};
                 std::string line;
-                std::coroutine_handle<> h{};
+                std::coroutine_handle<> h;
             };
             void enqueue_line(const std::string &line) {
                 {
                     const std::scoped_lock lk(mu_);
-                    q_.push_back(WorkItem{WorkItem::Kind::Line, line, {}});
+                    q_.push_back(WorkItem{.kind=WorkItem::Kind::Line, .line=line, .h={}});
                 }
                 cv_.notify_one();
             }
             void post_resume(std::coroutine_handle<> h) {
                 {
                     const std::scoped_lock lk(mu_);
-                    q_.push_back(WorkItem{WorkItem::Kind::Resume, std::string{}, h});
+                    q_.push_back(WorkItem{.kind=WorkItem::Kind::Resume, .line=std::string{}, .h=h});
                 }
                 cv_.notify_one();
             }
@@ -233,14 +233,14 @@ namespace crsce::o11y {
         struct fire_and_forget {
             struct promise_type {
                 fire_and_forget get_return_object() noexcept { return {}; }
-                std::suspend_never initial_suspend() const noexcept { return {}; }
-                std::suspend_never final_suspend() const noexcept { return {}; }
+                [[nodiscard]] std::suspend_never initial_suspend() const noexcept { return {}; }
+                [[nodiscard]] std::suspend_never final_suspend() const noexcept { return {}; }
                 void return_void() const noexcept {}
                 void unhandled_exception() const noexcept {}
             };
         };
         struct SwitchToSink {
-            bool await_ready() const noexcept { return false; }
+            [[nodiscard]] bool await_ready() const noexcept { return false; }
             void await_suspend(std::coroutine_handle<> h) const { sink().post_resume(h); }
             void await_resume() const noexcept {}
         };
@@ -284,7 +284,7 @@ namespace crsce::o11y {
     // Debug gating for GOBP
     bool gobp_debug_enabled() noexcept {
         static std::atomic<int> flag{-1};
-        int v = flag.load(std::memory_order_relaxed);
+        const int v = flag.load(std::memory_order_relaxed);
         if (v >= 0) { return v == 1; }
         const char *e = std::getenv("CRSCE_GOBP_DEBUG"); // NOLINT(concurrency-mt-unsafe)
         const int nv = (e && *e) ? 1 : 0;

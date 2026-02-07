@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <filesystem>
 #include <string>
+#include <cstdlib>
 #include <vector>
 #include <cstdint>
 

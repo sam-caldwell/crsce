@@ -9,6 +9,7 @@
 #include "common/O11y/metric.h"
 #include <cmath>      // std::fabs
 #include <algorithm>  // std::min,std::max
+#include <string>
 
 // no local helpers
 
