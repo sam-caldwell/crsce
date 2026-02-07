@@ -50,17 +50,14 @@ _deps/
 bin/
 /lib/
 /share/
+
 # Ignore only the top-level tools directory (not cmake/tools)
-tools/
-!cmake/tools/
+tools/binDumper
 
 # Ninja build files
 .ninja_deps
 .ninja_log
 build.ninja
-
-!cmake/**/*.cmake
-
 
 # Test coverage
 *.gcda
