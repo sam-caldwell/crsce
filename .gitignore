@@ -51,7 +51,8 @@ bin/
 /lib/
 /share/
 # Ignore only the top-level tools directory (not cmake/tools)
-/tools/
+tools/
+!cmake/tools/
 
 # Ninja build files
 .ninja_deps
@@ -59,7 +60,7 @@ bin/
 build.ninja
 
 !cmake/**/*.cmake
-!cmake/tools
+
 
 # Test coverage
 *.gcda
