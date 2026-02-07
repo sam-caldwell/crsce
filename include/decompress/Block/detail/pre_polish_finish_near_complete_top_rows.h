@@ -22,4 +22,3 @@ namespace crsce::decompress::detail {
                                        std::size_t top_n,
                                        std::size_t top_k_cells);
 }
-

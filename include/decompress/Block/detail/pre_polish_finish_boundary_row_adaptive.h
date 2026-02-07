@@ -21,4 +21,3 @@ namespace crsce::decompress::detail {
                                       int rs,
                                       int stall_ticks);
 }
-

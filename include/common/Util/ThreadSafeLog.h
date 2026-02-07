@@ -33,4 +33,3 @@ namespace crsce::common::util {
         inline static std::mutex g_mutex{};
     };
 }
-

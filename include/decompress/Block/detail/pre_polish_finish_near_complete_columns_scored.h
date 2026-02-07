@@ -23,4 +23,3 @@ namespace crsce::decompress::detail {
                                              const std::vector<std::size_t> &cols,
                                              std::size_t top_k_cells);
 }
-

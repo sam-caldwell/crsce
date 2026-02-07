@@ -24,4 +24,3 @@ namespace crsce::decompress::detail {
                                             int cooldown_ticks,
                                             int &since_last_restart);
 }
-

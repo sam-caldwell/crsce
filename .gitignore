@@ -1,12 +1,12 @@
+# IDE and editor files
+.idea/
+.vscode/
+
 # Build artifacts
 build/
 node/
 venv/
 Testing/
-
-# IDE and editor files
-.idea/
-.vscode/
 
 # OS generated files
 .DS_Store
@@ -50,18 +50,16 @@ _deps/
 bin/
 /lib/
 /share/
-tools/
+# Ignore only the top-level tools directory (not cmake/tools)
+/tools/
 
 # Ninja build files
 .ninja_deps
 .ninja_log
 build.ninja
 
-# Prevent accidental in-source CMake builds under tools/*
-tools/**/CMakeCache.txt
-tools/**/CMakeFiles/
-tools/**/cmake_install.cmake
-tools/**/Makefile
+!cmake/**/*.cmake
+!cmake/tools
 
 # Test coverage
 *.gcda

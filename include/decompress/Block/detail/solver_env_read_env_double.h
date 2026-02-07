@@ -9,4 +9,3 @@
 namespace crsce::decompress::detail {
     double read_env_double(const char *name, double defv);
 }
-

@@ -11,4 +11,3 @@
 namespace crsce::decompress::detail {
     std::uint64_t read_seed_or_default(std::uint64_t fallback);
 }
-

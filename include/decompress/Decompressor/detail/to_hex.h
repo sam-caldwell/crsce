@@ -24,4 +24,3 @@ namespace crsce::decompress::detail {
         return s;
     }
 }
-

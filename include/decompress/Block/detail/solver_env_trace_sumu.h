@@ -9,4 +9,3 @@
 namespace crsce::decompress::detail {
     bool trace_sumu_enabled();
 }
-

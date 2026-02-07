@@ -9,4 +9,3 @@
 namespace crsce::decompress::detail {
     int read_env_int(const char *name, int defv);
 }
-

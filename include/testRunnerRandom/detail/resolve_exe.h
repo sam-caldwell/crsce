@@ -20,4 +20,3 @@ namespace crsce::testrunner::detail {
      */
     std::string resolve_exe(const std::string &exe_name);
 }
-

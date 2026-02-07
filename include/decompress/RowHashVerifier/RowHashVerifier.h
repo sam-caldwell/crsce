@@ -59,4 +59,3 @@ namespace crsce::decompress {
         static std::array<std::uint8_t, kRowSize> pack_row_bytes(const Csm &csm, std::size_t r);
     };
 }
-

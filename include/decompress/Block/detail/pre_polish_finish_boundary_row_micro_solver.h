@@ -23,4 +23,3 @@ namespace crsce::decompress::detail {
                                           BlockSolveSnapshot &snap,
                                           int rs);
 }
-

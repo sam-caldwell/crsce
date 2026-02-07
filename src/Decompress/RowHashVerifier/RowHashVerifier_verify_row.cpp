@@ -39,4 +39,3 @@ namespace crsce::decompress {
         return std::equal(expected.begin(), expected.end(), digest.begin());
     }
 }
-
