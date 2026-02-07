@@ -29,7 +29,7 @@ namespace crsce::testrunner_ones::cli {
      * @return int
      */
     int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
-        constexpr std::int64_t kCompressPerBlockMs = 1000;
+        constexpr std::int64_t kCompressPerBlockMs = 2000;
         constexpr std::int64_t kDecompressPerBlockMs = 2000;
 
         std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);

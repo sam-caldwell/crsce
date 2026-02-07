@@ -459,6 +459,42 @@ namespace crsce::decompress {
                     }
                 );
             }
+            // If DE has already solved the block, skip GOBP and proceed to verification.
+            if (det.solved()) {
+                {
+                    const auto t0cs = std::chrono::steady_clock::now();
+                    const bool okcs = verify_cross_sums(csm_out, lsm, vsm, dsm, xsm);
+                    const auto t1cs = std::chrono::steady_clock::now();
+                    snap.time_cross_verify_ms += static_cast<std::size_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(t1cs - t0cs).count()
+                    );
+                    if (!okcs) {
+                        ::crsce::o11y::event("block_end_verify_fail");
+                        ::crsce::o11y::metric("block_end_verify_fail", 1LL);
+                        snap.phase = BlockSolveSnapshot::Phase::verify;
+                        snap.message = "cross-sum verification failed";
+                        set_block_solve_snapshot(snap);
+                        return false;
+                    }
+                }
+                const RowHashVerifier verifier;
+                const auto t0va = std::chrono::steady_clock::now();
+                const bool result = verifier.verify_all(csm_out, lh);
+                const auto t1va = std::chrono::steady_clock::now();
+                {
+                    const auto ms = static_cast<std::size_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(t1va - t0va).count()
+                    );
+                    snap.time_verify_all_ms += ms;
+                    snap.time_lh_ms += ms;
+                }
+                if (result) {
+                    ::crsce::o11y::event("block_end_ok");
+                } else {
+                    ::crsce::o11y::event("block_end_verify_fail");
+                }
+                return result;
+            }
             ::crsce::o11y::metric("block_terminating", 1LL);
             ::crsce::o11y::metric("gobp_start_multiphase", 1LL);
             if (!det.solved()) {

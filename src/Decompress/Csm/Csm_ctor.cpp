@@ -10,5 +10,5 @@ namespace crsce::decompress {
      * @name Csm::Csm
      * @brief Construct zero-initialized bit/lock/data layers.
      */
-    Csm::Csm() : bits_(kBytes, 0U), locks_(kTotalBits, 0U), data_(kTotalBits, 0.0F), row_versions_(kS, 0ULL) {}
+    Csm::Csm() : bits_(kBytes, 0U), locks_(kTotalBits, 0U), data_(kTotalBits, 0.0), row_versions_(kS, 0ULL) {}
 } // namespace crsce::decompress

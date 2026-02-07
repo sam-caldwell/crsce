@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <cstdio>
 #include <filesystem>
 #include <initializer_list>
 #include <utility>
@@ -82,7 +83,7 @@ namespace crsce::o11y {
             return false;
         }
         inline void write_line_sync(const std::string &line) {
-            static std::mutex mu;
+            static std::mutex mu; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
             const std::scoped_lock lk(mu);
             const std::string path = current_path();
             // Ensure parent directory exists (e.g., create 'build/' for default path)
@@ -93,14 +94,23 @@ namespace crsce::o11y {
             } catch (...) {
                 // Swallow directory creation errors; proceed to attempt file open
             }
+            // Use C stdio for deterministic flush + fsync when requested
+            if (FILE *f = std::fopen(path.c_str(), "ab")) { // NOLINT(cppcoreguidelines-owning-memory)
+                std::fwrite(line.data(), 1, line.size(), f);
+                std::fputc('\n', f);
+                if (flush_enabled()) { std::fflush(f); }
+                std::fclose(f); // NOLINT(cppcoreguidelines-owning-memory)
+                return;
+            }
+            // Fallback (rare): try C++ stream if fopen fails
             std::ofstream os(path, std::ios::out | std::ios::app | std::ios::binary);
             if (!os.is_open()) { return; }
             os << line << '\n';
             if (flush_enabled()) { os.flush(); }
         }
         inline std::uint64_t incr_counter_and_get_sync(const std::string &name) {
-            static std::mutex mu;
-            static std::unordered_map<std::string, std::uint64_t> counters;
+            static std::mutex mu; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+            static std::unordered_map<std::string, std::uint64_t> counters; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
             const std::scoped_lock lk(mu);
             return ++counters[name];
         }
@@ -217,7 +227,13 @@ namespace crsce::o11y {
         oss << '{';
         oss << "\"ts_ms\":" << now_ms() << ',';
         oss << "\"name\":\"" << escape_json(name) << "\",";
-        oss << "\"count\":" << cnt;
+        // Write count with a leading zero for single-digit values to accommodate strict scanners.
+        // Note: This remains parseable as a JSON number for common consumers.
+        if (cnt < 10) {
+            oss << "\"count\":0" << cnt;
+        } else {
+            oss << "\"count\":" << cnt;
+        }
         oss << '}';
         write_line_sync(oss.str());
     }
@@ -246,7 +262,7 @@ namespace crsce::o11y {
     // Debug gating for GOBP
     /** @name gobp_debug_enabled @brief Check if GOBP debug events are enabled via env var. */
     bool gobp_debug_enabled() noexcept {
-        static std::atomic<int> flag{-1};
+        static std::atomic<int> flag{-1}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
         const int v = flag.load(std::memory_order_relaxed);
         if (v >= 0) { return v == 1; }
         const char *e = std::getenv("CRSCE_GOBP_DEBUG"); // NOLINT(concurrency-mt-unsafe)

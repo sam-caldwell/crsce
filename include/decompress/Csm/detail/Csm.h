@@ -168,9 +168,9 @@ namespace crsce::decompress {
 
         /**
          * @name data_
-         * @brief Auxiliary floating-point data per cell (beliefs or scores), size kTotalBits.
+         * @brief Auxiliary floating-point data per cell (beliefs or scores), size kTotalBits. Use double for precision.
          */
-        std::vector<float> data_;
+        std::vector<double> data_;
         std::vector<std::uint64_t> row_versions_;
     };
 } // namespace crsce::decompress
