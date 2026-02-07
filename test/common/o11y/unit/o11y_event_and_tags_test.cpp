@@ -9,7 +9,7 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
-#include <stdlib.h>
+#include <stdlib.h> // NOLINT
 #include "common/O11y/metric.h"
 
 namespace {

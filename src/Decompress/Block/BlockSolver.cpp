@@ -18,6 +18,7 @@
 #include "decompress/Block/detail/pre_polish_finish_boundary_row_micro_solver.h"
 #include "decompress/Block/detail/pre_polish_finish_boundary_row_segment_solver.h"
 #include "decompress/Block/detail/pre_polish_finish_two_row_micro_solver.h"
+#include "decompress/Block/detail/block_solver_workers.h"
 #include "decompress/Block/detail/pre_polish_commit_any_verified_rows.h"
 #include "decompress/Block/detail/pre_polish_finish_near_complete_top_rows.h"
 #include "decompress/Block/detail/pre_polish_finish_near_complete_any_row.h"
@@ -79,9 +80,13 @@ namespace {
     using crsce::decompress::ConstraintState;
     using crsce::decompress::DeterministicElimination;
     using crsce::decompress::RowHashVerifier;
+    using crsce::decompress::detail::run_restart_worker;
+    using crsce::decompress::detail::run_final_backtrack_worker;
+    using crsce::decompress::detail::BTTaskPair;
     using crsce::decompress::BlockSolveSnapshot;
     using crsce::decompress::detail::read_seed_or_default;
     using crsce::decompress::detail::trace_sumu_enabled;
+
 } // anonymous namespace
 
 #ifdef __clang__
@@ -498,80 +503,27 @@ namespace crsce::decompress {
                         if (v > 0) { max_ms = static_cast<std::size_t>(v); }
                     }
                     for (std::size_t wi = 0; wi < workers; ++wi) {
-                        pool.emplace_back([&, wi]() {
-                            const auto t0 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                            std::string outcome = "rejected";
-                            const auto wall_start = std::chrono::steady_clock::now();
-                            while (!adopted.load(std::memory_order_relaxed)) {
-                                const std::size_t idx = next_idx.fetch_add(1, std::memory_order_relaxed);
-                                if (idx >= tasks) { break; }
-                                const int rr = rs + static_cast<int>(idx) + 1; // pick a future restart index for jitter seed
-                                Csm c_try = baseline_csm; ConstraintState st_try = baseline_st;
-                                // Apply jitter per rr
-                                const double jitter = kPerturbBase + (static_cast<double>(rr - 1) * kPerturbStep);
-                                std::mt19937_64 rng_local(restart_seed + static_cast<std::uint64_t>(rr));
-                                std::uniform_real_distribution<double> delta(-jitter, jitter);
-                                for (std::size_t r0 = 0; r0 < S; ++r0) {
-                                    for (std::size_t c0 = 0; c0 < S; ++c0) {
-                                        if (c_try.is_locked(r0, c0)) { continue; }
-                                        const double v = c_try.get_data(r0, c0);
-                                        const double j = delta(rng_local);
-                                        const double nv = std::clamp(v + j, 0.0, 1.0);
-                                        c_try.set_data(r0, c0, nv);
-                                    }
-                                }
-                                // Full multiphase mini-GOBP (bounded by time and adoption)
-                                std::array<double, 4> dampers{{0.50, 0.10, 0.35, 0.02}};
-                                std::array<double, 4> confs{{0.995, 0.70, 0.85, 0.55}};
-                                std::array<int, 4> iters_arr{{3000, 6000, 40000, 200000}}; // trimmed per-worker caps
-                                const RowHashVerifier v2;
-                                for (std::size_t ph = 0; ph < 4 && !adopted.load(std::memory_order_relaxed); ++ph) {
-                                    const auto p0 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                    GobpSolver gobp(c_try, st_try, dampers.at(ph), confs.at(ph));
-                                    const int max_it = iters_arr.at(ph);
-                                    int guard = 0;
-                                    int verify_tick = 0;
-                                    // verification cadence (env, default 1500)
-                                    int verify_period = 1500;
-                                    if (const char *vp = std::getenv("CRSCE_VERIFY_TICK") /* NOLINT(concurrency-mt-unsafe) */; vp && *vp) {
-                                        const int v = std::atoi(vp); if (v > 0) { verify_period = v; }
-                                    }
-                                    // early-stop on low ROI: break phase if no progress for many iterations
-                                    int no_prog_iters = 0;
-                                    const int no_prog_limit = 4000;
-                                    while (guard++ < max_it && !adopted.load(std::memory_order_relaxed)) {
-                                        const std::size_t gprog = gobp.solve_step();
-                                        if (gprog == 0) { ++no_prog_iters; } else { no_prog_iters = 0; }
-                                        // periodic verify to catch prefix growth
-                                        if ((++verify_tick % verify_period) == 0) {
-                                            if (base_valid < S && st_try.U_row.at(base_valid) == 0 && st_try.R_row.at(base_valid) == 0) {
-                                                if (v2.verify_row(c_try, lh, base_valid)) {
-                                                    bool expected=false; if (adopted.compare_exchange_strong(expected,true,std::memory_order_acq_rel)) {
-                                                        const std::scoped_lock lk(adopt_mu);
-                                                        c_winner = c_try; st_winner = st_try; outcome = "adopted";
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        const auto now = std::chrono::steady_clock::now();
-                                        const std::size_t ms = static_cast<std::size_t>(
-                                            std::chrono::duration_cast<std::chrono::milliseconds>(now - wall_start).count()
-                                        );
-                                        if (ms > max_ms) { break; }
-                                        if (no_prog_iters > no_prog_limit && ms > (max_ms / 4U)) { break; }
-                                    }
-                                    const auto p1 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                    auto &ep = ev_phase.at(wi).at(ph);
-                                    ep.name = std::string("rsw_") + std::to_string(wi) + std::string("_ph") + std::to_string(ph);
-                                    ep.start_ms = p0; ep.stop_ms = p1; ep.outcome = outcome;
-                                    if (adopted.load(std::memory_order_relaxed)) { break; }
-                                }
-                            }
-                            const auto t1 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                            auto &et = ev_total.at(wi);
-                            et.name = std::string("rsw_total_") + std::to_string(wi);
-                            et.start_ms = t0; et.stop_ms = t1; et.outcome = outcome;
-                        });
+                        pool.emplace_back(
+                            run_restart_worker,
+                            wi,
+                            std::cref(baseline_csm),
+                            std::cref(baseline_st),
+                            std::ref(c_winner),
+                            std::ref(st_winner),
+                            std::ref(adopted),
+                            std::ref(adopt_mu),
+                            std::ref(next_idx),
+                            tasks,
+                            lh,
+                            restart_seed,
+                            S,
+                            base_valid,
+                            max_ms,
+                            std::ref(ev_phase.at(wi)),
+                            std::ref(ev_total.at(wi)),
+                            kPerturbBase,
+                            kPerturbStep
+                        );
                     }
                     for (auto &t : pool) { if (t.joinable()) { t.join(); } }
                     for (const auto &et : ev_total) { snap.thread_events.push_back(et); }
@@ -1464,12 +1416,11 @@ namespace crsce::decompress {
                 if (modeA && K > 0) {
                     ++snap.final_backtrack1_attempts;
                     // Prepare tasks: for each of top-K columns, try v in {0,1}
-                    struct Task { std::size_t c_pick; bool assume_one; };
-                    std::vector<Task> tasks; tasks.reserve(K * 2U);
+                    std::vector<BTTaskPair> tasks; tasks.reserve(K * 2U);
                     for (std::size_t i = 0; i < K; ++i) {
                         const std::size_t c_pick = cand_cols[i].second;
-                        tasks.push_back(Task{.c_pick=c_pick, .assume_one=false});
-                        tasks.push_back(Task{.c_pick=c_pick, .assume_one=true});
+                        tasks.emplace_back(c_pick, false);
+                        tasks.emplace_back(c_pick, true);
                     }
                     std::atomic<bool> found{false};
                     std::mutex adopt_mu;
@@ -1480,57 +1431,23 @@ namespace crsce::decompress {
                     std::atomic<std::size_t> next_idx{0};
                     std::vector<std::thread> pool; pool.reserve(workers);
                     for (std::size_t wi = 0; wi < workers; ++wi) {
-                        pool.emplace_back([&, wi]() {
-                            const auto start = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                            std::string outcome = "rejected";
-                            while (!found.load(std::memory_order_relaxed)) {
-                                const std::size_t idx = next_idx.fetch_add(1, std::memory_order_relaxed);
-                                if (idx >= tasks.size()) { break; }
-                                const Task t = tasks[idx];
-                                // Build try-state
-                                Csm c_try = csm_out; ConstraintState st_try = st;
-                                const std::size_t c_pick = t.c_pick;
-                                const bool assume_one = t.assume_one;
-                                c_try.put(boundary, c_pick, assume_one);
-                                c_try.lock(boundary, c_pick);
-                                if (st_try.U_row.at(boundary) > 0) { --st_try.U_row.at(boundary); }
-                                if (st_try.U_col.at(c_pick) > 0) { --st_try.U_col.at(c_pick); }
-                                const std::size_t d0 = (c_pick >= boundary) ? (c_pick - boundary) : (c_pick + S - boundary);
-                                const std::size_t x0 = (boundary + c_pick) % S;
-                                if (st_try.U_diag.at(d0) > 0) { --st_try.U_diag.at(d0); }
-                                if (st_try.U_xdiag.at(x0) > 0) { --st_try.U_xdiag.at(x0); }
-                                if (assume_one) {
-                                    if (st_try.R_row.at(boundary) > 0) { --st_try.R_row.at(boundary); }
-                                    if (st_try.R_col.at(c_pick) > 0) { --st_try.R_col.at(c_pick); }
-                                    if (st_try.R_diag.at(d0) > 0) { --st_try.R_diag.at(d0); }
-                                    if (st_try.R_xdiag.at(x0) > 0) { --st_try.R_xdiag.at(x0); }
-                                }
-                                DeterministicElimination det_bt{c_try, st_try};
-                                static constexpr int bt_iters = 6000;
-                                for (int it = 0; it < bt_iters; ++it) {
-                                    const std::size_t prog = det_bt.solve_step();
-                                    if (st_try.U_row.at(boundary) == 0 || prog == 0) { break; }
-                                }
-                                if (st_try.U_row.at(boundary) == 0) {
-                                    const std::size_t check_rows = std::min<std::size_t>(valid_now + 1, S);
-                                    const RowHashVerifier verifier_try;
-                                    if (check_rows > 0 && verifier_try.verify_rows(c_try, lh, check_rows)) {
-                                        // Attempt to adopt winner
-                                        bool expected = false;
-                                        if (found.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
-                                        const std::scoped_lock lk(adopt_mu);
-                                            c_winner = c_try; st_winner = st_try;
-                                            outcome = "adopted";
-                                        }
-                                    }
-                                }
-                            }
-                            const auto stop = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                            // Save into pre-allocated slot (no lock needed)
-                            auto &ev = worker_events[wi];
-                            ev.name = std::string("fb1_worker_") + std::to_string(wi);
-                            ev.start_ms = start; ev.stop_ms = stop; ev.outcome = outcome;
-                        });
+                        pool.emplace_back(
+                            run_final_backtrack_worker,
+                            wi,
+                            std::cref(tasks),
+                            std::ref(next_idx),
+                            std::ref(found),
+                            lh,
+                            boundary,
+                            valid_now,
+                            S,
+                            std::cref(csm_out),
+                            std::cref(st),
+                            std::ref(adopt_mu),
+                            std::ref(c_winner),
+                            std::ref(st_winner),
+                            std::ref(worker_events.at(wi))
+                        );
                     }
                     // Wait for workers
                     for (auto &t : pool) { if (t.joinable()) { t.join(); } }
