@@ -52,7 +52,6 @@
 
 #include "decompress/Block/detail/compute_prefix.h"
 #include "common/O11y/metric.h"
-// NOLINTEND(cppcoreguidelines-macro-usage)
 
 namespace {
     using crsce::decompress::Csm;
@@ -511,8 +510,7 @@ namespace crsce::decompress {
                     }
                     if (par_rs > 1 && rs < kRestarts) {
                         const std::size_t workers = static_cast<std::size_t>(std::min(par_rs, 8));
-                        std::size_t base_valid = 0;
-                        CRSCE_COMPUTE_PREFIX(base_valid, csm_out, st, lh);
+                        const std::size_t base_valid = ::crsce::decompress::detail::compute_prefix(pc_ver_seen, pc_ok, pc_prefix_len, csm_out, st, lh, snap);
                         std::atomic<bool> adopted{false};
                         std::mutex adopt_mu;
                         Csm c_winner = csm_out;
@@ -1081,7 +1079,7 @@ namespace crsce::decompress {
                                     }
                                 }
                                 if (boundary < S) {
-                                    std::size_t valid_now = 0; CRSCE_COMPUTE_PREFIX(valid_now, csm_out, st, lh);
+                                    const std::size_t valid_now = ::crsce::decompress::detail::compute_prefix(pc_ver_seen, pc_ok, pc_prefix_len, csm_out, st, lh, snap);
                                     auto near_thresh = static_cast<std::uint16_t>((S + 4U) / 5U); // ~20%
                                     if (const char *e = std::getenv("CRSCE_FOCUS_NEAR_THRESH") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
                                         int pct = std::atoi(e);
@@ -1395,8 +1393,7 @@ namespace crsce::decompress {
             // Final escalation: multi-candidate boundary backtrack with prefix verification
             if (!det.solved()) {
                 const auto t0cp = std::chrono::steady_clock::now();
-                std::size_t valid_now = 0;
-                CRSCE_COMPUTE_PREFIX(valid_now, csm_out, st, lh);
+                const std::size_t valid_now = ::crsce::decompress::detail::compute_prefix(pc_ver_seen, pc_ok, pc_prefix_len, csm_out, st, lh, snap);
                 const auto t1cp = std::chrono::steady_clock::now();
                 snap.time_lh_ms += static_cast<std::size_t>(
                     std::chrono::duration_cast<std::chrono::milliseconds>(t1cp - t0cp).count()
