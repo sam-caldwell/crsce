@@ -18,6 +18,7 @@
 
 #include "decompress/Gobp/GobpSolver.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
+#include "decompress/Utils/detail/now_ms.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
@@ -46,8 +47,7 @@ void run_restart_worker(std::size_t wi,
                         BlockSolveSnapshot::ThreadEvent &ev_total_wi,
                         const double kPerturbBase,
                         const double kPerturbStep) {
-    const auto t0 = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::system_clock::now().time_since_epoch()).count());
+    const auto t0 = now_ms();
     std::string outcome = "rejected";
     const auto wall_start = std::chrono::steady_clock::now();
     while (!adopted.load(std::memory_order_relaxed)) {
@@ -72,8 +72,7 @@ void run_restart_worker(std::size_t wi,
         std::array<int, 4> iters_arr{{3000, 6000, 40000, 200000}};
         const RowHashVerifier v2;
         for (std::size_t ph = 0; ph < 4 && !adopted.load(std::memory_order_relaxed); ++ph) {
-            const auto p0 = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 std::chrono::system_clock::now().time_since_epoch()).count());
+            const auto p0 = now_ms();
             GobpSolver gobp(c_try, st_try, dampers.at(ph), confs.at(ph));
             const int max_it = iters_arr.at(ph);
             int guard = 0;
@@ -104,16 +103,14 @@ void run_restart_worker(std::size_t wi,
                 if (ms > max_ms) { break; }
                 if (no_prog_iters > no_prog_limit && ms > (max_ms / 4U)) { break; }
             }
-            const auto p1 = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 std::chrono::system_clock::now().time_since_epoch()).count());
+            const auto p1 = now_ms();
             auto &ep = ev_phase_wi.at(ph);
             ep.name = std::string("rsw_") + std::to_string(wi) + std::string("_ph") + std::to_string(ph);
             ep.start_ms = p0; ep.stop_ms = p1; ep.outcome = outcome;
             if (adopted.load(std::memory_order_relaxed)) { break; }
         }
     }
-    const auto t1 = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::system_clock::now().time_since_epoch()).count());
+    const auto t1 = now_ms();
     auto &et = ev_total_wi;
     et.name = std::string("rsw_total_") + std::to_string(wi);
     et.start_ms = t0; et.stop_ms = t1; et.outcome = outcome;

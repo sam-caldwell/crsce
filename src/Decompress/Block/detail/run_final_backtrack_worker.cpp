@@ -3,10 +3,10 @@
  * @brief Definition for final boundary backtrack worker.
  */
 #include "decompress/Block/detail/run_final_backtrack_worker.h"
+#include "decompress/Block/detail/BTTaskPair.h"
 
 #include <algorithm>
 #include <atomic>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
+#include "decompress/Utils/detail/now_ms.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
@@ -40,8 +41,7 @@ void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-link
                                 Csm &c_winner,
                                 ConstraintState &st_winner,
                                 BlockSolveSnapshot::ThreadEvent &ev_out) {
-    const auto start = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::system_clock::now().time_since_epoch()).count());
+    const auto start = now_ms();
     std::string outcome = "rejected";
     while (!found.load(std::memory_order_relaxed)) {
         const std::size_t idx = next_idx.fetch_add(1, std::memory_order_relaxed);
@@ -82,8 +82,7 @@ void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-link
             }
         }
     }
-    const auto stop = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                          std::chrono::system_clock::now().time_since_epoch()).count());
+    const auto stop = now_ms();
     ev_out.name = std::string("btw_total_") + std::to_string(wi);
     ev_out.start_ms = start; ev_out.stop_ms = stop; ev_out.outcome = outcome;
 }
