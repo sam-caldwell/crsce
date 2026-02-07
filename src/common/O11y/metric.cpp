@@ -11,12 +11,19 @@
 #include <initializer_list>
 #include <utility>
 #include <ios>
+#include <thread>
+#include <condition_variable>
+#include <deque>
 #include <mutex>
 #include <string>
 #include <sstream>
 
 namespace crsce::o11y {
     namespace {
+        inline char hex_nibble(unsigned char v) {
+            return (v < 10U) ? static_cast<char>('0' + v) : static_cast<char>('a' + (v - 10U));
+        }
+
         inline std::string escape_json(const std::string &s) {
             std::string out;
             out.reserve(s.size() + 8U);
@@ -30,11 +37,10 @@ namespace crsce::o11y {
                     default:
                         if (static_cast<unsigned char>(ch) < 0x20U) {
                             // encode as \u00XX
-                            static constexpr std::array<char, 16> HEX{'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
                             const auto uc = static_cast<unsigned char>(ch);
                             out += "\\u00";
-                            out += HEX[(uc >> 4U) & 0x0FU];
-                            out += HEX[uc & 0x0FU];
+                            out += hex_nibble((uc >> 4U) & 0x0FU);
+                            out += hex_nibble(uc & 0x0FU);
                         } else {
                             out += ch;
                         }
@@ -48,29 +54,62 @@ namespace crsce::o11y {
             return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
         }
 
-        class Sink {
+        class AsyncSink {
         public:
-            Sink() {
+            AsyncSink() {
                 const char *p = std::getenv("CRSCE_METRICS_PATH"); // NOLINT(concurrency-mt-unsafe)
                 if (p && *p) { path_ = p; } else { path_ = "metrics.jsonl"; }
                 os_.open(path_, std::ios::out | std::ios::app | std::ios::binary);
+                worker_ = std::thread([this]() { this->run(); });
             }
-            void write_line(const std::string &line) {
-                const std::scoped_lock lk(mu_);
-                if (!os_.is_open()) {
-                    os_.open(path_, std::ios::out | std::ios::app | std::ios::binary);
+            ~AsyncSink() {
+                {
+                    const std::scoped_lock lk(mu_);
+                    stop_ = true;
                 }
-                os_ << line << '\n';
-                // intentionally not flushing to keep buffered writes
+                cv_.notify_all();
+                if (worker_.joinable()) { worker_.join(); }
             }
+            void enqueue(const std::string &line) {
+                {
+                    const std::scoped_lock lk(mu_);
+                    q_.push_back(line);
+                }
+                cv_.notify_one();
+            }
+            AsyncSink(const AsyncSink&) = delete;
+            AsyncSink& operator=(const AsyncSink&) = delete;
+            AsyncSink(AsyncSink&&) = delete;
+            AsyncSink& operator=(AsyncSink&&) = delete;
         private:
+            void run() {
+                for (;;) {
+                    std::string line;
+                    {
+                        std::unique_lock<std::mutex> lk(mu_);
+                        cv_.wait(lk, [this](){ return stop_ || !q_.empty(); });
+                        if (stop_ && q_.empty()) { break; }
+                        line = std::move(q_.front());
+                        q_.pop_front();
+                        if (!os_.is_open()) {
+                            os_.open(path_, std::ios::out | std::ios::app | std::ios::binary);
+                        }
+                    }
+                    os_ << line << '\n';
+                }
+                os_.flush();
+            }
             std::string path_;
             std::ofstream os_;
             std::mutex mu_;
+            std::condition_variable cv_;
+            std::deque<std::string> q_;
+            bool stop_{false};
+            std::thread worker_;
         };
 
-        inline Sink &sink() {
-            static Sink s;
+        inline AsyncSink &sink() {
+            static AsyncSink s;
             return s;
         }
 
@@ -102,7 +141,7 @@ namespace crsce::o11y {
                 oss << '}';
             }
             oss << '}';
-            sink().write_line(oss.str());
+            sink().enqueue(oss.str());
         }
     } // namespace
 
@@ -124,5 +163,41 @@ namespace crsce::o11y {
     void metric(const std::string &name, bool value,
                 std::initializer_list<std::pair<std::string, std::string>> tags) {
         metric_impl(name, value, tags);
+    }
+
+    // Obj builder methods
+    Obj &Obj::add(const std::string &key, std::int64_t v) {
+        ObjField f; f.t = ObjField::Type::I64; f.k = key; f.i64 = v; fields_.push_back(std::move(f)); return *this;
+    }
+    Obj &Obj::add(const std::string &key, double v) {
+        ObjField f; f.t = ObjField::Type::F64; f.k = key; f.f64 = v; fields_.push_back(std::move(f)); return *this;
+    }
+    Obj &Obj::add(const std::string &key, const std::string &v) {
+        ObjField f; f.t = ObjField::Type::STR; f.k = key; f.str = v; fields_.push_back(std::move(f)); return *this;
+    }
+    Obj &Obj::add(const std::string &key, bool v) {
+        ObjField f; f.t = ObjField::Type::BOOL; f.k = key; f.b = v; fields_.push_back(std::move(f)); return *this;
+    }
+
+    void metric(const Obj &o) {
+        std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
+        oss << '{';
+        oss << "\"ts_ms\":" << now_ms() << ',';
+        oss << "\"name\":\"" << escape_json(o.name()) << "\",";
+        oss << "\"fields\":{";
+        bool first = true;
+        for (const auto &f : o.fields()) {
+            if (!first) { oss << ','; }
+            first = false;
+            oss << "\"" << escape_json(f.k) << "\":";
+            switch (f.t) {
+                case ObjField::Type::I64: oss << f.i64; break;
+                case ObjField::Type::F64: oss << f.f64; break;
+                case ObjField::Type::STR: oss << '"' << escape_json(f.str) << '"'; break;
+                case ObjField::Type::BOOL: oss << (f.b ? "true" : "false"); break;
+            }
+        }
+        oss << "}}";
+        sink().enqueue(oss.str());
     }
 }
