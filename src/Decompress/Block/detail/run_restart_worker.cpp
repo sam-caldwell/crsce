@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <mutex>
 #include <random>
 #include <span>
@@ -17,6 +18,9 @@
 
 #include "decompress/Gobp/GobpSolver.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/Csm/detail/Csm.h"
+#include "decompress/DeterministicElimination/detail/ConstraintState.h"
 
 namespace crsce::decompress::detail {
 
@@ -116,4 +120,3 @@ void run_restart_worker(std::size_t wi,
 }
 
 } // namespace crsce::decompress::detail
-

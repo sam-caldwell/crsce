@@ -9,7 +9,6 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
-#include <stdlib.h> // NOLINT
 #include "common/O11y/metric.h"
 
 namespace {
@@ -29,8 +28,8 @@ bool wait_for_contains(const std::string &path, const std::string &needle, int m
 
 TEST(O11y, EventWithTagsEmits) {
   const std::string mpath = std::string(TEST_BINARY_DIR) + "/o11y_event.jsonl";
-  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe)
-  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
 
   ::crsce::o11y::event("ut_event_abc", {{"k","v"},{"x","y"}});
   ASSERT_TRUE(wait_for_contains(mpath, "\"name\":\"ut_event_abc\""));

@@ -21,6 +21,7 @@
 #include <span>
 #include <utility>
 #include <vector>
+#include <functional>
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;

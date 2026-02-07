@@ -8,6 +8,8 @@
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
+#include <mutex>
 #include <span>
 #include <vector>
 
@@ -53,4 +55,3 @@ void run_final_backtrack_worker(std::size_t wi,
                                 BlockSolveSnapshot::ThreadEvent &ev_out);
 
 } // namespace crsce::decompress::detail
-

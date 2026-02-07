@@ -8,11 +8,17 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <mutex>
 #include <span>
 #include <string>
 #include <vector>
 
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/Csm/detail/Csm.h"
+#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/DeterministicElimination/DeterministicElimination.h"
 
 namespace crsce::decompress::detail {
 
@@ -20,7 +26,7 @@ namespace crsce::decompress::detail {
  * @name run_final_backtrack_worker
  * @brief Worker for final single-cell boundary backtrack over top-K candidates.
  */
-void run_final_backtrack_worker(std::size_t wi,
+void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-linkage)
                                 const std::vector<BTTaskPair> &tasks,
                                 std::atomic<std::size_t> &next_idx,
                                 std::atomic<bool> &found,
@@ -83,4 +89,3 @@ void run_final_backtrack_worker(std::size_t wi,
 }
 
 } // namespace crsce::decompress::detail
-
