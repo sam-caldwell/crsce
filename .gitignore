@@ -35,6 +35,7 @@ __pycache__/
 # Logs and dumps
 *.log
 *.stackdump
+.testrunner_/
 
 # CMake specific
 CMakeCache.txt
