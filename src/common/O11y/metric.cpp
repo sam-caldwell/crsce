@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <filesystem>
 #include <initializer_list>
 #include <utility>
 #include <ios>
@@ -74,7 +75,7 @@ namespace crsce::o11y {
         // Synchronous output helpers (test-friendly, avoids background threads)
         inline std::string current_path() {
             if (const char *p = std::getenv("CRSCE_METRICS_PATH") /* NOLINT(concurrency-mt-unsafe) */; p && *p) { return std::string(p); }
-            return std::string("metrics.jsonl");
+            return std::string("build/metrics.jsonl");
         }
         inline bool flush_enabled() {
             if (const char *p = std::getenv("CRSCE_METRICS_FLUSH") /* NOLINT(concurrency-mt-unsafe) */; p && *p) { return (*p!='0'); }
@@ -83,7 +84,16 @@ namespace crsce::o11y {
         inline void write_line_sync(const std::string &line) {
             static std::mutex mu;
             const std::scoped_lock lk(mu);
-            std::ofstream os(current_path(), std::ios::out | std::ios::app | std::ios::binary);
+            const std::string path = current_path();
+            // Ensure parent directory exists (e.g., create 'build/' for default path)
+            try {
+                const std::filesystem::path p(path);
+                const auto dir = p.parent_path();
+                if (!dir.empty()) { std::filesystem::create_directories(dir); }
+            } catch (...) {
+                // Swallow directory creation errors; proceed to attempt file open
+            }
+            std::ofstream os(path, std::ios::out | std::ios::app | std::ios::binary);
             if (!os.is_open()) { return; }
             os << line << '\n';
             if (flush_enabled()) { os.flush(); }

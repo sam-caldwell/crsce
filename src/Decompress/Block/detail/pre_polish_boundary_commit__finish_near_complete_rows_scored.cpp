@@ -19,12 +19,27 @@
 #include "common/O11y/metric.h"
 #include <span>
 #include <utility>
+#include <functional>
 #include <vector>
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
     using crsce::decompress::DeterministicElimination;
 
+    /**
+     * @name finish_near_complete_rows_scored
+     * @brief Attempt completion of near-complete rows using top-K ambiguous cells and DE.
+     * @param csm_out In/out CSM under construction.
+     * @param st In/out constraint state.
+     * @param lh LH digest span.
+     * @param baseline_csm In/out baseline CSM; updated on adoption.
+     * @param baseline_st In/out baseline state; updated on adoption.
+     * @param snap In/out snapshot for metrics and events.
+     * @param rs Current restart index for event attribution.
+     * @param rows Candidate row indices to consider.
+     * @param top_k_cells Number of cells to try per row.
+     * @return bool True if a row completion was adopted; false otherwise.
+     */
     bool finish_near_complete_rows_scored(Csm &csm_out,
                                           ConstraintState &st,
                                           const std::span<const std::uint8_t> lh,
@@ -50,7 +65,7 @@ namespace crsce::decompress::detail {
                 cells.emplace_back(amb, c0);
             }
             if (cells.empty()) { continue; }
-            std::ranges::sort(cells, [](const auto &a, const auto &b){ return a.first < b.first; });
+            std::ranges::sort(cells, std::less<double>{}, &std::pair<double,std::size_t>::first);
             const std::size_t K = std::min<std::size_t>(cells.size(), top_k_cells);
             for (std::size_t i = 0; i < K; ++i) {
                 const std::size_t c_pick = cells[i].second;

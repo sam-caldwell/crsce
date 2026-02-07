@@ -10,22 +10,11 @@
 #include <cstdint>
 #include <print>
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/Decompressor/detail/phase_to_cstr.h"
 #include "common/O11y/metric.h"
 
 namespace crsce::decompress::detail {
-    namespace {
-    const char *phase_to_cstr(const crsce::decompress::BlockSolveSnapshot::Phase p) {
-        using P = crsce::decompress::BlockSolveSnapshot::Phase;
-        switch (p) {
-            case P::init: return "init";
-            case P::de: return "de";
-            case P::gobp: return "gobp";
-            case P::verify: return "verify";
-            case P::endOfIterations: return "end-of-iterations";
-        }
-        return "unknown";
-    }
-    } // anonymous namespace
+    // phase_to_cstr provided in header to avoid extra constructs
     /**
      * @name log_decompress_failure
      * @brief Emit a structured JSON record for a failed block solve using the last snapshot.

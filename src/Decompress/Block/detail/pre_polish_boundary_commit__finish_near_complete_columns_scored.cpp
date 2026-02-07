@@ -19,6 +19,7 @@
 #include "common/O11y/metric.h"
 #include <span>
 #include <utility>
+#include <functional>
 #include <vector>
 
 namespace crsce::decompress::detail {
@@ -63,7 +64,7 @@ namespace crsce::decompress::detail {
                 cells.emplace_back(amb, r0);
             }
             if (cells.empty()) { continue; }
-            std::ranges::sort(cells, [](const auto &a, const auto &b){ return a.first < b.first; });
+            std::ranges::sort(cells, std::less<double>{}, &std::pair<double,std::size_t>::first);
             const std::size_t K = std::min<std::size_t>(cells.size(), top_k_cells);
             for (std::size_t i = 0; i < K; ++i) {
                 const std::size_t r = cells[i].second;

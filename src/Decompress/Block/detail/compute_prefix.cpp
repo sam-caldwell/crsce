@@ -35,9 +35,9 @@ namespace crsce::decompress::detail {
 std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen, // NOLINT(misc-use-internal-linkage)
                            std::vector<char> &pc_ok,
                            std::size_t &pc_prefix_len,
-                           const Csm &csm,
-                           const ConstraintState &st,
-                           const std::span<const std::uint8_t> lh,
+                           Csm &csm,
+                           ConstraintState &st,
+                           std::span<const std::uint8_t> lh,
                            BlockSolveSnapshot &snap) {
     constexpr std::size_t S = Csm::kS;
     if (pc_ver_seen.size() != S) {

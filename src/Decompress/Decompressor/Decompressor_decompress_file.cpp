@@ -11,6 +11,9 @@
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/Decompressor/detail/log_decompress_failure.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
+#include "decompress/Utils/detail/js_escape.h"
+#include "decompress/Utils/detail/decompress_emit_summary.h"
+#include "decompress/Block/detail/restart_action_to_cstr.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -33,31 +36,7 @@
 #include <array>
 #include <filesystem>
 #include <exception>
-namespace {
-    // Minimal JSON escaper for names/outcomes in thread_events
-    std::string js_escape(const std::string &s) {
-        std::string out; out.reserve(s.size()+8);
-        for (const unsigned char ch : s) {
-            switch (ch) {
-                case '"': out += "\\\""; break;
-                case '\\': out += "\\\\"; break;
-                case '\n': out += "\\n"; break;
-                case '\r': out += "\\r"; break;
-                case '\t': out += "\\t"; break;
-                default:
-                    if (ch < 0x20) {
-                        static constexpr std::array<char,16> hex = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
-                        out += "\\u00";
-                        out.push_back(hex.at((ch >> 4) & 0xF));
-                        out.push_back(hex.at(ch & 0xF));
-                    } else {
-                        out.push_back(static_cast<char>(ch));
-                    }
-            }
-        }
-        return out;
-    }
-}
+// JS escaper and emit helpers moved to headers to satisfy ODPCPP
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
@@ -78,20 +57,10 @@ namespace crsce::decompress {
         // File-level block counters (summary)
         std::uint64_t blocks_attempted = 0;
         std::uint64_t blocks_successful = 0;
-        const auto emit_summary = [&](const char *status) {
-            const bool enabled = ([](){ if (const char *p = std::getenv("CRSCE_DECOMPRESS_FILE_SUMMARY") /* NOLINT(concurrency-mt-unsafe) */) { return (*p!='0'); } return false; })();
-            if (!enabled) { return; }
-            ::crsce::o11y::Obj o{"decompress_file_summary"};
-            const std::uint64_t failed = (blocks_attempted >= blocks_successful) ? (blocks_attempted - blocks_successful) : 0ULL;
-            o.add("status", std::string(status))
-             .add("blocks_attempted", static_cast<std::int64_t>(blocks_attempted))
-             .add("blocks_successful", static_cast<std::int64_t>(blocks_successful))
-             .add("blocks_failed", static_cast<std::int64_t>(failed));
-            ::crsce::o11y::metric(o);
-        };
+        // emit_summary helper moved to header; call directly at sites.
         if (!read_header(hdr)) {
             ::crsce::o11y::event("decompress_error", {{"type", std::string("invalid_header")}});
-            emit_summary("invalid_header");
+            ::crsce::decompress::detail::emit_decompress_summary("invalid_header", blocks_attempted, blocks_successful);
             std::println(stderr, "error: invalid header");
             return false;
         }
@@ -126,7 +95,7 @@ namespace crsce::decompress {
             if (!payload.has_value()) {
                 ::crsce::o11y::event("decompress_error", {{"type", std::string("short_read")}, {"block", std::to_string(i)}});
                 std::println(stderr, "error: short read on block {}", i);
-                emit_summary("short_read");
+                ::crsce::decompress::detail::emit_decompress_summary("short_read", blocks_attempted, blocks_successful);
                 return false;
             }
             ++blocks_attempted;
@@ -135,7 +104,7 @@ namespace crsce::decompress {
             if (!split_payload(*payload, lh, sums)) {
                 ::crsce::o11y::event("decompress_error", {{"type", std::string("bad_block_payload")}, {"block", std::to_string(i)}});
                 std::println(stderr, "error: bad block payload {}", i);
-                emit_summary("bad_block_payload");
+                ::crsce::decompress::detail::emit_decompress_summary("bad_block_payload", blocks_attempted, blocks_successful);
                 return false;
             }
             const std::uint64_t bits_done =
@@ -268,28 +237,13 @@ namespace crsce::decompress {
                         if (const auto s2 = get_block_solve_snapshot(); s2.has_value()) {
                             const auto &ev = s2->restarts;
                             os << "  \"restarts\":[\n";
-                            auto action_to_cstr = [](const crsce::decompress::BlockSolveSnapshot::RestartAction a)->const char*{
-                                using A = crsce::decompress::BlockSolveSnapshot::RestartAction;
-                                switch (a) {
-                                    case A::lockIn: return "lock-in";
-                                    case A::lockInRow: return "lock-in-row";
-                                    case A::lockInMicro: return "lock-in-micro";
-                                    case A::lockInPrefix: return "lock-in-prefix";
-                                    case A::restart: return "restart";
-                                    case A::restartContradiction: return "restart-contradiction";
-                                    case A::lockInParRs: return "lock-in-par-rs";
-                                    case A::polishShake: return "polish-shake";
-                                    case A::lockInFinal: return "lock-in-final";
-                                    case A::lockInPair: return "lock-in-pair";
-                                }
-                                return "unknown";
-                            };
+                            using ::crsce::decompress::detail::restart_action_to_cstr;
                             for (std::size_t qi = 0; qi < ev.size(); ++qi) {
                                 const auto &e = ev[qi];
                                 os << "    {\"restart_index\":" << e.restart_index
                                    << ",\"prefix_rows\":" << e.prefix_rows
                                    << ",\"unknown_total\":" << e.unknown_total
-                                   << ",\"action\":\"" << action_to_cstr(e.action) << "\"}";
+                                   << ",\"action\":\"" << restart_action_to_cstr(e.action) << "\"}";
                                 if (qi + 1U < ev.size()) { os << ","; }
                                 os << "\n";
                             }
@@ -431,7 +385,7 @@ namespace crsce::decompress {
                 } catch (...) {
                     // ignore log write errors
                 }
-                emit_summary("solve_failed");
+                ::crsce::decompress::detail::emit_decompress_summary("solve_failed", blocks_attempted, blocks_successful);
                 return false;
             }
             crsce::decompress::append_bits_from_csm(csm, to_take, output_bytes, curr, bit_pos);
@@ -561,29 +515,14 @@ namespace crsce::decompress {
                     // Also dump restarts/counters/schedule if available from snapshot
                         if (const auto s3 = get_block_solve_snapshot(); s3.has_value()) {
                         const auto &ev2 = s3->restarts;
-                        auto action_to_cstr = [](const crsce::decompress::BlockSolveSnapshot::RestartAction a)->const char*{
-                            using A = crsce::decompress::BlockSolveSnapshot::RestartAction;
-                            switch (a) {
-                                case A::lockIn: return "lock-in";
-                                case A::lockInRow: return "lock-in-row";
-                                case A::lockInMicro: return "lock-in-micro";
-                                case A::lockInPrefix: return "lock-in-prefix";
-                                case A::restart: return "restart";
-                                case A::restartContradiction: return "restart-contradiction";
-                                case A::lockInParRs: return "lock-in-par-rs";
-                                case A::polishShake: return "polish-shake";
-                                case A::lockInFinal: return "lock-in-final";
-                                case A::lockInPair: return "lock-in-pair";
-                            }
-                            return "unknown";
-                        };
+                        using ::crsce::decompress::detail::restart_action_to_cstr;
                         os << ",\n  \"restarts\":[\n";
                         for (std::size_t qi = 0; qi < ev2.size(); ++qi) {
                             const auto &e = ev2[qi];
                             os << "    {\"restart_index\":" << e.restart_index
                                << ",\"prefix_rows\":" << e.prefix_rows
                                << ",\"unknown_total\":" << e.unknown_total
-                               << ",\"action\":\"" << action_to_cstr(e.action) << "\"}";
+                               << ",\"action\":\"" << restart_action_to_cstr(e.action) << "\"}";
                             if (qi + 1U < ev2.size()) { os << ","; }
                             os << "\n";
                         }
@@ -654,10 +593,10 @@ namespace crsce::decompress {
                         os << "  \"threads\":[";
                         for (std::size_t ti = 0; ti < s3->thread_events.size(); ++ti) {
                             const auto &te = s3->thread_events[ti];
-                            os << "{\"name\":\"" << js_escape(te.name)
+                            os << "{\"name\":\"" << ::crsce::decompress::detail::js_escape(te.name)
                                << "\",\"start_ms\":" << te.start_ms
                                << ",\"stop_ms\":" << te.stop_ms
-                               << ",\"outcome\":\"" << js_escape(te.outcome) << "\"}";
+                               << ",\"outcome\":\"" << ::crsce::decompress::detail::js_escape(te.outcome) << "\"}";
                             if (ti + 1U < s3->thread_events.size()) { os << ","; }
                         }
                         os << "],\n";
@@ -689,7 +628,7 @@ namespace crsce::decompress {
         if (!out.good()) {
             ::crsce::o11y::event("decompress_error", {{"type", std::string("open_output_failed")}, {"path", output_path_}});
             std::println(stderr, "error: could not open output for write: {}", output_path_);
-            emit_summary("open_output_failed");
+            ::crsce::decompress::detail::emit_decompress_summary("open_output_failed", blocks_attempted, blocks_successful);
             return false;
         }
         if (!output_bytes.empty()) {
@@ -700,10 +639,10 @@ namespace crsce::decompress {
         if (!out.good()) {
             ::crsce::o11y::event("decompress_error", {{"type", std::string("write_failed")}, {"path", output_path_}});
             std::println(stderr, "error: write failed: {}", output_path_);
-            emit_summary("write_failed");
+            ::crsce::decompress::detail::emit_decompress_summary("write_failed", blocks_attempted, blocks_successful);
             return false;
         }
-        emit_summary("ok");
+        ::crsce::decompress::detail::emit_decompress_summary("ok", blocks_attempted, blocks_successful);
         return true;
     }
 } // namespace crsce::decompress

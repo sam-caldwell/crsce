@@ -19,12 +19,26 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <functional>
 #include <vector>
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
     using crsce::decompress::DeterministicElimination;
 
+    /**
+     * @name pre_polish_boundary_commit
+     * @brief Pre-polish phase: attempt to extend the prefix by focusing on the current boundary row.
+     * @param csm_out In/out CSM under construction.
+     * @param st In/out constraint state.
+     * @param lh LH digest span.
+     * @param seed Pseudorandom seed string (unused).
+     * @param baseline_csm In/out baseline CSM; updated on adoption.
+     * @param baseline_st In/out baseline state; updated on adoption.
+     * @param snap In/out snapshot for metrics and events.
+     * @param rs Current restart index for event attribution.
+     * @return bool True if boundary row was finished and adopted.
+     */
     bool pre_polish_boundary_commit(Csm &csm_out,
                                     ConstraintState &st,
                                     const std::span<const std::uint8_t> lh,
@@ -58,7 +72,7 @@ namespace crsce::decompress::detail {
                 const double amb = std::fabs(p - 0.5);
                 candidates.emplace_back(amb, c0);
             }
-            std::ranges::sort(candidates, [](const auto &a, const auto &b){ return a.first < b.first; });
+            std::ranges::sort(candidates, std::less<double>{}, &std::pair<double,std::size_t>::first);
             const std::size_t cap = std::min<std::size_t>(candidates.size(), static_cast<std::size_t>(kBoundaryTryCells));
             for (std::size_t idx = 0; idx < cap && !adopted_any; ++idx) {
                 const std::size_t c_pick = candidates[idx].second;

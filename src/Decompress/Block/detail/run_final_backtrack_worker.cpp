@@ -1,6 +1,8 @@
 /**
  * @file run_final_backtrack_worker.cpp
  * @brief Definition for final boundary backtrack worker.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/run_final_backtrack_worker.h"
 #include "decompress/Block/detail/BTTaskPair.h"
@@ -26,6 +28,21 @@ namespace crsce::decompress::detail {
 /**
  * @name run_final_backtrack_worker
  * @brief Worker for final single-cell boundary backtrack over top-K candidates.
+ * @param wi Worker index for naming the event sample.
+ * @param tasks Ordered candidate list of column,assume_one pairs.
+ * @param next_idx Atomic cursor across tasks shared by workers.
+ * @param found Atomic flag indicating a successful adoption occurred.
+ * @param lh Span of LH digest bytes for verification.
+ * @param boundary Current boundary row index.
+ * @param valid_now Current verified prefix length.
+ * @param S CSM dimension (rows/cols).
+ * @param csm_in Baseline CSM to clone from for each task.
+ * @param st_in Baseline constraint state to clone from for each task.
+ * @param adopt_mu Mutex used to guard winner adoption into output.
+ * @param c_winner Out: adopted CSM result if successful.
+ * @param st_winner Out: adopted state result if successful.
+ * @param ev_out Out: thread event metadata populated with timing/outcome.
+ * @return void
  */
 void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-linkage)
                                 const std::vector<BTTaskPair> &tasks,

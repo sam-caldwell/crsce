@@ -1,6 +1,8 @@
 /**
  * @file run_restart_worker.cpp
  * @brief Definition of parallel restart worker (mini-GOBP with jitter).
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/run_restart_worker.h"
 
@@ -28,6 +30,25 @@ namespace crsce::decompress::detail {
 /**
  * @name run_restart_worker
  * @brief Per-restart parallel worker that jitter-perturbs a baseline state and runs mini-GOBP phases.
+ * @param wi Worker index for naming per-phase/total events.
+ * @param baseline_csm Baseline CSM to copy and perturb.
+ * @param baseline_st Baseline state to copy for the attempt.
+ * @param c_winner Out: adopted CSM on success.
+ * @param st_winner Out: adopted state on success.
+ * @param adopted Atomic flag set to true when any worker adopts.
+ * @param adopt_mu Mutex guarding winner adoption into outputs.
+ * @param next_idx Atomic cursor across restart tasks.
+ * @param tasks Total number of restart tasks to execute.
+ * @param lh Span of LH digest bytes for verification.
+ * @param restart_seed Seed for per-restart RNG jitter.
+ * @param S CSM dimension.
+ * @param base_valid Current verified prefix length.
+ * @param max_ms Overall time budget per worker in milliseconds.
+ * @param ev_phase_wi Out: four phase event records for this worker.
+ * @param ev_total_wi Out: total event record for this worker.
+ * @param kPerturbBase Base jitter magnitude.
+ * @param kPerturbStep Per-restart jitter increment step.
+ * @return void
  */
 void run_restart_worker(std::size_t wi, // NOLINT(misc-use-internal-linkage)
                         const Csm &baseline_csm,

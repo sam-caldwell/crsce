@@ -51,14 +51,14 @@ void run_restart_worker(std::size_t wi,
                         std::mutex &adopt_mu,
                         std::atomic<std::size_t> &next_idx,
                         std::size_t tasks,
-                        const std::span<const std::uint8_t> lh,
-                        const std::uint64_t restart_seed,
-                        const std::size_t S,
-                        const std::size_t base_valid,
-                        const std::size_t max_ms,
+                        std::span<const std::uint8_t> lh,
+                        std::uint64_t restart_seed,
+                        std::size_t S,
+                        std::size_t base_valid,
+                        std::size_t max_ms,
                         std::array<BlockSolveSnapshot::ThreadEvent,4> &ev_phase_wi,
                         BlockSolveSnapshot::ThreadEvent &ev_total_wi,
-                        const double kPerturbBase,
-                        const double kPerturbStep);
+                        double kPerturbBase,
+                        double kPerturbStep);
 
 } // namespace crsce::decompress::detail
