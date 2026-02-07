@@ -24,7 +24,20 @@
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
     using crsce::decompress::DeterministicElimination;
-
+    /**
+     * @name finish_near_complete_columns_scored
+     * @brief Attempt completion of near-complete columns by trying top-K most ambiguous cells.
+     * @param csm_out In/out CSM under construction.
+     * @param st In/out constraint state.
+     * @param lh LH digest span.
+     * @param baseline_csm Out: updated baseline CSM if adoption occurs.
+     * @param baseline_st Out: updated baseline state if adoption occurs.
+     * @param snap In/out snapshot for metrics and events.
+     * @param rs Current restart index for event attribution.
+     * @param cols Candidate column indices to consider.
+     * @param top_k_cells Number of cells to try per column.
+     * @return bool True if any column completion adopted; false otherwise.
+     */
     bool finish_near_complete_columns_scored(Csm &csm_out,
                                              ConstraintState &st,
                                              const std::span<const std::uint8_t> lh,

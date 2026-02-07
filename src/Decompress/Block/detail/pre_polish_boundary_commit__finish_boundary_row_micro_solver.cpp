@@ -66,6 +66,18 @@ namespace crsce::decompress::detail {
     }
     } // anonymous namespace
 
+    /**
+     * @name finish_boundary_row_micro_solver
+     * @brief Focused micro-solver to complete a boundary row via ranked single-cell trials and DE.
+     * @param csm_out In/out CSM under construction.
+     * @param st In/out constraint state.
+     * @param lh LH digest span.
+     * @param baseline_csm Out: updated baseline CSM if adoption occurs.
+     * @param baseline_st Out: updated baseline state if adoption occurs.
+     * @param snap In/out snapshot for metrics and events.
+     * @param rs Current restart index for event attribution.
+     * @return bool True if boundary completion adopted; false otherwise.
+     */
     bool finish_boundary_row_micro_solver(Csm &csm_out,
                                           ConstraintState &st,
                                           std::span<const std::uint8_t> lh,

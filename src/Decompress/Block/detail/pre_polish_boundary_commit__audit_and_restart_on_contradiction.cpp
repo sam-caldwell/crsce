@@ -15,7 +15,21 @@
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
-
+    /**
+     * @name audit_and_restart_on_contradiction
+     * @brief Audit locked rows against LH and restart from baseline on contradiction.
+     * @param csm_out In/out CSM under construction.
+     * @param st In/out constraint state.
+     * @param lh LH digest span.
+     * @param baseline_csm Baseline CSM to revert to when contradiction found.
+     * @param baseline_st Baseline state to revert to when contradiction found.
+     * @param snap In/out snapshot for recording restart event.
+     * @param rs Current restart index.
+     * @param valid_bits Number of meaningful bits in this block.
+     * @param cooldown_ticks Cooldown iterations before allowing another restart.
+     * @param since_last_restart In/out guard counter since previous restart.
+     * @return bool True if a contradiction was found and restart performed; false otherwise.
+     */
     bool audit_and_restart_on_contradiction(Csm &csm_out,
                                             ConstraintState &st,
                                             const std::span<const std::uint8_t> lh,

@@ -25,7 +25,19 @@
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
     using crsce::decompress::DeterministicElimination;
-
+    /**
+     * @name finish_boundary_row_adaptive
+     * @brief Attempt to complete a near-complete boundary row using adaptive heuristics and DE.
+     * @param csm_out In/out CSM under construction.
+     * @param st In/out constraint state.
+     * @param lh LH digest span.
+     * @param baseline_csm Out: updated baseline CSM if adoption occurs.
+     * @param baseline_st Out: updated baseline state if adoption occurs.
+     * @param snap In/out snapshot for metrics and events.
+     * @param rs Current restart index for event attribution.
+     * @param stall_ticks Number of iterations without progress to scale effort.
+     * @return bool True if any adoption occurred; false otherwise.
+     */
     bool finish_boundary_row_adaptive(Csm &csm_out, /* NOLINT(misc-use-internal-linkage) */
                                       ConstraintState &st,
                                       const std::span<const std::uint8_t> lh,
@@ -72,7 +84,7 @@ namespace crsce::decompress::detail {
                 const double amb = std::fabs(p - 0.5);
                 candidates.emplace_back(amb, c0);
             }
-            std::ranges::sort(candidates, [](const auto &a, const auto &b){ return a.first < b.first; });
+            std::ranges::sort(candidates, std::less<>{}, &std::pair<double,std::size_t>::first);
             const std::size_t cap = std::min<std::size_t>(candidates.size(), kBoundaryTryCells);
             for (std::size_t idx = 0; idx < cap && !adopted_any; ++idx) {
                 const std::size_t c_pick = candidates[idx].second;

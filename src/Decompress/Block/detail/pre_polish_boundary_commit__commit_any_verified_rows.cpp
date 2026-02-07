@@ -16,7 +16,18 @@
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
-
+    /**
+     * @name commit_any_verified_rows
+     * @brief Verify rows against LH and commit any fully verified rows to the baseline.
+     * @param csm_out In/out CSM under construction.
+     * @param st In/out constraint state.
+     * @param lh LH digest span.
+     * @param baseline_csm Out: updated baseline CSM when rows are committed.
+     * @param baseline_st Out: updated baseline state when rows are committed.
+     * @param snap In/out snapshot for recording lock-in events and prefix samples.
+     * @param rs Current restart index for event attribution.
+     * @return bool True if at least one row was committed; false otherwise.
+     */
     bool commit_any_verified_rows(Csm &csm_out,
                                   ConstraintState &st,
                                   const std::span<const std::uint8_t> lh,
