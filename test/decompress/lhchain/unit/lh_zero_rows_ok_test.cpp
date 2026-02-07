@@ -11,7 +11,7 @@ using crsce::decompress::RowHashVerifier;
 using crsce::decompress::Csm;
 
 /**
- * @name LHChainVerifier.ZeroRowsOk
+ * @name RowHashVerifier.ZeroRowsOk
  * @brief Intent: exercise the expected behavior of this test.
  *         Passing indicates the behavior holds; failing indicates a regression.
  *         Assumptions: default environment and explicit setup within this test.
