@@ -54,7 +54,7 @@ def load_objects(path: str) -> List[Dict[str, Any]]:
             elif ch == '}':
                 depth -= 1
                 if depth == 0 and start_idx != -1:
-                    chunk = data[start_idx:i+1]
+                    chunk = data[start_idx:i + 1]
                     try:
                         obj = json.loads(chunk)
                         objs.append(obj)
@@ -119,10 +119,10 @@ def main(argv: List[str]) -> int:
     if do_csv:
         # emit per-run CSV
         cols = [
-            'rng_seed_belief','rng_seed_restarts','start_ms','end_ms',
-            'row_avg_pct','row_max_pct','valid_prefix','rows_committed','cols_finished',
-            'restarts_total','lock_in_prefix_count','lock_in_row_count','restart_contradiction_count',
-            'boundary_finisher_attempts','boundary_finisher_successes'
+            'rng_seed_belief', 'rng_seed_restarts', 'start_ms', 'end_ms',
+            'row_avg_pct', 'row_max_pct', 'valid_prefix', 'rows_committed', 'cols_finished',
+            'restarts_total', 'lock_in_prefix_count', 'lock_in_row_count', 'restart_contradiction_count',
+            'boundary_finisher_attempts', 'boundary_finisher_successes'
         ]
         print(','.join(cols))
         for o in objs:
@@ -166,7 +166,9 @@ def main(argv: List[str]) -> int:
         q = quantiles(values)
         mean = stats.fmean(values)
         stdev = stats.pstdev(values) if len(values) > 1 else 0.0
-        print(f"- {name}: count={len(values)} min={min(values):.4f} p50={q[0.5]:.4f} p90={q[0.9]:.4f} p99={q[0.99]:.4f} max={max(values):.4f} mean={mean:.4f} stdev={stdev:.4f}")
+        print(
+            f"- {name}: count={len(values)} min={min(values):.4f} p50={q[0.5]:.4f} p90={q[0.9]:.4f} p99={q[0.99]:.4f}"
+            f"max={max(values):.4f} mean={mean:.4f} stdev={stdev:.4f}")
 
     print(f"Records: {len(objs)} from {path}")
     summarize('row_avg_pct', row_avg)

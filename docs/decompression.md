@@ -30,6 +30,7 @@ unassigned variables U on that line. Then:
 - Update residuals and repeat until a fixed point.
 
 Line families (CRSCE v1 mapping):
+
 - Rows (LSM): r fixed, c = 0..S−1.
 - Cols (VSM): c fixed, r = 0..S−1.
 - Diagonals (DSM): index d = (c − r) mod S; a line is the set {(r,c) | c = (r + d) mod S}. DSM[0] is the main diagonal (r==c).

@@ -11,34 +11,52 @@ indent_size = 2
 [*.md]
 trim_trailing_whitespace = false
 indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [Makefile]
 indent_style = tab
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.{c,cc,cpp,cxx,h,hpp,hxx}]
 indent_style = space
 indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [CMakeLists.txt]
 indent_style = space
 indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.cmake]
 indent_style = space
 indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.{json,jsonc}]
 indent_style = space
 indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.{yml,yaml}]
 indent_style = space
 indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.sh]
 indent_style = space
 indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.py]
 indent_style = space
 indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true

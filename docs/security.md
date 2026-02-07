@@ -15,8 +15,8 @@
 
 ## Principles
 
-- Integrity first: Use per-row LH (SHA‑256 of each 64-byte row) and cross‑sum equality checks as strict acceptance criteria. Any mismatch
-  must reject the block.
+- Integrity first: Use per-row LH (SHA‑256 of each 64-byte row) and cross‑sum equality checks as strict acceptance
+  criteria. Any mismatch must reject the block.
 - Untrusted input: Treat all `decompress` inputs as hostile. Validate all headers, sizes, and indices before allocation
   or processing.
 - Fail‑hard by default: Do not produce partial outputs on acceptance failure unless an explicit override is implemented.

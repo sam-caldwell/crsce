@@ -3,7 +3,9 @@
 Re-run top-K seeds from completion_stats.log/CSV with heavier effort.
 
 Usage:
-  python3 tools/useless_topk_rerun.py [--k 10] [--by row_avg_pct|valid_prefix] [--csv build/uselessTest/completion_stats.csv]
+  python3 tools/useless_topk_rerun.py [--k 10]
+                                     [--by row_avg_pct|valid_prefix]
+                                     [--csv build/uselessTest/completion_stats.csv]
 
 Selects the top K seeds by the chosen metric and re-runs make test/uselessMachine
 for those seeds. Environment variables are used to pass the seed.
@@ -14,7 +16,7 @@ import csv
 import os
 import subprocess
 import sys
-from typing import List, Tuple
+from typing import List
 
 
 def pick_top(csv_path: str, k: int, by: str) -> List[int]:
@@ -40,11 +42,17 @@ def main(argv: List[str]) -> int:
     while i < len(args):
         a = args[i]
         if a == '--k' and i + 1 < len(args):
-            k = int(args[i + 1]); i += 2; continue
+            k = int(args[i + 1])
+            i += 2
+            continue
         if a == '--by' and i + 1 < len(args):
-            by = args[i + 1]; i += 2; continue
+            by = args[i + 1]
+            i += 2
+            continue
         if a == '--csv' and i + 1 < len(args):
-            csv_path = args[i + 1]; i += 2; continue
+            csv_path = args[i + 1]
+            i += 2
+            continue
         i += 1
 
     if not os.path.exists(csv_path):
@@ -64,4 +72,3 @@ def main(argv: List[str]) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main(sys.argv))
-

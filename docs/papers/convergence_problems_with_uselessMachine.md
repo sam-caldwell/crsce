@@ -130,14 +130,14 @@ Safety and test strategy:
     - `build/uselessTest/decompress.stdout.txt`: JSON snapshot (unknown counts, iteration, etc.).
 - If you want, create a variant target with even stronger parameters and enabled debug:
 
-```
+```bash
 CRSCE_DE_MAX_ITERS=50000 \
 CRSCE_GOBP_ITERS=50000 \
 CRSCE_GOBP_CONF=0.80 \
 CRSCE_GOBP_DAMP=0.15 \
 CRSCE_PRELOCK_DEBUG=1 \
 make test/uselessMachine
-```
+```bash
 
 Be aware that this can be very slow and may still not converge on highly entropic content without additional heuristics.
 
@@ -181,7 +181,7 @@ By the power of my redneck, oilfield heritage GET A BIGGER HAMMER!
 
 GOBP is reaching a state of zero progress. We need to give it a chance to converge by stimulating new activity.
 
-## Option: Let's try being more aggressive!
+## Option: Try being more aggressive
 
 Aggressive GOBP parameters:
 
@@ -208,12 +208,14 @@ Aggressive GOBP parameters:
     - Phase 3: damping 0.20, confidence 0.85
 
 > GOBP runs a fixed 4‑phase schedule by default. To tune, use per‑phase overrides:
+>
 > - CRSCE_GOBP_PHASE1_CONF / CRSCE_GOBP_PHASE1_DAMP / CRSCE_GOBP_PHASE1_ITERS
 > - CRSCE_GOBP_PHASE2_CONF / CRSCE_GOBP_PHASE2_DAMP / CRSCE_GOBP_PHASE2_ITERS
 > - CRSCE_GOBP_PHASE3_CONF / CRSCE_GOBP_PHASE3_DAMP / CRSCE_GOBP_PHASE3_ITERS
 > - CRSCE_GOBP_PHASE4_CONF / CRSCE_GOBP_PHASE4_DAMP / CRSCE_GOBP_PHASE4_ITERS
-
+>
 > We have wired env overrides for multi-phase so we can try more extreme annealing right away, e.g.:
+>
 > - CRSCE_GOBP_PHASE1_CONF/DAMP
 > - CRSCE_GOBP_PHASE2_CONF/DAMP
 > - CRSCE_GOBP_PHASE3_CONF/DAMP
@@ -287,7 +289,7 @@ This produced the same outcome
 
 Run this...
 
-```
+``` shell
 make build test/uselessMachine PRESET=llvm-debug \
     CRSCE_GOBP_PHASE1_CONF=0.99 \
     CRSCE_GOBP_PHASE1_DAMP=0.50 \
@@ -444,7 +446,7 @@ The overrides did help:
             - a lot more low single‑digit progress appears in the tail.
             - This is exactly what we want to see from a stronger Phase 3.
 
-## Option: More COWBELL:
+## Option: More COWBELL
 
 - Go even greedier in Phase 3:
     - Phase 1: conf=0.99, damp=0.50, iters=500
@@ -466,7 +468,7 @@ make build test/uselessMachine \
     CRSCE_BT_DE_ITERS=1200
 ```
 
-### Outcome:
+### Outcome
 
 - <span style="color:red">**BINGO!  100% on some cells**</span>
 
@@ -542,7 +544,7 @@ make build test/uselessMachine \
 
 - Add a fourth phase to GOBP with a reheat/polish to shake loose from the plateaus.
 
-### Outcome:
+### Outcome
 
 ```text
 % cat /Users/samcaldwell/git/sam-caldwell/crsce/build/uselessTest/completion_stats.log
@@ -641,7 +643,7 @@ make build test/uselessMachine \
 }
 ```
 
-## Next steps...
+## Next steps
 
 - More permissive polish:
     - Stage 4 damping: 0.01 (was 0.00).
@@ -726,7 +728,7 @@ Thsi is our last outcome:
 - We are still focusing on top-left first. It's reflected in the answer. It's the same issue as Raddiz Sift (1990s)
     - We need to get GOBP to focus less on top-left and look at the entire CSM, where solutions may unlock the plateau.
 
-## Status Update:
+## Status Update
 
 - I have made absolutely no progress. I've added more telemetry, but chain hashes weren't causing the problem and
   row-level hashes didn't fix anything.
@@ -1308,7 +1310,7 @@ where we are
 }
 ```
 
-### Analysis:
+## Analysis
 
 Compare the last two snapshots:
 
@@ -1378,5 +1380,5 @@ Feasibility guards prevent impossible assignments:
   d=0.5. Residuals are updated atomically in apply_cell, which throws on underflow.
 
 > Example: pr=0.625 (5/8), pc=0.6 (6/10), pd=px=0.5714 (8/14 and 4/7).
-> Odds: 1.6667, 1.5, 1.3333, 1.3333 product ≈ 4.4445 prob ≈ 4.4445/5.4445 ≈ 0.816. 
+> Odds: 1.6667, 1.5, 1.3333, 1.3333 product ≈ 4.4445 prob ≈ 4.4445/5.4445 ≈ 0.816.
 > With d=0.25 and prev=1.0, blended = 0.251.0 + 0.750.816 ≈ 0.862.
