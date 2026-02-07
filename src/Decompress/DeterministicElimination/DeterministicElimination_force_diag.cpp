@@ -1,7 +1,7 @@
 /**
  * @file DeterministicElimination_force_diag.cpp
  * @brief Implementation of DeterministicElimination::force_diag.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Utils/detail/index_calc.h"

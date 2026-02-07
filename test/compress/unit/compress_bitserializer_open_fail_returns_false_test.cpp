@@ -1,6 +1,7 @@
 /**
  * @file compress_bitserializer_open_fail_returns_false_test.cpp
  * @brief compress_file should return false if FileBitSerializer cannot open input.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 #include <filesystem>

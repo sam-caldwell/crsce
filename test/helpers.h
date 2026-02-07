@@ -1,6 +1,7 @@
 /**
  * @file helpers.h
  * @brief Shared Argv builder for ArgParser tests.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

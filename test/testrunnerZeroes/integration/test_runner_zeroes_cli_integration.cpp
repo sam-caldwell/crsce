@@ -1,6 +1,7 @@
 /**
  * @file test_runner_zeroes_cli_integration.cpp
  * @brief Integration test for the TestRunnerZeroes pipeline via direct run().
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,6 +1,7 @@
 /*
  * @file bithashbuffer_private_coverage_test.cpp
  * @brief Exercise byte flush behavior via public API only.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <algorithm>
 #include <array>
@@ -9,7 +10,7 @@
 /**
  * @file bithashbuffer_private_coverage_test.cpp
  * @brief Coverage of private helpers using friend exposure hooks.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <gtest/gtest.h>
 #include <iterator>

@@ -1,5 +1,7 @@
 /**
  * @file: util_classify_char_space_test.cpp
+ * @brief Unit test for classify_char_space.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/CharClass.h"
 #include "common/Util/detail/classify_char.h"

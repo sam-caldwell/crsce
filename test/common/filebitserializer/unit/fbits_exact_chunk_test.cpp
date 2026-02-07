@@ -1,6 +1,7 @@
 /**
  * @file fbits_exact_chunk_test.cpp
  * @brief One-test file: Exact 1 KiB buffer boundary cases.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "helpers/remove_file.h"

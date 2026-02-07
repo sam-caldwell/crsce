@@ -1,6 +1,7 @@
 /**
  * @file container_header_multiblock_test.cpp
  * @brief Ensure block_count > 1 and file size equals header + N*18652 for large input.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <gtest/gtest.h>

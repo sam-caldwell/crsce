@@ -1,6 +1,7 @@
 /**
  * @file tmp_dir.h
  * @brief Return the system temporary directory path as a string.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

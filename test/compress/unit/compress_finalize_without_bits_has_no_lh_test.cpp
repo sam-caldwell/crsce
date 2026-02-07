@@ -1,6 +1,7 @@
 /**
  * @file compress_finalize_without_bits_has_no_lh_test.cpp
  * @brief Verify finalize on an empty block does not enqueue LH.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <gtest/gtest.h>

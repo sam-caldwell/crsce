@@ -1,7 +1,7 @@
 /**
  * @file clang_plugin_odph_multiple_function_enum_error_test.cpp
- * @brief OneDefinitionPerHeader: multiple constructs (function+enum) should
- * fail.
+ * @brief OneDefinitionPerHeader: multiple constructs (function+enum) should fail.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>
@@ -9,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginODPH.MultipleFunctionAndEnumFail
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginODPH, MultipleFunctionAndEnumFail) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

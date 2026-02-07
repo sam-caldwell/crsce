@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odpcpp_file_tag_mismatch_error_test.cpp
  * @brief @file tag mismatch should error.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>

@@ -1,7 +1,7 @@
 /**
  * @file fbits_two_byte_sequence_test.cpp
- * @brief One-test file: Two-byte sequence spans a byte boundary; verify
- * MSB-first order.
+ * @brief One-test file: Two-byte sequence spans a byte boundary; verify MSB-first order.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include <cstdio>

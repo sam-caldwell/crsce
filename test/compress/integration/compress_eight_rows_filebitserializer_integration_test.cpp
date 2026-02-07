@@ -2,6 +2,7 @@
  * @file compress_eight_rows_filebitserializer_integration_test.cpp
  * @brief Integration: Feed 8 rows (multiple of 8 bytes) through FileBitSerializer -> Compress
  *        and validate per-row LH and cross-sum aggregates.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "compress/Compress/Compress.h"

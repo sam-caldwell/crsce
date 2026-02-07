@@ -1,5 +1,7 @@
 /**
- * One-test file: No args parses ok and no help flag.
+ * @file argparser_noargs_ok_test.cpp
+ * @brief One-test file: No args parses ok and no help flag.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/ArgParser/ArgParser.h"
 #include "helpers.h"

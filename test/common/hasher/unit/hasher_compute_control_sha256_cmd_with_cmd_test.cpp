@@ -1,5 +1,7 @@
 /**
  * @file hasher_compute_control_sha256_cmd_with_cmd_test.cpp
+ * @brief Verify compute_control_sha256_cmd works with a command line.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/compute_control_sha256_cmd.h"
 #include <gtest/gtest.h>

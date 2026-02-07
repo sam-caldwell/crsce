@@ -1,6 +1,7 @@
 /**
  * @file put_le16_writes_little_endian_test.cpp
  * @brief Unit: verify put_le16 writes little-endian bytes at given offset.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Format/detail/put_le16.h"
 #include <gtest/gtest.h>

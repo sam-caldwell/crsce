@@ -2,7 +2,7 @@
  * @file make_input.cpp
  * @brief Implement make_input: compute SHA-512, blocks, and log for an existing file.
  * @author Sam Caldwell
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testRunnerRandom/Cli/detail/make_input.h"
 

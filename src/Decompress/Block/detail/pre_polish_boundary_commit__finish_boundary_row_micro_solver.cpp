@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__finish_boundary_row_micro_solver.cpp
  * @brief Definition of finish_boundary_row_micro_solver.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/pre_polish_finish_boundary_row_micro_solver.h"
 

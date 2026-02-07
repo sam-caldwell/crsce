@@ -2,7 +2,7 @@
  * @file min_bytes_for_n_blocks.cpp
  * @brief Compute minimal bytes to span exactly N CRSCE blocks.
  * @author Sam Caldwell
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testRunnerRandom/detail/min_bytes_for_n_blocks.h"
 #include "decompress/Csm/detail/Csm.h"

@@ -1,5 +1,9 @@
 /**
  * @file hasher_run_sha256_stdin_status_fail_test.cpp
+ * @brief Intent: exercise the expected behavior of this test.
+ *         Passing indicates the behavior holds; failing indicates a regression.
+ *         Assumptions: default environment and explicit setup within this test.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/run_sha256_stdin.h"
 #include <gtest/gtest.h>

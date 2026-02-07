@@ -2,7 +2,7 @@
  * @file BlockSolverStatus_set.cpp
  * @brief Implementation of set_block_solve_snapshot().
  * @author Sam Caldwell
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "decompress/Block/detail/BlockSolverStatus_state.h"

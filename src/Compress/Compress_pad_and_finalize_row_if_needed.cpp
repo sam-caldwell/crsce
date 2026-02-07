@@ -1,7 +1,7 @@
 /**
  * @file Compress_pad_and_finalize_row_if_needed.cpp
  * @brief Implementation of Compress::pad_and_finalize_row_if_needed.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 

@@ -1,6 +1,7 @@
 /**
  * @file compress_file_ok_test.cpp
  * @brief Unit: compress_file succeeds and writes artifacts.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

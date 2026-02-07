@@ -1,5 +1,7 @@
 /**
- * One-test file: Help flags set help true and parse ok.
+ * @file argparser_help_flags_test.cpp
+ * @brief One-test file: Help flags set help true and parse ok.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/ArgParser/ArgParser.h"
 #include "helpers.h"

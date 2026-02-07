@@ -1,5 +1,7 @@
 /**
  * @file hasher_run_sha256_stdin_ok_test.cpp
+ * @brief Verify run_sha256_stdin works with a command line.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/run_sha256_stdin.h"
 #include <gtest/gtest.h>

@@ -1,4 +1,8 @@
-// o11y_gobp_debug_gating_test.cpp
+/*
+ * @file o11y_gobp_debug_gating_test.cpp
+ * @brief observability test
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ */
 #include <gtest/gtest.h>
 #include <fstream>
 #include <string>
@@ -24,9 +28,9 @@ bool wait_for_contains(const std::string &path, const std::string &needle, int m
 
 TEST(O11y, GobpDebugEventEmitsWhenEnabled) {
   const std::string mpath = std::string(TEST_BINARY_DIR) + "/o11y_gobp_debug.jsonl";
-  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe)
-  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe)
-  ASSERT_EQ(::setenv("CRSCE_GOBP_DEBUG", "1", 1), 0);           // NOLINT(concurrency-mt-unsafe)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+  ASSERT_EQ(::setenv("CRSCE_GOBP_DEBUG", "1", 1), 0);           // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
 
   // First use will cache the debug flag
   ASSERT_TRUE(::crsce::o11y::gobp_debug_enabled());

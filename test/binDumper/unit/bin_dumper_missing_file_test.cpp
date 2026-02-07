@@ -1,6 +1,7 @@
 /**
  * @file bin_dumper_missing_file_test.cpp
  * @brief Verify binDumper error path on missing file.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

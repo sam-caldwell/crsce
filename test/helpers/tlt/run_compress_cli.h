@@ -1,6 +1,7 @@
 /**
  * @file run_compress_cli.h
  * @brief Invoke the compress CLI runner with -in/-out arguments.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

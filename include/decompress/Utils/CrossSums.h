@@ -1,7 +1,7 @@
 /**
  * @file CrossSums.h
  * @brief Cross-sum verification helpers for reconstructed CSMs.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

@@ -1,6 +1,7 @@
 /**
  * @file decompress_utils.h
  * @brief Shared test helpers for decoding sums, verifying CSM cross-sums, appending bits, and solving blocks.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

@@ -1,6 +1,7 @@
 /**
  * @file test_collisions_usage.cpp
  * @brief Integration tests for testCollisions CLI: usage and validation errors.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include <gtest/gtest.h>

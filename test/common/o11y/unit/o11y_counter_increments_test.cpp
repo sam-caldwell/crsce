@@ -1,10 +1,15 @@
-// o11y_counter_increments_test.cpp
+/*
+ * @file o11y_counter_increments_test.cpp
+ * @brief observability test
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <fstream>
 #include <string>
 #include <thread>
 #include <chrono>
 #include <cstdlib>
+#include <algorithm>
 #include <cctype>
 #include "common/O11y/metric.h"
 
@@ -23,10 +28,10 @@ int wait_for_max_count(const std::string &path, const std::string &name, int exp
           pos += 9;
           int v = 0;
           while (pos < line.size() && isdigit(static_cast<unsigned char>(line[pos]))) {
-            v = v*10 + (line[pos]-'0');
+            v = (v * 10) + (line[pos] - '0');
             ++pos;
           }
-          if (v > maxc) maxc = v;
+          maxc = std::max(maxc, v);
         }
       }
     }
@@ -39,8 +44,8 @@ int wait_for_max_count(const std::string &path, const std::string &name, int exp
 
 TEST(O11y, CounterIncrements) {
   const std::string mpath = std::string(TEST_BINARY_DIR) + "/o11y_counter.jsonl";
-  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe)
-  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
 
   const std::string name = "ut_counter_inc";
   for (int i = 0; i < 5; ++i) { ::crsce::o11y::counter(name); }

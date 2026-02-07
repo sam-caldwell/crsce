@@ -1,6 +1,7 @@
 /**
  * @file compress_end_of_row_resets_next_row_test.cpp
  * @brief Verify end-of-row behavior resets column and advances to the next row.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

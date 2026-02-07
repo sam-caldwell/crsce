@@ -1,6 +1,7 @@
 /**
  * @file crosssum_serialize_masks_to_9_bits_test.cpp
  * @brief Ensure CrossSum::serialize_append masks values to 9 bits (0x01FF).
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 #include <cstddef>

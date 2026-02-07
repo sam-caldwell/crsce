@@ -2,7 +2,7 @@
  * @file BlockSolverStatus_state.h
  * @brief Declaration of thread-local storage for the last block solver snapshot.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

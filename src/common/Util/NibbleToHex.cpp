@@ -1,5 +1,6 @@
 /**
  * @file NibbleToHex.cpp
+ * @brief Convert a 4-bit value (0..15) to its uppercase hexadecimal character.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/NibbleToHex.h"

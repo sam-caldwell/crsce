@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odph_happy_typedef_test.cpp
  * @brief ODPH: typedef happy path passes.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>
@@ -8,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginODPH.HappyTypedefPasses
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginODPH, HappyTypedefPasses) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

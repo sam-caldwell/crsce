@@ -1,7 +1,7 @@
 /**
  * @file LHChainVerifier.h
  * @brief Verify chained SHA-256 digests (LH) for CSM rows.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

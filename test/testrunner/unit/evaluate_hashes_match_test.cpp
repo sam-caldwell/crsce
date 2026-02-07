@@ -1,6 +1,7 @@
 /**
  * @file evaluate_hashes_match_test.cpp
  * @brief Unit: evaluate_hashes does not throw on match.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,6 +1,7 @@
 /**
  * @file header_v1_constants_stability_test.cpp
  * @brief Negative tests to enforce HeaderV1 constant stability unless explicitly allowed.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Format/HeaderV1.h"
 #include <gtest/gtest.h>

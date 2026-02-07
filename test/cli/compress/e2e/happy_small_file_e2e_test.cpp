@@ -1,6 +1,7 @@
 /**
  * @file happy_small_file_e2e_test.cpp
  * @brief E2E: compress CLI compresses a small file successfully.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"

@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_finish_two_row_micro_solver.h
  * @brief Declare two-row boundary micro-solver.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

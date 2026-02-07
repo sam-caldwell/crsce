@@ -1,6 +1,7 @@
 /**
  * @file files_equal.h
  * @brief Compare two files for equal size and identical content.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

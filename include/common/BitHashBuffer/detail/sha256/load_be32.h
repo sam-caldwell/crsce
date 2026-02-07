@@ -1,7 +1,7 @@
 /**
  * @file load_be32.h
  * @brief Load a 32-bit word from big-endian order.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

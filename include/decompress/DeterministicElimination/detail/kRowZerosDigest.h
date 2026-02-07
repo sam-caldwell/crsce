@@ -1,7 +1,7 @@
 /**
  * @file kRowZerosDigest.h
  * @brief Precomputed LH digest for the all-zeros row.
- * © Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

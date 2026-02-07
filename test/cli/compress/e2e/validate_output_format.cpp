@@ -1,6 +1,7 @@
 /**
  * @file validate_output_format.cpp
  * @brief E2E: invoke compress CLI binary and validate CRSCE container format for 0/1/5 blocks.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

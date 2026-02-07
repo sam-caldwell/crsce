@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odph_missing_construct_doc_error_test.cpp
  * @brief OneDefinitionPerHeader: missing construct doc should fail.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>
@@ -8,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginODPH.MissingConstructDocFails
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginODPH, MissingConstructDocFails) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

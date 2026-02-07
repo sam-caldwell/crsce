@@ -1,6 +1,7 @@
 /**
  * @file fbits_missing_file_test.cpp
  * @brief One-test file: Non-existent file -> not good, no bits.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "helpers/tmp_dir.h"

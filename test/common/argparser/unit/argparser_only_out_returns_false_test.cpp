@@ -1,5 +1,7 @@
 /**
  * @file: argparser_only_out_returns_false_test.cpp
+ * @brief Only -out flag returns false.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/ArgParser/ArgParser.h"
 #include "helpers.h"

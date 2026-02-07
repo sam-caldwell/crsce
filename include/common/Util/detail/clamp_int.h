@@ -1,7 +1,7 @@
 /**
  * @file clamp_int.h
  * @brief Clamp integer to a closed interval [lo, hi].
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

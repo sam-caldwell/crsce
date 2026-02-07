@@ -1,6 +1,7 @@
 /**
  * @file verify_latency.cpp
  * @brief TLT: measure compression latency and assert <=1s per block on average.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

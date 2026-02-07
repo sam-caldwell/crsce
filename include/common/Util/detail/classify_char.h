@@ -1,7 +1,7 @@
 /**
  * @file classify_char.h
  * @brief Provider header for classify_char utility function.
- * © Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

@@ -2,7 +2,7 @@
  * @file log_decompress_failure.cpp
  * @brief JSON logging helper for block-solve failures during decompression.
  * @author Sam Caldwell
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/detail/log_decompress_failure.h"
 

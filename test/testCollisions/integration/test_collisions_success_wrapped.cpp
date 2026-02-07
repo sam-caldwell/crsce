@@ -1,6 +1,7 @@
 /**
  * @file test_collisions_success_wrapped.cpp
  * @brief Integration test: wrap compress/decompress with pass-through copies to force 'pass' flow and cleanup.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include <gtest/gtest.h>

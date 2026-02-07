@@ -1,6 +1,7 @@
 /**
  * @file compress_finalize_after_full_row_no_extra_pad_test.cpp
  * @brief After exactly one full row (511 bits) pushed, finalize should not add another LH row.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <gtest/gtest.h>

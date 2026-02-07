@@ -1,6 +1,7 @@
 /**
  * @file sha256_abc_test.cpp
  * @brief Verify SHA-256("abc") matches the known vector.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/BitHashBuffer/detail/Sha256Types.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"

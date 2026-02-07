@@ -1,6 +1,7 @@
 /**
  * @file crosssum_antidiagonal_wraps_mod511_test.cpp
  * @brief Verify XSM mapping x(r,c) = (r + c) mod 511 wraps correctly.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/CrossSum/CrossSum.h"
 #include <gtest/gtest.h>

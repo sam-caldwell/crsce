@@ -1,7 +1,7 @@
 /**
  * @file Decompressor_read_block.cpp
  * @brief Implementation of Decompressor::read_block.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 #include <cstdint>

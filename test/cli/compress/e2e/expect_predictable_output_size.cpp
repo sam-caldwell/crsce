@@ -1,6 +1,7 @@
 /**
  * @file expect_predictable_output_size.cpp
  * @brief E2E: compress CLI produces predictable per‑block output size and total container size.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Cli/detail/run.h"
 #include "compress/Compress/Compress.h"

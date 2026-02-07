@@ -1,6 +1,7 @@
 /**
  * @file header_v1_pack_test.cpp
  * @brief Unit: verify HeaderV1::pack packs a correct 28-byte header and CRC.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Format/HeaderV1.h"
 #include "common/Util/detail/crc32_ieee.h"

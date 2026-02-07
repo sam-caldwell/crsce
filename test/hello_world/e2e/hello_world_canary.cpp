@@ -1,6 +1,7 @@
 /**
  * @file hello_world_canary.cpp
  * @brief E2E: run the built hello_world binary, capture stdout/stderr, assert exit code.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

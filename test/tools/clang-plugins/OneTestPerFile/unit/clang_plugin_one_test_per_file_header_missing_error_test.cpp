@@ -1,5 +1,6 @@
 /**
  * @file clang_plugin_one_test_per_file_header_missing_error_test.cpp
+ * @brief Missing header docstring should error.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
@@ -8,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginOneTestPerFile.MissingHeaderFails
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginOneTestPerFile, MissingHeaderFails) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

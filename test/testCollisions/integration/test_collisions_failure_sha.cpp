@@ -1,6 +1,7 @@
 /**
  * @file test_collisions_failure_sha.cpp
  * @brief Integration test forcing SHA-512 unavailability to exercise failure path.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include <gtest/gtest.h>

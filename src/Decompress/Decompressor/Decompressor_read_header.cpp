@@ -1,7 +1,7 @@
 /**
  * @file Decompressor_read_header.cpp
  * @brief Implementation of Decompressor::read_header.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 #include "decompress/Decompressor/HeaderV1Fields.h"

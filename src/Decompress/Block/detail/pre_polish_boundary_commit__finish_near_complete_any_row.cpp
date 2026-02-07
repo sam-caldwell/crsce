@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__finish_near_complete_any_row.cpp
  * @brief Definition of finish_near_complete_any_row.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/pre_polish_finish_near_complete_any_row.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"

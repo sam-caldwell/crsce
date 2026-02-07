@@ -1,6 +1,8 @@
 /**
  * @file metric.h
  * @brief Structured metric emission (JSONL) with standardized timestamping.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 

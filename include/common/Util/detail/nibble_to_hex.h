@@ -1,7 +1,7 @@
 /**
  * @file nibble_to_hex.h
  * @brief Convert 4-bit value to uppercase hexadecimal character.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

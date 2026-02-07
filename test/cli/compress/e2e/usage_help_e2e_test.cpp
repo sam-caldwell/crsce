@@ -1,6 +1,7 @@
 /**
  * @file usage_help_e2e_test.cpp
  * @brief E2E: compress CLI shows usage on -h.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Cli/detail/run.h"
 

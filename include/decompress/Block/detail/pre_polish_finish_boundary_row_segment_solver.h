@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_finish_boundary_row_segment_solver.h
  * @brief Try to finish boundary row using a sliding-window segment solver (DP/BnB) under constraints.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

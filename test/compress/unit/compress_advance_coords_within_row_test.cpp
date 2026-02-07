@@ -1,6 +1,7 @@
 /**
  * @file compress_advance_coords_within_row_test.cpp
  * @brief Verify advancing column within a row updates cross-sums correctly.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

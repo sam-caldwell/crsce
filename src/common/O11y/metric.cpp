@@ -1,6 +1,7 @@
 /**
  * @file metric.cpp
  * @brief Implementation for structured metric emission (JSONL) with internal timestamps.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "common/O11y/metric.h"
 

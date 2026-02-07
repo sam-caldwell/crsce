@@ -1,7 +1,7 @@
 /**
  * @file safe_divide.h
  * @brief Perform integer division with zero-division safety.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

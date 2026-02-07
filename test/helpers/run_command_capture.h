@@ -1,6 +1,7 @@
 /**
  * @file run_command_capture.h
  * @brief Execute a command, capture combined stdout+stderr, and return output text.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

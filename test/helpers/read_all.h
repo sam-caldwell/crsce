@@ -1,6 +1,7 @@
 /**
  * @file read_all.h
  * @brief Drain a FileBitSerializer into a vector of bool bits.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

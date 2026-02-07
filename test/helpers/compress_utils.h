@@ -1,6 +1,7 @@
 /**
  * @file compress_utils.h
  * @brief Shared test helpers for compress-related bit packing utilities.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

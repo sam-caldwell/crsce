@@ -1,6 +1,7 @@
 /**
  * @file plugin_runner.h
  * @brief Helper to build and run the OneDefinitionPerCppFile plugin for tests.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

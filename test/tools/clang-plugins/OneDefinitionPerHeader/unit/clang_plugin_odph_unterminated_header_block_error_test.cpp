@@ -1,7 +1,7 @@
 /**
  * @file clang_plugin_odph_unterminated_header_block_error_test.cpp
- * @brief Header doc has an unterminated Doxygen block (no closing star-slash);
- * expect compile failure.
+ * @brief Header doc has an unterminated Doxygen block (no closing star-slash); expect compile failure.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>
@@ -9,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginODPH.UnterminatedHeaderBlockFails
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginODPH, UnterminatedHeaderBlockFails) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

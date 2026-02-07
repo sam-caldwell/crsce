@@ -1,7 +1,7 @@
 /**
  * @file Compress_push_zero_row.cpp
  * @brief Implementation of Compress::push_zero_row.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <cstddef>

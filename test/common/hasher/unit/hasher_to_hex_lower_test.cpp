@@ -1,6 +1,7 @@
 /**
  * @file hasher_to_hex_lower_test.cpp
  * @brief Unit tests for to_hex_lower utility.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/to_hex_lower.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"

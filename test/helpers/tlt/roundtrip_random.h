@@ -1,6 +1,7 @@
 /**
  * @file roundtrip_random.h
  * @brief Perform a compress+decompress roundtrip on random input and compare bytes.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

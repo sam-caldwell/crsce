@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odph_missing_header_brief_error_test.cpp
  * @brief Missing @brief in header doc should fail.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>
@@ -8,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginODPH.MissingHeaderBriefFails
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginODPH, MissingHeaderBriefFails) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

@@ -1,5 +1,7 @@
 /**
  * @file hasher_compute_control_sha256_env_cmd_ok_test.cpp
+ * @brief Intent: exercise the expected behavior of this test.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/compute_control_sha256.h"
 #include <gtest/gtest.h>

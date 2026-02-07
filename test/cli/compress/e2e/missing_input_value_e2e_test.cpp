@@ -1,6 +1,7 @@
 /**
  * @file missing_input_value_e2e_test.cpp
  * @brief E2E: compress CLI returns insufficient-args (4) on missing -in value.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Cli/detail/run.h"
 

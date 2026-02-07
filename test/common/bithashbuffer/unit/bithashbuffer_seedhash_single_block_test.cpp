@@ -1,12 +1,13 @@
 /*
  * @file bithashbuffer_seedhash_single_block_test.cpp
  * @brief Validate seedHash for single-block SHA-256 padding case.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <cstdint>
 /**
  * @file bithashbuffer_seedhash_single_block_test.cpp
  * @brief Seed hash is used correctly for the first row block.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <gtest/gtest.h>
 #include <string>

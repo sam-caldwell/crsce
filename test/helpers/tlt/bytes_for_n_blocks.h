@@ -1,6 +1,7 @@
 /**
  * @file bytes_for_n_blocks.h
  * @brief Compute minimal bytes required to force N blocks (511x511 bits per block).
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

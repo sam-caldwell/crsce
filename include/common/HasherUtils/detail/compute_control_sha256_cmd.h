@@ -1,7 +1,7 @@
 /**
  * @file compute_control_sha256_cmd.h
  * @brief Compute control SHA-256 using an explicit command vector.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

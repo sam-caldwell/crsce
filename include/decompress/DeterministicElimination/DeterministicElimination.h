@@ -1,7 +1,7 @@
 /**
  * @file DeterministicElimination.h
  * @brief Deterministic elimination solver implementing sound forced moves.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

@@ -1,6 +1,7 @@
 /**
  * @file compress_zero_length_header_only_test.cpp
  * @brief Zero-length input should write only a v1 header (28 bytes) and succeed.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 #include <filesystem>

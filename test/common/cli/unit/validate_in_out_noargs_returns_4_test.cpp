@@ -1,6 +1,7 @@
 /**
  * @file validate_in_out_noargs_returns_4_test.cpp
  * @brief validate_in_out should return 4 when no -in/-out are provided and no help flag.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Cli/ValidateInOut.h"
 #include "common/ArgParser/ArgParser.h"

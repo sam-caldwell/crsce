@@ -1,10 +1,15 @@
-// o11y_metric_overloads_test.cpp
+/**
+ * @file o11y_metric_overloads_test.cpp
+ * @brief observability test
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <fstream>
 #include <string>
 #include <thread>
 #include <chrono>
 #include <cstdlib>
+#include <cstdint>
 #include "common/O11y/metric.h"
 
 namespace {
@@ -29,8 +34,8 @@ bool wait_for_contains(const std::string &path, const std::string &needle, int m
 
 TEST(O11y, MetricOverloadsProduceLines) {
   const std::string mpath = metrics_path_for("o11y_metric_overloads");
-  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe)
-  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
 
   // i64
   ::crsce::o11y::metric("ut_metric_i64", static_cast<std::int64_t>(42));
@@ -56,8 +61,8 @@ TEST(O11y, MetricOverloadsProduceLines) {
 
 TEST(O11y, ObjBuilderEmitsFields) {
   const std::string mpath = metrics_path_for("o11y_metric_obj");
-  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0);
-  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);
+  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe)
+  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe)
 
   ::crsce::o11y::Obj o{"ut_obj"};
   o.add("i64", static_cast<std::int64_t>(123))

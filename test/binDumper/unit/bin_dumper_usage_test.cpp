@@ -1,6 +1,7 @@
 /**
  * @file bin_dumper_usage_test.cpp
  * @brief Verify binDumper usage and exit code on missing args.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

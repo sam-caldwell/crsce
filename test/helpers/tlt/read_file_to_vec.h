@@ -1,6 +1,7 @@
 /**
  * @file read_file_to_vec.h
  * @brief Read a whole file into a byte vector.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

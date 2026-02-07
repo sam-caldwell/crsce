@@ -1,6 +1,7 @@
 /**
  * @file verify_end_to_end_cycle.cpp
  * @brief TLT: verify compression → decompression cycle reproduces original input bit-for-bit.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

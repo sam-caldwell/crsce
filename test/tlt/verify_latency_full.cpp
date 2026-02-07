@@ -1,6 +1,7 @@
 /**
  * @file verify_latency_full.cpp
  * @brief TLT: measure decompression latency and assert <=2s per block on average.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,4 +1,8 @@
-// Helper: ignores stdin and prints a bogus digest
+/*
+ * @file sha256_bad.cpp
+ * @brief Helper: ignores stdin and prints a bogus digest
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
+ */
 #include <iostream>
 #include <string>
 

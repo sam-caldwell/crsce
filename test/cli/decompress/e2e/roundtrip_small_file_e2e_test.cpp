@@ -1,6 +1,7 @@
 /**
  * @file roundtrip_small_file_e2e_test.cpp
  * @brief E2E: compress then decompress; bytes match exactly.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Cli/detail/run.h"
 #include "compress/Cli/detail/run.h"

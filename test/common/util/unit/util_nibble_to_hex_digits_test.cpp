@@ -1,5 +1,7 @@
 /**
  * @file: util_nibble_to_hex_digits_test.cpp
+ * @brief Unit test for nibble_to_hex with digits.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/nibble_to_hex.h"
 #include <gtest/gtest.h>

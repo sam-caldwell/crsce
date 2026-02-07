@@ -1,6 +1,7 @@
 /**
  * @file crosssum_increment_oob_ignored_test.cpp
  * @brief Ensure CrossSum::increment ignores out-of-bounds indices.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 #include "common/CrossSum/CrossSum.h"

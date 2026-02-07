@@ -1,7 +1,7 @@
 /**
  * @file Decode9.h
  * @brief Utilities to decode MSB-first 9-bit packed streams.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

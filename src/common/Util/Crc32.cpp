@@ -1,6 +1,6 @@
 /**
  * @file Crc32.cpp
- * @brief Implementation
+ * @brief Compute CRC-32 (IEEE 802.3) over a byte buffer using a reflected table.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "common/Util/Crc32.h"

@@ -2,7 +2,7 @@
  * @file preflight.cpp
  * @brief Implementation of Alternating01 preflight checks for CSM bit patterns.
  * @author Sam Caldwell
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "testrunnerAlternating01/Cli/detail/preflight.h"
 

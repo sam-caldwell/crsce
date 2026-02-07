@@ -1,6 +1,7 @@
 /**
  * @file alternating01_row_patterns_test.cpp
  * @brief Verify alternating01 generator yields 0101.. on row0 and 1010.. on row1 when mapped row-major.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,6 +1,7 @@
 /**
  * @file bin_dumper_row_wrap_test.cpp
  * @brief Verify binDumper wraps at 511 bits per line.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

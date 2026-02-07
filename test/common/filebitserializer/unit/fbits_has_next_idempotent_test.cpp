@@ -1,6 +1,7 @@
 /**
  * @file fbits_has_next_idempotent_test.cpp
  * @brief One-test file: has_next() idempotence and EOF stability.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include <cstdio>

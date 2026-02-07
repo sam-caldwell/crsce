@@ -1,6 +1,7 @@
 /**
  * @file unknown_flag_e2e_test.cpp
  * @brief E2E: compress CLI returns usage error on unknown flag.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Cli/detail/run.h"
 

@@ -1,5 +1,7 @@
 /**
- * One-test file: Duplicate -in/-out flags; last occurrence wins.
+ * @file argparser_duplicate_flags_test.cpp
+ * @briefOne-test file: Duplicate -in/-out flags; last occurrence wins.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/ArgParser/ArgParser.h"
 #include "helpers.h"

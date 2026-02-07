@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odpcpp_missing_header_file_error_test.cpp
  * @brief Missing @file should error.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>

@@ -1,6 +1,7 @@
 /**
  * @file time_compress_ms_after_random_input.h
  * @brief Measure compress CLI time (ms) for random input; verify roundtrip.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

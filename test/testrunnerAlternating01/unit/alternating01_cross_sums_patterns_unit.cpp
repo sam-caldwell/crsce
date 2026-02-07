@@ -1,6 +1,7 @@
 /**
  * @file alternating01_cross_sums_patterns_unit.cpp
  * @brief Verify cross-sum patterns for a full Alternating01 block using the compressor accumulator.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,7 +1,7 @@
 /**
  * @file fbits_has_next_across_refill_test.cpp
- * @brief One-test file: has_next() across the buffer refill boundary remains
- * correct.
+ * @brief One-test file: has_next() across the buffer refill boundary remains correct.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include <cstddef>

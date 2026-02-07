@@ -1,6 +1,7 @@
 /**
  * @file compress_decompress_twoblock_roundtrip_integration_test.cpp
  * @brief End-to-end API roundtrip: Compress then Decompress a >=2-block zero file.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 #include <cstddef>

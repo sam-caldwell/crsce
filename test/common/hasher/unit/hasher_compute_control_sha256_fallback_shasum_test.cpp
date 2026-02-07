@@ -1,5 +1,9 @@
 /**
  * @file hasher_compute_control_sha256_fallback_shasum_test.cpp
+ * @brief Intent: exercise the expected behavior of this test.
+ *         Passing indicates the behavior holds; failing indicates a regression.
+ *         Assumptions: default environment and explicit setup within this test.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/compute_control_sha256.h"
 #include <gtest/gtest.h>

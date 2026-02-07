@@ -1,6 +1,7 @@
 /**
  * @file test_collisions_failure_compress_nonzero.cpp
  * @brief Integration test: force compress to exit non-zero to exercise fallback end timestamps.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include <gtest/gtest.h>

@@ -1,6 +1,7 @@
 /**
  * @file test_useless_decompress_fail.cpp
  * @brief Integration: run uselessTest with failing decompressor to cover failure path.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include <gtest/gtest.h>

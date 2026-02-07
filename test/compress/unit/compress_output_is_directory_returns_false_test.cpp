@@ -1,6 +1,7 @@
 /**
  * @file compress_output_is_directory_returns_false_test.cpp
  * @brief compress_file should return false if output path is a directory.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 #include <filesystem>

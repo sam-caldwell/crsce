@@ -1,5 +1,6 @@
 /**
  * @file IsPowerOfTwo.cpp
+ * @brief Implementation of is_power_of_two().
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/IsPowerOfTwo.h"

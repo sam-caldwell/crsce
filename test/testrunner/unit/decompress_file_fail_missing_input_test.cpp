@@ -1,6 +1,7 @@
 /**
  * @file decompress_file_fail_missing_input_test.cpp
  * @brief Unit: decompress_file throws on missing input; artifacts preserved.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,6 +1,7 @@
 /**
  * @file fbits_cross_chunk_test.cpp
  * @brief One-test file: Cross-chunk read across >1 KiB boundary.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "helpers/remove_file.h"

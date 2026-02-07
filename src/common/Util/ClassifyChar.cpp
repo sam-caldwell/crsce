@@ -1,5 +1,6 @@
 /**
  * @file ClassifyChar.cpp
+ * @brief Character classification utility for parsing and validation.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/classify_char.h"

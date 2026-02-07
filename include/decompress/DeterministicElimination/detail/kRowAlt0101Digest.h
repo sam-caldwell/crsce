@@ -1,7 +1,7 @@
 /**
  * @file kRowAlt0101Digest.h
  * @brief Precomputed LH digest for alternating 0,1 pattern row.
- * © Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

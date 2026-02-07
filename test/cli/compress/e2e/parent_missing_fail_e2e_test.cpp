@@ -1,6 +1,7 @@
 /**
  * @file parent_missing_fail_e2e_test.cpp
  * @brief E2E: compress CLI returns 4 when parent dir is missing.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"

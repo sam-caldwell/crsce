@@ -1,6 +1,7 @@
 /**
  * @file compress_accumulate_row0_small_bits_test.cpp
  * @brief Verify cross-sums and LH count for a small first-row pattern.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <gtest/gtest.h>

@@ -1,5 +1,7 @@
 /**
  * @file: util_is_power_of_two_zero_test.cpp
+ * @brief Unit test for is_power_of_two.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/is_power_of_two.h"
 #include <gtest/gtest.h>

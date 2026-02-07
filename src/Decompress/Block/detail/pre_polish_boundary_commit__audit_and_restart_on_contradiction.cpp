@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__audit_and_restart_on_contradiction.cpp
  * @brief Definition of audit_and_restart_on_contradiction.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/pre_polish_audit_and_restart_on_contradiction.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"

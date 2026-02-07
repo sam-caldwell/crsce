@@ -1,6 +1,7 @@
 /**
  * @file hasher_binary_ok_with_real_tool_test.cpp
  * @brief Unit: run hasher binary using a real system tool (sha256sum/shasum) when present.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,6 +1,7 @@
 /**
  * @file to_hex.h
  * @brief Small helpers to convert byte spans to lowercase hex strings.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

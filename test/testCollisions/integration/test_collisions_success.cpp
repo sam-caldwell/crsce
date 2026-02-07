@@ -1,6 +1,7 @@
 /**
  * @file test_collisions_success.cpp
  * @brief Integration test for successful cycle and artifact cleanup.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include <gtest/gtest.h>

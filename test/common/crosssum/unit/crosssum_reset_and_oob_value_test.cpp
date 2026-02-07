@@ -1,6 +1,7 @@
 /**
  * @file crosssum_reset_and_oob_value_test.cpp
  * @brief Test CrossSum::reset and out-of-bounds value() behavior.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/CrossSum/CrossSum.h"
 #include <gtest/gtest.h>

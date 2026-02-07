@@ -1,7 +1,7 @@
 /**
  * @file Decompressor_split_payload.cpp
  * @brief Implementation of Decompressor::split_payload.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 

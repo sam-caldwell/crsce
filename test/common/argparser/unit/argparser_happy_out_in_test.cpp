@@ -1,5 +1,7 @@
 /**
- * One-test file: Happy path -out then -in order.
+ * @file argparser_happy_out_in_test.cpp
+ * @brief One-test file: Happy path -out then -in order.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/ArgParser/ArgParser.h"
 #include "helpers.h"

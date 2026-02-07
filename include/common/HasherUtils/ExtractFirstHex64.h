@@ -1,7 +1,7 @@
 /**
  * @file ExtractFirstHex64.h
  * @brief Extract first 64 hex chars from text; lowercase output.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

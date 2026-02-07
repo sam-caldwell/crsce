@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__pre_polish_boundary_commit.cpp
  * @brief Definition of pre_polish_boundary_commit.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Block/detail/pre_polish_boundary_commit_fn.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"

@@ -1,6 +1,7 @@
 /**
  * @file fbits_empty_file_test.cpp
  * @brief One-test file: Empty file -> no bits.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "helpers/remove_file.h"

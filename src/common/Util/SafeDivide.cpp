@@ -1,5 +1,6 @@
 /**
  * @file SafeDivide.cpp
+ * @brief Perform integer division with zero-division safety.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/SafeDivide.h"

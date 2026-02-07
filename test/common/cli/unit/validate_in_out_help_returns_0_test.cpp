@@ -1,6 +1,7 @@
 /**
  * @file validate_in_out_help_returns_0_test.cpp
  * @brief validate_in_out should return 0 and print usage when -h is present.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Cli/ValidateInOut.h"
 #include "common/ArgParser/ArgParser.h"

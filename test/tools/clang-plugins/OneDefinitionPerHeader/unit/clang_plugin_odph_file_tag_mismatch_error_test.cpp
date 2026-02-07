@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odph_file_tag_mismatch_error_test.cpp
  * @brief Header doc @file must match the header basename.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>
@@ -8,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginODPH.FileTagMismatchFails
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginODPH, FileTagMismatchFails) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

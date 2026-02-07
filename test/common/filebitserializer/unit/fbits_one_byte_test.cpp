@@ -1,6 +1,7 @@
 /**
  * @file fbits_one_byte_test.cpp
  * @brief One-test file: Single byte 0xAC -> MSB-first bits.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include "helpers/read_all.h"

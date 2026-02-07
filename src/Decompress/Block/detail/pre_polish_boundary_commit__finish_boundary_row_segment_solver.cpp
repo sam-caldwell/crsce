@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__finish_boundary_row_segment_solver.cpp
  * @brief Implementation of sliding-window boundary row segment solver.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/pre_polish_finish_boundary_row_segment_solver.h"
 

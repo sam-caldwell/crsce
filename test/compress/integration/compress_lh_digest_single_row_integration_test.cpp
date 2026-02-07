@@ -1,6 +1,7 @@
 /**
  * @file compress_lh_digest_single_row_integration_test.cpp
  * @brief Integration: Verify LH digest equals sha256(rowBytes) (no chaining).
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include "common/BitHashBuffer/detail/Sha256Types.h"

@@ -1,7 +1,7 @@
 /**
  * @file Csm_set_data.cpp
  * @brief Implementation of Csm::set_data.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Csm/detail/Csm.h"
 #include "common/exceptions/CsmIndexOutOfBounds.h"

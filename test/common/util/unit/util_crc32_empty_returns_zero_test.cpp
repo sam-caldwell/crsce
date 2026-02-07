@@ -1,6 +1,7 @@
 /**
  * @file util_crc32_empty_returns_zero_test.cpp
  * @brief CRC-32 empty-case should return zero.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/crc32_ieee.h"
 #include <gtest/gtest.h>

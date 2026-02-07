@@ -1,5 +1,7 @@
 /**
  * @file: util_clamp_low_test.cpp
+ * @brief Unit test for clamp_low.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/clamp_int.h"
 #include <gtest/gtest.h>

@@ -1,7 +1,7 @@
 /**
  * @file decode9.tcc
  * @brief Template implementation to decode MSB-first 9-bit packed streams.
- * © Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 
 #pragma once

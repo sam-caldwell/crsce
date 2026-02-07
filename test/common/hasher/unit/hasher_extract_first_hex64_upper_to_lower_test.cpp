@@ -1,6 +1,7 @@
 /**
  * @file hasher_extract_first_hex64_upper_to_lower_test.cpp
  * @brief Verify extract_first_hex64 lowercases uppercase hex and returns true.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/extract_first_hex64.h"
 #include <gtest/gtest.h>

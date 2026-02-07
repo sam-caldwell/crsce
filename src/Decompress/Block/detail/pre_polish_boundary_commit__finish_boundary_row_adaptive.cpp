@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__finish_boundary_row_adaptive.cpp
  * @brief Definition of finish_boundary_row_adaptive.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/pre_polish_finish_boundary_row_adaptive.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"

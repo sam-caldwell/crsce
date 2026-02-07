@@ -1,5 +1,7 @@
 /**
- * One-test file: Missing value for -in/-out fails parse.
+ * @file argparser_missing_value_test.cpp
+ * @brief One-test file: Missing value for -in/-out fails parse.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/ArgParser/ArgParser.h"
 #include "helpers.h"

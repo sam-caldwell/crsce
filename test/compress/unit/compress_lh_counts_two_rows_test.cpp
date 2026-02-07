@@ -1,6 +1,7 @@
 /**
  * @file compress_lh_counts_two_rows_test.cpp
  * @brief Verify LH digest count and LSM counts for two rows.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <gtest/gtest.h>

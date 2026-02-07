@@ -1,5 +1,7 @@
 /**
  * @file hasher_compute_control_sha256_env_cmd_fail_test.cpp
+ * @brief Negative test for compute_control_sha256_cmd (non-existent tool).
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/detail/compute_control_sha256.h"
 #include <gtest/gtest.h>

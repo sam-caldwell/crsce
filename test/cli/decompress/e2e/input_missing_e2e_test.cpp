@@ -1,6 +1,7 @@
 /**
  * @file input_missing_e2e_test.cpp
  * @brief E2E: decompress CLI returns 3 when input does not exist.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Cli/detail/run.h"
 #include "helpers/tmp_dir.h"

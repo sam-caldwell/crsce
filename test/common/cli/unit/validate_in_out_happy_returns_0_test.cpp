@@ -1,6 +1,7 @@
 /**
  * @file validate_in_out_happy_returns_0_test.cpp
  * @brief validate_in_out should return 0 when -in exists and -out does not.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Cli/ValidateInOut.h"
 #include "common/ArgParser/ArgParser.h"

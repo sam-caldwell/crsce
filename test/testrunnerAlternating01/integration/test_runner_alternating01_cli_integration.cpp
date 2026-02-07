@@ -1,6 +1,7 @@
 /**
  * @file test_runner_alternating01_cli_integration.cpp
  * @brief Integration test for the TestRunnerAlternating01 pipeline via direct run().
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <gtest/gtest.h>
 
@@ -15,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include "testrunnerAlternating01/Cli/detail/run.h"
+#include "testrunnerAlternating01/Cli/detail/run_default.h"
 #include "helpers/tmp_dir.h"
 
 namespace fs = std::filesystem;

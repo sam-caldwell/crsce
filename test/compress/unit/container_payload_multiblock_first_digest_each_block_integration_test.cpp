@@ -1,6 +1,7 @@
 /**
  * @file container_payload_multiblock_first_digest_each_block_integration_test.cpp
  * @brief For a two-block zero input, verify LH[0] of each block matches expected and equals between blocks.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include "common/BitHashBuffer/detail/Sha256Types.h"

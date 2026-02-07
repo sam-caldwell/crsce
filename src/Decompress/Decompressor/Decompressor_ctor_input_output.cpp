@@ -1,7 +1,7 @@
 /**
  * @file Decompressor_ctor_input_output.cpp
  * @brief Implementation of Decompressor two-arg constructor.
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 #include <ios>

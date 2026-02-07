@@ -1,6 +1,7 @@
 /**
  * @file tlt_helpers.h
  * @brief Aggregator for TLT test helpers; includes one-declaration headers.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

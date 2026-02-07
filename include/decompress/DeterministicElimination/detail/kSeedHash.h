@@ -1,7 +1,7 @@
 /**
  * @file kSeedHash.h
  * @brief Precomputed LH seed digest (SHA-256 of seed).
- * © Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

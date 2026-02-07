@@ -1,6 +1,7 @@
 /**
  * @file write_one_file_test.cpp
  * @brief Unit tests for write_one_file helper.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

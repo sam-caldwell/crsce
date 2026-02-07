@@ -2,7 +2,7 @@
  * @file evaluate_hashes.cpp
  * @brief Validate output hash equals input hash; throw on mismatch.
  * @author Sam Caldwell
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testRunnerRandom/Cli/detail/evaluate_hashes.h"
 

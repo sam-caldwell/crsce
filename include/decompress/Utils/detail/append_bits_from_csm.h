@@ -1,7 +1,7 @@
 /**
  * @file append_bits_from_csm.h
  * @brief Declaration for appending CSM bits into a byte stream (MSB-first).
- * © Sam Caldwell. See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

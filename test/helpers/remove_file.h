@@ -1,6 +1,7 @@
 /**
  * @file remove_file.h
  * @brief Remove a file from the filesystem (best-effort).
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

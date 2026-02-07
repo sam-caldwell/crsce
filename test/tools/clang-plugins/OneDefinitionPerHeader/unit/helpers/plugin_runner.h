@@ -1,6 +1,7 @@
 /**
  * @file plugin_runner.h
  * @brief Helper to build and run the OneDefinitionPerHeader plugin for tests.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

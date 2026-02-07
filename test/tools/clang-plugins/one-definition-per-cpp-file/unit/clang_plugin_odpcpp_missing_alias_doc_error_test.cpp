@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odpcpp_missing_alias_doc_error_test.cpp
  * @brief ODPCPP: missing alias doc should fail.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>

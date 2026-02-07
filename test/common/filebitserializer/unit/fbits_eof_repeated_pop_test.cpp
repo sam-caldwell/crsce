@@ -1,7 +1,7 @@
 /**
  * @file fbits_eof_repeated_pop_test.cpp
- * @brief One-test file: Repeated pop() after EOF remains std::nullopt and
- * stable.
+ * @brief One-test file: Repeated pop() after EOF remains std::nullopt and stable.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/FileBitSerializer/FileBitSerializer.h"
 #include <gtest/gtest.h>

@@ -1,10 +1,15 @@
-// o11y_event_and_tags_test.cpp
+/**
+ * @file o11y_event_and_tags_test.cpp
+ * @brief observability test
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
+ */
 #include <gtest/gtest.h>
 #include <fstream>
 #include <string>
 #include <thread>
 #include <chrono>
 #include <cstdlib>
+#include <stdlib.h>
 #include "common/O11y/metric.h"
 
 namespace {

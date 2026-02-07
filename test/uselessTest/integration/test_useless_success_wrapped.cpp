@@ -1,6 +1,7 @@
 /**
  * @file test_useless_success_wrapped.cpp
  * @brief Integration: run uselessTest with wrapper compress/decompress to force success.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include <gtest/gtest.h>

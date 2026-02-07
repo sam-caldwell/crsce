@@ -1,6 +1,7 @@
 /**
  * @file hasher_binary_ok_with_candidate_env_test.cpp
  * @brief Unit: run hasher binary with CRSCE_HASHER_CANDIDATE pointing to ok helper; expect exit 0.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

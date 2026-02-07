@@ -2,7 +2,7 @@
  * @file extract_exit_code.cpp
  * @brief Implementation of exit-code extraction helper.
  * @author Sam Caldwell
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "testRunnerRandom/Cli/detail/extract_exit_code.h"
 

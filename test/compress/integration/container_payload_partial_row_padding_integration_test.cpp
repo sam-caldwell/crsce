@@ -1,6 +1,7 @@
 /**
  * @file container_payload_partial_row_padding_integration_test.cpp
  * @brief Validate per-row LH across a partial second row via compress_file.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include "common/BitHashBuffer/detail/Sha256Types.h"

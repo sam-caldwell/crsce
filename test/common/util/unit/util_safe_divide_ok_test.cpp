@@ -1,5 +1,7 @@
 /**
  * @file: util_safe_divide_ok_test.cpp
+ * @brief Unit test for safe_divide with valid inputs.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/safe_divide.h"
 #include <gtest/gtest.h>

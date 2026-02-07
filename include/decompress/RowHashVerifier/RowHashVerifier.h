@@ -1,6 +1,7 @@
 /**
  * @file RowHashVerifier.h
  * @brief Verify per-row SHA-256 digests (no seed, no chaining).
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

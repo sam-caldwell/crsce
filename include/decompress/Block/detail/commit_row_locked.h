@@ -1,6 +1,7 @@
 /**
  * @file commit_row_locked.h
  * @brief Helper: lock all cells in a row and update constraint state counts.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

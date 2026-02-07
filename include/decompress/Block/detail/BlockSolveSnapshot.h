@@ -2,7 +2,7 @@
  * @file BlockSolveSnapshot.h
  * @brief Snapshot/report state for a single block solve attempt.
  * @author Sam Caldwell
- * © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

@@ -1,6 +1,7 @@
 /**
  * @file container_header_sizes_randomized_test.cpp
  * @brief Verify header fields and file sizes for a range of input lengths.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include "common/Util/detail/crc32_ieee.h"

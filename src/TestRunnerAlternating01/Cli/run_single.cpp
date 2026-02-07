@@ -2,7 +2,7 @@
  * @file run_single.cpp
  * @brief Implements single-block-count run() for TestRunnerAlternating01.
  * @author Sam Caldwell
- * © Sam Caldwell. See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "testrunnerAlternating01/Cli/detail/run_single.h"
 

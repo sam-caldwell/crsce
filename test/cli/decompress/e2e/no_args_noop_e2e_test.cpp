@@ -1,6 +1,7 @@
 /**
  * @file no_args_noop_e2e_test.cpp
  * @brief E2E: decompress CLI returns 0 when no args provided.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Cli/detail/run.h"
 

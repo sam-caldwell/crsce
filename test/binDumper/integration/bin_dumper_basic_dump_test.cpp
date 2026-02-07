@@ -1,6 +1,7 @@
 /**
  * @file bin_dumper_basic_dump_test.cpp
  * @brief Verify binDumper prints expected bits for a small file.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

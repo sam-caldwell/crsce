@@ -1,6 +1,7 @@
 /**
  * @file hasher_binary_mismatch_with_env_cmd_test.cpp
  * @brief Unit: run hasher binary with CRSCE_HASHER_CMD pointing to bad helper; expect non-zero.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include <gtest/gtest.h>
 

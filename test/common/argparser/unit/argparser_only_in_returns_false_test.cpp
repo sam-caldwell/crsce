@@ -1,5 +1,9 @@
 /**
  * @file: argparser_only_in_returns_false_test.cpp
+ * @brief: Intent: exercise the expected behavior of this test.
+ *         Passing indicates the behavior holds; failing indicates a regression.
+ *         Assumptions: default environment and explicit setup within this test.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/ArgParser/ArgParser.h"
 #include "helpers.h"

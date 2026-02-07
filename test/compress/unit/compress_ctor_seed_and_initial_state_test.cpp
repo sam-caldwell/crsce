@@ -1,5 +1,7 @@
 /**
  * @file compress_ctor_seed_and_initial_state_test.cpp
+ * @brief Test for seed and initial state.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

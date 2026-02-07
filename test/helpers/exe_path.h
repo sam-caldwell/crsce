@@ -1,6 +1,7 @@
 /**
  * @file exe_path.h
  * @brief Resolve path to a repo-built executable in a future-proof way for tests.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

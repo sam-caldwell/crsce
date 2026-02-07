@@ -1,6 +1,7 @@
 /**
  * @file util_crc32_known_vector_test.cpp
  * @brief Verify CRC-32 for the classic "123456789" vector.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/crc32_ieee.h"
 #include <gtest/gtest.h>

@@ -1,6 +1,7 @@
 /**
  * @file time_decompress_ms_after_random_input.h
  * @brief Measure decompress CLI time (ms) for container built from random input; verify roundtrip.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

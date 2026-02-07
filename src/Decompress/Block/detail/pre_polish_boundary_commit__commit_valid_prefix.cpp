@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__commit_valid_prefix.cpp
  * @brief Definition of commit_valid_prefix.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/pre_polish_commit_valid_prefix.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"

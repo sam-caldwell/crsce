@@ -1,6 +1,7 @@
 /**
  * @file crosssum_serialize_roundtrip_test.cpp
  * @brief Test CrossSum 9-bit MSB-first serialization using a decode roundtrip.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/CrossSum/CrossSum.h"
 #include <gtest/gtest.h>

@@ -1,7 +1,7 @@
 /**
  * @file ConstraintInvariantViolation.h
  * @brief Exception for violations of R ≤ U invariant in constraint lines.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

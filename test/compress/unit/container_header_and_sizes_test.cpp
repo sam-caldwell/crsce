@@ -1,6 +1,7 @@
 /**
  * @file container_header_and_sizes_test.cpp
  * @brief Integration: run Compress on tiny inputs; validate header and file size.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include <gtest/gtest.h>

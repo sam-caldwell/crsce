@@ -1,6 +1,7 @@
 /**
  * @file container_payload_small_one_byte_integration_test.cpp
  * @brief Compress a 1-byte input and validate LH[0] and all cross-sum vectors.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "compress/Compress/Compress.h"
 #include "common/BitHashBuffer/detail/Sha256Types.h"

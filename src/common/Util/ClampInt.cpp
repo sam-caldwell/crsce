@@ -1,5 +1,6 @@
 /**
  * @file ClampInt.cpp
+ * @brief Implementation of clamp_int().
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/ClampInt.h"

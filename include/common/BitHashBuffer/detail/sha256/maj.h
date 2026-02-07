@@ -1,7 +1,7 @@
 /**
  * @file maj.h
  * @brief SHA-256 majority function.
-  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

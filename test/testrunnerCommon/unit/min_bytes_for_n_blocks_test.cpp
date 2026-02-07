@@ -1,5 +1,7 @@
 /**
  * @file min_bytes_for_n_blocks_test.cpp
+ * @brief Unit tests for min_bytes_for_n_blocks helper.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

@@ -1,6 +1,7 @@
 /**
  * @file sha256_abcdbcde_test.cpp
  * @brief Verify SHA-256 of the multi-block test vector.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/BitHashBuffer/detail/Sha256Types.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"

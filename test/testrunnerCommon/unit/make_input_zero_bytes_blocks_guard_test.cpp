@@ -1,5 +1,7 @@
 /**
  * @file make_input_zero_bytes_blocks_guard_test.cpp
+ * @brief Test for zero bytes input and blocks clamping.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 

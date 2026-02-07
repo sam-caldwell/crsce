@@ -1,6 +1,7 @@
 /**
  * @file write_zero_file_at.h
  * @brief Create a file of fixed length filled with zero bytes.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

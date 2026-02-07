@@ -1,5 +1,6 @@
 /**
  * @file plugin_runner.h
+ * @brief Helper functions for running clang plugins in tests.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once

@@ -1,6 +1,7 @@
 /**
  * @file compress_missing_input_returns_false_test.cpp
  * @brief compress_file should return false if input does not exist.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include <gtest/gtest.h>
 #include <cstdio>

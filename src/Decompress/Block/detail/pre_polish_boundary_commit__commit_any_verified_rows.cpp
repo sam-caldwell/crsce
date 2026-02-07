@@ -1,6 +1,7 @@
 /**
  * @file pre_polish_boundary_commit__commit_any_verified_rows.cpp
  * @brief Definition of commit_any_verified_rows.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/pre_polish_commit_any_verified_rows.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"

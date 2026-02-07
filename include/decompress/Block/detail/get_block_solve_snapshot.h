@@ -2,7 +2,7 @@
  * @file get_block_solve_snapshot.h
  * @brief Declaration of get_block_solve_snapshot().
  * @author Sam Caldwell
- * © 2026 Sam Caldwell.  See LICENSE.txt for details.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

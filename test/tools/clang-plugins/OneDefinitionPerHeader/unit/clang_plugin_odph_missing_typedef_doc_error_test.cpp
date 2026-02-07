@@ -1,6 +1,7 @@
 /**
  * @file clang_plugin_odph_missing_typedef_doc_error_test.cpp
  * @brief ODPH: missing typedef doc should fail.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "helpers/plugin_runner.h"
 #include <filesystem>
@@ -8,17 +9,11 @@
 #include <string>
 
 /**
-
  * @name ClangPluginODPH.MissingTypedefDocFails
-
  * @brief Intent: exercise the expected behavior of this test.
-
  *         Passing indicates the behavior holds; failing indicates a regression.
-
  *         Assumptions: default environment and explicit setup within this test.
-
  */
-
 TEST(ClangPluginODPH, MissingTypedefDocFails) {
     std::string log;
     const auto lib = ensure_plugin_built(log);

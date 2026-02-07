@@ -1,6 +1,7 @@
 /**
  * @file watchdog.cpp
  * @brief Definition for process watchdog that terminates after a tombstone timeout.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/Util/detail/watchdog.h"
 

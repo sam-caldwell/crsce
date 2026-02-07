@@ -50,6 +50,27 @@
 // Local logging macros (avoid extra constructs for ODPCPP)
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define CRSCE_NOW_MS() (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count())
+#define CRSCE_COMPUTE_PREFIX(BASE_OUT, CSMX, STX, LHX) { \
+    if (pc_ver_seen.size() != S) { pc_ver_seen.assign(S, 0ULL); pc_ok.assign(S, 0); pc_prefix_len = 0; } \
+    std::size_t _k = 0; \
+    while (_k < pc_prefix_len) { \
+        if (pc_ok[_k] && pc_ver_seen[_k] == (CSMX).row_version(_k)) { ++_k; } \
+        else { pc_prefix_len = _k; break; } \
+    } \
+    for (std::size_t _r = pc_prefix_len; _r < S; ++_r) { \
+        if ((STX).U_row.at(_r) != 0 || (STX).R_row.at(_r) != 0) { break; } \
+        const RowHashVerifier _v{}; \
+        const auto _t0vr = std::chrono::steady_clock::now(); \
+        const bool _ok = _v.verify_row((CSMX), (LHX), _r); \
+        const auto _t1vr = std::chrono::steady_clock::now(); \
+        snap.time_lh_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(_t1vr - _t0vr).count()); \
+        if (!_ok) { break; } \
+        pc_ver_seen[_r] = (CSMX).row_version(_r); \
+        pc_ok[_r] = 1; \
+        pc_prefix_len = _r + 1; \
+    } \
+    (BASE_OUT) = pc_prefix_len; \
+}
 #include "common/O11y/metric.h"
 // NOLINTEND(cppcoreguidelines-macro-usage)
 
@@ -63,6 +84,10 @@ namespace {
     using crsce::decompress::detail::trace_sumu_enabled;
 } // anonymous namespace
 
+#ifdef __clang__
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wreturn-type"
+#endif
 namespace crsce::decompress {
     /**
      * @name solve_block
@@ -232,47 +257,12 @@ namespace crsce::decompress {
         Csm baseline_csm = csm_out;
         ConstraintState baseline_st = st;
 
-        // Incremental LH prefix cache for csm_out
-        struct PrefixCache {
-        private:
-            std::vector<std::uint64_t> ver_seen_;
-            std::vector<char> ok_;
-            std::size_t prefix_len_{0};
-        public:
-            void ensure(std::size_t n) {
-                if (ver_seen_.size() != n) { ver_seen_.assign(n, 0ULL); ok_.assign(n, 0); prefix_len_ = 0; }
-            }
-            [[nodiscard]] std::uint64_t ver_seen(std::size_t r) const noexcept { return ver_seen_[r]; }
-            void set_ver_seen(std::size_t r, std::uint64_t v) noexcept { ver_seen_[r] = v; }
-            [[nodiscard]] bool ok(std::size_t r) const noexcept { return ok_[r] != 0; }
-            void set_ok(std::size_t r) { ok_.at(r) = 1; }
-            [[nodiscard]] std::size_t prefix_len() const noexcept { return prefix_len_; }
-            void set_prefix_len(std::size_t v) noexcept { prefix_len_ = v; }
-        };
-        PrefixCache cache_out; cache_out.ensure(S);
-        auto cached_prefix = [&](const Csm &csmX, const ConstraintState &stX, const std::span<const std::uint8_t> &lhX, PrefixCache &cache)->std::size_t {
-            cache.ensure(S);
-            std::size_t k = 0;
-            while (k < cache.prefix_len()) {
-                if (cache.ok(k) && cache.ver_seen(k) == csmX.row_version(k)) { ++k; }
-                else { cache.set_prefix_len(k); break; }
-            }
-            for (std::size_t r = cache.prefix_len(); r < S; ++r) {
-                if (stX.U_row.at(r) != 0 || stX.R_row.at(r) != 0) { break; }
-                const RowHashVerifier v{};
-                {
-                    const auto t0vr = std::chrono::steady_clock::now();
-                    const bool ok = v.verify_row(csmX, lhX, r);
-                    const auto t1vr = std::chrono::steady_clock::now();
-                    snap.time_lh_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1vr - t0vr).count());
-                    if (!ok) { break; }
-                }
-                cache.set_ver_seen(r, csmX.row_version(r));
-                cache.set_ok(r);
-                cache.set_prefix_len(r + 1);
-            }
-            return cache.prefix_len();
-        };
+        // Incremental LH prefix cache for csm_out without introducing extra record definitions
+        std::vector<std::uint64_t> pc_ver_seen; // per-row version when last verified
+        std::vector<char> pc_ok;                // per-row success flag (nonzero if verified)
+        std::size_t pc_prefix_len = 0;          // length of verified prefix [0..pc_prefix_len)
+
+        if (pc_ver_seen.size() != S) { pc_ver_seen.assign(S, 0ULL); pc_ok.assign(S, 0); pc_prefix_len = 0; }
 
         // Hard-coded deterministic elimination iteration cap
         static constexpr int kMaxIters = 60000;
@@ -381,13 +371,10 @@ namespace crsce::decompress {
                     );
 
                     // Prefer micro-solvers only later in polish; allow early run only with env override
-                    const bool ms_early = (
-                        []() {
-                            if (const char *e = std::getenv("CRSCE_MS_EARLY") /* NOLINT(concurrency-mt-unsafe) */) {
-                                return (*e=='1');
-                            }
-                            return false;
-                        })();
+                    bool ms_early = false;
+                    if (const char *e = std::getenv("CRSCE_MS_EARLY") /* NOLINT(concurrency-mt-unsafe) */) {
+                        ms_early = (*e=='1');
+                    }
                     if (ms_early) {
                         (void)::crsce::decompress::detail::finish_boundary_row_micro_solver(
                             csm_out,
@@ -494,7 +481,7 @@ namespace crsce::decompress {
                 }
                 if (par_rs > 1 && rs < kRestarts) {
                     const std::size_t workers = static_cast<std::size_t>(std::min(par_rs, 8));
-                    const std::size_t base_valid = cached_prefix(csm_out, st, lh, cache_out);
+                    std::size_t base_valid = 0; CRSCE_COMPUTE_PREFIX(base_valid, csm_out, st, lh);
                     std::atomic<bool> adopted{false};
                     std::mutex adopt_mu;
                     Csm c_winner = csm_out; ConstraintState st_winner = st;
@@ -666,29 +653,21 @@ namespace crsce::decompress {
                         int plateau_flip_attempts = 0;
                         const int heartbeat = ((ph + 1U) == dampers.size()) ? 500 : 2000; // more frequent in POLISH
                         // Verification cadence: configurable tick; adaptively increase while stalled
-                        const int verify_tick_base = ([](){
-                            if (const char *e = std::getenv("CRSCE_VERIFY_TICK") /* NOLINT(concurrency-mt-unsafe) */) {
-                                const int v = std::max(1, std::atoi(e));
-                                return v;
-                            }
-                            return 1500; // default cadence
-                        })();
+                        int verify_tick_base = 1500; // default cadence
+                        if (const char *e = std::getenv("CRSCE_VERIFY_TICK") /* NOLINT(concurrency-mt-unsafe) */) {
+                            verify_tick_base = std::max(1, std::atoi(e));
+                        }
                         int verify_tick_cur = verify_tick_base;
                         // ROI early-stop controls (per phase)
-                        const double roi_min_per_1k = ([](){
-                            if (const char *e = std::getenv("CRSCE_ROI_MIN_PER_1K") /* NOLINT(concurrency-mt-unsafe) */) {
-                                const double v = std::atof(e);
-                                return (v > 0.0 ? v : 0.0);
-                            }
-                            return 8.0; // cells improved per 1000 iterations
-                        })();
-                        const int roi_min_iters = ([](){
-                            if (const char *e = std::getenv("CRSCE_ROI_MIN_ITERS") /* NOLINT(concurrency-mt-unsafe) */) {
-                                const int v = std::atoi(e);
-                                return std::max(0, v);
-                            }
-                            return 1000;
-                        })();
+                        double roi_min_per_1k = 8.0; // cells improved per 1000 iterations
+                        if (const char *e = std::getenv("CRSCE_ROI_MIN_PER_1K") /* NOLINT(concurrency-mt-unsafe) */) {
+                            const double v = std::atof(e);
+                            roi_min_per_1k = (v > 0.0 ? v : 0.0);
+                        }
+                        int roi_min_iters = 1000;
+                        if (const char *e = std::getenv("CRSCE_ROI_MIN_ITERS") /* NOLINT(concurrency-mt-unsafe) */) {
+                            roi_min_iters = std::max(0, std::atoi(e));
+                        }
                         int roi_low_streak = 0;
                         int roi_last_gi = 0;
                         std::size_t roi_last_sumU = best_sumU_in_phase;
@@ -857,67 +836,13 @@ namespace crsce::decompress {
                             }
                             (void)::crsce::decompress::detail::finish_boundary_row_adaptive(csm_out, st, lh, baseline_csm, baseline_st, snap, rs, since_restart);
                             // Gate micro-solvers to polish phase by default (env CRSCE_MS_ONLY_POLISH=1)
-                            const bool only_polish = (
-                                [](){
-                                    if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
-                                        return (*e!='0');
-                                    }
-                                    return true;
-                            })();
+                            bool only_polish = true;
+                            if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
+                                only_polish = (*e!='0');
+                            }
                             const bool on_polish = ((ph + 1U) == dampers.size());
                             if (!only_polish || on_polish) {
-                                const bool par_ms = ([](){ if (const char *e = std::getenv("CRSCE_PAR_MS") /* NOLINT(concurrency-mt-unsafe) */) { return (*e=='1'); } return false; })();
-                                if (par_ms) {
-                                    std::atomic<bool> adopted{false};
-                                    std::mutex adopt_mu2;
-                                    Csm c_win = csm_out; ConstraintState st_win = st; bool any = false;
-                                    std::vector<BlockSolveSnapshot::ThreadEvent> tev(3);
-                                    std::vector<std::thread> pool;
-                                    pool.emplace_back([&](){
-                                        const auto t0 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                        std::string outcome = "rejected";
-                                        if (!adopted.load(std::memory_order_relaxed)) {
-                                            Csm c = csm_out; ConstraintState w = st; Csm bc = baseline_csm; ConstraintState bs = baseline_st; BlockSolveSnapshot s2 = snap;
-                                            if (::crsce::decompress::detail::finish_boundary_row_micro_solver(c, w, lh, bc, bs, s2, rs)) {
-                                                bool expected=false; if (adopted.compare_exchange_strong(expected,true,std::memory_order_acq_rel)) { const std::scoped_lock lk(adopt_mu2); c_win=c; st_win=w; baseline_csm=bc; baseline_st=bs; outcome="adopted"; any=true; }
-                                            }
-                                        }
-                                        const auto t1 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                        tev[0].name = "ms_brow"; tev[0].start_ms = t0; tev[0].stop_ms = t1; tev[0].outcome = outcome;
-                                    });
-                                    pool.emplace_back([&](){
-                                        const auto t0 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                        std::string outcome = "rejected";
-                                        if (!adopted.load(std::memory_order_relaxed)) {
-                                            Csm c = csm_out; ConstraintState w = st; Csm bc = baseline_csm; ConstraintState bs = baseline_st; BlockSolveSnapshot s2 = snap;
-                                            if (::crsce::decompress::detail::finish_boundary_row_segment_solver(c, w, lh, bc, bs, s2, rs)) {
-                                                bool expected=false; if (adopted.compare_exchange_strong(expected,true,std::memory_order_acq_rel)) { const std::scoped_lock lk(adopt_mu2); c_win=c; st_win=w; baseline_csm=bc; baseline_st=bs; outcome="adopted"; any=true; }
-                                            }
-                                        }
-                                        const auto t1 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                        tev[1].name = "ms_seg"; tev[1].start_ms = t0; tev[1].stop_ms = t1; tev[1].outcome = outcome;
-                                    });
-                                    pool.emplace_back([&](){
-                                        const auto t0 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                        std::string outcome = "rejected";
-                                        if (!adopted.load(std::memory_order_relaxed)) {
-                                            Csm c = csm_out; ConstraintState w = st; Csm bc = baseline_csm; ConstraintState bs = baseline_st; BlockSolveSnapshot s2 = snap;
-                                            if (::crsce::decompress::detail::finish_two_row_micro_solver(c, w, lh, bc, bs, s2, rs)) {
-                                                bool expected=false; if (adopted.compare_exchange_strong(expected,true,std::memory_order_acq_rel)) { const std::scoped_lock lk(adopt_mu2); c_win=c; st_win=w; baseline_csm=bc; baseline_st=bs; outcome="adopted"; any=true; }
-                                            }
-                                        }
-                                        const auto t1 = static_cast<std::uint64_t>(CRSCE_NOW_MS());
-                                        tev[2].name = "ms_2row"; tev[2].start_ms = t0; tev[2].stop_ms = t1; tev[2].outcome = outcome;
-                                    });
-                                    for (auto &t : pool) { if (t.joinable()) { t.join(); } }
-                                    for (const auto &e : tev) { snap.thread_events.push_back(e); }
-                                    if (adopted.load(std::memory_order_acquire)) {
-                                        csm_out = c_win; st = st_win; any = true; since_restart = 0;
-                                    }
-                                    if (any) {
-                                        for (int it = 0; it < 50 && !det.solved(); ++it) { if (det.solve_step() == 0) { break; } }
-                                    }
-                                } else {
+                                {
                                     (void)::crsce::decompress::detail::finish_boundary_row_micro_solver(csm_out, st, lh, baseline_csm, baseline_st, snap, rs);
                                     (void)::crsce::decompress::detail::finish_boundary_row_segment_solver(csm_out, st, lh, baseline_csm, baseline_st, snap, rs);
                                     (void)::crsce::decompress::detail::finish_two_row_micro_solver(csm_out, st, lh, baseline_csm, baseline_st, snap, rs);
@@ -1059,13 +984,10 @@ namespace crsce::decompress {
                                     rs,
                                     since_restart
                                 );
-                                const bool only_polish2 = (
-                                    []() {
-                                        if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
-                                            return (*e!='0');
-                                        } return true;
-                                    }
-                                )();
+                                bool only_polish2 = true;
+                                if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
+                                    only_polish2 = (*e!='0');
+                                }
                                 const bool on_polish2 = ((ph + 1U) == dampers.size());
                                 if (!only_polish2 || on_polish2) {
                                     (void)::crsce::decompress::detail::finish_boundary_row_micro_solver(
@@ -1096,14 +1018,10 @@ namespace crsce::decompress {
                                         rs
                                     );
                                 }
-                                const bool only_polish3 = (
-                                    []() {
-                                        if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
-                                            return (*e!='0');
-                                        }
-                                        return true;
-                                    }
-                                )();
+                                bool only_polish3 = true;
+                                if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
+                                    only_polish3 = (*e!='0');
+                                }
                                 const bool on_polish3 = ((ph + 1U) == dampers.size());
                                 if (!only_polish3 || on_polish3) {
                                     (void)::crsce::decompress::detail::finish_boundary_row_micro_solver(
@@ -1181,7 +1099,7 @@ namespace crsce::decompress {
                                 }
                             }
                             if (boundary < S) {
-                                const std::size_t valid_now = cached_prefix(csm_out, st, lh, cache_out);
+                                std::size_t valid_now = 0; CRSCE_COMPUTE_PREFIX(valid_now, csm_out, st, lh);
                                 auto near_thresh = static_cast<std::uint16_t>((S + 4U) / 5U); // ~20%
                                 if (const char *e = std::getenv("CRSCE_FOCUS_NEAR_THRESH") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
                                     int pct = std::atoi(e);
@@ -1490,7 +1408,7 @@ namespace crsce::decompress {
         // Final escalation: multi-candidate boundary backtrack with prefix verification
         if (!det.solved()) {
             const auto t0cp = std::chrono::steady_clock::now();
-            const std::size_t valid_now = cached_prefix(csm_out, st, lh, cache_out);
+            std::size_t valid_now = 0; CRSCE_COMPUTE_PREFIX(valid_now, csm_out, st, lh);
             const auto t1cp = std::chrono::steady_clock::now();
             snap.time_lh_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1cp - t0cp).count());
             // Identify boundary row (first with unknowns)
@@ -1524,14 +1442,10 @@ namespace crsce::decompress {
                     &std::pair<double,std::size_t>::first
                 );
 
-                const bool modeB = (
-                    [](){
-                        if (const char *m = std::getenv("CRSCE_BT_MODE") /* NOLINT(concurrency-mt-unsafe) */) {
-                            return (*m=='B' || *m=='b');
-                        }
-                        return false;
-                    }
-                )();
+                bool modeB = false;
+                if (const char *m = std::getenv("CRSCE_BT_MODE") /* NOLINT(concurrency-mt-unsafe) */) {
+                    modeB = (*m=='B' || *m=='b');
+                }
 
                 const bool modeA = !modeB; // default A
 
@@ -1901,15 +1815,14 @@ namespace crsce::decompress {
             }
         }
         const RowHashVerifier verifier;
-        const bool result = ([&](){
-            const auto t0va = std::chrono::steady_clock::now();
-            const bool ok = verifier.verify_all(csm_out, lh);
-            const auto t1va = std::chrono::steady_clock::now();
+        const auto t0va = std::chrono::steady_clock::now();
+        const bool result = verifier.verify_all(csm_out, lh);
+        const auto t1va = std::chrono::steady_clock::now();
+        {
             const auto ms = static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1va - t0va).count());
             snap.time_verify_all_ms += ms;
             snap.time_lh_ms += ms;
-            return ok;
-        })();
+        }
         if (result) {
             ::crsce::o11y::event("block_end_ok");
             ::crsce::o11y::metric("block_end_ok", 1LL);
@@ -1918,8 +1831,9 @@ namespace crsce::decompress {
             ::crsce::o11y::metric("block_end_verify_fail", 1LL);
         }
         return result;
-        // Fallback return to satisfy some analyzers about control paths
-        return false; // NOLINT(clang-diagnostic-unreachable-code)
     }
 }
 }
+#ifdef __clang__
+#  pragma clang diagnostic pop
+#endif
