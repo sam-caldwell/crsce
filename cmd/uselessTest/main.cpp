@@ -98,7 +98,7 @@ namespace {
 }
 
 int main() try {
-    // Arm process watchdog (default 10 minutes)
+    // Arm process watchdog
     crsce::common::util::detail::watchdog();
     std::cout << "Starting uselessTest...\n";
     const fs::path bin_dir{TEST_BINARY_DIR};

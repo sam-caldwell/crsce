@@ -21,6 +21,7 @@ namespace crsce::testrunner::detail {
  * @brief Create a file with the given number of zero bytes.
  * @param p Destination path.
  * @param bytes Number of zero bytes to write.
+ * @return void
  */
 void write_zero_file(const std::filesystem::path &p, std::uint64_t bytes) {
     std::ofstream os(p, std::ios::binary | std::ios::out | std::ios::trunc);
