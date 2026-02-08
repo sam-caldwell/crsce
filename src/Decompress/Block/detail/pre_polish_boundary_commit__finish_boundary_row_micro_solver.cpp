@@ -484,6 +484,103 @@ namespace crsce::decompress::detail {
                         dp_succeeded = false; // fall through to other finishers
                     }
                 }
+                // Two-chunk DP aggregator: if remaining > capN, attempt to pick from next window as well
+                if (!dp_succeeded && free_cand.size() > capN && remaining > capN) {
+                    const std::size_t start2 = capN;
+                    const std::size_t end2 = std::min<std::size_t>(start2 + window_cap, free_cand.size());
+                    const std::size_t capN2 = (end2 > start2) ? (end2 - start2) : 0U;
+                    if (capN2 > 0) {
+                        const std::size_t need1 = std::min<std::size_t>(capN, remaining);
+                        const std::size_t need2 = std::min<std::size_t>(remaining - need1, capN2);
+                        if (need1 > 0) {
+                            // Stage over copies
+                            Csm c_stage = c; ConstraintState w_stage = w;
+                            // First chunk DP
+                            ++snap.micro_solver_dp_attempts;
+                            static constexpr double kNegInfA = -1.0e300;
+                            std::vector<double> dpA((capN + 1U) * (need1 + 1U), kNegInfA);
+                            std::vector<unsigned char> takeA((capN + 1U) * (need1 + 1U), 0);
+                            dpA[dp_index(0,0,need1)] = 0.0;
+                            for (std::size_t iA = 0; iA < capN; ++iA) {
+                                const double sc = free_cand[iA].first;
+                                for (std::size_t kA = 0; kA <= need1; ++kA) {
+                                    const double v0 = dpA[dp_index(iA, kA, need1)];
+                                    dpA[dp_index(iA+1, kA, need1)] = std::max(v0, dpA[dp_index(iA+1, kA, need1)]);
+                                    if (kA + 1U <= need1) {
+                                        const double cand = v0 + sc;
+                                        if (cand > dpA[dp_index(iA+1, kA+1U, need1)]) {
+                                            dpA[dp_index(iA+1, kA+1U, need1)] = cand;
+                                            takeA[dp_index(iA+1, kA+1U, need1)] = 1;
+                                        }
+                                    }
+                                }
+                            }
+                            if (dpA[dp_index(capN, need1, need1)] > kNegInfA/2.0) {
+                                ++snap.micro_solver_dp_feasible;
+                                std::vector<std::size_t> chosenA; chosenA.reserve(need1);
+                                std::size_t iA = capN;
+                                std::size_t kA = need1;
+                                while (iA > 0) { if (takeA[dp_index(iA, kA, need1)] != 0U) { chosenA.push_back(iA - 1U); --kA; } --iA; }
+                                // Assign first chunk picks
+                                for (const auto idxA : chosenA) {
+                                    const std::size_t cc = free_cand[idxA].second;
+                                    if (!c_stage.is_locked(r, cc) && local_feasible(w_stage, r, cc, true)) {
+                                        assign_cell(c_stage, w_stage, r, cc, true);
+                                    }
+                                }
+                                // Second chunk DP if still need
+                                if (need2 > 0) {
+                                    ++snap.micro_solver_dp_attempts;
+                                    static constexpr double kNegInfB = -1.0e300;
+                                    std::vector<double> dpB((capN2 + 1U) * (need2 + 1U), kNegInfB);
+                                    std::vector<unsigned char> takeB((capN2 + 1U) * (need2 + 1U), 0);
+                                    dpB[dp_index(0,0,need2)] = 0.0;
+                                    for (std::size_t iB = 0; iB < capN2; ++iB) {
+                                        const double sc2 = free_cand[start2 + iB].first;
+                                        for (std::size_t kB = 0; kB <= need2; ++kB) {
+                                            const double v0 = dpB[dp_index(iB, kB, need2)];
+                                            dpB[dp_index(iB+1, kB, need2)] = std::max(v0, dpB[dp_index(iB+1, kB, need2)]);
+                                            if (kB + 1U <= need2) {
+                                                const double cand = v0 + sc2;
+                                                if (cand > dpB[dp_index(iB+1, kB+1U, need2)]) {
+                                                    dpB[dp_index(iB+1, kB+1U, need2)] = cand;
+                                                    takeB[dp_index(iB+1, kB+1U, need2)] = 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (dpB[dp_index(capN2, need2, need2)] > kNegInfB/2.0) {
+                                        ++snap.micro_solver_dp_feasible;
+                                        std::vector<std::size_t> chosenB; chosenB.reserve(need2);
+                                        std::size_t iB = capN2;
+                                        std::size_t kB = need2;
+                                        while (iB > 0) { if (takeB[dp_index(iB, kB, need2)] != 0U) { chosenB.push_back(iB - 1U); --kB; } --iB; }
+                                        for (const auto idxB : chosenB) {
+                                            const std::size_t cc = free_cand[start2 + idxB].second;
+                                            if (!c_stage.is_locked(r, cc) && local_feasible(w_stage, r, cc, true)) {
+                                                assign_cell(c_stage, w_stage, r, cc, true);
+                                            }
+                                        }
+                                        (void)finish_row_greedy(c_stage, w_stage, r);
+                                        if (w_stage.U_row.at(r) == 0) {
+                                            const RowHashVerifier ver_try2{};
+                                            const std::size_t check_rows = std::min<std::size_t>(r + 1, S);
+                                            if (check_rows > 0 && ver_try2.verify_rows(c_stage, lh, check_rows)) {
+                                                csm_out = c_stage; st = w_stage; baseline_csm = csm_out; baseline_st = st;
+                                                BlockSolveSnapshot::RestartEvent ev{}; ev.restart_index = rs; ev.prefix_rows = check_rows; ev.unknown_total = snap.unknown_total; ev.action = BlockSolveSnapshot::RestartAction::lockInMicro; snap.restarts.push_back(ev);
+                                                ++snap.micro_solver_successes; const auto t1st = std::chrono::steady_clock::now(); snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1st - t0).count());
+                                                return true;
+                                            }
+                                        }
+                                    } else {
+                                        ++snap.micro_solver_dp_infeasible;
+                                    }
+                                }
+                            } else {
+                                ++snap.micro_solver_dp_infeasible;
+                            }
+                        }
+                }
                 // If DP gated out or did not succeed, try an alternative ambiguous DP over most-ambiguous cells
                 if ((!dp_gate_ok || !dp_succeeded)) {
                     ++snap.micro_solver_amb_fallback_attempts;
