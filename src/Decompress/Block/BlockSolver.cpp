@@ -394,9 +394,9 @@ namespace crsce::decompress {
                         );
 
                         // Prefer micro-solvers only later in polish; allow early run only with env override
-                        bool ms_early = false;
+                        bool ms_early = true; // enable micro-solvers early by default
                         if (const char *e = std::getenv("CRSCE_MS_EARLY") /* NOLINT(concurrency-mt-unsafe) */) {
-                            ms_early = (*e=='1');
+                            ms_early = (*e!='0');
                         }
                         if (ms_early) {
                             (void)::crsce::decompress::detail::finish_boundary_row_micro_solver(
@@ -674,7 +674,7 @@ namespace crsce::decompress {
                             const int heartbeat = ((ph + 1U) == dampers.size()) ? 500 : 2000; // more frequent in POLISH
                             // Verification cadence: configurable tick; adaptively increase while stalled
                             // Verification cadence: lower default to verify more often without env override
-                            int verify_tick_base = 256; // default cadence (was 1500)
+                            int verify_tick_base = 192; // default cadence (was 256)
                             if (const char *e = std::getenv("CRSCE_VERIFY_TICK") /* NOLINT(concurrency-mt-unsafe) */) {
                                 verify_tick_base = std::max(1, std::atoi(e));
                             }
@@ -694,8 +694,8 @@ namespace crsce::decompress {
                             int roi_last_gi = 0;
                             std::size_t roi_last_sumU = best_sumU_in_phase;
                             // Heartbeat-based stall termination tolerance (more patience overall)
-                            // Increase thresholds to allow more work before declaring stall
-                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 60 : 36;   // was 20/12
+                            // Increase thresholds further to allow more work before declaring stall
+                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 100 : 60;   // exp: 100(POLISH)/60(other)
                             const double amb_eps = 0.02; // ambiguity window around 0.5 for micro-shake targeting
                             for (int gi = 0; gi < iters_arr.at(ph); ++gi) {
                                 // Removed legacy flush; metrics are buffered asynchronously
@@ -821,6 +821,23 @@ namespace crsce::decompress {
                             snap.rng_seed_restarts = restart_seed;
                             snap.restarts_total = snap.restarts.size();
                             set_block_solve_snapshot(snap);
+                            // Opportunistic: try committing any newly verified rows each heartbeat
+                            // regardless of verify cadence; follow with a short DE propagate
+                            try {
+                                bool any_commit = false;
+                                {
+                                    const auto t0v = std::chrono::steady_clock::now();
+                                    any_commit = ::crsce::decompress::detail::commit_any_verified_rows(
+                                                    csm_out, st, lh, baseline_csm, baseline_st, snap, rs);
+                                    const auto t1v = std::chrono::steady_clock::now();
+                                    snap.time_lh_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1v - t0v).count());
+                                }
+                                if (any_commit) {
+                                    for (int itp = 0; itp < 50 && !det.solved(); ++itp) {
+                                        if (det.solve_step() == 0) { break; }
+                                    }
+                                }
+                            } catch (...) { /* ignore */ }
                             // Plateau flip: try alternate scan perspective up to three times before other measures
                             if (gprog == 0) {
                                 if (plateau_flip_attempts < 3) {
