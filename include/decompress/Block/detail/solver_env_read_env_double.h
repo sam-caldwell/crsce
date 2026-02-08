@@ -7,5 +7,12 @@
 #pragma once
 
 namespace crsce::decompress::detail {
+    /**
+     * @name read_env_double
+     * @brief Read a double from environment or return default.
+     * @param name Environment variable name.
+     * @param defv Default value to return if missing or invalid.
+     * @return double Parsed value or default.
+     */
     double read_env_double(const char *name, double defv);
 }

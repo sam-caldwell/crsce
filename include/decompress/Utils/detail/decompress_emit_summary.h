@@ -2,19 +2,19 @@
  * @file decompress_emit_summary.h
  * @brief Helper to emit file-level decompress summary metrics without local lambdas.
  * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 
 #include <cstdint>
 #include "common/O11y/metric.h"
+#include "decompress/Utils/detail/decompress_emit_summary_enabled.h"
 
 namespace crsce::decompress::detail {
 
-inline bool summary_enabled_env() {
-    if (const char *p = std::getenv("CRSCE_DECOMPRESS_FILE_SUMMARY") /* NOLINT(concurrency-mt-unsafe) */) { return (*p != '0'); }
-    return false;
-}
-
+/**
+ * @brief Emit a single decompress file summary metric when enabled.
+ */
 inline void emit_decompress_summary(const char *status,
                                     std::uint64_t blocks_attempted,
                                     std::uint64_t blocks_successful) {
@@ -30,4 +30,3 @@ inline void emit_decompress_summary(const char *status,
 }
 
 } // namespace crsce::decompress::detail
-

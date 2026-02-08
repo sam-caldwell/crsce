@@ -7,5 +7,8 @@
 #pragma once
 
 namespace crsce::decompress::detail {
+    /**
+     * @brief Return whether SUMU tracing is enabled via environment.
+     */
     bool trace_sumu_enabled();
 }

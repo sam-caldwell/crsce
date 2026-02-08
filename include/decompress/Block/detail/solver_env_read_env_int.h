@@ -7,5 +7,8 @@
 #pragma once
 
 namespace crsce::decompress::detail {
+    /**
+     * @brief Read an int from environment or return default.
+     */
     int read_env_int(const char *name, int defv);
 }
