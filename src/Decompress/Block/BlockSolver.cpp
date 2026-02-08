@@ -624,7 +624,7 @@ namespace crsce::decompress {
                     }
                     (void)::crsce::decompress::detail::finish_near_complete_any_row(csm_out, st, lh, baseline_csm, baseline_st, snap, rs);
                         int since_restart = 0;
-                        const int dynamic_cooldown_base = 50; // further reduced cooldown for earlier contradiction restarts
+                        const int dynamic_cooldown_base = 20; // aggressively reduced cooldown for earlier contradiction restarts
                         std::vector<std::size_t> recent_restart_rows;
                         for (std::size_t ph = 0; ph < dampers.size() && !det.solved(); ++ph) {
                             // Announce phase start with structured tags
@@ -694,7 +694,8 @@ namespace crsce::decompress {
                             int roi_last_gi = 0;
                             std::size_t roi_last_sumU = best_sumU_in_phase;
                             // Heartbeat-based stall termination tolerance (more patience overall)
-                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 20 : 12;   // was 10/5
+                            // Increase thresholds to allow more work before declaring stall
+                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 60 : 36;   // was 20/12
                             const double amb_eps = 0.02; // ambiguity window around 0.5 for micro-shake targeting
                             for (int gi = 0; gi < iters_arr.at(ph); ++gi) {
                                 // Removed legacy flush; metrics are buffered asynchronously
@@ -793,16 +794,16 @@ namespace crsce::decompress {
                                         verify_tick_cur = verify_tick_base; // reset cadence when improving
                                     } else {
                                         ++hb_no_improve;
-                                        // Less frequent verifications while stalled to reduce hashing overhead
-                                        verify_tick_cur = std::min(verify_tick_cur + verify_tick_base, verify_tick_base * 8);
-                                        // Small conf decay in POLISH when stalled; allow deeper decay with more heartbeats
+                                        // More frequent verifications while stalled to opportunistically lock prefixes
+                                        verify_tick_cur = std::max(verify_tick_base / 2, verify_tick_cur / 2);
+                                        // Small conf decay in POLISH when stalled; slow down decay
                                         if ((ph + 1U) == dampers.size()) {
-                                            if (hb_no_improve > 20) {
-                                                confs.at(ph) = std::max(0.50, confs.at(ph) - 0.01);
+                                            if (hb_no_improve > 40) {
+                                                confs.at(ph) = std::max(0.50, confs.at(ph) - 0.005);
+                                            } else if (hb_no_improve > 20) {
+                                                confs.at(ph) = std::max(0.52, confs.at(ph) - 0.005);
                                             } else if (hb_no_improve > 10) {
-                                                confs.at(ph) = std::max(0.52, confs.at(ph) - 0.01);
-                                            } else if (hb_no_improve > 5) {
-                                                confs.at(ph) = std::max(0.55, confs.at(ph) - 0.01);
+                                                confs.at(ph) = std::max(0.55, confs.at(ph) - 0.005);
                                             }
                                         }
                                         if (hb_no_improve >= hb_terminate) {
@@ -1075,10 +1076,17 @@ namespace crsce::decompress {
                                     repeats = cnt;
                                 }
                                 const int cooldown_ticks = std::clamp(
-                                    dynamic_cooldown_base + (since_restart / 2) - (repeats * 150),
+                                    dynamic_cooldown_base + (since_restart / 3) - (repeats * 100),
                                     100,
                                     2000
                                 );
+                                // Force periodic audits regardless of cooldown every N heartbeats
+                                int force_every = 50;
+                                if (const char *e = std::getenv("CRSCE_AUDIT_FORCE_EVERY") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
+                                    const auto v = std::strtoll(e, nullptr, 10);
+                                    if (v > 0) { force_every = static_cast<int>(v); }
+                                }
+                                const int used_cooldown = ((force_every > 0) && ((gi % force_every) == 0)) ? 0 : cooldown_ticks;
                                 if (
                                     ::crsce::decompress::detail::audit_and_restart_on_contradiction(
                                         csm_out,
@@ -1089,7 +1097,7 @@ namespace crsce::decompress {
                                         snap,
                                         rs,
                                         valid_bits,
-                                        cooldown_ticks,
+                                        used_cooldown,
                                         since_restart
                                     )
                                 ) {

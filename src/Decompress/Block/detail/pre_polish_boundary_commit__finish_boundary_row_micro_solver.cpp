@@ -369,12 +369,12 @@ namespace crsce::decompress::detail {
                             }
                             if (!amb_pool.empty()) {
                                 std::ranges::sort(amb_pool, std::less<double>{}, &std::pair<double,std::size_t>::first);
-                                std::size_t swap_pool = 16;
+                                std::size_t swap_pool = 64;
                                 if (const char *e = std::getenv("CRSCE_MS_KVAR_SWAP_POOL") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
                                     const auto v = std::strtoll(e, nullptr, 10); if (v > 0) { swap_pool = static_cast<std::size_t>(v); }
                                 }
                                 swap_pool = std::min<std::size_t>(swap_pool, amb_pool.size());
-                                std::size_t max_swaps_per_pos = 8;
+                                std::size_t max_swaps_per_pos = 16;
                                 if (const char *e = std::getenv("CRSCE_MS_KVAR_SWAPS") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
                                     const auto v = std::strtoll(e, nullptr, 10); if (v > 0) { max_swaps_per_pos = static_cast<std::size_t>(v); }
                                 }
@@ -542,6 +542,52 @@ namespace crsce::decompress::detail {
                                         BlockSolveSnapshot::RestartEvent ev{}; ev.restart_index = rs; ev.prefix_rows = std::min<std::size_t>(r + 1, S); ev.unknown_total = snap.unknown_total; ev.action = BlockSolveSnapshot::RestartAction::lockInMicro; snap.restarts.push_back(ev);
                                         ++snap.micro_solver_successes; const auto t1loc = std::chrono::steady_clock::now(); snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1loc - t0).count());
                                         return true;
+                                    }
+                                    // Swap variants over ambiguous window
+                                    {
+                                        std::vector<char> in_chosen2(capN2, 0);
+                                        for (const auto idx : chosen3) { if (idx < capN2) { in_chosen2[idx] = 1; } }
+                                        // Ambiguity values are already implicit in fb_cand ordering (from amb sort)
+                                        std::vector<std::pair<double,std::size_t>> amb_pool2; amb_pool2.reserve(capN2);
+                                        for (std::size_t idx = 0; idx < capN2; ++idx) {
+                                            if (in_chosen2[idx] != 0) { continue; }
+                                            const std::size_t cc = fb_cand[idx].second;
+                                            const double v = c.get_data(r, cc);
+                                            const double ambv = std::fabs(v - 0.5);
+                                            amb_pool2.emplace_back(ambv, idx);
+                                        }
+                                        if (!amb_pool2.empty()) {
+                                            std::ranges::sort(amb_pool2, std::less<double>{}, &std::pair<double,std::size_t>::first);
+                                            std::size_t swap_pool2 = 64;
+                                            if (const char *e = std::getenv("CRSCE_MS_KVAR_SWAP_POOL") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
+                                                const auto v = std::strtoll(e, nullptr, 10); if (v > 0) { swap_pool2 = static_cast<std::size_t>(v); }
+                                            }
+                                            swap_pool2 = std::min<std::size_t>(swap_pool2, amb_pool2.size());
+                                            std::size_t max_swaps_pos2 = 16;
+                                            if (const char *e = std::getenv("CRSCE_MS_KVAR_SWAPS") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
+                                                const auto v = std::strtoll(e, nullptr, 10); if (v > 0) { max_swaps_pos2 = static_cast<std::size_t>(v); }
+                                            }
+                                            const std::size_t pos_limit2 = std::min<std::size_t>(chosen3.size(), 16);
+                                            for (std::size_t ex = 0; ex < pos_limit2; ++ex) {
+                                                for (std::size_t si = 0; si < swap_pool2 && si < max_swaps_pos2; ++si) {
+                                                    const std::size_t alt_idx = amb_pool2[si].second;
+                                                    if (alt_idx >= capN2) { continue; }
+                                                    std::vector<std::size_t> variant2 = chosen3;
+                                                    variant2[ex] = alt_idx;
+                                                    std::ranges::sort(variant2);
+                                                    auto sub2 = std::ranges::unique(variant2);
+                                                    variant2.erase(sub2.begin(), sub2.end());
+                                                    if (variant2.size() != chosen3.size()) { continue; }
+                                                    Csm c_best2; ConstraintState w_best2; bool found2 = false; std::size_t nodes_d2 = 0;
+                                                    if (try_apply_set(variant2, fb_cand, capN2, c_best2, w_best2, found2, nodes_d2, c, w, r, lh, snap)) {
+                                                        csm_out = c_best2; st = w_best2; baseline_csm = csm_out; baseline_st = st;
+                                                        BlockSolveSnapshot::RestartEvent ev{}; ev.restart_index = rs; ev.prefix_rows = std::min<std::size_t>(r + 1, S); ev.unknown_total = snap.unknown_total; ev.action = BlockSolveSnapshot::RestartAction::lockInMicro; snap.restarts.push_back(ev);
+                                                        ++snap.micro_solver_successes; const auto t1sw2 = std::chrono::steady_clock::now(); snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1sw2 - t0).count());
+                                                        return true;
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 } else { ++snap.micro_solver_dp_infeasible; }
                             }
