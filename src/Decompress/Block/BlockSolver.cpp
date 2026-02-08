@@ -674,7 +674,7 @@ namespace crsce::decompress {
                             const int heartbeat = ((ph + 1U) == dampers.size()) ? 500 : 2000; // more frequent in POLISH
                             // Verification cadence: configurable tick; adaptively increase while stalled
                             // Verification cadence: lower default to verify more often without env override
-                            int verify_tick_base = 192; // default cadence (was 256)
+                            int verify_tick_base = 160; // default cadence (was 192)
                             if (const char *e = std::getenv("CRSCE_VERIFY_TICK") /* NOLINT(concurrency-mt-unsafe) */) {
                                 verify_tick_base = std::max(1, std::atoi(e));
                             }
@@ -695,8 +695,9 @@ namespace crsce::decompress {
                             std::size_t roi_last_sumU = best_sumU_in_phase;
                             // Heartbeat-based stall termination tolerance (more patience overall)
                             // Increase thresholds further to allow more work before declaring stall
-                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 100 : 60;   // exp: 100(POLISH)/60(other)
-                            const double amb_eps = 0.02; // ambiguity window around 0.5 for micro-shake targeting
+                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 200 : 100;   // exp: 200(POLISH)/100(other)
+                            const double amb_eps = 0.02; // general ambiguity window around 0.5
+                            const double micro_shake_eps = 0.005; // narrower band for micro-shake targeting
                             for (int gi = 0; gi < iters_arr.at(ph); ++gi) {
                                 // Removed legacy flush; metrics are buffered asynchronously
                                 std::size_t gprog = 0;
@@ -962,14 +963,31 @@ namespace crsce::decompress {
                                 }
                                 // Always-on micro-shake on plateau to perturb ambiguous beliefs slightly (after flip attempts)
                                 if (gprog == 0 && plateau_flip_attempts >= 3) {
-                                    std::uniform_real_distribution<double> delta(-0.001, 0.001);
+                                    // Global light micro-shake
+                                    std::uniform_real_distribution<double> delta(-0.005, 0.005);
                                     for (std::size_t r0 = 0; r0 < S; ++r0) {
                                         for (std::size_t c0 = 0; c0 < S; ++c0) {
                                             if (csm_out.is_locked(r0, c0)) { continue; }
                                             const double v = csm_out.get_data(r0, c0);
-                                            if (std::fabs(v - 0.5) < amb_eps) {
+                                            if (std::fabs(v - 0.5) < micro_shake_eps) {
                                                 const double nv = std::clamp(v + delta(rng), 0.0, 1.0);
                                                 csm_out.set_data(r0, c0, nv);
+                                            }
+                                        }
+                                    }
+                                    // Boundary-focused micro-shake: narrower band on first one or two boundary rows
+                                    std::uniform_real_distribution<double> delta_b(-0.003, 0.003);
+                                    std::size_t boundary = 0; for (; boundary < S; ++boundary) { if (st.U_row.at(boundary) > 0) { break; } }
+                                    if (boundary < S) {
+                                        const std::size_t r_end = std::min<std::size_t>(S - 1U, boundary + 1U);
+                                        for (std::size_t rr = boundary; rr <= r_end; ++rr) {
+                                            for (std::size_t c0 = 0; c0 < S; ++c0) {
+                                                if (csm_out.is_locked(rr, c0)) { continue; }
+                                                const double v = csm_out.get_data(rr, c0);
+                                                if (std::fabs(v - 0.5) < 0.003) {
+                                                    const double nv = std::clamp(v + delta_b(rng), 0.0, 1.0);
+                                                    csm_out.set_data(rr, c0, nv);
+                                                }
                                             }
                                         }
                                     }
@@ -1103,7 +1121,16 @@ namespace crsce::decompress {
                                     const auto v = std::strtoll(e, nullptr, 10);
                                     if (v > 0) { force_every = static_cast<int>(v); }
                                 }
-                                const int used_cooldown = ((force_every > 0) && ((gi % force_every) == 0)) ? 0 : cooldown_ticks;
+                                int grace = 50; // heartbeats to skip forced audits after a restart
+                                if (const char *e = std::getenv("CRSCE_AUDIT_GRACE") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
+                                    const auto v = std::strtoll(e, nullptr, 10);
+                                    if (v >= 0) { grace = static_cast<int>(v); }
+                                }
+                                int used_cooldown = cooldown_ticks;
+                                const bool force_due = (force_every > 0) && ((gi % force_every) == 0);
+                                if (since_restart >= grace && force_due) {
+                                    used_cooldown = 0;
+                                }
                                 if (
                                     ::crsce::decompress::detail::audit_and_restart_on_contradiction(
                                         csm_out,
