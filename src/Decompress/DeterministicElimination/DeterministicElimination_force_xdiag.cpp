@@ -4,7 +4,7 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_c_from_x.h"
 #include <cstddef>
 
 namespace crsce::decompress {

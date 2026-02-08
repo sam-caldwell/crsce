@@ -20,7 +20,8 @@
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_d.h"
+#include "decompress/Utils/detail/calc_x.h"
 #include "Decompress/Block/detail/micro_solver_helpers.h"
 
 namespace crsce::decompress::detail {

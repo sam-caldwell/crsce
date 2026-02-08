@@ -31,7 +31,8 @@
 #include "decompress/Block/detail/pre_polish_audit_and_restart_on_contradiction.h"
 #include "decompress/Block/detail/solver_env_trace_sumu.h"
 #include "decompress/Block/detail/read_seed_or_default.h"
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_d.h"
+#include "decompress/Utils/detail/calc_x.h"
 
 #include <cstddef>
 #include <cstdint> //NOLINT

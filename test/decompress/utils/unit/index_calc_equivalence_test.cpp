@@ -3,7 +3,10 @@
  * @brief Verify calc_d(r,c) and calc_x(r,c) are equivalent to original formulas.
  */
 #include <gtest/gtest.h>
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_d.h"
+#include "decompress/Utils/detail/calc_x.h"
+#include "decompress/Utils/detail/calc_c_from_d.h"
+#include "decompress/Utils/detail/calc_c_from_x.h"
 #include "decompress/Csm/detail/Csm.h"
 #include <cstddef>
 

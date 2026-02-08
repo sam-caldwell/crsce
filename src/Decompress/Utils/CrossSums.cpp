@@ -5,7 +5,8 @@
  */
 #include "decompress/Utils/detail/verify_cross_sums.h"
 #include "decompress/Csm/detail/Csm.h" // direct provider for Csm
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_d.h"
+#include "decompress/Utils/detail/calc_x.h"
 #include <array>    // direct provider for std::array
 #include <cstddef>  // direct provider for std::size_t
 #include <cstdint>  // direct provider for std::uint16_t

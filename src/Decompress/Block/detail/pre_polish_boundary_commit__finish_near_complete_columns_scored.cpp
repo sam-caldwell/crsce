@@ -10,7 +10,8 @@
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_d.h"
+#include "decompress/Utils/detail/calc_x.h"
 
 #include <algorithm>
 #include <cmath>

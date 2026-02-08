@@ -7,7 +7,7 @@
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Block/detail/commit_row_locked.h"
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_x.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"

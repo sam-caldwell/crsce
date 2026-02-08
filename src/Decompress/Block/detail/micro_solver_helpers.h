@@ -18,7 +18,8 @@
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_d.h"
+#include "decompress/Utils/detail/calc_x.h"
 
 namespace crsce::decompress::detail {
 
@@ -140,4 +141,3 @@ inline void two_row_dfs_bnb(std::size_t i, /* NOLINT(misc-no-recursion) */
                             BlockSolveSnapshot &snap);
 
 } // namespace crsce::decompress::detail
-

@@ -20,8 +20,8 @@
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/Utils/detail/index_calc.h"
-#include "Decompress/Block/detail/micro_solver_helpers.h"
+#include "decompress/Utils/detail/calc_x.h"
+#include "decompress/Block/detail/micro_solver_helpers.h"
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
@@ -40,7 +40,7 @@ namespace crsce::decompress::detail {
      * @param rs Current restart index for event attribution (unused).
      * @return bool True if a segment completion was adopted; false otherwise.
      */
-    bool finish_boundary_row_segment_solver(Csm &csm_out,
+    bool finish_boundary_row_segment_solver(Csm &csm_out, // NOLINT(misc-use-internal-linkage)
                                             ConstraintState &st,
                                             std::span<const std::uint8_t> lh,
                                             Csm &baseline_csm,
