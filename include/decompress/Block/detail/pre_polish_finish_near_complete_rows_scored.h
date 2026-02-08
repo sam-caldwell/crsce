@@ -13,6 +13,9 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @brief Finish near-complete rows prioritized by score ordering.
+     */
     bool finish_near_complete_rows_scored(Csm &csm_out,
                                           ConstraintState &st,
                                           std::span<const std::uint8_t> lh,

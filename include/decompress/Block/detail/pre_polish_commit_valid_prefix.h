@@ -12,6 +12,9 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @brief Commit the longest currently valid prefix of bits.
+     */
     bool commit_valid_prefix(Csm &csm_out,
                              ConstraintState &st,
                              std::span<const std::uint8_t> lh,

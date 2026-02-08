@@ -13,6 +13,21 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name audit_and_restart_on_contradiction
+     * @brief Audit current state and optionally restart on contradiction.
+     * @param csm_out Out: CSM to update with new values.
+     * @param st Out: Constraint state to update with new values.
+     * @param lh Left-hand side of the constraint.
+     * @param baseline_csm CSM to compare against.
+     * @param baseline_st Constraint state to compare against.
+     * @param snap Snapshot of the block solve state.
+     * @param rs Restart seed.
+     * @param valid_bits Number of valid bits in the block.
+     * @param cooldown_ticks Number of ticks to wait before restarting.
+     * @param since_last_restart Out: Number of ticks since last restart.
+     * @return true on success; false on contradiction.
+     */
     bool audit_and_restart_on_contradiction(Csm &csm_out,
                                             ConstraintState &st,
                                             std::span<const std::uint8_t> lh,

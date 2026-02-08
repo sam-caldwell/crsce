@@ -14,6 +14,9 @@ namespace crsce::decompress { struct ConstraintState; }
 namespace crsce::decompress { struct BlockSolveSnapshot; }
 
 namespace crsce::decompress::detail {
+    /**
+     * @brief Attempt to finish the boundary row using a segment solver.
+     */
     bool finish_boundary_row_segment_solver(Csm &csm_out,
                                             ConstraintState &st,
                                             std::span<const std::uint8_t> lh,

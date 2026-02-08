@@ -13,6 +13,9 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @brief Finish near-complete columns prioritized by score ordering.
+     */
     bool finish_near_complete_columns_scored(Csm &csm_out,
                                              ConstraintState &st,
                                              std::span<const std::uint8_t> lh,

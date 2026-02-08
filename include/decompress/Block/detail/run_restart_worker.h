@@ -2,7 +2,7 @@
  * @file run_restart_worker.h
  * @brief Declaration for parallel restart worker (mini-GOBP with jitter).
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 

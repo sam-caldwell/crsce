@@ -13,8 +13,9 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
-    // Heuristic micro-solver: try to complete the boundary row using residual constraints,
-    // adopt only if the extended prefix verifies against LH.
+    /**
+     * @brief Heuristically finish the boundary row if the prefix verifies.
+     */
     bool finish_boundary_row_micro_solver(Csm &csm_out,
                                           ConstraintState &st,
                                           std::span<const std::uint8_t> lh,

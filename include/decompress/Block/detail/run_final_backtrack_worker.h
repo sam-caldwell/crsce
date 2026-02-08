@@ -2,7 +2,7 @@
  * @file run_final_backtrack_worker.h
  * @brief Declaration for final boundary backtrack worker.
  * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 
