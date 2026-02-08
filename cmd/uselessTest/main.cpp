@@ -25,8 +25,13 @@
 namespace fs = std::filesystem;
 
 int main() try {
-    // Arm process watchdog
-    crsce::common::util::detail::watchdog();
+    // Arm process watchdog (default 30 minutes; overridable via CRSCE_WATCHDOG_SECS)
+    unsigned int watchdog_secs = 3600U; // 30 minutes
+    if (const char *w = std::getenv("CRSCE_WATCHDOG_SECS"); w && *w) { // NOLINT(concurrency-mt-unsafe)
+        const auto v = std::strtoll(w, nullptr, 10);
+        if (v > 0) { watchdog_secs = static_cast<unsigned int>(v); }
+    }
+    crsce::common::util::detail::watchdog(watchdog_secs);
     std::cout << "Starting uselessTest...\n";
     const fs::path bin_dir{TEST_BINARY_DIR};
     const fs::path repo_root = fs::path(CRSCE_BIN_DIR).parent_path();
