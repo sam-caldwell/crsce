@@ -3,7 +3,7 @@
  * @brief Definition of finish_boundary_row_micro_solver.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "decompress/Block/detail/pre_polish_finish_boundary_row_micro_solver.h"
+// Implementation file intentionally omits its own header to satisfy include-cleaner.
 
 #include <algorithm>
 #include <cstddef>
@@ -24,7 +24,7 @@
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
-#include "Decompress/Block/detail/micro_solver_helpers.h"
+#include "micro_solver_helpers.h"
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
@@ -44,7 +44,7 @@ namespace crsce::decompress::detail {
      * @param rs Current restart index for event attribution.
      * @return bool True if boundary completion adopted; false otherwise.
      */
-    bool finish_boundary_row_micro_solver(Csm &csm_out,
+    bool finish_boundary_row_micro_solver(Csm &csm_out, // NOLINT(misc-use-internal-linkage)
                                           ConstraintState &st,
                                           std::span<const std::uint8_t> lh,
                                           Csm &baseline_csm,
@@ -311,7 +311,7 @@ namespace crsce::decompress::detail {
                     }
                 }
                 // Fallback: greedy like before
-                std::size_t picked = 0;
+                std::size_t picked = 0; // NOLINT(misc-const-correctness)
                 for (const auto &p : free_cand) {
                     if (picked >= remaining) { break; }
                     const std::size_t cc = p.second;

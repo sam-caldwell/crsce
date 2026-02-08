@@ -18,5 +18,15 @@ namespace crsce::decompress::detail {
      * @param bytes Byte span to convert.
      * @return Lowercase hex string.
      */
-    std::string to_hex(std::span<const std::uint8_t> bytes);
+    inline std::string to_hex(std::span<const std::uint8_t> bytes) {
+        std::string out;
+        out.resize(bytes.size() * 2U);
+        for (std::size_t i = 0; i < bytes.size(); ++i) {
+            const auto b = static_cast<unsigned>(bytes[i]);
+            const std::size_t j = 2U * i;
+            out[j]     = hex_nibble(b >> 4U);
+            out[j + 1] = hex_nibble(b & 0x0F);
+        }
+        return out;
+    }
 }

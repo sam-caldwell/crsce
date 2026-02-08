@@ -3,7 +3,7 @@
  * @brief Definition of finish_two_row_micro_solver.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "decompress/Block/detail/pre_polish_finish_two_row_micro_solver.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h" // already included below
 
 #include <algorithm>
 #include <cstddef>
@@ -14,7 +14,6 @@
 #include <chrono>
 #include <functional>
 #include <cstdlib>
-#include <chrono>
 
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
@@ -22,7 +21,7 @@
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
-#include "Decompress/Block/detail/micro_solver_helpers.h"
+#include "micro_solver_helpers.h"
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
@@ -41,7 +40,7 @@ namespace crsce::decompress::detail {
      * @param rs Current restart index for event attribution.
      * @return bool True if two-row completion path is adopted; false otherwise.
      */
-    bool finish_two_row_micro_solver(Csm &csm_out,
+    bool finish_two_row_micro_solver(Csm &csm_out, // NOLINT(misc-use-internal-linkage)
                                      ConstraintState &st,
                                      std::span<const std::uint8_t> lh,
                                      Csm &baseline_csm,

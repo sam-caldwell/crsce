@@ -21,7 +21,7 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Utils/detail/calc_x.h"
-#include "decompress/Block/detail/micro_solver_helpers.h"
+#include "micro_solver_helpers.h"
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;

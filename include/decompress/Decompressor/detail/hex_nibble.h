@@ -13,6 +13,10 @@ namespace crsce::decompress::detail {
      * @param v Value to convert.
      * @return char Lowercase hex character.
      */
-    inline char hex_nibble(unsigned v);
+    inline char hex_nibble(unsigned v) {
+        static constexpr std::array<char, 16> kDigits{
+            '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'
+        };
+        return kDigits.at(v & 0x0F);
+    }
 }
-

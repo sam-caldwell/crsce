@@ -19,6 +19,7 @@ file(GLOB_RECURSE DECOMPRESS_SOURCES
 
 target_sources(decompress PRIVATE ${DECOMPRESS_SOURCES})
 
+
 # Stage binary to a unified bin/ directory for convenience
 add_custom_command(TARGET decompress POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/bin"
