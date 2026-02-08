@@ -12,90 +12,16 @@
 #include <system_error>
 #include <vector>
 #include <cstdlib>
-#include <array>
-#include <span>
-#include <cstdint>
-#include <fstream>
 #include <sstream>
+#include <fstream>
 
 #include "testRunnerRandom/detail/sha512.h"
 #include "testRunnerRandom/detail/run_process.h"
-#include "decompress/Decompressor/Decompressor.h"
-#include "decompress/Decompressor/HeaderV1Fields.h"
+#include "common/Util/ValidateContainer.h"
 #include "testRunnerRandom/detail/resolve_exe.h"
 #include "common/Util/detail/watchdog.h"
 
 namespace fs = std::filesystem;
-
-namespace {
-    bool validate_container(const std::filesystem::path &cx_path, std::string &err) {
-        namespace fs = std::filesystem;
-        using crsce::decompress::Decompressor;
-        using crsce::decompress::HeaderV1Fields;
-
-        // Basic size check for presence
-        std::error_code ec_sz; const auto fsz = fs::file_size(cx_path, ec_sz);
-        if (ec_sz || fsz < static_cast<std::uintmax_t>(Decompressor::kHeaderSize)) {
-            err = "container too small or unreadable";
-            return false;
-        }
-
-        // Read header
-        std::ifstream is(cx_path, std::ios::binary);
-        if (!is.good()) { err = "cannot open container"; return false; }
-        std::array<std::uint8_t, Decompressor::kHeaderSize> hdr{};
-        is.read(reinterpret_cast<char*>(hdr.data()), static_cast<std::streamsize>(hdr.size())); // NOLINT
-        if (is.gcount() != static_cast<std::streamsize>(hdr.size())) { err = "short read on header"; return false; }
-
-        HeaderV1Fields fields{};
-        if (!Decompressor::parse_header(hdr, fields)) {
-            err = "invalid header: magic/version/size/crc check failed";
-            return false;
-        }
-
-        // Recompute expected block count from original size
-        constexpr std::uint64_t kBitsPerBlock = 511ULL * 511ULL;
-        const std::uint64_t total_bits = fields.original_size_bytes * 8ULL;
-        const std::uint64_t expect_blocks = (total_bits == 0ULL) ? 0ULL : ((total_bits + kBitsPerBlock - 1ULL) / kBitsPerBlock);
-        if (fields.block_count != expect_blocks) {
-            err = "block_count mismatch";
-            return false;
-        }
-
-        // File size must match header + blocks * block_bytes
-        const std::uint64_t expect_size = static_cast<std::uint64_t>(Decompressor::kHeaderSize)
-                                          + (fields.block_count * static_cast<std::uint64_t>(Decompressor::kBlockBytes));
-        if (fsz != static_cast<std::uintmax_t>(expect_size)) {
-            err = "file size mismatch";
-            return false;
-        }
-
-        // Validate payload structure per block
-        for (std::uint64_t i = 0; i < fields.block_count; ++i) {
-            std::vector<std::uint8_t> block(Decompressor::kBlockBytes);
-            is.read(reinterpret_cast<char*>(block.data()), static_cast<std::streamsize>(block.size())); // NOLINT
-            if (is.gcount() != static_cast<std::streamsize>(block.size())) {
-                err = "short read in block payload";
-                return false;
-            }
-            std::span<const std::uint8_t> lh;
-            std::span<const std::uint8_t> sums;
-            if (!Decompressor::split_payload(block, lh, sums)) {
-                err = "invalid block payload size";
-                return false;
-            }
-            if (lh.size_bytes() != Decompressor::kLhBytes) {
-                err = "LH size mismatch";
-                return false;
-            }
-            if (sums.size_bytes() != Decompressor::kSumsBytes) {
-                err = "Cross-sums size mismatch";
-                return false;
-            }
-        }
-        return true;
-    }
-}
 
 int main() try {
     // Arm process watchdog
@@ -184,7 +110,7 @@ int main() try {
             std::cout << "USL_CONTAINER_REASON=wrapped-binaries\n";
         } else {
             std::string why;
-            if (!validate_container(cx_path, why)) {
+            if (!crsce::common::util::validate_container(cx_path, why)) {
                 std::cerr << "uselessTest: container validation failed: " << why << "\n";
                 std::cout << "USL_CONTAINER_VALIDATION=fail\n";
                 std::cout << "USL_CONTAINER_REASON=" << why << "\n";
