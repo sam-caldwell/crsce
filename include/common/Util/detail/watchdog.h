@@ -1,6 +1,8 @@
 /**
  * @file watchdog.h
+ * @author Sam Caldwell
  * @brief Declaration for process watchdog that terminates after a tombstone timeout.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

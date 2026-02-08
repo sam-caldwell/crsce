@@ -1,7 +1,8 @@
 /**
  * @file ExtractFirstHex64.cpp
  * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/HasherUtils/ExtractFirstHex64.h"
 

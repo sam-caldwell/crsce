@@ -1,6 +1,8 @@
 /**
  * @file cmd/testRunnerZeroes/main.cpp
+ * @author Sam Caldwell
  * @brief CLI entry for TestRunnerZeroes; delegates to testrunner_zeroes::cli::run().
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
 */
 #include "testrunnerZeroes/Cli/detail/run.h"
 #include <exception>

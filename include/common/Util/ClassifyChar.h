@@ -1,6 +1,7 @@
 /**
  * @file ClassifyChar.h
  * @brief Character classification utility tag header.
+ * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once

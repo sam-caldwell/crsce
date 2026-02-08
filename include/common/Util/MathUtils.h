@@ -1,5 +1,6 @@
 /**
  * @file MathUtils.h
+ * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Umbrella header re-exporting small utility constructs.
  *

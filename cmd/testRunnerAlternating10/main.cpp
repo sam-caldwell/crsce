@@ -1,5 +1,6 @@
 /**
  * @file cmd/testRunnerAlternating10/main.cpp
+ * @author Sam Caldwell
  * @brief CLI entry for TestRunnerAlternating10; delegates to testrunner_alternating10::cli::run().
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */

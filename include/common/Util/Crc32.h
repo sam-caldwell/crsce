@@ -1,5 +1,6 @@
 /**
  * @file Crc32.h
+ * @author Sam Caldwell
  * @brief CRC-32 (IEEE 802.3) utility.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */

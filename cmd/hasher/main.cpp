@@ -1,5 +1,6 @@
 /**
  * @file cmd/hasher/main.cpp
+ * @author Sam Caldwell
  * @brief Generate 32KB random data, compute SHA-256 via system sha256sum/shasum
  *        and via internal Sha256, compare, and return 0 on match, 1 otherwise.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.

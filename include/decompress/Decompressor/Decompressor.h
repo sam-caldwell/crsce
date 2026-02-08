@@ -1,7 +1,8 @@
 /**
  * @file Decompressor.h
  * @brief CRSCE v1 decompressor scaffolding: header parsing and payload split.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

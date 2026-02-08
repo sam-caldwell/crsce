@@ -2,8 +2,8 @@
  * @file cmd/decompress/main.cpp
  * @brief CLI entry for decompressor; parse args and dispatch to runner.
  *        Reconstructs CSMs via solvers, verifies LH, and writes original bytes.
- *
- * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Cli/detail/run.h"
 #include <span>

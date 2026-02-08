@@ -1,5 +1,6 @@
 /**
  * @file cmd/compress/main.cpp
+ * @author Sam Caldwell
  * @brief CLI entry for compressor; validates args and dispatches to runner.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */

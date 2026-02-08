@@ -1,5 +1,6 @@
 /**
  * @file NibbleToHex.h
+ * @author Sam Caldwell
  * @brief Nibble-to-hex utility tag header.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */

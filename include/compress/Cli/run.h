@@ -1,5 +1,6 @@
 /**
  * @file run.h
+ * @author Sam Caldwell
  * @brief CLI runner for the compressor binary.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */

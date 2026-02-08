@@ -1,5 +1,6 @@
 /**
  * @file ValidateContainer.cpp
+ * @author Sam Caldwell
  * @brief Definition of CRSCE container validator utility.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
@@ -48,46 +49,32 @@ bool validate_container(const std::filesystem::path &cx_path, std::string &err) 
     is.read(reinterpret_cast<char*>(hdr.data()), static_cast<std::streamsize>(hdr.size())); // NOLINT
     if (is.gcount() != static_cast<std::streamsize>(hdr.size())) { err = "short read on header"; return false; }
 
-    // Minimal parse of header v1
-    auto get_le16 = [](const std::array<std::uint8_t, kHeaderSize> &b, std::size_t off) -> std::uint16_t {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-        return static_cast<std::uint16_t>(b[off])
-               // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-               | static_cast<std::uint16_t>(b[off + 1]) << 8U;
-    };
-    auto get_le32 = [](const std::array<std::uint8_t, kHeaderSize> &b, std::size_t off) -> std::uint32_t {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-        return static_cast<std::uint32_t>(b[off])
-               // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-               | (static_cast<std::uint32_t>(b[off + 1]) << 8U)
-               // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-               | (static_cast<std::uint32_t>(b[off + 2]) << 16U)
-               // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-               | (static_cast<std::uint32_t>(b[off + 3]) << 24U);
-    };
-    auto get_le64 = [](const std::array<std::uint8_t, kHeaderSize> &b, std::size_t off) -> std::uint64_t {
-        std::uint64_t v = 0;
-        for (int i = 0; i < 8; ++i) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-            v |= (static_cast<std::uint64_t>(b[off + static_cast<std::size_t>(i)]) << (8U * static_cast<unsigned>(i)));
-        }
-        return v;
-    };
     // magic
     if (hdr[0] != 'C' || hdr[1] != 'R' || hdr[2] != 'S' || hdr[3] != 'C') { // NOLINT(readability-simplify-boolean-expr)
         err = "invalid header: magic mismatch";
         return false;
     }
-    const auto version = get_le16(hdr, 4);
-    const auto declared_size = get_le16(hdr, 6);
+    const std::uint16_t version = static_cast<std::uint16_t>(hdr[4])
+                                  | static_cast<std::uint16_t>(hdr[5]) << 8U; // NOLINT
+    const std::uint16_t declared_size = static_cast<std::uint16_t>(hdr[6])
+                                        | static_cast<std::uint16_t>(hdr[7]) << 8U; // NOLINT
     if (version != 1U || declared_size != kHeaderSize) {
         err = "invalid header: version/size";
         return false;
     }
-    const std::uint64_t original_size_bytes = get_le64(hdr, 8);
-    const std::uint64_t block_count = get_le64(hdr, 16);
+    std::uint64_t original_size_bytes = 0;
+    for (int i = 0; i < 8; ++i) {
+        original_size_bytes |= (static_cast<std::uint64_t>(hdr[8 + static_cast<std::size_t>(i)]) << (8U * static_cast<unsigned>(i))); // NOLINT
+    }
+    std::uint64_t block_count = 0;
+    for (int i = 0; i < 8; ++i) {
+        block_count |= (static_cast<std::uint64_t>(hdr[16 + static_cast<std::size_t>(i)]) << (8U * static_cast<unsigned>(i))); // NOLINT
+    }
     // CRC32 over first 24 bytes must match trailing 4 bytes
-    const std::uint32_t got_crc = get_le32(hdr, 24);
+    const std::uint32_t got_crc = static_cast<std::uint32_t>(hdr[24])
+                                  | (static_cast<std::uint32_t>(hdr[25]) << 8U)
+                                  | (static_cast<std::uint32_t>(hdr[26]) << 16U)
+                                  | (static_cast<std::uint32_t>(hdr[27]) << 24U); // NOLINT
     std::uint32_t exp_crc = 0U;
     exp_crc = crsce::common::util::crc32_ieee(hdr.data(), 24U);
     if (got_crc != exp_crc) {

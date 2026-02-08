@@ -1,6 +1,8 @@
 /**
  * @file cmd/testCollisions/main.cpp
+ * @author Sam Caldwell
  * @brief Runs repeated compress/decompress cycles on random inputs to detect collisions and logs results.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
 
 #include <cstdint>

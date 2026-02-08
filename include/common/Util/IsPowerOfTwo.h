@@ -1,5 +1,6 @@
 /**
  * @file IsPowerOfTwo.h
+ * @author Sam Caldwell
  * @brief Power-of-two utility tag header.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

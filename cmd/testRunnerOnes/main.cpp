@@ -1,6 +1,8 @@
 /**
  * @file cmd/testRunnerOnes/main.cpp
+ * @author Sam Caldwell
  * @brief CLI entry for TestRunnerOnes; delegates to testrunner_ones::cli::run().
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "testrunnerOnes/Cli/detail/run.h"
 #include <exception>

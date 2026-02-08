@@ -1,7 +1,8 @@
 /**
  * @file run.cpp
  * @brief Implements the decompressor CLI runner: parse args, validate paths, run decompression.
- * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Cli/detail/run.h"
 

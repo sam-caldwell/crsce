@@ -1,5 +1,6 @@
 /**
  * @file Compress.h
+ * @author Sam Caldwell
  * @brief CRSCE v1 compressor (block-level accumulator; no container I/O yet).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

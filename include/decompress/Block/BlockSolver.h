@@ -1,7 +1,8 @@
 /**
  * @file BlockSolver.h
  * @brief High-level block solver: reconstruct CSM from LH and cross-sum payloads.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

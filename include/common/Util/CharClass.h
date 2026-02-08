@@ -1,6 +1,7 @@
 /**
  * @file CharClass.h
  * @brief define a character class enum
+ * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
