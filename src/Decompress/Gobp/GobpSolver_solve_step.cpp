@@ -6,7 +6,8 @@
 #include "decompress/Gobp/GobpSolver.h"
 #include <cstddef>
 #include <cstdlib>    // getenv
-#include "common/O11y/metric.h"
+#include "common/O11y/gobp_debug_enabled.h"
+#include "common/O11y/debug_event_gobp.h"
 #include <cmath>      // std::fabs
 #include <algorithm>  // std::min,std::max
 #include <string>

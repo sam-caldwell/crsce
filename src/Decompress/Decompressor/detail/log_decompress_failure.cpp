@@ -11,7 +11,8 @@
 #include <print>
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Decompressor/detail/phase_to_cstr.h"
-#include "common/O11y/metric.h"
+#include "common/O11y/Obj.h"
+#include "common/O11y/metric_obj_emit.h"
 
 namespace crsce::decompress::detail {
     // phase_to_cstr provided in header to avoid extra constructs

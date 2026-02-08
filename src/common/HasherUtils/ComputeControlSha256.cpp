@@ -7,7 +7,7 @@
 #include "common/HasherUtils/detail/run_sha256_stdin.h"
 
 #include <cstdlib>
-#include "common/O11y/metric.h"
+#include "common/O11y/event.h"
 #include <vector>
 #include <string>
 #include <cstdint>

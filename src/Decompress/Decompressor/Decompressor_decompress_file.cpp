@@ -26,7 +26,8 @@
 // Local logging macros (avoid extra constructs for ODPCPP)
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define CRSCE_NOW_MS() (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count())
-#include "common/O11y/metric.h"
+#include "common/O11y/event.h"
+#include "common/O11y/metric_i64.h"
 // NOLINTEND(cppcoreguidelines-macro-usage)
 #include <cstdio> // for stderr (include-cleaner)
 #include <span>

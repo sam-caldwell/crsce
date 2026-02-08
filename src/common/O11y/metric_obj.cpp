@@ -4,8 +4,10 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "common/O11y/metric.h"
-#include "common/O11y/detail/metric_helpers.h"
+#include "common/O11y/Obj.h"
+#include "common/O11y/detail/escape_json.h"
+#include "common/O11y/detail/now_ms.h"
+#include "common/O11y/detail/write_line_sync.h"
 
 #include <ios>
 #include <sstream>
@@ -17,7 +19,7 @@ namespace crsce::o11y {
      * @param o Object with name and fields.
      * @return void
      */
-    void metric(const Obj &o) {
+    void metric(const Obj &o) { // NOLINT(misc-use-internal-linkage)
         std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
         oss << '{';
         oss << "\"ts_ms\":" << detail::now_ms() << ',';

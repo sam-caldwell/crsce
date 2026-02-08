@@ -12,7 +12,9 @@
 #include <cstdlib>
 #include "testRunnerRandom/detail/json_escape.h"
 #include "testRunnerRandom/Cli/detail/extract_exit_code.h"
-#include "common/O11y/metric.h"
+#include "common/O11y/metric_i64.h"
+#include "common/O11y/counter.h"
+#include "common/O11y/event.h"
 #include "common/Util/detail/watchdog.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/CompressNonZeroExitException.h"

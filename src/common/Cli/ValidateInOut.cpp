@@ -12,7 +12,7 @@
 #include <span>
 #include <string>
 #include <sys/stat.h>
-#include "common/O11y/metric.h"
+#include "common/O11y/event.h"
 
 namespace crsce::common::cli {
     /**

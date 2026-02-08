@@ -1,11 +1,10 @@
 /**
- * @file metric_metric_bool.cpp
- * @brief Emit boolean metric with optional tags.
+ * @file metric_bool.h
+ * @brief Emit boolean metric with optional tags (declaration).
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "common/O11y/metric_bool.h"
-#include "common/O11y/detail/metric_impl.h"
+#pragma once
 
 #include <initializer_list>
 #include <string>
@@ -21,7 +20,6 @@ namespace crsce::o11y {
      * @return void
      */
     void metric(const std::string &name, bool value,
-                std::initializer_list<std::pair<std::string, std::string>> tags) {
-        detail::metric_impl(name, value, tags);
-    }
+                std::initializer_list<std::pair<std::string, std::string>> tags = {});
 }
+

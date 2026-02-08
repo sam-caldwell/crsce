@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 #include <string>
 #include <cstdlib>
-#include "common/O11y/metric.h"
+#include "common/O11y/event.h"
 #include "common/o11y/unit/wait_for_contains.h"
 
 namespace { } // end anonymous (no local helpers)

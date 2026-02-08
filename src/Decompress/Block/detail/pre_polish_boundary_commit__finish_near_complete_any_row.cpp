@@ -16,7 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include "common/O11y/metric.h"
+#include "common/O11y/counter.h"
 #include <span>
 #include <utility>
 #include <functional>

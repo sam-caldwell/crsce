@@ -4,7 +4,9 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "common/O11y/metric.h"
+#include "common/O11y/debug_event_gobp.h"
+#include "common/O11y/event.h"
+#include "common/O11y/gobp_debug_enabled.h"
 
 #include <initializer_list>
 #include <string>
@@ -24,4 +26,3 @@ namespace crsce::o11y {
         event(name, tags);
     }
 }
-

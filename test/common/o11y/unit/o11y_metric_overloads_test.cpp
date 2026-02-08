@@ -10,7 +10,12 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstdint>
-#include "common/O11y/metric.h"
+#include "common/O11y/metric_i64.h"
+#include "common/O11y/metric_f64.h"
+#include "common/O11y/metric_str.h"
+#include "common/O11y/metric_bool.h"
+#include "common/O11y/Obj.h"
+#include "common/O11y/metric_obj_emit.h"
 
 namespace {
 std::string metrics_path_for(const char *name) {

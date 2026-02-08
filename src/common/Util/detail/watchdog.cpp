@@ -9,8 +9,8 @@
 #include <thread>
 #include <cstdlib>
 #include <cstdint>
-#include <cstdio>
-#include <print>
+#include <cstdio> // NOLINT
+#include <print> // NOLINT
 #include "common/Util/detail/watchdog_thread.h"
 
 namespace crsce::common::util::detail {

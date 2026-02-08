@@ -15,7 +15,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include "common/O11y/metric.h"
+#include "common/O11y/counter.h"
+#include "common/O11y/metric_i64.h"
 #include <span>
 #include <string>
 #include <utility>

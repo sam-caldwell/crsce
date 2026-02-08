@@ -4,8 +4,10 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "common/O11y/metric.h"
-#include "common/O11y/detail/metric_helpers.h"
+#include "common/O11y/event.h"
+#include "common/O11y/detail/escape_json.h"
+#include "common/O11y/detail/now_ms.h"
+#include "common/O11y/detail/write_line_sync.h"
 
 #include <initializer_list>
 #include <ios>

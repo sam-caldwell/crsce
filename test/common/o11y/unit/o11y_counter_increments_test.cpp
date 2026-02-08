@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <cctype>
-#include "common/O11y/metric.h"
+#include "common/O11y/counter.h"
 
 namespace {
 int wait_for_max_count(const std::string &path, const std::string &name, int expected, int ms_timeout=1500) {

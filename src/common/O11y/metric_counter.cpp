@@ -4,8 +4,11 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "common/O11y/metric.h"
-#include "common/O11y/detail/metric_helpers.h"
+#include "common/O11y/counter.h"
+#include "common/O11y/detail/incr_counter_and_get_sync.h"
+#include "common/O11y/detail/escape_json.h"
+#include "common/O11y/detail/now_ms.h"
+#include "common/O11y/detail/write_line_sync.h"
 
 #include <ios>
 #include <sstream>
@@ -33,4 +36,3 @@ namespace crsce::o11y {
         detail::write_line_sync(oss.str());
     }
 }
-

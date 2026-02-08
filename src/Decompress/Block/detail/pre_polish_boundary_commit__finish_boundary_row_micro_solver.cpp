@@ -23,7 +23,7 @@
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Utils/detail/index_calc.h"
-#include "decompress/Block/detail/micro_solver_helpers.h"
+#include "Decompress/Block/detail/micro_solver_helpers.h"
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;

@@ -1,14 +1,13 @@
 /**
- * @file metric_metric_i64.cpp
- * @brief Emit integral metric with optional tags.
+ * @file metric_i64.h
+ * @brief Emit integral metric with optional tags (declaration).
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "common/O11y/metric_i64.h"
-#include "common/O11y/detail/metric_impl.h"
+#pragma once
 
-#include <initializer_list>
 #include <cstdint>
+#include <initializer_list>
 #include <string>
 #include <utility>
 
@@ -21,8 +20,7 @@ namespace crsce::o11y {
      * @param tags Optional key/value tags.
      * @return void
      */
-    void metric(const std::string &name, std::int64_t value,
-                std::initializer_list<std::pair<std::string, std::string>> tags) {
-        detail::metric_impl(name, value, tags);
-    }
+    void metric(const std::string &name, std::int64_t value = 1,
+                std::initializer_list<std::pair<std::string, std::string>> tags = {});
 }
+

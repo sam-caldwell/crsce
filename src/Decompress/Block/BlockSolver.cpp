@@ -51,7 +51,9 @@
 #include <cmath>
 
 #include "decompress/Block/detail/compute_prefix.h"
-#include "common/O11y/metric.h"
+#include "common/O11y/event.h"
+#include "common/O11y/counter.h"
+#include "common/O11y/metric_i64.h"
 
 namespace {
     using crsce::decompress::Csm;

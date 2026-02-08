@@ -4,7 +4,8 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "common/O11y/metric.h"
+#include "common/O11y/Obj.h"
+#include "common/O11y/ObjField.h"
 
 #include <cstdint>
 #include <string>

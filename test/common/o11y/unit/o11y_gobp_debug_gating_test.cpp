@@ -9,7 +9,8 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
-#include "common/O11y/metric.h"
+#include "common/O11y/gobp_debug_enabled.h"
+#include "common/O11y/debug_event_gobp.h"
 
 namespace {
 bool wait_for_contains(const std::string &path, const std::string &needle, int ms_timeout=1000) {

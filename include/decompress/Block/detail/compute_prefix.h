@@ -2,6 +2,7 @@
  * @file compute_prefix.h
  * @brief Incrementally compute verified LH prefix for current CSM/state.
  * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 
@@ -37,4 +38,3 @@ std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen,
                            BlockSolveSnapshot &snap);
 
 } // namespace crsce::decompress::detail
-
