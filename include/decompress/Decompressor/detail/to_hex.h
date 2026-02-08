@@ -1,5 +1,6 @@
 /**
  * @file to_hex.h
+ * @author Sam Caldwell
  * @brief Small helpers to convert byte spans to lowercase hex strings.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
@@ -17,5 +18,5 @@ namespace crsce::decompress::detail {
      * @param bytes Byte span to convert.
      * @return Lowercase hex string.
      */
-    inline std::string to_hex(std::span<const std::uint8_t> bytes);
+    std::string to_hex(std::span<const std::uint8_t> bytes);
 }

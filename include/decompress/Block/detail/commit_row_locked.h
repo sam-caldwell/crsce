@@ -1,5 +1,6 @@
 /**
  * @file commit_row_locked.h
+ * @author Sam Caldwell
  * @brief Helper: lock all cells in a row and update constraint state counts.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
@@ -8,7 +9,8 @@
 #include <cstddef>
 #include "decompress/Csm/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/Utils/detail/index_calc.h"
+#include "decompress/Utils/detail/calc_d.h"
+#include "decompress/Utils/detail/calc_x.h"
 
 namespace crsce::decompress::detail {
     /**

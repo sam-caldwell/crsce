@@ -1,5 +1,6 @@
 /**
  * @file calc_d.h
+ * @author Sam Caldwell
  * @brief Branchless index helpers for diagonal/anti-diagonal families.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */

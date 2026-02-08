@@ -1,5 +1,6 @@
 /**
  * @file AppendBits.h
+ * @author Sam Caldwell
  * @brief Helpers to append CSM bits into a byte stream (MSB-first).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

@@ -1,5 +1,6 @@
 /**
  * @file BlockSolver.cpp
+ * @author Sam Caldwell
  * @brief High-level block solver implementation: reconstruct CSM from LH and cross-sum payloads.
  * @copyright © Sam Caldwell. See LICENSE.txt for details.
  */
@@ -28,8 +29,8 @@
 #include "decompress/Block/detail/pre_polish_finish_near_complete_rows_scored.h"
 #include "decompress/Block/detail/pre_polish_finish_near_complete_columns_scored.h"
 #include "decompress/Block/detail/pre_polish_audit_and_restart_on_contradiction.h"
-#include "decompress/Block/detail/solver_env_read_seed.h"
 #include "decompress/Block/detail/solver_env_trace_sumu.h"
+#include "decompress/Block/detail/read_seed_or_default.h"
 #include "decompress/Utils/detail/index_calc.h"
 
 #include <cstddef>

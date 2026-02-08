@@ -2,6 +2,7 @@
  * @file js_escape.h
  * @brief Minimal JSON string escaper used for o11y outputs.
  * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 
@@ -10,6 +11,9 @@
 
 namespace crsce::decompress::detail {
 
+/**
+ * @brief Escape a string for safe embedding in JSON.
+ */
 inline std::string js_escape(const std::string &s) {
     std::string out; out.reserve(s.size() + 8);
     for (const unsigned char ch : s) {
@@ -34,4 +38,3 @@ inline std::string js_escape(const std::string &s) {
 }
 
 } // namespace crsce::decompress::detail
-

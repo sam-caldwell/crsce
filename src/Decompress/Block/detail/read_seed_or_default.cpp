@@ -1,10 +1,10 @@
 /**
- * @file solver_env_read_seed.cpp
+ * @file read_seed_or_default.cpp
  * @brief Implementation of read_seed_or_default() helper.
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "decompress/Block/detail/solver_env_read_seed.h"
+#include "decompress/Block/detail/read_seed_or_default.h"
 
 #include <chrono>
 #include <cstdint>
