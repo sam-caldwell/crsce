@@ -694,8 +694,18 @@ namespace crsce::decompress {
                             int roi_last_gi = 0;
                             std::size_t roi_last_sumU = best_sumU_in_phase;
                             // Heartbeat-based stall termination tolerance (more patience overall)
-                            // Increase thresholds further to allow more work before declaring stall
-                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 200 : 100;   // exp: 200(POLISH)/100(other)
+                            // Defaults: 200(POLISH)/100(other). Env overrides:
+                            //  - CRSCE_HB_TERM_POLISH
+                            //  - CRSCE_HB_TERM_OTHER
+                            int hb_term_polish = 200;
+                            int hb_term_other = 100;
+                            if (const char *e = std::getenv("CRSCE_HB_TERM_POLISH") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
+                                hb_term_polish = std::max(1, std::atoi(e));
+                            }
+                            if (const char *e = std::getenv("CRSCE_HB_TERM_OTHER") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
+                                hb_term_other = std::max(1, std::atoi(e));
+                            }
+                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? hb_term_polish : hb_term_other;
                             const double amb_eps = 0.02; // general ambiguity window around 0.5
                             const double micro_shake_eps = 0.005; // narrower band for micro-shake targeting
                             for (int gi = 0; gi < iters_arr.at(ph); ++gi) {
