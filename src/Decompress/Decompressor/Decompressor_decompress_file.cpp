@@ -305,6 +305,13 @@ namespace crsce::decompress {
                             os << "  \"micro_solver_bnb_attempts\":" << s2->micro_solver_bnb_attempts << ",\n";
                             os << "  \"micro_solver_bnb_nodes\":" << s2->micro_solver_bnb_nodes << ",\n";
                             os << "  \"micro_solver_bnb_successes\":" << s2->micro_solver_bnb_successes << ",\n";
+                            os << "  \"micro_solver_remaining_zero_cases\":" << s2->micro_solver_remaining_zero_cases << ",\n";
+                            os << "  \"micro_solver_free_cand_empty_cases\":" << s2->micro_solver_free_cand_empty_cases << ",\n";
+                            os << "  \"micro_solver_amb_fallback_attempts\":" << s2->micro_solver_amb_fallback_attempts << ",\n";
+                            os << "  \"micro_solver_entered_dp_stage\":" << s2->micro_solver_entered_dp_stage << ",\n";
+                            os << "  \"micro_solver_gate_near_thresh\":" << s2->micro_solver_gate_near_thresh << ",\n";
+                            os << "  \"micro_solver_gate_cols_empty\":" << s2->micro_solver_gate_cols_empty << ",\n";
+                            os << "  \"micro_solver_gate_row_full\":" << s2->micro_solver_gate_row_full << ",\n";
                             // Unknown total history (truncated to last 256)
                             os << "  \"unknown_history\":[";
                             const std::size_t uh_n = s2->unknown_history.size();
@@ -590,6 +597,13 @@ namespace crsce::decompress {
                         os << "  \"micro_solver_bnb_attempts\":" << s3->micro_solver_bnb_attempts << ",\n";
                         os << "  \"micro_solver_bnb_nodes\":" << s3->micro_solver_bnb_nodes << ",\n";
                         os << "  \"micro_solver_bnb_successes\":" << s3->micro_solver_bnb_successes << ",\n";
+                        os << "  \"micro_solver_remaining_zero_cases\":" << s3->micro_solver_remaining_zero_cases << ",\n";
+                        os << "  \"micro_solver_free_cand_empty_cases\":" << s3->micro_solver_free_cand_empty_cases << ",\n";
+                        os << "  \"micro_solver_amb_fallback_attempts\":" << s3->micro_solver_amb_fallback_attempts << ",\n";
+                        os << "  \"micro_solver_entered_dp_stage\":" << s3->micro_solver_entered_dp_stage << ",\n";
+                        os << "  \"micro_solver_gate_near_thresh\":" << s3->micro_solver_gate_near_thresh << ",\n";
+                        os << "  \"micro_solver_gate_cols_empty\":" << s3->micro_solver_gate_cols_empty << ",\n";
+                        os << "  \"micro_solver_gate_row_full\":" << s3->micro_solver_gate_row_full << ",\n";
                         // Thread events
                         os << "  \"threads\":[";
                         for (std::size_t ti = 0; ti < s3->thread_events.size(); ++ti) {

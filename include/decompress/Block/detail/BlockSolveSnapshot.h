@@ -121,6 +121,15 @@ namespace crsce::decompress {
         std::size_t micro_solver_bnb_attempts{0};
         std::size_t micro_solver_bnb_nodes{0};
         std::size_t micro_solver_bnb_successes{0};
+        // Additional diagnostics for boundary micro-solver gating
+        std::size_t micro_solver_remaining_zero_cases{0};     // times remaining==0 gated DP
+        std::size_t micro_solver_free_cand_empty_cases{0};    // times free_cand was empty
+        std::size_t micro_solver_amb_fallback_attempts{0};    // times last-chance ambiguous fallback ran
+        std::size_t micro_solver_entered_dp_stage{0};         // times DP/BnB staging reached
+        // Early-return gates diagnostics
+        std::size_t micro_solver_gate_near_thresh{0};
+        std::size_t micro_solver_gate_cols_empty{0};
+        std::size_t micro_solver_gate_row_full{0};
 
         // Concurrency thread events (start/stop and outcome for worker tasks)
         struct ThreadEvent {

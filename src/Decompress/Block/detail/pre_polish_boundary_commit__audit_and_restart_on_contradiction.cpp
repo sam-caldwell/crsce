@@ -12,6 +12,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <cstdlib>
+#include <cstdint>
 
 namespace crsce::decompress::detail {
     using crsce::decompress::RowHashVerifier;
@@ -62,6 +64,43 @@ namespace crsce::decompress::detail {
                     ++snap.restart_contradiction_count;
                     since_last_restart = 0;
                     return true;
+                }
+            }
+        }
+
+        // Heuristic: if the boundary row (first with unknowns) is nearly locked and
+        // still fails the LH digest with its current bits, treat as contradiction
+        // and restart from baseline to clear bad locks. This helps escape plateaus
+        // where early extreme assignments poisoned the boundary.
+        {
+            std::size_t boundary = 0;
+            for (; boundary < S && boundary <= last_data_row; ++boundary) {
+                if (st.U_row.at(boundary) > 0) { break; }
+            }
+            if (boundary <= last_data_row && boundary < S) {
+                const std::uint16_t u = st.U_row.at(boundary);
+                // Near-lock threshold: escalate restart when row has very few unknowns.
+                // Tuned upward for this dataset to 12 (env override allowed via CRSCE_NEARLOCK_U)
+                std::uint16_t kNearLockU = 12U;
+                if (const char *e = std::getenv("CRSCE_NEARLOCK_U") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
+                    const auto v = std::strtoll(e, nullptr, 10); if (v > 0 && v < 64) { kNearLockU = static_cast<std::uint16_t>(v); }
+                }
+                if (u > 0 && u <= kNearLockU) {
+                    if (!ver.verify_row(csm_out, lh, boundary)) {
+                        if (since_last_restart >= cooldown_ticks) {
+                            csm_out = baseline_csm;
+                            st = baseline_st;
+                            BlockSolveSnapshot::RestartEvent ev{};
+                            ev.restart_index = rs;
+                            ev.prefix_rows = boundary;
+                            ev.unknown_total = snap.unknown_total;
+                            ev.action = BlockSolveSnapshot::RestartAction::restartContradiction;
+                            snap.restarts.push_back(ev);
+                            ++snap.restart_contradiction_count;
+                            since_last_restart = 0;
+                            return true;
+                        }
+                    }
                 }
             }
         }

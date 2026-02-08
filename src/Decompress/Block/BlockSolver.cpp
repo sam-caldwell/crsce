@@ -624,7 +624,7 @@ namespace crsce::decompress {
                     }
                     (void)::crsce::decompress::detail::finish_near_complete_any_row(csm_out, st, lh, baseline_csm, baseline_st, snap, rs);
                         int since_restart = 0;
-                        const int dynamic_cooldown_base = 150; // reduced cooldown for exploration
+                        const int dynamic_cooldown_base = 50; // further reduced cooldown for earlier contradiction restarts
                         std::vector<std::size_t> recent_restart_rows;
                         for (std::size_t ph = 0; ph < dampers.size() && !det.solved(); ++ph) {
                             // Announce phase start with structured tags
@@ -673,25 +673,28 @@ namespace crsce::decompress {
                             int plateau_flip_attempts = 0;
                             const int heartbeat = ((ph + 1U) == dampers.size()) ? 500 : 2000; // more frequent in POLISH
                             // Verification cadence: configurable tick; adaptively increase while stalled
-                            int verify_tick_base = 1500; // default cadence
+                            // Verification cadence: lower default to verify more often without env override
+                            int verify_tick_base = 256; // default cadence (was 1500)
                             if (const char *e = std::getenv("CRSCE_VERIFY_TICK") /* NOLINT(concurrency-mt-unsafe) */) {
                                 verify_tick_base = std::max(1, std::atoi(e));
                             }
                             int verify_tick_cur = verify_tick_base;
                             // ROI early-stop controls (per phase)
-                            double roi_min_per_1k = 8.0; // cells improved per 1000 iterations
+                            // ROI early-stop: relax default threshold to avoid premature phase exits
+                            double roi_min_per_1k = 2.0; // cells improved per 1000 iterations (was 8.0)
                             if (const char *e = std::getenv("CRSCE_ROI_MIN_PER_1K") /* NOLINT(concurrency-mt-unsafe) */) {
                                 const double v = std::atof(e);
                                 roi_min_per_1k = (v > 0.0 ? v : 0.0);
                             }
-                            int roi_min_iters = 1000;
+                            int roi_min_iters = 500;
                             if (const char *e = std::getenv("CRSCE_ROI_MIN_ITERS") /* NOLINT(concurrency-mt-unsafe) */) {
                                 roi_min_iters = std::max(0, std::atoi(e));
                             }
                             int roi_low_streak = 0;
                             int roi_last_gi = 0;
                             std::size_t roi_last_sumU = best_sumU_in_phase;
-                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 10 : 5;   // require more patience in POLISH
+                            // Heartbeat-based stall termination tolerance (more patience overall)
+                            const int hb_terminate = ((ph + 1U) == dampers.size()) ? 20 : 12;   // was 10/5
                             const double amb_eps = 0.02; // ambiguity window around 0.5 for micro-shake targeting
                             for (int gi = 0; gi < iters_arr.at(ph); ++gi) {
                                 // Removed legacy flush; metrics are buffered asynchronously
@@ -1004,7 +1007,7 @@ namespace crsce::decompress {
                                         rs,
                                         since_restart
                                     );
-                                    bool only_polish2 = true;
+                                    bool only_polish2 = false; // run micro-solvers in all phases by default
                                     if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
                                         only_polish2 = (*e!='0');
                                     }
@@ -1038,12 +1041,11 @@ namespace crsce::decompress {
                                             rs
                                         );
                                     }
-                                    bool only_polish3 = true;
+                                    bool only_polish3 = false; // run micro-solvers in all phases by default
                                     if (const char *e = std::getenv("CRSCE_MS_ONLY_POLISH") /* NOLINT(concurrency-mt-unsafe) */) {
                                         only_polish3 = (*e!='0');
                                     }
-                                    const bool on_polish3 = ((ph + 1U) == dampers.size());
-                                    if (!only_polish3 || on_polish3) {
+                                    if (const bool on_polish3 = ((ph + 1U) == dampers.size()); !only_polish3 || on_polish3) {
                                         (void)::crsce::decompress::detail::finish_boundary_row_micro_solver(
                                             csm_out, st, lh, baseline_csm, baseline_st, snap, rs
                                         );
@@ -1091,6 +1093,11 @@ namespace crsce::decompress {
                                         since_restart
                                     )
                                 ) {
+                                    ::crsce::o11y::event(
+                                        "gobp_phase_break_audit",
+                                        {{"phase", std::to_string(ph)},
+                                         {"iter", std::to_string(gi)},
+                                         {"since_restart", std::to_string(since_restart)}});
                                     if (!snap.restarts.empty()) {
                                         const auto r = snap.restarts.back().prefix_rows;
                                         recent_restart_rows.push_back(r);
@@ -1111,7 +1118,7 @@ namespace crsce::decompress {
                             // Focused row completion (boundary row only): deep localized DE/backtrack
                             // to tip ≥95% rows to 100% and grow the verified prefix.
                             {
-                                // Determine boundary row (first row with unknowns)
+                                // Determine the boundary row (first row with unknowns)
                                 std::size_t boundary = 0;
                                 for (; boundary < S; ++boundary) {
                                     if (st.U_row.at(boundary) > 0) {
@@ -1332,10 +1339,10 @@ namespace crsce::decompress {
                             break;
                         }
                             if (gprog == 0 && plateau_flip_attempts >= 3) {
-                                // On last phase (polish), try a few micro-shake attempts before giving up
+                                // On the last phase (polish), try a few micro-shake attempts before giving up
                                 if (polish_shakes_remaining > 0 && ph == (dampers.size() - 1)) {
                                     // Lower amplitude, ambiguity-focused polish shake
-                                    const double step = 0.003;
+                                    constexpr double step = 0.003;
                                     const double jitter = std::min(0.012, step * static_cast<double>(kPolishShakes - polish_shakes_remaining + 1));
                                     std::uniform_real_distribution<double> delta(-jitter, jitter);
                                     for (std::size_t r0 = 0; r0 < S; ++r0) {
@@ -1654,7 +1661,7 @@ namespace crsce::decompress {
                                     }
                                     DeterministicElimination det_bt{c_try, st_try};
 
-                                    const int bt_iters2 = 2000;
+                                    constexpr int bt_iters2 = 2000;
                                     for (int it = 0; it < bt_iters2; ++it) {
                                         const std::size_t prog = det_bt.solve_step();
                                         if (st_try.U_row.at(boundary) == 0) {
@@ -1667,8 +1674,7 @@ namespace crsce::decompress {
 
                                     if (st_try.U_row.at(boundary) == 0) {
                                         const std::size_t check_rows = std::min<std::size_t>(valid_now + 1, S);
-                                        const RowHashVerifier verifier_try;
-                                        if (check_rows > 0 && verifier_try.verify_rows(c_try, lh, check_rows)) {
+                                        if (constexpr RowHashVerifier verifier_try; check_rows > 0 && verifier_try.verify_rows(c_try, lh, check_rows)) {
                                             csm_out = c_try;
                                             st = st_try;
                                             adopted_prefix = true;
@@ -1868,6 +1874,7 @@ namespace crsce::decompress {
             }
             return result;
         }
+        return true;
     }
 }
 #ifdef __clang__

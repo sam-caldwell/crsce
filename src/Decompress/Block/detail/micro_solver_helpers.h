@@ -117,7 +117,7 @@ inline void dfs_bnb(std::size_t i, /* NOLINT(misc-no-recursion) */
                     std::size_t ones,
                     const std::vector<std::pair<double,std::size_t>> &free_cand,
                     std::size_t capN,
-                    std::size_t remaining,
+                    std::size_t target_k,
                     std::size_t r,
                     std::span<const std::uint8_t> lh,
                     Csm &c_best,
@@ -128,7 +128,7 @@ inline void dfs_bnb(std::size_t i, /* NOLINT(misc-no-recursion) */
                     const ConstraintState &w_cur,
                     BlockSolveSnapshot & snap) {
     if (found) { return; }
-    if (ones > remaining) { return; }
+    if (ones > target_k) { return; }
     if (i >= capN) {
         Csm c_try = c_cur;
         ConstraintState w_try = w_cur;
@@ -144,19 +144,77 @@ inline void dfs_bnb(std::size_t i, /* NOLINT(misc-no-recursion) */
         }
         return;
     }
-    if ((ones + (capN - i)) < remaining) { return; }
+    if ((ones + (capN - i)) < target_k) { return; }
     ++nodes;
     const std::size_t cc = free_cand[i].second;
     if (!c_cur.is_locked(r, cc) && local_feasible(w_cur, r, cc, true)) {
         Csm c_next = c_cur;
         ConstraintState w_next = w_cur;
         assign_cell(c_next, w_next, r, cc, true);
-        dfs_bnb(i + 1U, ones + 1U, free_cand, capN, remaining, r, lh,
+        dfs_bnb(i + 1U, ones + 1U, free_cand, capN, target_k, r, lh,
                 c_best, w_best, found, nodes, c_next, w_next, snap);
         if (found) { return; }
     }
-    dfs_bnb(i + 1U, ones, free_cand, capN, remaining, r, lh,
+    dfs_bnb(i + 1U, ones, free_cand, capN, target_k, r, lh,
             c_best, w_best, found, nodes, c_cur, w_cur, snap);
+}
+
+inline void dfs_bnb_limited(std::size_t i, /* NOLINT(misc-no-recursion) */
+                            std::size_t ones,
+                            const std::vector<std::pair<double,std::size_t>> &free_cand,
+                            std::size_t capN,
+                            std::size_t target_k,
+                            std::size_t r,
+                            std::span<const std::uint8_t> lh,
+                            Csm &c_best,
+                            ConstraintState &w_best,
+                            bool &found,
+                            std::size_t &nodes,
+                            std::size_t max_nodes,
+                            std::chrono::steady_clock::time_point t0,
+                            std::size_t max_ms,
+                            const Csm &c_cur,
+                            const ConstraintState &w_cur,
+                            BlockSolveSnapshot & snap) {
+    if (found) { return; }
+    if (max_nodes > 0 && nodes >= max_nodes) { return; }
+    if (max_ms > 0) {
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - t0).count();
+        const auto max_ms_signed = static_cast<std::int64_t>(max_ms);
+        if (elapsed_ms >= max_ms_signed) { return; }
+    }
+    if (ones > target_k) { return; }
+    if (i >= capN) {
+        Csm c_try = c_cur;
+        ConstraintState w_try = w_cur;
+        (void)finish_row_greedy(c_try, w_try, r);
+        if (w_try.U_row.at(r) == 0) {
+            const RowHashVerifier ver{};
+            const std::size_t check_rows = std::min<std::size_t>(r + 1U, Csm::kS);
+            if (check_rows > 0 && ver.verify_rows(c_try, lh, check_rows)) {
+                c_best = c_try;
+                w_best = w_try;
+                found = true;
+            }
+        }
+        return;
+    }
+    if ((ones + (capN - i)) < target_k) { return; }
+    ++nodes;
+    if (max_nodes > 0 && nodes >= max_nodes) { return; }
+    const std::size_t cc = free_cand[i].second;
+    if (!c_cur.is_locked(r, cc) && local_feasible(w_cur, r, cc, true)) {
+        Csm c_next = c_cur; ConstraintState w_next = w_cur;
+        assign_cell(c_next, w_next, r, cc, true);
+        dfs_bnb_limited(i + 1U, ones + 1U, free_cand, capN, target_k, r, lh,
+                        c_best, w_best, found, nodes, max_nodes, t0, max_ms,
+                        c_next, w_next, snap);
+        if (found) { return; }
+    }
+    dfs_bnb_limited(i + 1U, ones, free_cand, capN, target_k, r, lh,
+                    c_best, w_best, found, nodes, max_nodes, t0, max_ms,
+                    c_cur, w_cur, snap);
 }
 
 inline void segment_dfs_bnb(std::size_t i, /* NOLINT(misc-no-recursion) */
