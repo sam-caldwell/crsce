@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <array>
+
 namespace crsce::decompress::detail {
     /**
      * @name hex_nibble
