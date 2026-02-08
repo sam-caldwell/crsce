@@ -65,8 +65,8 @@ namespace crsce::decompress::detail {
         if (w.U_row.at(r0) == 0 || w.U_row.at(r1) == 0) {
             return false;
         }
-        // Gate by near-threshold unknowns for both rows
-        auto near_thresh = static_cast<std::uint16_t>((S + 4U) / 5U);
+        // Gate by near-threshold unknowns for both rows (default ~70%)
+        auto near_thresh = static_cast<std::uint16_t>(((S * 7U) + 9U) / 10U);
         if (const char *e = std::getenv("CRSCE_FOCUS_NEAR_THRESH") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
             int pct = std::atoi(e);
             pct = std::max(pct, 5);
