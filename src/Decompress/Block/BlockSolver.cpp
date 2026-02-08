@@ -984,7 +984,7 @@ namespace crsce::decompress {
                                             for (std::size_t c0 = 0; c0 < S; ++c0) {
                                                 if (csm_out.is_locked(rr, c0)) { continue; }
                                                 const double v = csm_out.get_data(rr, c0);
-                                                if (std::fabs(v - 0.5) < 0.003) {
+                                                if (std::fabs(v - 0.5) < 0.002) {
                                                     const double nv = std::clamp(v + delta_b(rng), 0.0, 1.0);
                                                     csm_out.set_data(rr, c0, nv);
                                                 }
