@@ -704,7 +704,7 @@ namespace crsce::decompress::detail {
                             const auto v = std::strtoll(e, nullptr, 10); if (v > 0) { amb_cap = static_cast<std::size_t>(v); }
                         }
                         amb_cap = std::max<std::size_t>(amb_cap, 16);
-                        amb_cap = std::min<std::size_t>(amb_cap, 160);
+                        amb_cap = std::min<std::size_t>(amb_cap, 192);
                         std::vector<std::pair<double,std::size_t>> fb_cand; fb_cand.reserve(std::min<std::size_t>(amb.size(), amb_cap));
                         for (std::size_t i0 = 0; i0 < amb.size() && i0 < amb_cap; ++i0) {
                             const auto &pr = amb[i0];
