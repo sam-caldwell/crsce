@@ -153,6 +153,13 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--direct', action='store_true', help='Run bin/decompress directly (compress once, faster)')
     ap.add_argument('--container', default=os.path.join('build','uselessTest','useless-machine.crsce'), help='CRSCE container path for --direct')
     ap.add_argument('--outdir', default=os.path.join('build','uselessSweep'), help='Output directory for --direct runs')
+    # Targeted overrides
+    ap.add_argument('--nearU', type=int, help='Override CRSCE_NEARLOCK_U single value')
+    ap.add_argument('--parMS', type=int, help='Override CRSCE_PAR_RS_MAX_MS single value')
+    ap.add_argument('--ambFB', type=int, help='Override CRSCE_MS_AMB_FALLBACK single value')
+    ap.add_argument('--verifyTick', type=int, help='Override CRSCE_VERIFY_TICK')
+    ap.add_argument('--msWindow', type=int, help='Override CRSCE_MS_WINDOW')
+    ap.add_argument('--msSwaps', type=int, help='Override CRSCE_MS_KVAR_SWAPS')
     args = ap.parse_args(argv[1:])
 
     seeds = parse_seeds(args.seeds)
@@ -169,6 +176,12 @@ def main(argv: List[str]) -> int:
     par_rs_max_ms = [30000, 40000]
     amb_fallback = [160, 192]
     bnb_ms = [4500]
+    if args.nearU:
+        nearlock_u = [args.nearU]
+    if args.parMS:
+        par_rs_max_ms = [args.parMS]
+    if args.ambFB:
+        amb_fallback = [args.ambFB]
 
     # Prepare container if using direct mode
     if args.direct:
@@ -211,6 +224,12 @@ def main(argv: List[str]) -> int:
             'CRSCE_MS_BNB_MS': str(bms),
             'CRSCE_SOLVER_SEED': str(seed),
         }
+        if args.verifyTick:
+            env['CRSCE_VERIFY_TICK'] = str(args.verifyTick)
+        if args.msWindow:
+            env['CRSCE_MS_WINDOW'] = str(args.msWindow)
+        if args.msSwaps:
+            env['CRSCE_MS_KVAR_SWAPS'] = str(args.msSwaps)
         if args.direct:
             rc, last = run_one_direct(args.container, args.outdir, env)
         else:
