@@ -302,6 +302,11 @@ namespace crsce::decompress {
                             os << "  \"micro_solver_lh_verifications\":" << s2->micro_solver_lh_verifications << ",\n";
                             os << "  \"micro_solver_successes\":" << s2->micro_solver_successes << ",\n";
                             os << "  \"micro_solver_time_ms\":" << s2->micro_solver_time_ms << ",\n";
+                            os << "  \"micro_solver_candidates\":" << s2->micro_solver_candidates << ",\n";
+                            os << "  \"micro_solver_verify_failures\":" << s2->micro_solver_verify_failures << ",\n";
+                            os << "  \"micro_solver_reject_low_benefit\":" << s2->micro_solver_reject_low_benefit << ",\n";
+                            os << "  \"micro_solver2_attempts\":" << s2->micro_solver2_attempts << ",\n";
+                            os << "  \"micro_solver2_successes\":" << s2->micro_solver2_successes << ",\n";
                             os << "  \"micro_solver_bnb_attempts\":" << s2->micro_solver_bnb_attempts << ",\n";
                             os << "  \"micro_solver_bnb_nodes\":" << s2->micro_solver_bnb_nodes << ",\n";
                             os << "  \"micro_solver_bnb_successes\":" << s2->micro_solver_bnb_successes << ",\n";
@@ -594,6 +599,11 @@ namespace crsce::decompress {
                         os << "  \"micro_solver_lh_verifications\":" << s3->micro_solver_lh_verifications << ",\n";
                         os << "  \"micro_solver_successes\":" << s3->micro_solver_successes << ",\n";
                         os << "  \"micro_solver_time_ms\":" << s3->micro_solver_time_ms << ",\n";
+                        os << "  \"micro_solver_candidates\":" << s3->micro_solver_candidates << ",\n";
+                        os << "  \"micro_solver_verify_failures\":" << s3->micro_solver_verify_failures << ",\n";
+                        os << "  \"micro_solver_reject_low_benefit\":" << s3->micro_solver_reject_low_benefit << ",\n";
+                        os << "  \"micro_solver2_attempts\":" << s3->micro_solver2_attempts << ",\n";
+                        os << "  \"micro_solver2_successes\":" << s3->micro_solver2_successes << ",\n";
                         os << "  \"micro_solver_bnb_attempts\":" << s3->micro_solver_bnb_attempts << ",\n";
                         os << "  \"micro_solver_bnb_nodes\":" << s3->micro_solver_bnb_nodes << ",\n";
                         os << "  \"micro_solver_bnb_successes\":" << s3->micro_solver_bnb_successes << ",\n";
@@ -605,6 +615,8 @@ namespace crsce::decompress {
                         os << "  \"micro_solver_gate_cols_empty\":" << s3->micro_solver_gate_cols_empty << ",\n";
                         os << "  \"micro_solver_gate_row_full\":" << s3->micro_solver_gate_row_full << ",\n";
                         // Thread events
+                        os << "  \"verify_row_failures\":" << s3->verify_row_failures << ",\n";
+                        os << "  \"verify_rows_failures\":" << s3->verify_rows_failures << ",\n";
                         os << "  \"threads\":[";
                         for (std::size_t ti = 0; ti < s3->thread_events.size(); ++ti) {
                             const auto &te = s3->thread_events[ti];

@@ -87,7 +87,7 @@ inline bool try_apply_set(const std::vector<std::size_t> &chosen_idx,
                           const ConstraintState &w,
                           std::size_t r,
                           std::span<const std::uint8_t> lh,
-                          BlockSolveSnapshot & /*snap*/) {
+                          BlockSolveSnapshot & snap) {
     ++nodes;
     found = false;
     Csm c_try = c;
@@ -103,12 +103,15 @@ inline bool try_apply_set(const std::vector<std::size_t> &chosen_idx,
     if (w_try.U_row.at(r) == 0) {
         const RowHashVerifier ver{};
         const std::size_t check_rows = std::min<std::size_t>(r + 1U, Csm::kS);
+        if (check_rows > 0) { ++snap.micro_solver_candidates; }
         if (check_rows > 0 && ver.verify_rows(c_try, lh, check_rows)) {
             c_best = c_try;
             w_best = w_try;
             found = true;
             return true;
         }
+        // LH verify failed for a fully-filled candidate
+        if (check_rows > 0) { ++snap.micro_solver_verify_failures; ++snap.verify_rows_failures; }
     }
     return false;
 }

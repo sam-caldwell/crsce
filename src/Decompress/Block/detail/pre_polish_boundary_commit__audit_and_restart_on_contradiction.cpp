@@ -51,6 +51,7 @@ namespace crsce::decompress::detail {
             if (r > last_data_row) { continue; }
             if (st.U_row.at(r) == 0) {
                 if (!ver.verify_row(csm_out, lh, r)) {
+                    ++snap.verify_row_failures;
                     if (since_last_restart < cooldown_ticks) { continue; }
                     // Contradiction: fully locked row fails digest. Revert to baseline and record restart.
                     csm_out = baseline_csm;
@@ -87,6 +88,7 @@ namespace crsce::decompress::detail {
                 }
                 if (u > 0 && u <= kNearLockU) {
                     if (!ver.verify_row(csm_out, lh, boundary)) {
+                        ++snap.verify_row_failures;
                         if (since_last_restart >= cooldown_ticks) {
                             csm_out = baseline_csm;
                             st = baseline_st;

@@ -64,6 +64,7 @@ namespace crsce::decompress::detail {
         // Work copies based on current state
         Csm c = csm_out;
         ConstraintState w = st;
+        const std::uint16_t u_initial = w.U_row.at(r);
 
         if (w.U_row.at(r) == 0) { ++snap.micro_solver_gate_row_full; return false; }
         // Gate by near-threshold unknowns (default ~70%; overridable via CRSCE_FOCUS_NEAR_THRESH)
@@ -145,7 +146,17 @@ namespace crsce::decompress::detail {
 
         if (w.U_row.at(r) == 0) {
             const std::size_t check_rows = std::min<std::size_t>(r + 1, S);
+            if (check_rows > 0) { ++snap.micro_solver_candidates; }
             if (constexpr RowHashVerifier ver_try{}; check_rows > 0 && ver_try.verify_rows(c, lh, check_rows)) {
+                // Optional acceptance threshold: require minimum cells changed to accept (env: CRSCE_MS_ACCEPT_MIN_CELLS)
+                std::size_t min_cells = 0;
+                if (const char *p = std::getenv("CRSCE_MS_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
+                    const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
+                }
+                const std::size_t delta_cells = static_cast<std::size_t>(u_initial);
+                if (min_cells > 0 && delta_cells < min_cells) {
+                    ++snap.micro_solver_reject_low_benefit;
+                } else {
                 csm_out = c;
                 st = w;
                 baseline_csm = csm_out;
@@ -157,7 +168,9 @@ namespace crsce::decompress::detail {
                 ev.action = BlockSolveSnapshot::RestartAction::lockInMicro;
                 snap.restarts.push_back(ev);
                 return true;
+                }
             }
+            else { ++snap.micro_solver_verify_failures; ++snap.verify_rows_failures; }
             // else fall through to heuristic fill
         }
 
@@ -294,22 +307,33 @@ namespace crsce::decompress::detail {
                                               w_best_local, found_local,
                                               nodes_dummy, c, w, r, lh, snap)
                             ) {
-                                csm_out = c_best_local;
-                                st = w_best_local;
-                                baseline_csm = csm_out;
-                                baseline_st = st;
-                                BlockSolveSnapshot::RestartEvent ev{};
-                                ev.restart_index = rs;
-                                ev.prefix_rows = std::min<std::size_t>(r + 1, S);
-                                ev.unknown_total = snap.unknown_total;
-                                ev.action = BlockSolveSnapshot::RestartAction::lockInMicro;
-                                snap.restarts.push_back(ev);
-                                ++snap.micro_solver_successes;
-                                const auto t1 = std::chrono::steady_clock::now();
-                                snap.micro_solver_time_ms += static_cast<std::size_t>(
-                                    std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count()
-                                );
-                                return true;
+                                // Optional acceptance threshold
+                                std::size_t min_cells = 0;
+                                if (const char *p = std::getenv("CRSCE_MS_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
+                                    const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
+                                }
+                                const std::size_t after_u = w_best_local.U_row.at(r);
+                                const std::size_t delta_cells = static_cast<std::size_t>(u_initial) - after_u;
+                                if (min_cells > 0 && delta_cells < min_cells) {
+                                    ++snap.micro_solver_reject_low_benefit;
+                                } else {
+                                    csm_out = c_best_local;
+                                    st = w_best_local;
+                                    baseline_csm = csm_out;
+                                    baseline_st = st;
+                                    BlockSolveSnapshot::RestartEvent ev{};
+                                    ev.restart_index = rs;
+                                    ev.prefix_rows = std::min<std::size_t>(r + 1, S);
+                                    ev.unknown_total = snap.unknown_total;
+                                    ev.action = BlockSolveSnapshot::RestartAction::lockInMicro;
+                                    snap.restarts.push_back(ev);
+                                    ++snap.micro_solver_successes;
+                                    const auto t1 = std::chrono::steady_clock::now();
+                                    snap.micro_solver_time_ms += static_cast<std::size_t>(
+                                        std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count()
+                                    );
+                                    return true;
+                                }
                             }
                         }
                         // Single exclusions from early picks
@@ -602,11 +626,22 @@ namespace crsce::decompress::detail {
                                 const auto t0bnb2 = std::chrono::steady_clock::now();
                                 dfs_bnb_limited(0U, 0U, fb_cand, capN2, target_k2, r, lh, c_best2, w_best2, found2, nodes2, max_nodes2, t0bnb2, max_ms2, c, w, snap);
                                 if (found2) {
-                                    csm_out = c_best2; st = w_best2; baseline_csm = csm_out; baseline_st = st;
-                                    BlockSolveSnapshot::RestartEvent ev{}; ev.restart_index = rs; ev.prefix_rows = std::min<std::size_t>(r + 1, S); ev.unknown_total = snap.unknown_total; ev.action = BlockSolveSnapshot::RestartAction::lockInMicro; snap.restarts.push_back(ev);
-                                    ++snap.micro_solver_successes; ++snap.micro_solver_bnb_successes; snap.micro_solver_bnb_nodes += nodes2;
-                                    const auto t1loc2 = std::chrono::steady_clock::now(); snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1loc2 - t0).count());
-                                    return true;
+                                    // Optional acceptance threshold (estimate delta by comparing initial unknowns to current state)
+                                    std::size_t min_cells = 0;
+                                    if (const char *p = std::getenv("CRSCE_MS_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
+                                        const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
+                                    }
+                                    const std::size_t after_u = w_best2.U_row.at(r);
+                                    const std::size_t delta_cells = static_cast<std::size_t>(u_initial) - after_u;
+                                    if (min_cells > 0 && delta_cells < min_cells) {
+                                        ++snap.micro_solver_reject_low_benefit;
+                                    } else {
+                                        csm_out = c_best2; st = w_best2; baseline_csm = csm_out; baseline_st = st;
+                                        BlockSolveSnapshot::RestartEvent ev{}; ev.restart_index = rs; ev.prefix_rows = std::min<std::size_t>(r + 1, S); ev.unknown_total = snap.unknown_total; ev.action = BlockSolveSnapshot::RestartAction::lockInMicro; snap.restarts.push_back(ev);
+                                        ++snap.micro_solver_successes; ++snap.micro_solver_bnb_successes; snap.micro_solver_bnb_nodes += nodes2;
+                                        const auto t1loc2 = std::chrono::steady_clock::now(); snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1loc2 - t0).count());
+                                        return true;
+                                    }
                                 }
                                 snap.micro_solver_bnb_nodes += nodes2;
                             }
@@ -644,23 +679,34 @@ namespace crsce::decompress::detail {
                                     c_best, w_best, found, nodes, max_nodes, t0bnb, max_ms,
                                     c, w, snap);
                     if (found) {
-                        csm_out = c_best;
-                        st = w_best;
-                        baseline_csm = csm_out;
-                        baseline_st = st;
-                        BlockSolveSnapshot::RestartEvent ev{};
-                        ev.restart_index = rs;
-                        ev.prefix_rows = std::min<std::size_t>(r + 1, S);
-                        ev.unknown_total = snap.unknown_total;
-                        ev.action = BlockSolveSnapshot::RestartAction::lockInMicro;
-                        snap.restarts.push_back(ev);
-                        ++snap.micro_solver_successes;
-                        ++snap.micro_solver_bnb_successes;
-                        snap.micro_solver_bnb_nodes += nodes;
-                        const auto t1 = std::chrono::steady_clock::now();
-                        snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<
-                            std::chrono::milliseconds>(t1 - t0).count());
-                        return true;
+                        // Optional acceptance threshold
+                        std::size_t min_cells = 0;
+                        if (const char *p = std::getenv("CRSCE_MS_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
+                            const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
+                        }
+                        const std::size_t after_u = w_best.U_row.at(r);
+                        const std::size_t delta_cells = static_cast<std::size_t>(u_initial) - after_u;
+                        if (min_cells > 0 && delta_cells < min_cells) {
+                            ++snap.micro_solver_reject_low_benefit;
+                        } else {
+                            csm_out = c_best;
+                            st = w_best;
+                            baseline_csm = csm_out;
+                            baseline_st = st;
+                            BlockSolveSnapshot::RestartEvent ev{};
+                            ev.restart_index = rs;
+                            ev.prefix_rows = std::min<std::size_t>(r + 1, S);
+                            ev.unknown_total = snap.unknown_total;
+                            ev.action = BlockSolveSnapshot::RestartAction::lockInMicro;
+                            snap.restarts.push_back(ev);
+                            ++snap.micro_solver_successes;
+                            ++snap.micro_solver_bnb_successes;
+                            snap.micro_solver_bnb_nodes += nodes;
+                            const auto t1 = std::chrono::steady_clock::now();
+                            snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<
+                                std::chrono::milliseconds>(t1 - t0).count());
+                            return true;
+                        }
                     }
                     snap.micro_solver_bnb_nodes += nodes;
                 }
@@ -797,8 +843,16 @@ namespace crsce::decompress::detail {
 
         if (w.U_row.at(r) == 0) {
             const std::size_t check_rows = std::min<std::size_t>(r + 1, S);
-            if (check_rows > 0) { ++snap.micro_solver_lh_verifications; }
+            if (check_rows > 0) { ++snap.micro_solver_lh_verifications; ++snap.micro_solver_candidates; }
             if (constexpr RowHashVerifier ver_try{}; check_rows > 0 && ver_try.verify_rows(c, lh, check_rows)) {
+                std::size_t min_cells = 0;
+                if (const char *p = std::getenv("CRSCE_MS_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
+                    const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
+                }
+                const std::size_t delta_cells = static_cast<std::size_t>(u_initial);
+                if (min_cells > 0 && delta_cells < min_cells) {
+                    ++snap.micro_solver_reject_low_benefit;
+                } else {
                 csm_out = c;
                 st = w;
                 baseline_csm = csm_out;
@@ -814,7 +868,9 @@ namespace crsce::decompress::detail {
                 snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<
                     std::chrono::milliseconds>(t1 - t0).count());
                 return true;
+                }
             }
+            else { ++snap.micro_solver_verify_failures; ++snap.verify_rows_failures; }
         }
         // If we are nearly locked on the boundary but LH still fails, trigger a contradiction restart (tuned threshold)
         {

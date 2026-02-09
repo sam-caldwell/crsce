@@ -49,7 +49,7 @@ namespace crsce::decompress::detail {
                                      int rs) {
 
         const auto t0 = std::chrono::steady_clock::now();
-        ++snap.micro_solver_attempts;
+        ++snap.micro_solver_attempts; ++snap.micro_solver2_attempts;
         constexpr std::size_t S = Csm::kS;
         // Boundary rows: first two rows with unknowns starting at top
         std::size_t r0 = 0; for (; r0 < S; ++r0) {
@@ -177,6 +177,15 @@ namespace crsce::decompress::detail {
             ++snap.micro_solver_lh_verifications;
         }
         if (check_rows > 0 && ver_try.verify_rows(c, lh, check_rows)) {
+            // Optional minimum benefit: total cells fixed across r0 and r1 must exceed threshold
+            std::size_t min_cells2 = 0;
+            if (const char *p = std::getenv("CRSCE_MS2_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
+                const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells2 = static_cast<std::size_t>(v); }
+            }
+            const std::size_t delta_cells2 = static_cast<std::size_t>(baseline_st.U_row.at(r0) + baseline_st.U_row.at(r1));
+            if (min_cells2 > 0 && delta_cells2 < min_cells2) {
+                ++snap.micro_solver_reject_low_benefit;
+            } else {
             csm_out = c;
             st = w;
             baseline_csm = csm_out;
@@ -187,10 +196,11 @@ namespace crsce::decompress::detail {
             ev.unknown_total = snap.unknown_total;
             ev.action = BlockSolveSnapshot::RestartAction::lockInMicro;
             snap.restarts.push_back(ev);
-            ++snap.micro_solver_successes;
+            ++snap.micro_solver_successes; ++snap.micro_solver2_successes;
             const auto t1 = std::chrono::steady_clock::now();
             snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
             return true;
+            }
         }
         const auto t1 = std::chrono::steady_clock::now();
         snap.micro_solver_time_ms += static_cast<std::size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());

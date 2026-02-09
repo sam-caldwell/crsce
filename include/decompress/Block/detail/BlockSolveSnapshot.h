@@ -121,6 +121,13 @@ namespace crsce::decompress {
         std::size_t micro_solver_bnb_attempts{0};
         std::size_t micro_solver_bnb_nodes{0};
         std::size_t micro_solver_bnb_successes{0};
+        // Additional micro-solver instrumentation
+        std::size_t micro_solver_candidates{0};           // times a fully-filled row candidate reached LH verify
+        std::size_t micro_solver_verify_failures{0};      // times LH verify_rows failed for a filled row candidate
+        std::size_t micro_solver_reject_low_benefit{0};   // rejected due to env-driven min-cells threshold
+        // Two-row micro-solver breakdown
+        std::size_t micro_solver2_attempts{0};
+        std::size_t micro_solver2_successes{0};
         // Additional diagnostics for boundary micro-solver gating
         std::size_t micro_solver_remaining_zero_cases{0};     // times remaining==0 gated DP
         std::size_t micro_solver_free_cand_empty_cases{0};    // times free_cand was empty
@@ -139,5 +146,9 @@ namespace crsce::decompress {
             std::string outcome;
         };
         std::vector<ThreadEvent> thread_events;
+
+        // Global verification failure counters (best-effort, sampled at call sites)
+        std::size_t verify_row_failures{0};   // count of verify_row() false outcomes observed
+        std::size_t verify_rows_failures{0};  // count of verify_rows() false outcomes observed
     };
 }
