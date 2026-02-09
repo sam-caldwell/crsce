@@ -16,6 +16,11 @@ Outputs 1 line per run with key params + quick signals/metrics.
 
 Usage:
   python3 tools/useless_ab_sweep.py [--seeds 4-8] [--limit N] [--bin bin/uselessTest]
+                                   [--verifyTick N] [--nearU N] [--parRS N]
+                                   [--parMS N] [--ambFB N] [--msWindow N]
+                                   [--msSwaps N] [--bnbMS N] [--bnbNodes N]
+                                   [--auditForce N] [--auditGrace N]
+                                   [--ms2-window N] [--ms2-max-ms N] [--ms2-max-nodes N]
 
 Notes:
 - Expects binaries in ./bin and docs/testData/useless-machine.mp4 in repo.
@@ -155,12 +160,20 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--outdir', default=os.path.join('build','uselessSweep'), help='Output directory for --direct runs')
     # Targeted overrides
     ap.add_argument('--nearU', type=int, help='Override CRSCE_NEARLOCK_U single value')
+    ap.add_argument('--parRS', type=int, help='Override CRSCE_PAR_RS single value (default 8)')
     ap.add_argument('--parMS', type=int, help='Override CRSCE_PAR_RS_MAX_MS single value')
     ap.add_argument('--ambFB', type=int, help='Override CRSCE_MS_AMB_FALLBACK single value')
     ap.add_argument('--verifyTick', type=int, help='Override CRSCE_VERIFY_TICK')
     ap.add_argument('--msWindow', type=int, help='Override CRSCE_MS_WINDOW')
     ap.add_argument('--msSwaps', type=int, help='Override CRSCE_MS_KVAR_SWAPS')
+    ap.add_argument('--bnbMS', type=int, help='Override CRSCE_MS_BNB_MS')
     ap.add_argument('--bnbNodes', type=int, help='Override CRSCE_MS_BNB_MAX_NODES')
+    ap.add_argument('--auditForce', type=int, help='Override CRSCE_AUDIT_FORCE_EVERY')
+    ap.add_argument('--auditGrace', type=int, help='Override CRSCE_AUDIT_GRACE')
+    # Two-row micro-solver knobs
+    ap.add_argument('--ms2-window', type=int, dest='ms2_window', help='CRSCE_MS2_WINDOW')
+    ap.add_argument('--ms2-max-ms', type=int, dest='ms2_max_ms', help='CRSCE_MS2_MAX_MS')
+    ap.add_argument('--ms2-max-nodes', type=int, dest='ms2_max_nodes', help='CRSCE_MS2_MAX_NODES')
     args = ap.parse_args(argv[1:])
 
     seeds = parse_seeds(args.seeds)
@@ -170,13 +183,13 @@ def main(argv: List[str]) -> int:
         return 2
 
     # Default sweep axes
-    audit_force_every = [30]
-    audit_grace = [15]
+    audit_force_every = [args.auditForce] if args.auditForce else [30]
+    audit_grace = [args.auditGrace] if args.auditGrace else [15]
     nearlock_u = [24, 28]
     par_rs = [8]
     par_rs_max_ms = [30000, 40000]
     amb_fallback = [160, 192]
-    bnb_ms = [4500]
+    bnb_ms = [args.bnbMS] if args.bnbMS else [4500]
     if args.nearU:
         nearlock_u = [args.nearU]
     if args.parMS:
@@ -219,7 +232,7 @@ def main(argv: List[str]) -> int:
             'CRSCE_AUDIT_FORCE_EVERY': str(audit_force_every[0]),
             'CRSCE_AUDIT_GRACE': str(audit_grace[0]),
             'CRSCE_NEARLOCK_U': str(u),
-            'CRSCE_PAR_RS': str(par_rs[0]),
+            'CRSCE_PAR_RS': str(args.parRS if args.parRS else par_rs[0]),
             'CRSCE_PAR_RS_MAX_MS': str(par_ms),
             'CRSCE_MS_AMB_FALLBACK': str(amb),
             'CRSCE_MS_BNB_MS': str(bms),
@@ -233,6 +246,13 @@ def main(argv: List[str]) -> int:
             env['CRSCE_MS_KVAR_SWAPS'] = str(args.msSwaps)
         if args.bnbNodes:
             env['CRSCE_MS_BNB_MAX_NODES'] = str(args.bnbNodes)
+        # Two-row micro-solver options
+        if args.ms2_window:
+            env['CRSCE_MS2_WINDOW'] = str(args.ms2_window)
+        if args.ms2_max_ms:
+            env['CRSCE_MS2_MAX_MS'] = str(args.ms2_max_ms)
+        if args.ms2_max_nodes:
+            env['CRSCE_MS2_MAX_NODES'] = str(args.ms2_max_nodes)
         if args.direct:
             rc, last = run_one_direct(args.container, args.outdir, env)
         else:
