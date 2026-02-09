@@ -160,6 +160,7 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--verifyTick', type=int, help='Override CRSCE_VERIFY_TICK')
     ap.add_argument('--msWindow', type=int, help='Override CRSCE_MS_WINDOW')
     ap.add_argument('--msSwaps', type=int, help='Override CRSCE_MS_KVAR_SWAPS')
+    ap.add_argument('--bnbNodes', type=int, help='Override CRSCE_MS_BNB_MAX_NODES')
     args = ap.parse_args(argv[1:])
 
     seeds = parse_seeds(args.seeds)
@@ -230,6 +231,8 @@ def main(argv: List[str]) -> int:
             env['CRSCE_MS_WINDOW'] = str(args.msWindow)
         if args.msSwaps:
             env['CRSCE_MS_KVAR_SWAPS'] = str(args.msSwaps)
+        if args.bnbNodes:
+            env['CRSCE_MS_BNB_MAX_NODES'] = str(args.bnbNodes)
         if args.direct:
             rc, last = run_one_direct(args.container, args.outdir, env)
         else:
