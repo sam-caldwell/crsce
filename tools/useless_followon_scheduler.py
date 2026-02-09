@@ -76,6 +76,15 @@ def main(argv: list[str]) -> int:
             break
         time.sleep(max(1, args.poll_seconds))
 
+    # Rebuild binaries to pick up instrumentation (best effort)
+    try:
+        os.makedirs(os.path.join('build', 'uselessTest'), exist_ok=True)
+        with open(os.path.join('build', 'uselessTest', 'followon_build.out'), 'a', encoding='utf-8') as out:
+            proc = subprocess.run(['make', 'build'], text=True, stdout=out, stderr=out)
+            write_text(os.path.join('build', 'uselessTest', 'followon_build.last'), f'rc={proc.returncode}\n')
+    except Exception as e:
+        write_text(os.path.join('build', 'uselessTest', 'followon_build.last'), f'error={e}\n')
+
     # Launch follow-on runner
     pid2 = launch_followon(args.hours)
     write_text(os.path.join('build', 'uselessTest', 'followon_scheduler.last'), f'launched followon pid={pid2}\n')
@@ -84,4 +93,3 @@ def main(argv: list[str]) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main(sys.argv))
-

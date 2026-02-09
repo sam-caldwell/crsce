@@ -182,7 +182,7 @@ namespace crsce::decompress::detail {
             if (const char *p = std::getenv("CRSCE_MS2_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
                 const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells2 = static_cast<std::size_t>(v); }
             }
-            const std::size_t delta_cells2 = static_cast<std::size_t>(baseline_st.U_row.at(r0) + baseline_st.U_row.at(r1));
+            const auto delta_cells2 = static_cast<std::size_t>(baseline_st.U_row.at(r0) + baseline_st.U_row.at(r1));
             if (min_cells2 > 0 && delta_cells2 < min_cells2) {
                 ++snap.micro_solver_reject_low_benefit;
             } else {

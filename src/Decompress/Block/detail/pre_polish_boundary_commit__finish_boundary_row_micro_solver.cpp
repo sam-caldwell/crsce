@@ -153,7 +153,7 @@ namespace crsce::decompress::detail {
                 if (const char *p = std::getenv("CRSCE_MS_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
                     const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
                 }
-                const std::size_t delta_cells = static_cast<std::size_t>(u_initial);
+                const auto delta_cells = static_cast<std::size_t>(u_initial);
                 if (min_cells > 0 && delta_cells < min_cells) {
                     ++snap.micro_solver_reject_low_benefit;
                 } else {
@@ -313,7 +313,7 @@ namespace crsce::decompress::detail {
                                     const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
                                 }
                                 const std::size_t after_u = w_best_local.U_row.at(r);
-                                const std::size_t delta_cells = static_cast<std::size_t>(u_initial) - after_u;
+                                const auto delta_cells = static_cast<std::size_t>(u_initial) - after_u;
                                 if (min_cells > 0 && delta_cells < min_cells) {
                                     ++snap.micro_solver_reject_low_benefit;
                                 } else {
@@ -632,7 +632,7 @@ namespace crsce::decompress::detail {
                                         const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
                                     }
                                     const std::size_t after_u = w_best2.U_row.at(r);
-                                    const std::size_t delta_cells = static_cast<std::size_t>(u_initial) - after_u;
+                                    const auto delta_cells = static_cast<std::size_t>(u_initial) - after_u;
                                     if (min_cells > 0 && delta_cells < min_cells) {
                                         ++snap.micro_solver_reject_low_benefit;
                                     } else {
@@ -685,7 +685,7 @@ namespace crsce::decompress::detail {
                             const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
                         }
                         const std::size_t after_u = w_best.U_row.at(r);
-                        const std::size_t delta_cells = static_cast<std::size_t>(u_initial) - after_u;
+                        const auto delta_cells = static_cast<std::size_t>(u_initial) - after_u;
                         if (min_cells > 0 && delta_cells < min_cells) {
                             ++snap.micro_solver_reject_low_benefit;
                         } else {
@@ -849,7 +849,7 @@ namespace crsce::decompress::detail {
                 if (const char *p = std::getenv("CRSCE_MS_ACCEPT_MIN_CELLS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
                     const auto v = std::strtoll(p, nullptr, 10); if (v > 0) { min_cells = static_cast<std::size_t>(v); }
                 }
-                const std::size_t delta_cells = static_cast<std::size_t>(u_initial);
+                const auto delta_cells = static_cast<std::size_t>(u_initial);
                 if (min_cells > 0 && delta_cells < min_cells) {
                     ++snap.micro_solver_reject_low_benefit;
                 } else {

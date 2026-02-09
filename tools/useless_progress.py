@@ -99,6 +99,13 @@ def metric_row(o: Dict[str, Any]) -> Dict[str, int | float]:
         'micro_solver_bnb_attempts': int(pick(o, 'micro_solver_bnb_attempts', 0)),
         'restart_contradiction_count': int(pick(o, 'restart_contradiction_count', 0)),
         'micro_solver_successes': int(pick(o, 'micro_solver_successes', 0)),
+        'micro_solver_candidates': int(pick(o, 'micro_solver_candidates', 0)),
+        'micro_solver_verify_failures': int(pick(o, 'micro_solver_verify_failures', 0)),
+        'micro_solver_reject_low_benefit': int(pick(o, 'micro_solver_reject_low_benefit', 0)),
+        'micro_solver2_attempts': int(pick(o, 'micro_solver2_attempts', 0)),
+        'micro_solver2_successes': int(pick(o, 'micro_solver2_successes', 0)),
+        'verify_row_failures': int(pick(o, 'verify_row_failures', 0)),
+        'verify_rows_failures': int(pick(o, 'verify_rows_failures', 0)),
         'valid_prefix': int(pick(o, 'valid_prefix', 0)),
         'gobp_iters_run': int(pick(o, 'gobp_iters_run', 0)),
         'rows_committed': int(pick(o, 'rows_committed', 0)),
@@ -131,6 +138,13 @@ def main(argv: List[str]) -> int:
     print(f"- micro_solver_bnb_attempts: {l['micro_solver_bnb_attempts']}")
     print(f"- restart_contradiction_count: {l['restart_contradiction_count']}")
     print(f"- micro_solver_successes: {l['micro_solver_successes']}")
+    print(f"- micro_solver_candidates: {l['micro_solver_candidates']}")
+    print(f"- micro_solver_verify_failures: {l['micro_solver_verify_failures']}")
+    print(f"- micro_solver_reject_low_benefit: {l['micro_solver_reject_low_benefit']}")
+    print(f"- micro_solver2_attempts: {l['micro_solver2_attempts']}")
+    print(f"- micro_solver2_successes: {l['micro_solver2_successes']}")
+    print(f"- verify_row_failures: {l['verify_row_failures']}")
+    print(f"- verify_rows_failures: {l['verify_rows_failures']}")
     print(f"- valid_prefix: {l['valid_prefix']}")
     print(f"- gobp_iters_run: {l['gobp_iters_run']}")
     print(f"- rows_committed: {l['rows_committed']}")
@@ -140,6 +154,8 @@ def main(argv: List[str]) -> int:
     print(f"- micro_solver_bnb_nodes: {fmt_delta(l['micro_solver_bnb_nodes'], f['micro_solver_bnb_nodes'])}")
     print(f"- restart_contradiction_count: {fmt_delta(l['restart_contradiction_count'], f['restart_contradiction_count'])}")
     print(f"- micro_solver_successes: {fmt_delta(l['micro_solver_successes'], f['micro_solver_successes'])}")
+    print(f"- micro_solver_candidates: {fmt_delta(l['micro_solver_candidates'], f['micro_solver_candidates'])}")
+    print(f"- micro_solver_verify_failures: {fmt_delta(l['micro_solver_verify_failures'], f['micro_solver_verify_failures'])}")
     print(f"- valid_prefix: {fmt_delta(l['valid_prefix'], f['valid_prefix'])}")
 
     if p is not None:
@@ -147,6 +163,8 @@ def main(argv: List[str]) -> int:
         print(f"- micro_solver_bnb_nodes: {fmt_delta(l['micro_solver_bnb_nodes'], p['micro_solver_bnb_nodes'])}")
         print(f"- restart_contradiction_count: {fmt_delta(l['restart_contradiction_count'], p['restart_contradiction_count'])}")
         print(f"- micro_solver_successes: {fmt_delta(l['micro_solver_successes'], p['micro_solver_successes'])}")
+        print(f"- micro_solver_candidates: {fmt_delta(l['micro_solver_candidates'], p['micro_solver_candidates'])}")
+        print(f"- micro_solver_verify_failures: {fmt_delta(l['micro_solver_verify_failures'], p['micro_solver_verify_failures'])}")
         print(f"- valid_prefix: {fmt_delta(l['valid_prefix'], p['valid_prefix'])}")
     else:
         print("Vs most‑recent baseline: n/a (only one record)")
@@ -167,4 +185,3 @@ def main(argv: List[str]) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main(sys.argv))
-
