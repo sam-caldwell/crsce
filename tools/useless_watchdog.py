@@ -173,14 +173,14 @@ def any_positive(records: List[Dict[str, Any]], window: int = 10) -> bool:
     return False
 
 
-def start_night_runner(remaining_hours: float, out_path: str, pid_path: str) -> Optional[int]:
+def start_runner(remaining_hours: float, out_path: str, pid_path: str, script_path: str) -> Optional[int]:
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     try:
         out = open(out_path, 'a', encoding='utf-8')
     except Exception:
         return None
     proc = subprocess.Popen(
-        [sys.executable, os.path.join('tools', 'useless_night_runner.py'), '--hours', f'{remaining_hours:.3f}'],
+        [sys.executable, script_path, '--hours', f'{remaining_hours:.3f}'],
         stdout=out, stderr=out, close_fds=True
     )
     write_text(pid_path, str(proc.pid))
@@ -219,6 +219,7 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--log', default=os.path.join('build', 'uselessTest', 'completion_stats.log'))
     ap.add_argument('--idle-minutes', type=int, default=45, help='No log writes beyond this triggers a boost')
     ap.add_argument('--check-interval', type=int, default=60, help='Seconds between checks')
+    ap.add_argument('--runner', choices=['night','c1c2'], default='night', help='Which runner to restart if dead')
     args = ap.parse_args(argv[1:])
 
     # Record our PID
@@ -236,7 +237,14 @@ def main(argv: List[str]) -> int:
         remaining_h = max(0.0, (end_ts - time.monotonic()) / 3600.0)
         if not runner_alive and remaining_h > 0.05:
             append(os.path.join('build', 'uselessTest', 'watchdog_alerts.log'), f"[{now_str()}] runner not alive, restarting for {remaining_h:.2f}h\n")
-            new_pid = start_night_runner(remaining_h, os.path.join('build', 'uselessTest', 'night_runner.out'), args.pidfile)
+            # Choose script and out path based on --runner
+            if args.runner == 'c1c2':
+                script = os.path.join('tools', 'useless_night_runner_c1c2.py')
+                outp = os.path.join('build', 'uselessTest', 'night_runner_followon.out')
+            else:
+                script = os.path.join('tools', 'useless_night_runner.py')
+                outp = os.path.join('build', 'uselessTest', 'night_runner.out')
+            new_pid = start_runner(remaining_h, outp, args.pidfile, script)
             append(os.path.join('build', 'uselessTest', 'watchdog_alerts.log'), f"[{now_str()}] restarted runner pid={new_pid}\n")
 
         # 2) Inspect logs
@@ -286,4 +294,3 @@ def main(argv: List[str]) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main(sys.argv))
-
