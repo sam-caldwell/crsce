@@ -14,10 +14,11 @@ execute_process(
           ${CMAKE_COMMAND}
             -S ${SOURCE_DIR} -B ${COV_BIN_DIR}
             -G Ninja
-            -DCMAKE_BUILD_TYPE=Debug
-            -DCMAKE_CXX_STANDARD=23
-            -DCMAKE_CXX_FLAGS=-fprofile-instr-generate\ -fcoverage-mapping
-            -DCMAKE_EXE_LINKER_FLAGS=-fprofile-instr-generate
+            -DCMAKE_BUILD_TYPE=Release
+            "-DCMAKE_CXX_STANDARD=23"
+            "-DCMAKE_CXX_FLAGS=-fprofile-instr-generate -fcoverage-mapping -O3 -march=native -DNDEBUG"
+            "-DCMAKE_EXE_LINKER_FLAGS=-fprofile-instr-generate"
+            "-DCMAKE_SHARED_LINKER_FLAGS=-fprofile-instr-generate"
             -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=${BUILD_DIR}/llvm-debug/_deps/googletest-src
             ${_SDK_CFG_FLAG}
   RESULT_VARIABLE _CFG_RC

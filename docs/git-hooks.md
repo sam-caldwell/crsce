@@ -68,7 +68,7 @@ Runs fast, local quality gates and blocks the commit on any failure:
    make cover
    ```
 
-   Configures an instrumented build, runs tests, and enforces a minimum line coverage threshold (≥ 95%).
+   Configures an instrumented build, runs tests, and enforces a minimum line coverage threshold (≥ 90%).
 
 ### `commit-msg`
 

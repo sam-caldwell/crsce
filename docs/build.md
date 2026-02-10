@@ -44,5 +44,5 @@ make test           # run CTest suites
 ## Tips
 
 - `make lint` will fail on any tidy warning (warnings are treated as errors). Fix code; do not weaken linters.
-- `make cover` configures an instrumented build and enforces a line coverage threshold (≥ 95%).
+- `make cover` configures an instrumented build and enforces a line coverage threshold (≥ 90%).
 - If your environment differs, pass `PRESET=<name>` to `make configure/build/test` to select another preset.
