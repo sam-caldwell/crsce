@@ -17,7 +17,7 @@ namespace crsce::decompress {
      * @brief Snapshot of solver state captured at failure or last iteration.
      */
     struct BlockSolveSnapshot {
-        enum class Phase : std::uint8_t { init, de, gobp, verify, endOfIterations };
+        enum class Phase : std::uint8_t { init, de, rowPhase, radditzSift, gobp, verify, endOfIterations };
         std::size_t S{0};
         std::size_t iter{0};
         Phase phase{Phase::init};
@@ -103,10 +103,16 @@ namespace crsce::decompress {
         // Timing accumulators (milliseconds)
         std::size_t time_de_ms{0};              // total time in DeterministicElimination
         std::size_t time_de_in_gobp_ms{0};      // DE time executed as part of GOBP loop
+        std::size_t time_row_phase_ms{0};       // time in Row Constraint Phase
+        std::size_t time_radditz_ms{0};         // time in Radditz Sift Phase
         std::size_t time_gobp_ms{0};            // time in GobpSolver::solve_step
         std::size_t time_lh_ms{0};              // time spent in LH verifications (row/prefix/all)
         std::size_t time_cross_verify_ms{0};    // time verifying cross sums at the end
         std::size_t time_verify_all_ms{0};      // time for final LH verify_all
+
+        // Phase iteration counters
+        std::size_t row_phase_iterations{0};
+        std::size_t radditz_iterations{0};
 
         // Micro-solver metrics (boundary row helper)
         std::size_t micro_solver_attempts{0};

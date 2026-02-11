@@ -33,6 +33,8 @@
 #include "decompress/Block/detail/read_seed_or_default.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
+#include "decompress/Phases/RowConstraintPhase.h"
+#include "decompress/Phases/RadditzSiftPhase.h"
 
 #include <cstddef>
 #include <cstdint> //NOLINT
@@ -463,6 +465,40 @@ namespace crsce::decompress {
                     }
                 );
             }
+            // Run staged phases (row-first, then Radditz Sift) before GOBP fallback.
+                snap.phase = BlockSolveSnapshot::Phase::rowPhase;
+                ::crsce::o11y::event("row_phase_start");
+                const std::size_t rp = ::crsce::decompress::phases::row_constraint_phase(csm_out, st, snap, 0);
+                if (rp > 0) {
+                    // After adoptions, run a few DE steps to propagate
+                    for (int it = 0; it < 256 && !det.solved(); ++it) { if (det.solve_step() == 0) { break; } }
+                }
+                snap.U_row.assign(st.U_row.begin(), st.U_row.end());
+                snap.U_col.assign(st.U_col.begin(), st.U_col.end());
+                snap.U_diag.assign(st.U_diag.begin(), st.U_diag.end());
+                snap.U_xdiag.assign(st.U_xdiag.begin(), st.U_xdiag.end());
+                {
+                    std::size_t sumU = 0; for (const auto u: st.U_row) { sumU += static_cast<std::size_t>(u); }
+                    snap.unknown_total = sumU;
+                    snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
+                }
+
+                snap.phase = BlockSolveSnapshot::Phase::radditzSift;
+                ::crsce::o11y::event("radditz_sift_start");
+                const std::size_t rsf = ::crsce::decompress::phases::radditz_sift_phase(csm_out, st, snap, 0);
+                if (rsf > 0) {
+                    for (int it = 0; it < 256 && !det.solved(); ++it) { if (det.solve_step() == 0) { break; } }
+                }
+                snap.U_row.assign(st.U_row.begin(), st.U_row.end());
+                snap.U_col.assign(st.U_col.begin(), st.U_col.end());
+                snap.U_diag.assign(st.U_diag.begin(), st.U_diag.end());
+                snap.U_xdiag.assign(st.U_xdiag.begin(), st.U_xdiag.end());
+                {
+                    std::size_t sumU = 0; for (const auto u: st.U_row) { sumU += static_cast<std::size_t>(u); }
+                    snap.unknown_total = sumU;
+                    snap.solved = (static_cast<std::size_t>(S) * static_cast<std::size_t>(S)) - sumU;
+                }
+
             // If DE has already solved the block, skip GOBP and proceed to verification.
             if (det.solved()) {
                 {
