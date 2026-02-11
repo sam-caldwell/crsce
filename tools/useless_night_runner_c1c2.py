@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import itertools
 import os
 import subprocess
 import sys
@@ -109,7 +108,14 @@ def run_sweep_concurrent(label_prefix: str,
             '--direct', '--outdir', outdir,
             '--seeds', seeds_arg,
         ] + base_args
-        procs.append(subprocess.Popen([sys.executable] + args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
+        procs.append(
+            subprocess.Popen(
+                [sys.executable] + args,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        )
     # Collect
     table_path = os.path.join('build', 'uselessTest', 'night_sweep_table.txt')
     for idx, p in enumerate(procs):
@@ -135,7 +141,11 @@ def run_sweep_concurrent(label_prefix: str,
         except Exception:
             pass
     # After all jobs, append a summary snapshot from the merged log
-    prog = subprocess.run([sys.executable, os.path.join('tools', 'useless_progress.py'), merge_into], text=True, capture_output=True)
+    prog = subprocess.run(
+        [sys.executable, os.path.join('tools', 'useless_progress.py'), merge_into],
+        text=True,
+        capture_output=True,
+    )
     summary_path = os.path.join('build', 'uselessTest', 'night_summary.txt')
     append(summary_path, f"\n[{now_str()}] {label_prefix} (concurrent jobs={len(seeds_lists)})\n")
     append(summary_path, (prog.stdout or ''))
@@ -295,7 +305,11 @@ def main(argv: List[str]) -> int:
     while time.monotonic() < end_ts:
         seeds_chunk = choose_seed_chunk(all_seeds, args.seed_chunk_size, cycle)
         seeds_arg = format_seeds_arg(seeds_chunk)
-        append(pool_path, f"[{now_str()}] cycle={cycle} pool_size={len(all_seeds)} chunk_size={len(seeds_chunk)} seeds={seeds_arg}\n")
+        append(
+            pool_path,
+            f"[{now_str()}] cycle={cycle} pool_size={len(all_seeds)} chunk_size={len(seeds_chunk)} "
+            f"seeds={seeds_arg}\n",
+        )
         cycle_start_end_ms = current_last_end_ms()
         # C1 cycle (contradictions) – tighter verify/audit, shorter RS window, broaden PAR_RS
         if time.monotonic() >= end_ts:
@@ -318,7 +332,14 @@ def main(argv: List[str]) -> int:
                     ]
                     seeds_jobs = _split_for_jobs(seeds_chunk, args.jobs)
                     out_base = os.path.join('build', 'uselessTest', 'parallel')
-                    run_sweep_concurrent(label, base, cycle, seeds_jobs, out_base, os.path.join('build', 'uselessTest', 'completion_stats.log'))
+                    run_sweep_concurrent(
+                        label,
+                        base,
+                        cycle,
+                        seeds_jobs,
+                        out_base,
+                        os.path.join('build', 'uselessTest', 'completion_stats.log'),
+                        )
                 else:
                     sweep = [
                         '--seeds', seeds_arg,
@@ -348,20 +369,33 @@ def main(argv: List[str]) -> int:
                         base = [
                             '--verifyTick', '48',
                             '--auditForce', '30', '--auditGrace', '10',
-                            '--nearU', str(u), '--parRS', '8', '--parMS', '45000' if prune_done else '40000', '--ambFB', '160',
+                            '--nearU', str(u),
+                            '--parRS', '8',
+                            '--parMS', '45000' if prune_done else '40000',
+                            '--ambFB', '160',
                             '--msWindow', '192' if prune_done else '160', '--msSwaps', '128' if prune_done else '96',
                             '--ms2-window', '128', '--ms2-max-ms', str(ms2ms), '--ms2-max-nodes', str(ms2nodes),
                             '--bnbMS', '6000', '--bnbNodes', '2000000',
                         ]
                         seeds_jobs = _split_for_jobs(seeds_chunk, args.jobs)
                         out_base = os.path.join('build', 'uselessTest', 'parallel')
-                        run_sweep_concurrent(label, base, cycle, seeds_jobs, out_base, os.path.join('build', 'uselessTest', 'completion_stats.log'))
+                        run_sweep_concurrent(
+                            label,
+                            base,
+                            cycle,
+                            seeds_jobs,
+                            out_base,
+                            os.path.join('build', 'uselessTest', 'completion_stats.log'),
+                        )
                     else:
                         sweep = [
                             '--seeds', seeds_arg,
                             '--verifyTick', '48',
                             '--auditForce', '30', '--auditGrace', '10',
-                            '--nearU', str(u), '--parRS', '8', '--parMS', '45000' if prune_done else '40000', '--ambFB', '160',
+                            '--nearU', str(u),
+                            '--parRS', '8',
+                            '--parMS', '45000' if prune_done else '40000',
+                            '--ambFB', '160',
                             '--msWindow', '192' if prune_done else '160', '--msSwaps', '128' if prune_done else '96',
                             '--ms2-window', '128', '--ms2-max-ms', str(ms2ms), '--ms2-max-nodes', str(ms2nodes),
                             '--bnbMS', '6000', '--bnbNodes', '2000000',
