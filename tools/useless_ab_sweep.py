@@ -32,7 +32,6 @@ import argparse
 import itertools
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -126,7 +125,11 @@ def run_one_direct(container: str, out_dir: str, env: Dict[str, str]) -> Tuple[i
     full_env['PATH'] = os.pathsep.join([os.path.abspath('bin'), full_env.get('PATH', '')])
     os.makedirs(out_dir, exist_ok=True)
     # unique output to avoid overwrite errors
-    tag = f"s{env.get('CRSCE_SOLVER_SEED','0')}_u{env.get('CRSCE_NEARLOCK_U','')}_ms{env.get('CRSCE_PAR_RS_MAX_MS','')}_af{env.get('CRSCE_MS_AMB_FALLBACK','')}"
+    seed = env.get('CRSCE_SOLVER_SEED', '0')
+    near = env.get('CRSCE_NEARLOCK_U', '')
+    pms = env.get('CRSCE_PAR_RS_MAX_MS', '')
+    amb = env.get('CRSCE_MS_AMB_FALLBACK', '')
+    tag = f"s{seed}_u{near}_ms{pms}_af{amb}"
     out_path = os.path.join(out_dir, f"recon_{tag}.mp4")
     try:
         if os.path.exists(out_path):
@@ -156,8 +159,16 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--limit', type=int, default=0, help='Max runs (0 = no limit)')
     ap.add_argument('--bin', default=os.path.join('bin', 'uselessTest'), help='Path to uselessTest binary')
     ap.add_argument('--direct', action='store_true', help='Run bin/decompress directly (compress once, faster)')
-    ap.add_argument('--container', default=os.path.join('build','uselessTest','useless-machine.crsce'), help='CRSCE container path for --direct')
-    ap.add_argument('--outdir', default=os.path.join('build','uselessSweep'), help='Output directory for --direct runs')
+    ap.add_argument(
+        '--container',
+        default=os.path.join('build', 'uselessTest', 'useless-machine.crsce'),
+        help='CRSCE container path for --direct',
+    )
+    ap.add_argument(
+        '--outdir',
+        default=os.path.join('build', 'uselessSweep'),
+        help='Output directory for --direct runs',
+    )
     # Targeted overrides
     ap.add_argument('--nearU', type=int, help='Override CRSCE_NEARLOCK_U single value')
     ap.add_argument('--parRS', type=int, help='Override CRSCE_PAR_RS single value (default 8)')
@@ -202,13 +213,13 @@ def main(argv: List[str]) -> int:
         cont = args.container
         if not os.path.exists(cont):
             os.makedirs(os.path.dirname(cont), exist_ok=True)
-            src = os.path.join('docs','testData','useless-machine.mp4')
+            src = os.path.join('docs', 'testData', 'useless-machine.mp4')
             if not os.path.exists(src):
                 print(f'error: source not found: {src}', file=sys.stderr)
                 return 2
             # produce container once
             cenv = dict(os.environ)
-            cenv['PATH'] = os.pathsep.join([os.path.abspath('bin'), cenv.get('PATH','')])
+            cenv['PATH'] = os.pathsep.join([os.path.abspath('bin'), cenv.get('PATH', '')])
             cp = subprocess.run(['bin/compress', '-in', src, '-out', cont], capture_output=True, text=True, env=cenv)
             if cp.returncode != 0:
                 sys.stderr.write(cp.stdout)
@@ -221,8 +232,8 @@ def main(argv: List[str]) -> int:
     count = 0
     header = (
         'seed  nearU  parRS  parMS  ambFB  bnbMS  exit  '
-        'ms_bnb_nodes  ms_success  restarts_contra  valid_prefix  rows_committed  gobp_iters'
-        '  signals'
+        'ms_bnb_nodes  ms_success  restarts_contra  valid_prefix  rows_committed  '
+        'gobp_iters  signals'
     )
     print(header)
     for (u, par_ms, amb, bms, seed) in combos:
@@ -277,8 +288,8 @@ def main(argv: List[str]) -> int:
                 signals.append('prefix_growth')
         print(
             f"{seed:4d}  {u:5d}  {par_rs[0]:5d}  {par_ms:5d}  {amb:5d}  {bms:5d}  {rc:4d}  "
-            f"{ms_nodes:12d}  {ms_succ:10d}  {rest_contra:15d}  {vpref:12d}  {rcommit:14d}  {gobp_iters:11d}  "
-            f"{','.join(signals) if signals else '-'}"
+            f"{ms_nodes:12d}  {ms_succ:10d}  {rest_contra:15d}  {vpref:12d}  {rcommit:14d}  "
+            f"{gobp_iters:11d}  {','.join(signals) if signals else '-'}"
         )
         sys.stdout.flush()
         count += 1
