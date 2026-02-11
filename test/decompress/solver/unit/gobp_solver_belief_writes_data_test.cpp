@@ -8,7 +8,7 @@
 
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/Gobp/GobpSolver.h"
+#include "decompress/Phases/Gobp/GobpSolver.h"
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;

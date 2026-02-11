@@ -1,0 +1,51 @@
+/**
+ * @file verify_cross_sums_and_lh.cpp
+ */
+#include "decompress/Block/detail/verify_cross_sums_and_lh.h"
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+
+#include <chrono>
+#include "decompress/Block/detail/set_block_solve_snapshot.h"
+#include "decompress/RowHashVerifier/RowHashVerifier.h"
+#include "decompress/Utils/detail/verify_cross_sums.h"
+#include "common/O11y/event.h"
+#include "common/O11y/metric_i64.h"
+
+namespace crsce::decompress::detail {
+    bool verify_cross_sums_and_lh(Csm &csm,
+                                  const std::array<std::uint16_t, Csm::kS> &lsm,
+                                  const std::array<std::uint16_t, Csm::kS> &vsm,
+                                  const std::array<std::uint16_t, Csm::kS> &dsm,
+                                  const std::array<std::uint16_t, Csm::kS> &xsm,
+                                  const std::span<const std::uint8_t> lh,
+                                  BlockSolveSnapshot &snap) {
+        const auto t0cs = std::chrono::steady_clock::now();
+        const bool okcs = verify_cross_sums(csm, lsm, vsm, dsm, xsm);
+        const auto t1cs = std::chrono::steady_clock::now();
+        snap.time_cross_verify_ms += static_cast<std::size_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(t1cs - t0cs).count());
+        if (!okcs) {
+            ::crsce::o11y::event("block_end_verify_fail");
+            ::crsce::o11y::metric("block_end_verify_fail", 1LL);
+            snap.phase = BlockSolveSnapshot::Phase::verify;
+            snap.message = "cross-sum verification failed";
+            set_block_solve_snapshot(snap);
+            return false;
+        }
+        const RowHashVerifier verifier;
+        const auto t0va = std::chrono::steady_clock::now();
+        const bool result = verifier.verify_all(csm, lh);
+        const auto t1va = std::chrono::steady_clock::now();
+        const auto ms = static_cast<std::size_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(t1va - t0va).count());
+        snap.time_verify_all_ms += ms;
+        snap.time_lh_ms += ms;
+        ::crsce::o11y::event(result ? "block_end_ok" : "block_end_verify_fail");
+        return result;
+    }
+}

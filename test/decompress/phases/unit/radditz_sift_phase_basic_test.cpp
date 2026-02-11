@@ -7,8 +7,8 @@
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Phases/RadditzSiftPhase.h"
-#include "decompress/Phases/detail/RadditzSiftImpl.h"
+#include "decompress/Phases/RadditzSift/RadditzSift.h"
+#include "decompress/Phases/RadditzSift/Detail.h"
 #include <vector>
 #include <cstdint>
 #include <span>

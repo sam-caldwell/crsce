@@ -9,7 +9,7 @@
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Phases/BitSplash.h"
+#include "decompress/Phases/BitSplash/BitSplash.h"
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;

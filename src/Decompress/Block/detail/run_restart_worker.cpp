@@ -18,7 +18,7 @@
 #include <span>
 #include <string>
 
-#include "decompress/Gobp/GobpSolver.h"
+#include "decompress/Phases/Gobp/GobpSolver.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Utils/detail/now_ms.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"

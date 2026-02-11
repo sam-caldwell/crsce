@@ -14,7 +14,7 @@
 
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/Gobp/GobpSolver.h"
+#include "decompress/Phases/Gobp/GobpSolver.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 
 namespace crsce::testhelpers {
