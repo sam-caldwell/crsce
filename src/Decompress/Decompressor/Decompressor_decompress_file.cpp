@@ -614,6 +614,11 @@ namespace crsce::decompress {
                         os << "  \"micro_solver_gate_near_thresh\":" << s3->micro_solver_gate_near_thresh << ",\n";
                         os << "  \"micro_solver_gate_cols_empty\":" << s3->micro_solver_gate_cols_empty << ",\n";
                         os << "  \"micro_solver_gate_row_full\":" << s3->micro_solver_gate_row_full << ",\n";
+                        // Phase metrics (row-first + Radditz)
+                        os << "  \"row_phase_iterations\":" << s3->row_phase_iterations << ",\n";
+                        os << "  \"time_row_phase_ms\":" << s3->time_row_phase_ms << ",\n";
+                        os << "  \"radditz_iterations\":" << s3->radditz_iterations << ",\n";
+                        os << "  \"time_radditz_ms\":" << s3->time_radditz_ms << ",\n";
                         // Thread events
                         os << "  \"verify_row_failures\":" << s3->verify_row_failures << ",\n";
                         os << "  \"verify_rows_failures\":" << s3->verify_rows_failures << ",\n";

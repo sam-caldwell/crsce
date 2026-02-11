@@ -1,7 +1,7 @@
 /**
  * @file RowConstraintPhase.h
  * @brief Row-first constraint satisfaction phase (post-DE), adopts high-confidence row assignments.
- * @copyright © 2026 Sam Caldwell.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 

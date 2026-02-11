@@ -16,8 +16,8 @@ namespace crsce::decompress::detail {
  * @brief Emit a single decompress file summary metric when enabled.
  */
 inline void emit_decompress_summary(const char *status,
-                                    std::uint64_t blocks_attempted,
-                                    std::uint64_t blocks_successful) {
+                                    const std::uint64_t blocks_attempted,
+                                    const std::uint64_t blocks_successful) {
     if (!summary_enabled_env()) { return; }
     ::crsce::o11y::Obj o{"decompress_file_summary"};
     const std::uint64_t failed = (blocks_attempted >= blocks_successful)

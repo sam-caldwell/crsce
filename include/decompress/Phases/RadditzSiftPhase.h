@@ -2,7 +2,7 @@
  * @file RadditzSiftPhase.h
  * @brief Column-focused lateral adoption phase (Radditz Sift), fills column deficits with safe placements.
  *        Preserves constraint invariants; does not unlock.
- * © 2026 Sam Caldwell.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
