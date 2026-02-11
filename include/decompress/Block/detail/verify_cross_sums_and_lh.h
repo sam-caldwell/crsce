@@ -13,6 +13,18 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name verify_cross_sums_and_lh
+     * @brief Validate cross-sum vectors and row-hash chain for a candidate solution.
+     * @param csm Cross‑Sum Matrix to verify.
+     * @param lsm Row targets.
+     * @param vsm Column targets.
+     * @param dsm Diagonal targets.
+     * @param xsm Anti-diagonal targets.
+     * @param lh LH payload bytes (per-row digests).
+     * @param snap Snapshot to append timing.
+     * @return bool True if both checks pass; false otherwise.
+     */
     bool verify_cross_sums_and_lh(Csm &csm,
                                   const std::array<std::uint16_t, Csm::kS> &lsm,
                                   const std::array<std::uint16_t, Csm::kS> &vsm,
@@ -21,4 +33,3 @@ namespace crsce::decompress::detail {
                                   std::span<const std::uint8_t> lh,
                                   BlockSolveSnapshot &snap);
 }
-

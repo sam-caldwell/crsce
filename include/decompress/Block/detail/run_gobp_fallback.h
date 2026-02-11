@@ -16,9 +16,24 @@
 
 namespace crsce::decompress::detail {
 
-// Run the GOBP fallback stages with adaptive restarts and finishers.
-// Returns true if a solution was found and verified; false otherwise.
-bool run_gobp_fallback(Csm &csm,
+    /**
+     * @name run_gobp_fallback
+     * @brief Run the GOBP fallback with a simple multi‑phase schedule; updates snapshot metrics.
+     * @param csm Cross‑Sum Matrix to update.
+     * @param st Constraint state (updated in place).
+     * @param det DeterministicElimination instance for short propagations.
+     * @param baseline_csm Baseline CSM for restart adoption.
+     * @param baseline_st Baseline constraints for restart adoption.
+     * @param lh LH bytes for prefix verification during restarts.
+     * @param lsm Row targets (unused by simplified fallback; kept for signature stability).
+     * @param vsm Column targets (unused by simplified fallback; kept for signature stability).
+     * @param dsm Diagonal targets (unused by simplified fallback).
+     * @param xsm Anti-diagonal targets (unused by simplified fallback).
+     * @param snap Snapshot for timings and status updates.
+     * @param valid_bits Number of meaningful bits (unused by simplified fallback).
+     * @return bool True if det.solved() is achieved; false otherwise.
+     */
+    bool run_gobp_fallback(Csm &csm,
                        ConstraintState &st,
                        DeterministicElimination &det,
                        Csm &baseline_csm,
