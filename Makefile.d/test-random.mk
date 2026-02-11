@@ -9,7 +9,7 @@
 # Increase defaults to exercise GOBP more often
 MIN ?= 262144
 MAX ?= 262144
-test/random: build
+test/random:
 	@echo "--- Running testRunnerRandom (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
 	PATH="$(CURDIR)/bin:$$PATH" \

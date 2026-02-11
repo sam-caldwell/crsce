@@ -4,7 +4,7 @@
 
 .PHONY: test/alternating01
 
-test/alternating01: build
+test/alternating01:
 	@echo "--- Running testRunnerAlternating01 (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
 	PATH="$(CURDIR)/bin:$$PATH" \

@@ -5,7 +5,7 @@
 .PHONY: test/zeroes
 
 #   MIN=<bytes>  MAX=<bytes>
-test/zeroes: build
+test/zeroes:
 	@echo "--- Running testRunnerZeroes (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
 	PATH="$(CURDIR)/bin:$$PATH" \

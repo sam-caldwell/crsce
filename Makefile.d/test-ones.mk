@@ -4,7 +4,7 @@
 
 .PHONY: test/ones
 
-test/ones: build
+test/ones:
 	@echo "--- Running testRunnerOnes (preset: $(PRESET)) ---"
 	@TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
 	PATH="$(CURDIR)/bin:$$PATH" \

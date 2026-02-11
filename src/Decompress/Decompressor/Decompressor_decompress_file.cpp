@@ -176,9 +176,9 @@ namespace crsce::decompress {
                     }
                     const double row_avg = (static_cast<double>(row_ok_count) / static_cast<double>(S));
                     const double col_avg = (static_cast<double>(col_ok_count) / static_cast<double>(S));
-                    const double minp = (row_ok_count == S ? 1.0 : (row_ok_count == 0 ? 0.0 : 0.0));
+                    const double minp = (row_ok_count == S ? 1.0 : 0.0);
                     const double maxp = (row_ok_count > 0 ? 1.0 : 0.0);
-                    const double cminp = (col_ok_count == S ? 1.0 : (col_ok_count == 0 ? 0.0 : 0.0));
+                    const double cminp = (col_ok_count == S ? 1.0 : 0.0);
                     const double cmaxp = (col_ok_count > 0 ? 1.0 : 0.0);
                     const auto run_end = std::chrono::system_clock::now();
                     const auto start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(run_start.time_since_epoch()).count();
@@ -363,22 +363,22 @@ namespace crsce::decompress {
                         os << "    \"iters\":[" << piter[0] << "," << piter[1] << "," << piter[2] << "," << piter[3] << "]\n";
                         os << "  },\n";
                         os << "  \"row_min_pct\":" << (minp * 100.0) << ",\n";
-                        os << "  \"row_avg_pct\":" << (avgp * 100.0) << ",\n";
+                        os << "  \"row_avg_pct\":" << (row_avg * 100.0) << ",\n";
                         os << "  \"row_max_pct\":" << (maxp * 100.0) << ",\n";
-                        os << "  \"full_rows\":" << full << ",\n";
+                        os << "  \"full_rows\":" << row_ok_count << ",\n";
                         os << "  \"rows\":[";
                         for (std::size_t r = 0; r < S; ++r) {
                             if (r) { os << ","; }
-                            os << (pct[r] * 100.0);
+                            os << row_ok[r];
                         }
                         os << "],\n";
                         os << "  \"col_min_pct\":" << (cminp * 100.0) << ",\n";
-                        os << "  \"col_avg_pct\":" << (cavgp * 100.0) << ",\n";
+                        os << "  \"col_avg_pct\":" << (col_avg * 100.0) << ",\n";
                         os << "  \"col_max_pct\":" << (cmaxp * 100.0) << ",\n";
                         os << "  \"cols\":[";
                         for (std::size_t c = 0; c < S; ++c) {
                             if (c) { os << ","; }
-                            os << (cpct[c] * 100.0);
+                            os << col_ok[c];
                         }
                         os << "]\n";
                         os << "}\n";
@@ -420,9 +420,9 @@ namespace crsce::decompress {
                 }
                 const double row_avg = (static_cast<double>(row_ok_count) / static_cast<double>(S2));
                 const double col_avg = (static_cast<double>(col_ok_count) / static_cast<double>(S2));
-                const double minp = (row_ok_count == S2 ? 1.0 : (row_ok_count == 0 ? 0.0 : 0.0));
+                const double minp = (row_ok_count == S2 ? 1.0 : 0.0);
                 const double maxp = (row_ok_count > 0 ? 1.0 : 0.0);
-                const double cminp = (col_ok_count == S2 ? 1.0 : (col_ok_count == 0 ? 0.0 : 0.0));
+                const double cminp = (col_ok_count == S2 ? 1.0 : 0.0);
                 const double cmaxp = (col_ok_count > 0 ? 1.0 : 0.0);
                 const auto run_end2 = std::chrono::system_clock::now();
                 const auto start_ms2 = std::chrono::duration_cast<std::chrono::milliseconds>(run_start.time_since_epoch()).count();
