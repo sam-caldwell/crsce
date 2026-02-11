@@ -110,6 +110,11 @@ def metric_row(o: Dict[str, Any]) -> Dict[str, int | float]:
         'gobp_iters_run': int(pick(o, 'gobp_iters_run', 0)),
         'rows_committed': int(pick(o, 'rows_committed', 0)),
         'row_avg_pct': float(pick(o, 'row_avg_pct', 0.0)),
+        # Phase metrics (may be missing in older runs)
+        'time_row_phase_ms': int(pick(o, 'time_row_phase_ms', 0)),
+        'row_phase_iterations': int(pick(o, 'row_phase_iterations', 0)),
+        'time_radditz_ms': int(pick(o, 'time_radditz_ms', 0)),
+        'radditz_iterations': int(pick(o, 'radditz_iterations', 0)),
     }
 
 
@@ -149,6 +154,10 @@ def main(argv: List[str]) -> int:
     print(f"- gobp_iters_run: {lm['gobp_iters_run']}")
     print(f"- rows_committed: {lm['rows_committed']}")
     print(f"- row_avg_pct: {lm['row_avg_pct']:.4f}")
+    print(f"- time_row_phase_ms: {lm['time_row_phase_ms']}")
+    print(f"- row_phase_iterations: {lm['row_phase_iterations']}")
+    print(f"- time_radditz_ms: {lm['time_radditz_ms']}")
+    print(f"- radditz_iterations: {lm['radditz_iterations']}")
 
     print("Vs original baseline:")
     print(f"- micro_solver_bnb_nodes: {fmt_delta(lm['micro_solver_bnb_nodes'], f['micro_solver_bnb_nodes'])}")
@@ -159,6 +168,18 @@ def main(argv: List[str]) -> int:
     val_vf = fmt_delta(lm['micro_solver_verify_failures'], f['micro_solver_verify_failures'])
     print(f"- micro_solver_verify_failures: {val_vf}")
     print(f"- valid_prefix: {fmt_delta(lm['valid_prefix'], f['valid_prefix'])}")
+    print(
+        f"- time_row_phase_ms: {fmt_delta(lm['time_row_phase_ms'], f['time_row_phase_ms'])}"
+    )
+    print(
+        f"- row_phase_iterations: {fmt_delta(lm['row_phase_iterations'], f['row_phase_iterations'])}"
+    )
+    print(
+        f"- time_radditz_ms: {fmt_delta(lm['time_radditz_ms'], f['time_radditz_ms'])}"
+    )
+    print(
+        f"- radditz_iterations: {fmt_delta(lm['radditz_iterations'], f['radditz_iterations'])}"
+    )
 
     if p is not None:
         print("Vs most‑recent baseline:")
@@ -170,6 +191,18 @@ def main(argv: List[str]) -> int:
         val_vf2 = fmt_delta(lm['micro_solver_verify_failures'], p['micro_solver_verify_failures'])
         print(f"- micro_solver_verify_failures: {val_vf2}")
         print(f"- valid_prefix: {fmt_delta(lm['valid_prefix'], p['valid_prefix'])}")
+        print(
+            f"- time_row_phase_ms: {fmt_delta(lm['time_row_phase_ms'], p['time_row_phase_ms'])}"
+        )
+        print(
+            f"- row_phase_iterations: {fmt_delta(lm['row_phase_iterations'], p['row_phase_iterations'])}"
+        )
+        print(
+            f"- time_radditz_ms: {fmt_delta(lm['time_radditz_ms'], p['time_radditz_ms'])}"
+        )
+        print(
+            f"- radditz_iterations: {fmt_delta(lm['radditz_iterations'], p['radditz_iterations'])}"
+        )
     else:
         print("Vs most‑recent baseline: n/a (only one record)")
 
@@ -183,6 +216,10 @@ def main(argv: List[str]) -> int:
         signals.append('micro_solver_adoption')
     if lm['valid_prefix'] > 0:
         signals.append('prefix_growth')
+    if lm['time_row_phase_ms'] > 0:
+        signals.append('row_phase_seen')
+    if lm['time_radditz_ms'] > 0:
+        signals.append('radditz_seen')
     print("Signals:", (', '.join(signals) if signals else '(none)'))
     return 0
 

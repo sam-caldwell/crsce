@@ -233,7 +233,7 @@ def main(argv: List[str]) -> int:
     header = (
         'seed  nearU  parRS  parMS  ambFB  bnbMS  exit  '
         'ms_bnb_nodes  ms_success  restarts_contra  valid_prefix  rows_committed  '
-        'gobp_iters  signals'
+        'gobp_iters  row_ms  row_it  rad_ms  rad_it  signals'
     )
     print(header)
     for (u, par_ms, amb, bms, seed) in combos:
@@ -278,6 +278,10 @@ def main(argv: List[str]) -> int:
             vpref = int(pick(last, 'valid_prefix', 0))
             rcommit = int(pick(last, 'rows_committed', 0))
             gobp_iters = int(pick(last, 'gobp_iters_run', 0))
+            row_ms = int(pick(last, 'time_row_phase_ms', 0))
+            row_it = int(pick(last, 'row_phase_iterations', 0))
+            rad_ms = int(pick(last, 'time_radditz_ms', 0))
+            rad_it = int(pick(last, 'radditz_iterations', 0))
             if ms_nodes > 810_000:
                 signals.append('bnb_nodes>0.81M')
             if rest_contra > 3:
@@ -286,10 +290,15 @@ def main(argv: List[str]) -> int:
                 signals.append('micro_adopt')
             if vpref > 0:
                 signals.append('prefix_growth')
+            if row_ms > 0:
+                signals.append('row_phase')
+            if rad_ms > 0:
+                signals.append('radditz')
         print(
             f"{seed:4d}  {u:5d}  {par_rs[0]:5d}  {par_ms:5d}  {amb:5d}  {bms:5d}  {rc:4d}  "
             f"{ms_nodes:12d}  {ms_succ:10d}  {rest_contra:15d}  {vpref:12d}  {rcommit:14d}  "
-            f"{gobp_iters:11d}  {','.join(signals) if signals else '-'}"
+            f"{gobp_iters:11d}  {row_ms:6d}  {row_it:6d}  {rad_ms:6d}  {rad_it:6d}  "
+            f"{','.join(signals) if signals else '-'}"
         )
         sys.stdout.flush()
         count += 1
