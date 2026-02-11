@@ -10,7 +10,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 #include "decompress/Block/detail/pre_polish_commit_valid_prefix.h"
 #include <span>
@@ -36,7 +36,6 @@ bool run_gobp_fallback(Csm &csm,
                        const std::span<const std::uint16_t> xsm,
                        BlockSolveSnapshot &snap,
                        const std::uint64_t valid_bits) {
-
 
     (void)lsm;
     (void)vsm;
