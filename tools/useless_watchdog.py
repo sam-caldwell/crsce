@@ -189,7 +189,10 @@ def start_runner(remaining_hours: float, out_path: str, pid_path: str, script_pa
 
 def run_ab_boost(label: str) -> None:
     # Re-run user-provided A and B with the specified overrides to nudge progress
-    append(os.path.join('build', 'uselessTest', 'watchdog_alerts.log'), f"[{now_str()}] watchdog: {label}: re-running A and B\n")
+    append(
+        os.path.join('build', 'uselessTest', 'watchdog_alerts.log'),
+        f"[{now_str()}] watchdog: {label}: re-running A and B\n",
+    )
     # Run A
     run_py([
         os.path.join('tools', 'useless_ab_sweep.py'),
@@ -219,14 +222,14 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--log', default=os.path.join('build', 'uselessTest', 'completion_stats.log'))
     ap.add_argument('--idle-minutes', type=int, default=45, help='No log writes beyond this triggers a boost')
     ap.add_argument('--check-interval', type=int, default=60, help='Seconds between checks')
-    ap.add_argument('--runner', choices=['night','c1c2'], default='night', help='Which runner to restart if dead')
+    ap.add_argument('--runner', choices=['night', 'c1c2'], default='night', help='Which runner to restart if dead')
     args = ap.parse_args(argv[1:])
 
     # Record our PID
     write_text(os.path.join('build', 'uselessTest', 'watchdog.pid'), str(os.getpid()))
 
     end_ts = time.monotonic() + args.hours * 3600.0
-    last_log_mtime = file_mtime(args.log)
+    # Track size for delta reporting
     last_size = os.path.getsize(args.log) if os.path.exists(args.log) else 0
     last_boost_ts = 0.0
 
@@ -236,7 +239,10 @@ def main(argv: List[str]) -> int:
         runner_alive = is_pid_alive(runner_pid) if runner_pid else False
         remaining_h = max(0.0, (end_ts - time.monotonic()) / 3600.0)
         if not runner_alive and remaining_h > 0.05:
-            append(os.path.join('build', 'uselessTest', 'watchdog_alerts.log'), f"[{now_str()}] runner not alive, restarting for {remaining_h:.2f}h\n")
+            append(
+                os.path.join('build', 'uselessTest', 'watchdog_alerts.log'),
+                f"[{now_str()}] runner not alive, restarting for {remaining_h:.2f}h\n",
+            )
             # Choose script and out path based on --runner
             if args.runner == 'c1c2':
                 script = os.path.join('tools', 'useless_night_runner_c1c2.py')
@@ -245,7 +251,10 @@ def main(argv: List[str]) -> int:
                 script = os.path.join('tools', 'useless_night_runner.py')
                 outp = os.path.join('build', 'uselessTest', 'night_runner.out')
             new_pid = start_runner(remaining_h, outp, args.pidfile, script)
-            append(os.path.join('build', 'uselessTest', 'watchdog_alerts.log'), f"[{now_str()}] restarted runner pid={new_pid}\n")
+            append(
+                os.path.join('build', 'uselessTest', 'watchdog_alerts.log'),
+                f"[{now_str()}] restarted runner pid={new_pid}\n",
+            )
 
         # 2) Inspect logs
         mtime = file_mtime(args.log)
@@ -280,15 +289,22 @@ def main(argv: List[str]) -> int:
         status.append(f"log_path: {args.log}")
         status.append(f"log_size: {size} bytes delta={size - last_size}")
         status.append(f"log_mtime: {dt.datetime.fromtimestamp(mtime).isoformat() if mtime else 'n/a'}")
-        status.append(f"signals: contra_gt_3={sigs['contra_gt_3']} ms_success_gt_0={sigs['ms_success_gt_0']} prefix_gt_0={sigs['prefix_gt_0']} bnb_nodes>0.81M={sigs['bnb_nodes_gt_0_81M']}")
+        status.append(
+            f"signals: contra_gt_3={sigs['contra_gt_3']} "
+            f"ms_success_gt_0={sigs['ms_success_gt_0']} "
+            f"prefix_gt_0={sigs['prefix_gt_0']} "
+            f"bnb_nodes>0.81M={sigs['bnb_nodes_gt_0_81M']}"
+        )
         status.append(f"stalled={stalled}")
         write_text(os.path.join('build', 'uselessTest', 'watchdog_status.txt'), '\n'.join(status) + '\n')
 
-        last_log_mtime = mtime
         last_size = size
         time.sleep(max(1, args.check_interval))
 
-    append(os.path.join('build', 'uselessTest', 'watchdog_alerts.log'), f"[{now_str()}] watchdog finished after {args.hours} hours\n")
+    append(
+        os.path.join('build', 'uselessTest', 'watchdog_alerts.log'),
+        f"[{now_str()}] watchdog finished after {args.hours} hours\n",
+    )
     return 0
 
 
