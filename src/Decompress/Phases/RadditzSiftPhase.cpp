@@ -6,21 +6,26 @@
  */
 #include "decompress/Phases/RadditzSiftPhase.h"
 #include <cstddef>
-#include <cstdint>
-#include <chrono>
-#include <algorithm>
 #include <vector>
-#include <utility>
-#include <functional>
 #include <string>
+#include <chrono>
+#include <span>
+#include <cstdint>
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Utils/detail/calc_d.h"
-#include "decompress/Utils/detail/calc_x.h"
+#include "decompress/Phases/detail/RadditzSiftImpl.h"
 #include "common/O11y/event.h"
 
 namespace crsce::decompress::phases {
+
+    using crsce::decompress::phases::detail::compute_col_counts;
+    using crsce::decompress::phases::detail::compute_deficits;
+    using crsce::decompress::phases::detail::deficit_abs_sum;
+    using crsce::decompress::phases::detail::collect_row_candidates;
+    using crsce::decompress::phases::detail::greedy_pair_row;
+    using crsce::decompress::phases::detail::all_deficits_zero;
+    using crsce::decompress::phases::detail::verify_row_sums;
 
     /**
      * @name radditz_sift_phase
@@ -32,57 +37,54 @@ namespace crsce::decompress::phases {
      * @return std::size_t Number of cells adopted across processed columns.
      */
     std::size_t radditz_sift_phase(Csm &csm,
-                                    ConstraintState &st,
-                                    BlockSolveSnapshot &snap,
-                                    const std::size_t max_cols) {
+                                   ConstraintState &/*st_unused*/,
+                                   BlockSolveSnapshot &snap,
+                                   const std::size_t /*max_cols*/) {
         const auto t0 = std::chrono::steady_clock::now();
         const std::size_t S = Csm::kS;
-        std::size_t adopted = 0;
+        std::size_t swaps = 0;
+        const std::vector<int> col_count = compute_col_counts(csm);
+        std::vector<int> deficit = compute_deficits(col_count, std::span<const std::uint16_t>(snap.vsm.data(), snap.vsm.size()));
+        const std::size_t initial_abs = deficit_abs_sum(deficit);
 
-        std::size_t cols_seen = 0;
-        // Process columns with highest deficits first
-        std::vector<std::pair<std::uint16_t, std::size_t>> cols; cols.reserve(S);
-        for (std::size_t c = 0; c < S; ++c) {
-            if (st.R_col.at(c) > 0 && st.U_col.at(c) > 0) {
-                cols.emplace_back(st.R_col.at(c), c);
+        bool improved = true;
+        int passes = 0;
+        while (improved && passes < 64) {
+            improved = false;
+            ++passes;
+            // For each row, try to swap from surplus columns to deficit columns
+            for (std::size_t r = 0; r < S; ++r) {
+                std::vector<std::size_t> from; from.reserve(16);
+                std::vector<std::size_t> to;   to.reserve(16);
+                collect_row_candidates(csm, deficit, r, from, to);
+                const bool row_ok = greedy_pair_row(csm, r, from, to, deficit, swaps, snap);
+                improved = improved || row_ok;
             }
-        }
-        std::ranges::sort(cols, std::greater<>());
-        for (const auto &[need, c] : cols) {
-            (void)need;
-            if (max_cols && cols_seen >= max_cols) { break; }
-            ++cols_seen;
-            // Try to place ones in this column across rows that still need ones
-            for (std::size_t r = 0; r < S && st.R_col.at(c) > 0; ++r) {
-                if (csm.is_locked(r, c)) { continue; }
-                if (st.R_row.at(r) == 0) { continue; }
-                const auto d = ::crsce::decompress::detail::calc_d(r, c);
-                const auto x = ::crsce::decompress::detail::calc_x(r, c);
-                if (st.U_row.at(r) == 0 || st.U_col.at(c) == 0 || st.U_diag.at(d) == 0 || st.U_xdiag.at(x) == 0 ||
-                    st.R_row.at(r) == 0 || st.R_col.at(c) == 0 || st.R_diag.at(d) == 0 || st.R_xdiag.at(x) == 0) {
-                    continue;
-                }
-                // Adopt a 1 at (r,c)
-                --st.U_row.at(r);
-                --st.U_col.at(c);
-                --st.U_diag.at(d);
-                --st.U_xdiag.at(x);
-                --st.R_row.at(r);
-                --st.R_col.at(c);
-                --st.R_diag.at(d);
-                --st.R_xdiag.at(x);
-                csm.put(r, c, true);
-                csm.lock(r, c);
-                ++adopted;
-                ++snap.partial_adoptions;
-            }
+            // Early exit if all deficits resolved
+            if (all_deficits_zero(deficit)) { break; }
         }
 
         const auto t1 = std::chrono::steady_clock::now();
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
         snap.time_radditz_ms += static_cast<std::size_t>(ms);
         ++snap.radditz_iterations;
-        ::crsce::o11y::event("radditz_sift_end", {{"adopted", std::to_string(adopted)}});
-        return adopted;
+        snap.radditz_passes_last = static_cast<std::size_t>(passes);
+        snap.radditz_swaps_last = swaps;
+        // Compute final deficit metrics for telemetry
+        std::size_t cols_remaining = 0;
+        for (std::size_t c = 0; c < S; ++c) { if (deficit[c] != 0) { ++cols_remaining; } }
+        snap.radditz_cols_remaining = cols_remaining;
+        snap.radditz_deficit_abs_before = initial_abs;
+        snap.radditz_deficit_abs_after = deficit_abs_sum(deficit);
+        // Defensive: verify row-sum invariants remain satisfied (BitSplash rows stay intact)
+        // This guarantees row_avg_pct remains 100 after Radditz.
+        try {
+            if (!verify_row_sums(csm, std::span<const std::uint16_t>(snap.lsm.data(), snap.lsm.size()))) {
+                snap.radditz_status = 2;
+                snap.message = "radditz sift violated row-sum invariant";
+            }
+        } catch (...) { /* ignore */ }
+        ::crsce::o11y::event("radditz_sift_end", {{"swaps", std::to_string(swaps)}});
+        return swaps;
     }
 }

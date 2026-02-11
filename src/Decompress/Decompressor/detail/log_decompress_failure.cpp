@@ -66,7 +66,7 @@ namespace crsce::decompress::detail {
         std::print("  \"iter\":{},\n", s.iter);
         std::print("  \"solved\":{},\n", s.solved);
         std::print("  \"unknown_total\":{},\n", s.unknown_total);
-        // Phase metrics (row-first + Radditz sift)
+        // Phase metrics (BitSplash + Radditz sift)
         std::print("  \"row_phase_iterations\":{},\n", s.row_phase_iterations);
         std::print("  \"time_row_phase_ms\":{},\n", s.time_row_phase_ms);
         std::print("  \"radditz_iterations\":{},\n", s.radditz_iterations);

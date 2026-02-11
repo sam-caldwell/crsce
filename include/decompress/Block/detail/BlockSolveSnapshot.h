@@ -113,6 +113,18 @@ namespace crsce::decompress {
         // Phase iteration counters
         std::size_t row_phase_iterations{0};
         std::size_t radditz_iterations{0};
+        // Radditz telemetry (last invocation)
+        std::size_t radditz_passes_last{0};
+        std::size_t radditz_swaps_last{0};
+        std::size_t radditz_deficit_abs_before{0};
+        std::size_t radditz_deficit_abs_after{0};
+        std::size_t radditz_cols_remaining{0};
+
+        // Phase status indicators for row-completion-stats (0=not_started,1=started,2=failed,3=succeeded)
+        int de_status{0};
+        int bitsplash_status{0};
+        int radditz_status{0};
+        int gobp_status{0};
 
         // Micro-solver metrics (boundary row helper)
         std::size_t micro_solver_attempts{0};
