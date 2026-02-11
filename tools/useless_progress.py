@@ -130,54 +130,58 @@ def main(argv: List[str]) -> int:
 
     f = metric_row(first)
     p = metric_row(prev) if prev is not None else None
-    l = metric_row(last)
+    lm = metric_row(last)
 
     print(f"Records: {len(objs)} from {path}")
     print("Last run:")
-    print(f"- micro_solver_bnb_nodes: {l['micro_solver_bnb_nodes']}")
-    print(f"- micro_solver_bnb_attempts: {l['micro_solver_bnb_attempts']}")
-    print(f"- restart_contradiction_count: {l['restart_contradiction_count']}")
-    print(f"- micro_solver_successes: {l['micro_solver_successes']}")
-    print(f"- micro_solver_candidates: {l['micro_solver_candidates']}")
-    print(f"- micro_solver_verify_failures: {l['micro_solver_verify_failures']}")
-    print(f"- micro_solver_reject_low_benefit: {l['micro_solver_reject_low_benefit']}")
-    print(f"- micro_solver2_attempts: {l['micro_solver2_attempts']}")
-    print(f"- micro_solver2_successes: {l['micro_solver2_successes']}")
-    print(f"- verify_row_failures: {l['verify_row_failures']}")
-    print(f"- verify_rows_failures: {l['verify_rows_failures']}")
-    print(f"- valid_prefix: {l['valid_prefix']}")
-    print(f"- gobp_iters_run: {l['gobp_iters_run']}")
-    print(f"- rows_committed: {l['rows_committed']}")
-    print(f"- row_avg_pct: {l['row_avg_pct']:.4f}")
+    print(f"- micro_solver_bnb_nodes: {lm['micro_solver_bnb_nodes']}")
+    print(f"- micro_solver_bnb_attempts: {lm['micro_solver_bnb_attempts']}")
+    print(f"- restart_contradiction_count: {lm['restart_contradiction_count']}")
+    print(f"- micro_solver_successes: {lm['micro_solver_successes']}")
+    print(f"- micro_solver_candidates: {lm['micro_solver_candidates']}")
+    print(f"- micro_solver_verify_failures: {lm['micro_solver_verify_failures']}")
+    print(f"- micro_solver_reject_low_benefit: {lm['micro_solver_reject_low_benefit']}")
+    print(f"- micro_solver2_attempts: {lm['micro_solver2_attempts']}")
+    print(f"- micro_solver2_successes: {lm['micro_solver2_successes']}")
+    print(f"- verify_row_failures: {lm['verify_row_failures']}")
+    print(f"- verify_rows_failures: {lm['verify_rows_failures']}")
+    print(f"- valid_prefix: {lm['valid_prefix']}")
+    print(f"- gobp_iters_run: {lm['gobp_iters_run']}")
+    print(f"- rows_committed: {lm['rows_committed']}")
+    print(f"- row_avg_pct: {lm['row_avg_pct']:.4f}")
 
     print("Vs original baseline:")
-    print(f"- micro_solver_bnb_nodes: {fmt_delta(l['micro_solver_bnb_nodes'], f['micro_solver_bnb_nodes'])}")
-    print(f"- restart_contradiction_count: {fmt_delta(l['restart_contradiction_count'], f['restart_contradiction_count'])}")
-    print(f"- micro_solver_successes: {fmt_delta(l['micro_solver_successes'], f['micro_solver_successes'])}")
-    print(f"- micro_solver_candidates: {fmt_delta(l['micro_solver_candidates'], f['micro_solver_candidates'])}")
-    print(f"- micro_solver_verify_failures: {fmt_delta(l['micro_solver_verify_failures'], f['micro_solver_verify_failures'])}")
-    print(f"- valid_prefix: {fmt_delta(l['valid_prefix'], f['valid_prefix'])}")
+    print(f"- micro_solver_bnb_nodes: {fmt_delta(lm['micro_solver_bnb_nodes'], f['micro_solver_bnb_nodes'])}")
+    val_rc = fmt_delta(lm['restart_contradiction_count'], f['restart_contradiction_count'])
+    print(f"- restart_contradiction_count: {val_rc}")
+    print(f"- micro_solver_successes: {fmt_delta(lm['micro_solver_successes'], f['micro_solver_successes'])}")
+    print(f"- micro_solver_candidates: {fmt_delta(lm['micro_solver_candidates'], f['micro_solver_candidates'])}")
+    val_vf = fmt_delta(lm['micro_solver_verify_failures'], f['micro_solver_verify_failures'])
+    print(f"- micro_solver_verify_failures: {val_vf}")
+    print(f"- valid_prefix: {fmt_delta(lm['valid_prefix'], f['valid_prefix'])}")
 
     if p is not None:
         print("Vs most‑recent baseline:")
-        print(f"- micro_solver_bnb_nodes: {fmt_delta(l['micro_solver_bnb_nodes'], p['micro_solver_bnb_nodes'])}")
-        print(f"- restart_contradiction_count: {fmt_delta(l['restart_contradiction_count'], p['restart_contradiction_count'])}")
-        print(f"- micro_solver_successes: {fmt_delta(l['micro_solver_successes'], p['micro_solver_successes'])}")
-        print(f"- micro_solver_candidates: {fmt_delta(l['micro_solver_candidates'], p['micro_solver_candidates'])}")
-        print(f"- micro_solver_verify_failures: {fmt_delta(l['micro_solver_verify_failures'], p['micro_solver_verify_failures'])}")
-        print(f"- valid_prefix: {fmt_delta(l['valid_prefix'], p['valid_prefix'])}")
+        print(f"- micro_solver_bnb_nodes: {fmt_delta(lm['micro_solver_bnb_nodes'], p['micro_solver_bnb_nodes'])}")
+        val_rc2 = fmt_delta(lm['restart_contradiction_count'], p['restart_contradiction_count'])
+        print(f"- restart_contradiction_count: {val_rc2}")
+        print(f"- micro_solver_successes: {fmt_delta(lm['micro_solver_successes'], p['micro_solver_successes'])}")
+        print(f"- micro_solver_candidates: {fmt_delta(lm['micro_solver_candidates'], p['micro_solver_candidates'])}")
+        val_vf2 = fmt_delta(lm['micro_solver_verify_failures'], p['micro_solver_verify_failures'])
+        print(f"- micro_solver_verify_failures: {val_vf2}")
+        print(f"- valid_prefix: {fmt_delta(lm['valid_prefix'], p['valid_prefix'])}")
     else:
         print("Vs most‑recent baseline: n/a (only one record)")
 
     # Quick signals
     signals: List[str] = []
-    if l['micro_solver_bnb_nodes'] > 810_000:
+    if lm['micro_solver_bnb_nodes'] > 810_000:
         signals.append('bnb_nodes>0.81M')
-    if l['restart_contradiction_count'] > 3:
+    if lm['restart_contradiction_count'] > 3:
         signals.append('contradiction_restarts>3')
-    if l['micro_solver_successes'] > 0:
+    if lm['micro_solver_successes'] > 0:
         signals.append('micro_solver_adoption')
-    if l['valid_prefix'] > 0:
+    if lm['valid_prefix'] > 0:
         signals.append('prefix_growth')
     print("Signals:", (', '.join(signals) if signals else '(none)'))
     return 0
