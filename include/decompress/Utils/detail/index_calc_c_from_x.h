@@ -15,7 +15,7 @@ namespace crsce::decompress::detail {
     /**
      * @brief Compute c = (x - r) mod S in range [0,S-1].
      */
-    inline std::size_t calc_c_from_x(std::size_t r, std::size_t x) noexcept {
+    inline std::size_t calc_c_from_x(const std::size_t r, const std::size_t x) noexcept {
         constexpr auto S = static_cast<std::uint32_t>(Csm::kS);
         assert(r < S && x < S);
         const auto rr = static_cast<std::uint32_t>(r);

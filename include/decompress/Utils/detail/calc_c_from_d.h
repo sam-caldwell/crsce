@@ -19,7 +19,7 @@ namespace crsce::decompress::detail {
      * @param d Diagonal index.
      * @return c
      */
-    inline std::size_t calc_c_from_d(std::size_t r, std::size_t d) noexcept {
+    inline std::size_t calc_c_from_d(const std::size_t r, const  std::size_t d) noexcept {
         constexpr auto S = static_cast<std::uint32_t>(Csm::kS);
 
         assert(r < S && d < S);

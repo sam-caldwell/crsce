@@ -18,7 +18,7 @@ namespace crsce::decompress::detail {
      * @param c Column index.
      * @return d
      */
-    inline std::size_t calc_x(std::size_t r, std::size_t c) noexcept {
+    inline std::size_t calc_x(const std::size_t r, const std::size_t c) noexcept {
         constexpr auto S = static_cast<std::uint32_t>(Csm::kS);
 
         assert(r < S && c < S);
