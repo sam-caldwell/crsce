@@ -12,6 +12,8 @@
 #include "decompress/Csm/Csm.h"
 #include "decompress/DeterministicElimination/ConstraintState.h"
 #include "decompress/Solver/Solver.h"
+#include "decompress/Utils/detail/index_calc_d.h"
+#include "decompress/Utils/detail/index_calc_x.h"
 
 namespace crsce::decompress {
     /**
@@ -56,10 +58,14 @@ namespace crsce::decompress {
         /** @brief When true, use alternate scan order. */
         bool scan_flipped_{false};
 
-        /** @brief Compute diagonal index for (r,c). */
-        static constexpr std::size_t diag_index(std::size_t r, std::size_t c) noexcept;
-        /** @brief Compute anti-diagonal index for (r,c). */
-        static constexpr std::size_t xdiag_index(std::size_t r, std::size_t c) noexcept;
+        /** @brief Compute diagonal index for (r,c) via branchless helper. */
+        static inline std::size_t diag_index(std::size_t r, std::size_t c) noexcept {
+            return detail::calc_d(r, c);
+        }
+        /** @brief Compute anti-diagonal index for (r,c) via branchless helper. */
+        static inline std::size_t xdiag_index(std::size_t r, std::size_t c) noexcept {
+            return detail::calc_x(r, c);
+        }
 
         /** @brief Clamp probability to [0,1]. */
         static double clamp01(double v) noexcept;
