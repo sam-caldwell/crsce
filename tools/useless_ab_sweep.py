@@ -104,6 +104,48 @@ def load_last_completion(path: str) -> Dict[str, Any] | None:
     return last
 
 
+def parse_last_json_str(data: str) -> Dict[str, Any] | None:
+    depth = 0
+    in_str = False
+    escape = False
+    start_idx = -1
+    last = None
+    for i, ch in enumerate(data or ''):
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == '\\':
+                escape = True
+            elif ch == '"':
+                in_str = False
+        else:
+            if ch == '"':
+                in_str = True
+            elif ch == '{':
+                if depth == 0:
+                    start_idx = i
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and start_idx != -1:
+                    try:
+                        obj = json.loads(data[start_idx:i + 1])
+                        last = obj
+                    except Exception:
+                        pass
+                    start_idx = -1
+    return last
+
+
+def load_last_json_from_file(path: str) -> Dict[str, Any] | None:
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = f.read()
+        return parse_last_json_str(data)
+    except Exception:
+        return None
+
+
 def pick(o: Dict[str, Any], key: str, default: int | float = 0) -> int | float:
     v = o.get(key)
     if isinstance(v, (int, float)):
@@ -129,14 +171,21 @@ def run_one(bin_path: str, env: Dict[str, str]) -> Tuple[int, Dict[str, Any] | N
         return (124, None)
     # Attempt to locate row completion log path from stdout marker
     log_path = None
+    dx_stdout_path = None
     for line in (cp.stdout or '').splitlines():
         if line.startswith('ROW_COMPLETION_LOG='):
             log_path = line.partition('=')[2].strip()
-            break
+        if line.startswith('USL_DECOMPRESS_STDOUT='):
+            dx_stdout_path = line.partition('=')[2].strip()
     if not log_path:
         # default path
         log_path = os.path.join('build', 'uselessTest', 'completion_stats.log')
-    last = load_last_completion(log_path)
+    # Prefer failure JSON from decompress stdout (if present), then fallback to completion_stats.log
+    last = None
+    if dx_stdout_path and os.path.exists(dx_stdout_path):
+        last = load_last_json_from_file(dx_stdout_path)
+    if last is None:
+        last = load_last_completion(log_path)
     return (cp.returncode, last)
 
 
@@ -164,6 +213,7 @@ def run_one_direct(container: str, out_dir: str, env: Dict[str, str]) -> Tuple[i
     except subprocess.TimeoutExpired:
         return (124, None)
     log_path = None
+    failure_obj = parse_last_json_str(cp.stdout or '')
     for line in (cp.stdout or '').splitlines():
         if line.startswith('ROW_COMPLETION_LOG='):
             log_path = line.partition('=')[2].strip()
@@ -171,7 +221,8 @@ def run_one_direct(container: str, out_dir: str, env: Dict[str, str]) -> Tuple[i
     if not log_path:
         # default path in the chosen out_dir
         log_path = os.path.join(out_dir, 'completion_stats.log')
-    last = load_last_completion(log_path)
+    # Prefer failure JSON from direct stdout, then fallback to completion_stats.log
+    last = failure_obj if failure_obj is not None else load_last_completion(log_path)
     return (cp.returncode, last)
 
 

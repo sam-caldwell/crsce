@@ -14,6 +14,7 @@
 #include "decompress/Utils/detail/js_escape.h"
 #include "decompress/Utils/detail/decompress_emit_summary.h"
 #include "decompress/Block/detail/restart_action_to_cstr.h"
+#include "decompress/Utils/detail/decode9.tcc"
 
 #include <algorithm>
 #include <cstdint>
@@ -154,42 +155,31 @@ namespace crsce::decompress {
                     const auto outp = fs::path(output_path_);
                     const fs::path outdir = outp.has_parent_path() ? outp.parent_path() : fs::path(".");
                     const fs::path rowlog = outdir / "completion_stats.log";
-                    // Compute per-row and per-column completion percentages
+                    // Compute per-row and per-column cross-sum satisfaction (0/1 indicators)
                     const std::size_t S = crsce::decompress::Csm::kS;
-                    std::vector<double> pct(S, 0.0);
-                    std::vector<double> cpct(S, 0.0);
-                    double minp = 1.0;
-                    double maxp = 0.0;
-                    double sump = 0.0;
-                    std::size_t full = 0;
+                    constexpr std::size_t vec_bytes = 575U;
+                    const auto lsm = decode_9bit_stream<S>(sums.subspan(0 * vec_bytes, vec_bytes));
+                    const auto vsm = decode_9bit_stream<S>(sums.subspan(1 * vec_bytes, vec_bytes));
+                    std::vector<int> row_ok(S, 0);
+                    std::vector<int> col_ok(S, 0);
+                    std::size_t row_ok_count = 0;
+                    std::size_t col_ok_count = 0;
                     for (std::size_t r = 0; r < S; ++r) {
-                        std::size_t solved = 0;
-                        for (std::size_t c = 0; c < S; ++c) {
-                            if (csm.is_locked(r, c)) { ++solved; }
-                        }
-                        const double p = static_cast<double>(solved) / static_cast<double>(S);
-                        pct[r] = p;
-                        minp = std::min(p, minp);
-                        maxp = std::max(p, maxp);
-                        sump += p;
-                        if (solved == S) { ++full; }
+                        std::size_t ones = 0;
+                        for (std::size_t c = 0; c < S; ++c) { if (csm.get(r, c)) { ++ones; } }
+                        if (ones == static_cast<std::size_t>(lsm.at(r))) { row_ok[r] = 1; ++row_ok_count; }
                     }
-                    double cminp = 1.0;
-                    double cmaxp = 0.0;
-                    double csump = 0.0;
                     for (std::size_t c = 0; c < S; ++c) {
-                        std::size_t solved = 0;
-                        for (std::size_t r = 0; r < S; ++r) {
-                            if (csm.is_locked(r, c)) { ++solved; }
-                        }
-                        const double p = static_cast<double>(solved) / static_cast<double>(S);
-                        cpct[c] = p;
-                        cminp = std::min(cminp, p);
-                        cmaxp = std::max(cmaxp, p);
-                        csump += p;
+                        std::size_t ones = 0;
+                        for (std::size_t r = 0; r < S; ++r) { if (csm.get(r, c)) { ++ones; } }
+                        if (ones == static_cast<std::size_t>(vsm.at(c))) { col_ok[c] = 1; ++col_ok_count; }
                     }
-                    const double avgp = sump / static_cast<double>(S);
-                    const double cavgp = csump / static_cast<double>(S);
+                    const double row_avg = (static_cast<double>(row_ok_count) / static_cast<double>(S));
+                    const double col_avg = (static_cast<double>(col_ok_count) / static_cast<double>(S));
+                    const double minp = (row_ok_count == S ? 1.0 : (row_ok_count == 0 ? 0.0 : 0.0));
+                    const double maxp = (row_ok_count > 0 ? 1.0 : 0.0);
+                    const double cminp = (col_ok_count == S ? 1.0 : (col_ok_count == 0 ? 0.0 : 0.0));
+                    const double cmaxp = (col_ok_count > 0 ? 1.0 : 0.0);
                     const auto run_end = std::chrono::system_clock::now();
                     const auto start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(run_start.time_since_epoch()).count();
                     const auto end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(run_end.time_since_epoch()).count();
@@ -410,32 +400,30 @@ namespace crsce::decompress {
                 const fs::path outdir = outp.has_parent_path() ? outp.parent_path() : fs::path(".");
                 const fs::path rowlog = outdir / "completion_stats.log";
                 const std::size_t S2 = crsce::decompress::Csm::kS;
-                std::vector<double> pct(S2, 0.0);
-                std::vector<double> cpct(S2, 0.0);
-                double minp = 1.0;
-                double maxp = 0.0;
-                double sump = 0.0;
-                std::size_t full = 0;
+                // Compute 0/1 indicators for cross-sum satisfaction using payload sums
+                constexpr std::size_t vec_bytes2 = 575U;
+                const auto lsm2 = decode_9bit_stream<S2>(sums.subspan(0 * vec_bytes2, vec_bytes2));
+                const auto vsm2 = decode_9bit_stream<S2>(sums.subspan(1 * vec_bytes2, vec_bytes2));
+                std::vector<int> row_ok(S2, 0);
+                std::vector<int> col_ok(S2, 0);
+                std::size_t row_ok_count = 0;
+                std::size_t col_ok_count = 0;
                 for (std::size_t r = 0; r < S2; ++r) {
-                    std::size_t solved = 0;
-                    for (std::size_t c = 0; c < S2; ++c) { if (csm.is_locked(r, c)) { ++solved; } }
-                    const double p = static_cast<double>(solved) / static_cast<double>(S2);
-                    pct[r] = p; minp = std::min(p, minp); maxp = std::max(p, maxp); sump += p; if (solved == S2) { ++full; }
+                    std::size_t ones = 0;
+                    for (std::size_t c = 0; c < S2; ++c) { if (csm.get(r, c)) { ++ones; } }
+                    if (ones == static_cast<std::size_t>(lsm2.at(r))) { row_ok[r] = 1; ++row_ok_count; }
                 }
-                double cminp = 1.0;
-                double cmaxp = 0.0;
-                double csump = 0.0;
                 for (std::size_t c = 0; c < S2; ++c) {
-                    std::size_t solved = 0;
-                    for (std::size_t r = 0; r < S2; ++r) { if (csm.is_locked(r, c)) { ++solved; } }
-                    const double p = static_cast<double>(solved) / static_cast<double>(S2);
-                    cpct[c] = p;
-                    cminp = std::min(cminp, p);
-                    cmaxp = std::max(cmaxp, p);
-                    csump += p;
+                    std::size_t ones = 0;
+                    for (std::size_t r = 0; r < S2; ++r) { if (csm.get(r, c)) { ++ones; } }
+                    if (ones == static_cast<std::size_t>(vsm2.at(c))) { col_ok[c] = 1; ++col_ok_count; }
                 }
-                const double avgp = sump / static_cast<double>(S2);
-                const double cavgp = csump / static_cast<double>(S2);
+                const double row_avg = (static_cast<double>(row_ok_count) / static_cast<double>(S2));
+                const double col_avg = (static_cast<double>(col_ok_count) / static_cast<double>(S2));
+                const double minp = (row_ok_count == S2 ? 1.0 : (row_ok_count == 0 ? 0.0 : 0.0));
+                const double maxp = (row_ok_count > 0 ? 1.0 : 0.0);
+                const double cminp = (col_ok_count == S2 ? 1.0 : (col_ok_count == 0 ? 0.0 : 0.0));
+                const double cmaxp = (col_ok_count > 0 ? 1.0 : 0.0);
                 const auto run_end2 = std::chrono::system_clock::now();
                 const auto start_ms2 = std::chrono::duration_cast<std::chrono::milliseconds>(run_start.time_since_epoch()).count();
                 const auto end_ms2 = std::chrono::duration_cast<std::chrono::milliseconds>(run_end2.time_since_epoch()).count();
@@ -513,17 +501,17 @@ namespace crsce::decompress {
                         os << "  },\n";
                     } catch (...) {}
                     os << "  \"row_min_pct\":" << (minp * 100.0) << ",\n";
-                    os << "  \"row_avg_pct\":" << (avgp * 100.0) << ",\n";
+                    os << "  \"row_avg_pct\":" << (row_avg * 100.0) << ",\n";
                     os << "  \"row_max_pct\":" << (maxp * 100.0) << ",\n";
-                    os << "  \"full_rows\":" << full << ",\n";
+                    os << "  \"full_rows\":" << row_ok_count << ",\n";
                     os << "  \"rows\":[";
-                    for (std::size_t r = 0; r < S2; ++r) { if (r) { os << ","; } os << (pct[r] * 100.0); }
+                    for (std::size_t r = 0; r < S2; ++r) { if (r) { os << ","; } os << row_ok[r]; }
                     os << "],\n";
                     os << "  \"col_min_pct\":" << (cminp * 100.0) << ",\n";
-                    os << "  \"col_avg_pct\":" << (cavgp * 100.0) << ",\n";
+                    os << "  \"col_avg_pct\":" << (col_avg * 100.0) << ",\n";
                     os << "  \"col_max_pct\":" << (cmaxp * 100.0) << ",\n";
                     os << "  \"cols\":[";
-                    for (std::size_t c = 0; c < S2; ++c) { if (c) { os << ","; } os << (cpct[c] * 100.0); }
+                    for (std::size_t c = 0; c < S2; ++c) { if (c) { os << ","; } os << col_ok[c]; }
                     os << "]\n";
                     // Also dump restarts/counters/schedule if available from snapshot
                         if (const auto s3 = get_block_solve_snapshot(); s3.has_value()) {
