@@ -5,9 +5,25 @@
 # e.g., make configure PRESET=llvm-release
 PRESET ?= llvm-debug
 
-.PHONY: all build clean configure help lint ready ready/fix test
+# Aggregate list used by configure/all
+PRESETS_ALL := cmake-build-debug cmake-build-release arm64-debug arm64-release
+ifeq ($(HAVE_LLVM),yes)
+  PRESETS_ALL += llvm-debug llvm-release
+endif
+
+.PHONY: all build clean configure configure/all help lint ready ready/fix test
+
 configure:
 	@echo "--- Configuring project with preset: $(PRESET) ---"
 	@cmake --preset=$(PRESET) -S .
 	@echo "--- Building tool dependencies (make deps) ---"
 	@$(MAKE) deps
+
+configure/all:
+	@echo "=== Configuring all presets: $(PRESETS_ALL) ==="
+	@set -e; \
+	for p in $(PRESETS_ALL); do \
+	  echo "--- [$$p] configure ---"; \
+	  cmake --preset=$$p -S .; \
+	done; \
+	echo "--- ✅ Configure (all presets) complete ---"

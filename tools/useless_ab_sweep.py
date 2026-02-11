@@ -38,6 +38,27 @@ import time
 from typing import Any, Dict, List, Tuple
 
 
+def prefer_release_bin(exe: str) -> str:
+    """Return a best-effort path to a release binary, falling back to repo bin.
+
+    Order:
+      build/llvm-release/<exe>
+      build/cmake-build-release/<exe>
+      build/arm64-release/<exe>
+      bin/<exe>
+    """
+    candidates = [
+        os.path.join('build', 'llvm-release', exe),
+        os.path.join('build', 'cmake-build-release', exe),
+        os.path.join('build', 'arm64-release', exe),
+        os.path.join('bin', exe),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return candidates[-1]
+
+
 def parse_seeds(arg: str) -> List[int]:
     if '-' in arg:
         a, b = arg.split('-', 1)
@@ -136,7 +157,8 @@ def run_one_direct(container: str, out_dir: str, env: Dict[str, str]) -> Tuple[i
             os.remove(out_path)
     except Exception:
         pass
-    cmd = ['bin/decompress', '-in', container, '-out', out_path]
+    dx = prefer_release_bin('decompress')
+    cmd = [dx, '-in', container, '-out', out_path]
     try:
         cp = subprocess.run(cmd, capture_output=True, text=True, env=full_env, timeout=3600)
     except subprocess.TimeoutExpired:
@@ -187,8 +209,10 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--ms2-max-nodes', type=int, dest='ms2_max_nodes', help='CRSCE_MS2_MAX_NODES')
     args = ap.parse_args(argv[1:])
 
+    # Resolve default binary to a release build if user did not override --bin
+    user_specified_bin = any(a == '--bin' for a in argv[1:])
     seeds = parse_seeds(args.seeds)
-    bin_path = args.bin
+    bin_path = args.bin if user_specified_bin else prefer_release_bin('uselessTest')
     if not os.path.exists(bin_path):
         print(f'error: binary not found: {bin_path}', file=sys.stderr)
         return 2
@@ -220,7 +244,8 @@ def main(argv: List[str]) -> int:
             # produce container once
             cenv = dict(os.environ)
             cenv['PATH'] = os.pathsep.join([os.path.abspath('bin'), cenv.get('PATH', '')])
-            cp = subprocess.run(['bin/compress', '-in', src, '-out', cont], capture_output=True, text=True, env=cenv)
+            cx = prefer_release_bin('compress')
+            cp = subprocess.run([cx, '-in', src, '-out', cont], capture_output=True, text=True, env=cenv)
             if cp.returncode != 0:
                 sys.stderr.write(cp.stdout)
                 sys.stderr.write(cp.stderr)

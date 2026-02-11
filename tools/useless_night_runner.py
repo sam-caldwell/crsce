@@ -29,6 +29,20 @@ import time
 from typing import Dict, List
 
 
+def prefer_release_bin(exe: str) -> str:
+    """Return a best-effort path to a release binary, falling back to repo bin."""
+    candidates = [
+        os.path.join('build', 'llvm-release', exe),
+        os.path.join('build', 'cmake-build-release', exe),
+        os.path.join('build', 'arm64-release', exe),
+        os.path.join('bin', exe),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return candidates[-1]
+
+
 def run_cmd(cmd: List[str], env: Dict[str, str] | None = None, capture: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, text=True, capture_output=capture, env=env)
 
@@ -47,7 +61,9 @@ def run_sweep(args: argparse.Namespace, sweep_args: List[str], label: str) -> No
     # Execute one sweep call and append outputs to files
     print(f"[{now_str()}] sweep: {label} :: {' '.join(sweep_args)}")
     sys.stdout.flush()
-    cp = run_cmd([sys.executable, os.path.join('tools', 'useless_ab_sweep.py')] + sweep_args)
+    # Ensure sweep uses a release build by default
+    bin_arg = ['--bin', prefer_release_bin('uselessTest')]
+    cp = run_cmd([sys.executable, os.path.join('tools', 'useless_ab_sweep.py')] + bin_arg + sweep_args)
     table_path = os.path.join('build', 'uselessTest', 'night_sweep_table.txt')
     append(table_path, f"\n=== {now_str()} :: {label} ===\n")
     append(table_path, cp.stdout or '')
