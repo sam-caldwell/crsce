@@ -13,7 +13,6 @@
 #include <cstdint> // NOLINT
 #include <cstdlib>
 
-#include "decompress/Block/detail/pre_polish_commit_valid_prefix.h"
 #include <span>
 #include "decompress/Phases/Gobp/GobpSolver.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
@@ -48,8 +47,8 @@ namespace crsce::decompress::detail {
 bool run_gobp_fallback(Csm &csm,
                        ConstraintState &st,
                        DeterministicElimination &det,
-                       Csm &baseline_csm,
-                       ConstraintState &baseline_st,
+                       [[ maybe_unused]] Csm & baseline_csm,
+                       [[ maybe_unused]] ConstraintState & baseline_st,
                        const std::span<const std::uint8_t> lh,
                        const std::span<const std::uint16_t> lsm,
                        const std::span<const std::uint16_t> vsm,
@@ -90,7 +89,8 @@ bool run_gobp_fallback(Csm &csm,
     const auto t_start = std::chrono::steady_clock::now();
 
     for (std::size_t ph = 0; ph < dampers.size() && !det.solved(); ++ph) {
-        constexpr std::array<double, 4> confs{{0.995, 0.72, 0.86, 0.58}};
+        // Post‑Radditz: forbid single‑cell assignments; only allow preserve‑row/col swaps.
+        constexpr std::array<double, 4> confs{{1.0, 1.0, 1.0, 1.0}};
         constexpr std::array<int, 4> iters{{6000, 9000, 80000, 120000}};
         gobp.set_damping(dampers.at(ph));
         gobp.set_assign_confidence(confs.at(ph));
@@ -112,11 +112,7 @@ bool run_gobp_fallback(Csm &csm,
             const auto t1g = std::chrono::steady_clock::now();
             snap.time_gobp_ms += static_cast<std::size_t>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(t1g - t0g).count());
-            for (int k = 0; k < 8; ++k) {
-                if (det.solve_step() == 0) {
-                    break;
-                }
-            }
+            // Do not run DE here: after Radditz, value changes must preserve row/col; DE assigns cells.
             // If no direct assignments happened, attempt a few preserve-row/col rectangle swaps
             if (prog == 0) {
                 const unsigned samples = 48; // bounded work; tune via env if desired later
@@ -125,17 +121,7 @@ bool run_gobp_fallback(Csm &csm,
                     csm, st, lh, dsm, xsm, samples, accepts);
                 (void)gained;
             }
-            if ((i % 2000) == 0) {
-                (void)::crsce::decompress::detail::commit_valid_prefix(
-                    csm,
-                    st,
-                    lh,
-                    baseline_csm,
-                    baseline_st,
-                    snap,
-                    /*rs*/0
-                );
-            }
+            // No valid-prefix commits: after Radditz, preserve row/col counts strictly.
             std::size_t sumU = 0; for (const auto u : st.U_row) {
                 sumU += static_cast<std::size_t>(u);
             }
