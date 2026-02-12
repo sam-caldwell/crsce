@@ -1,5 +1,8 @@
 /**
  * @file init_block_solve_snapshot.cpp
+ * @brief Initialize BlockSolveSnapshot fields and baseline unknown/solved counters.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/init_block_solve_snapshot.h"
 #include <cstddef>
@@ -9,6 +12,19 @@
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name init_block_solve_snapshot
+     * @brief Seed a fresh BlockSolveSnapshot with constraints, targets, and unknown totals.
+     * @param snap Output snapshot to populate.
+     * @param S Matrix size (Csm::kS).
+     * @param st Current constraint state (R/U) to copy unknowns from.
+     * @param lsm Row targets.
+     * @param vsm Column targets.
+     * @param dsm Diagonal targets.
+     * @param xsm Anti‑diagonal targets.
+     * @param belief_seed PRNG seed used for belief initialization (for provenance).
+     * @return void
+     */
     void init_block_solve_snapshot(BlockSolveSnapshot &snap,
                                    const std::size_t S,
                                    const ConstraintState &st,

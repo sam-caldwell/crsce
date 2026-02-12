@@ -1,5 +1,8 @@
 /**
  * @file execute_bitsplash_and_validate.cpp
+ * @brief Execute BitSplash row phase and validate row-sum completion against LSM.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/execute_bitsplash_and_validate.h"
 
@@ -18,6 +21,15 @@
 #include "common/O11y/event.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name execute_bitsplash_and_validate
+     * @brief Run BitSplash to satisfy row targets and update the snapshot; return false on mismatch.
+     * @param csm Cross‑Sum Matrix to update (bits/locks).
+     * @param st Constraint state (R/U) updated in place.
+     * @param snap Snapshot for timings, counters, and status codes.
+     * @param lsm Row target counts to validate against (size ≥ Csm::kS).
+     * @return bool True if every row count matches `lsm`; false otherwise.
+     */
     bool execute_bitsplash_and_validate(Csm &csm,
                                         ConstraintState &st,
                                         BlockSolveSnapshot &snap,

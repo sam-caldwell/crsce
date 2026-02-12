@@ -1,7 +1,8 @@
 /**
  * @file greedy_pair_row.h
- * @author Sam Caldwell
  * @brief Declaration of greedy_pair_row helper for Radditz Sift.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
@@ -20,4 +21,3 @@ namespace crsce::decompress::phases::detail {
                          std::size_t &swaps,
                          BlockSolveSnapshot &snap);
 }
-

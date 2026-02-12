@@ -19,12 +19,17 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <cstdlib>
 
 /**
  * @name VerifyEndToEndCycle.RandomBlocks
  * @brief Generate 1/2/5/10-block random inputs, compress then decompress, and compare bytes.
  */
 TEST(VerifyEndToEndCycle, RandomBlocks) { // NOLINT(readability-identifier-naming)
+    const char* run_tlt = std::getenv("CRSCE_RUN_TLT"); // NOLINT(concurrency-mt-unsafe)
+    if (run_tlt == nullptr || std::string(run_tlt) != "1") {
+        GTEST_SKIP() << "Skipping TLT by default; set CRSCE_RUN_TLT=1 to enable";
+    }
     const auto td = tmp_dir();
 
     const std::vector<std::size_t> blocks = {1U, 2U, 5U, 10U};

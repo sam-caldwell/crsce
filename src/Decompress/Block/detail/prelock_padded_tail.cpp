@@ -1,5 +1,8 @@
 /**
  * @file prelock_padded_tail.cpp
+ * @brief Pre-lock the padded tail cells of the final block to zeros and update unknown counts.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/prelock_padded_tail.h"
 
@@ -14,6 +17,14 @@
 #include "common/O11y/metric_i64.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name prelock_padded_tail
+     * @brief For blocks whose bit budget is not a full S×S, lock the trailing cells to 0.
+     * @param csm Cross‑Sum Matrix to modify (bits/locks).
+     * @param st Constraint state (R/U) to decrement for each locked cell.
+     * @param valid_bits Number of meaningful bits in this block; [valid_bits, S×S) are padded.
+     * @return void
+     */
     void prelock_padded_tail(Csm &csm, ConstraintState &st, const std::uint64_t valid_bits) {
         constexpr std::size_t S = Csm::kS;
         const std::uint64_t total_bits = static_cast<std::uint64_t>(S) * static_cast<std::uint64_t>(S);

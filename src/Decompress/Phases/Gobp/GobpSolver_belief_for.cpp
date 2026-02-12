@@ -5,7 +5,9 @@
  */
 #include "decompress/Phases/Gobp/GobpSolver.h"
 #include <cstddef>
-#include <cstdint> //NOLINT
+#include <cstdint> // NOLINT
+#include "decompress/Utils/detail/index_calc_d.h"
+#include "decompress/Utils/detail/index_calc_x.h"
 
 namespace crsce::decompress {
     /**
@@ -16,8 +18,8 @@ namespace crsce::decompress {
      * @return double Belief value in [0,1].
      */
     double GobpSolver::belief_for(const std::size_t r, const std::size_t c) const {
-        const auto d = diag_index(r, c);
-        const auto x = xdiag_index(r, c);
+        const auto d = detail::calc_d(r, c);
+        const auto x = detail::calc_x(r, c);
 
         const double pr = calculate_belief(st_.R_row.at(r), st_.U_row.at(r)); // Lateral
         const double pc = calculate_belief(st_.R_col.at(c), st_.U_col.at(c)); // Vertical

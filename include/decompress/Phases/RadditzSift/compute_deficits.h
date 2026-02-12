@@ -1,7 +1,8 @@
 /**
  * @file compute_deficits.h
- * @author Sam Caldwell
  * @brief Declaration of compute_deficits helper for Radditz Sift.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
@@ -14,4 +15,3 @@ namespace crsce::decompress::phases::detail {
     std::vector<int> compute_deficits(const std::vector<int> &col_count,
                                       std::span<const std::uint16_t> vsm);
 }
-

@@ -58,14 +58,7 @@ namespace crsce::decompress {
         /** @brief When true, use alternate scan order. */
         bool scan_flipped_{false};
 
-        /** @brief Compute diagonal index for (r,c) via branchless helper. */
-        static inline std::size_t diag_index(std::size_t r, std::size_t c) noexcept {
-            return detail::calc_d(r, c);
-        }
-        /** @brief Compute anti-diagonal index for (r,c) via branchless helper. */
-        static inline std::size_t xdiag_index(std::size_t r, std::size_t c) noexcept {
-            return detail::calc_x(r, c);
-        }
+        // Intentionally no wrappers around calc_d/calc_x to avoid indirection.
 
         /** @brief Clamp probability to [0,1]. */
         static double clamp01(double v) noexcept;

@@ -24,6 +24,25 @@
 
 namespace crsce::decompress::detail {
 
+/**
+ * @name run_gobp_fallback
+ * @brief Lightweight GOBP refinement loop run after BitSplash/Radditz.
+ *        Uses a small, fixed multi‑phase schedule and periodically runs short
+ *        DE propagations plus valid‑prefix commits. Updates timing and status in `snap`.
+ * @param csm Cross‑Sum Matrix to update (in place).
+ * @param st Constraint state (R/U) to update (in place).
+ * @param det DeterministicElimination engine for periodic propagations.
+ * @param baseline_csm Baseline CSM for prefix‑commit comparisons.
+ * @param baseline_st Baseline constraints for prefix‑commit comparisons.
+ * @param lh LH digest bytes for prefix verification.
+ * @param lsm Row targets (unused by this simplified fallback; kept for signature stability).
+ * @param vsm Column targets (unused by this simplified fallback).
+ * @param dsm Diagonal targets (unused by this simplified fallback).
+ * @param xsm Anti‑diagonal targets (unused by this simplified fallback).
+ * @param snap Snapshot to record timings, counters, and status codes.
+ * @param valid_bits Number of meaningful bits in the last block (unused here).
+ * @return bool True if `det.solved()` when the schedule completes; false otherwise.
+ */
 bool run_gobp_fallback(Csm &csm,
                        ConstraintState &st,
                        DeterministicElimination &det,

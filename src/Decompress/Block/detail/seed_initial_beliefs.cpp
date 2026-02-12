@@ -1,5 +1,8 @@
 /**
  * @file seed_initial_beliefs.cpp
+ * @brief Initialize CSM per-cell belief data with heuristic scores and small noise.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/seed_initial_beliefs.h"
 
@@ -17,6 +20,13 @@
 #include "decompress/Utils/detail/calc_x.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name seed_initial_beliefs
+     * @brief Seed `csm` data layer with probabilities favoring high-need columns/diagonals.
+     * @param csm Cross‑Sum Matrix whose data layer is written in [0,1].
+     * @param st Constraint state providing residuals R/U for scoring.
+     * @return std::uint64_t The RNG seed used (recorded for provenance/telemetry).
+     */
     std::uint64_t seed_initial_beliefs(Csm &csm, const ConstraintState &st) {
         constexpr std::size_t S = Csm::kS;
         const std::uint64_t belief_seed_used = read_seed_or_default(0x0BADC0FFEEULL);

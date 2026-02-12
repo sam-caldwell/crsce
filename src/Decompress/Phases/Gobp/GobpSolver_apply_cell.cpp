@@ -5,6 +5,8 @@
  */
 #include "decompress/Phases/Gobp/GobpSolver.h"
 #include <cstddef>
+#include "decompress/Utils/detail/index_calc_d.h"
+#include "decompress/Utils/detail/index_calc_x.h"
 #include "common/exceptions/GobpResidualUnderflow.h"
 
 namespace crsce::decompress {
@@ -17,8 +19,8 @@ namespace crsce::decompress {
      * @return void
      */
     void GobpSolver::apply_cell(const std::size_t r, const std::size_t c, const bool value) {
-        const auto d = diag_index(r, c);
-        const auto x = xdiag_index(r, c);
+        const auto d = detail::calc_d(r, c);
+        const auto x = detail::calc_x(r, c);
 
         if (csm_.is_locked(r, c)) {
             return; // already assigned

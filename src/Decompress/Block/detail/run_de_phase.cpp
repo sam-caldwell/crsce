@@ -1,5 +1,8 @@
 /**
  * @file run_de_phase.cpp
+ * @brief Drive the Deterministic Elimination (DE) stage with periodic prefix commits and metrics.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/run_de_phase.h"
 #include <cstddef>
@@ -19,6 +22,17 @@
 #include "common/O11y/metric_i64.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name run_de_phase
+     * @brief Iterate DE up to max_iters; update snapshot and attempt prefix commits within the loop.
+     * @param det DeterministicElimination engine.
+     * @param st Constraint state (R/U) updated in place.
+     * @param csm Cross‑Sum Matrix updated in place.
+     * @param snap Snapshot for timings, counters, and status codes.
+     * @param lh LH bytes for prefix verification.
+     * @param max_iters Maximum DE iterations allowed for this stage.
+     * @return bool True if stage completed without fatal error; false on exception.
+     */
     bool run_de_phase(DeterministicElimination &det,
                       ConstraintState &st,
                       Csm &csm,

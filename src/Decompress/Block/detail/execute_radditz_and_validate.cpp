@@ -1,5 +1,8 @@
 /**
  * @file execute_radditz_and_validate.cpp
+ * @brief Execute Radditz Sift (column-focused swaps) and validate VSM + row invariant.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/execute_radditz_and_validate.h"
 
@@ -18,6 +21,16 @@
 #include "common/O11y/event.h"
 
 namespace crsce::decompress::detail {
+    /**
+     * @name execute_radditz_and_validate
+     * @brief Run the Radditz Sift phase to reduce column deficits and ensure row sums remain intact.
+     * @param csm Cross‑Sum Matrix to update (bits/locks).
+     * @param st Constraint state (R/U) updated in place.
+     * @param snap Snapshot for timings, counters, and status codes.
+     * @param lsm Row targets to re‑validate after sifting (size ≥ Csm::kS).
+     * @param vsm Column targets to validate after sifting (size ≥ Csm::kS).
+     * @return bool True if both columns satisfy VSM and rows still match LSM; false otherwise.
+     */
     bool execute_radditz_and_validate(Csm &csm,
                                       ConstraintState &st,
                                       BlockSolveSnapshot &snap,

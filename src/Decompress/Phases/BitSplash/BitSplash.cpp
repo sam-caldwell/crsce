@@ -32,7 +32,7 @@ namespace crsce::decompress::phases {
      * @return std::size_t Number of cells adopted across processed rows.
      */
     std::size_t bit_splash(Csm &csm,
-                           ConstraintState &/*st*/,
+                           [[maybe_unused]] ConstraintState &st,
                            BlockSolveSnapshot &snap,
                            const std::size_t max_rows) {
 

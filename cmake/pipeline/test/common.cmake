@@ -20,4 +20,7 @@ function(_crsce_add_gtest_from_source SRC)
     set_target_properties(${TGT} PROPERTIES CXX_CLANG_TIDY "")
   endif ()
   add_test(NAME ${TGT} COMMAND ${TGT})
+  # Enforce a hard timeout for all tests to keep CI/dev loops bounded.
+  # 600 seconds = 10 minutes per individual test.
+  set_tests_properties(${TGT} PROPERTIES TIMEOUT 600)
 endfunction()

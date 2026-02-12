@@ -1,7 +1,8 @@
 /**
  * @file collect_row_candidates.h
- * @author Sam Caldwell
  * @brief Declaration of collect_row_candidates helper for Radditz Sift.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
@@ -17,4 +18,3 @@ namespace crsce::decompress::phases::detail {
                                 std::vector<std::size_t> &from,
                                 std::vector<std::size_t> &to);
 }
-

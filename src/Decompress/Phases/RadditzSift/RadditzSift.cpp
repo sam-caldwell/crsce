@@ -14,7 +14,13 @@
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Phases/RadditzSift/Detail.h"
+#include "decompress/Phases/RadditzSift/compute_col_counts.h"
+#include "decompress/Phases/RadditzSift/compute_deficits.h"
+#include "decompress/Phases/RadditzSift/deficit_abs_sum.h"
+#include "decompress/Phases/RadditzSift/collect_row_candidates.h"
+#include "decompress/Phases/RadditzSift/greedy_pair_row.h"
+#include "decompress/Phases/RadditzSift/all_deficits_zero.h"
+#include "decompress/Phases/RadditzSift/verify_row_sums.h"
 #include "common/O11y/event.h"
 
 namespace crsce::decompress::phases {
@@ -37,9 +43,12 @@ namespace crsce::decompress::phases {
      * @return std::size_t Number of cells adopted across processed columns.
      */
     std::size_t radditz_sift_phase(Csm &csm,
-                                   ConstraintState &/*st_unused*/,
+                                   ConstraintState &st,
                                    BlockSolveSnapshot &snap,
-                                   const std::size_t /*max_cols*/) {
+                                   std::size_t max_cols) {
+
+        (void)st;       // not used by simplified sifter
+        (void)max_cols; // full sweep by default
 
         const auto t0 = std::chrono::steady_clock::now();
         constexpr std::size_t S = Csm::kS;

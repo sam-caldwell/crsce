@@ -33,7 +33,7 @@ TEST(Alternating01, Row0Row1Patterns) { // NOLINT
 
     // Read 2*S bits and verify row0=0101..., row1=1010...
     constexpr std::size_t S = Csm::kS;
-    const std::size_t need = 2 * S;
+    constexpr std::size_t need = 2 * S;
     std::vector<int> bits; bits.reserve(need);
     for (std::size_t i = 0; i < need; ++i) {
         auto b = s.pop();

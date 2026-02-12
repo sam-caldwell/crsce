@@ -5,6 +5,8 @@
  */
 #include "decompress/Phases/Gobp/GobpSolver.h"
 #include <cstddef>
+#include "decompress/Utils/detail/index_calc_d.h"
+#include "decompress/Utils/detail/index_calc_x.h"
 #include <cstdlib>    // getenv
 #include "common/O11y/gobp_debug_enabled.h"
 #include "common/O11y/debug_event_gobp.h"
@@ -48,8 +50,8 @@ namespace crsce::decompress {
                 for (std::size_t c = 0; c < S; ++c) {
                     if (csm_.is_locked(r, c)) { continue; }
                     ++unlocked_before;
-                    const std::size_t d = diag_index(r, c);
-                    const std::size_t x = xdiag_index(r, c);
+                    const std::size_t d = detail::calc_d(r, c);
+                    const std::size_t x = detail::calc_x(r, c);
                     const double belief = belief_for(r, c);
                     min_bel = std::min(belief, min_bel);
                     max_bel = std::max(belief, max_bel);
@@ -90,8 +92,8 @@ namespace crsce::decompress {
                     const std::size_t c = c0;
                     if (csm_.is_locked(r, c)) { continue; }
                     ++unlocked_before;
-                    const std::size_t d = diag_index(r, c);
-                    const std::size_t x = xdiag_index(r, c);
+                    const std::size_t d = detail::calc_d(r, c);
+                    const std::size_t x = detail::calc_x(r, c);
                     const double belief = belief_for(r, c);
                     min_bel = std::min(belief, min_bel);
                     max_bel = std::max(belief, max_bel);

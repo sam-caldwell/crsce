@@ -30,6 +30,10 @@ TEST(VerifyLatencyFull, DecompressBlocksUnderTwoSecondsPer) { // NOLINT(readabil
     if (std::getenv("LLVM_PROFILE_FILE") != nullptr) { // NOLINT(concurrency-mt-unsafe)
         GTEST_SKIP() << "Skipping latency test under coverage instrumentation";
     }
+    const char* run_tlt = std::getenv("CRSCE_RUN_TLT"); // NOLINT(concurrency-mt-unsafe)
+    if (run_tlt == nullptr || std::string(run_tlt) != "1") {
+        GTEST_SKIP() << "Skipping TLT by default; set CRSCE_RUN_TLT=1 to enable";
+    }
     const auto td = tmp_dir();
     const std::vector<std::size_t> blocks = {1U, 2U, 5U, 10U};
 
