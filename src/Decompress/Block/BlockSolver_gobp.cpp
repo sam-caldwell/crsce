@@ -21,6 +21,7 @@
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
+#include "decompress/Block/detail/gobp_preserve_rowcol_swap.h"
 #include "common/O11y/event.h"
 
 namespace crsce::decompress::detail {
@@ -107,7 +108,7 @@ bool run_gobp_fallback(Csm &csm,
                 }
             }
             const auto t0g = std::chrono::steady_clock::now();
-            (void)gobp.solve_step();
+            const std::size_t prog = gobp.solve_step();
             const auto t1g = std::chrono::steady_clock::now();
             snap.time_gobp_ms += static_cast<std::size_t>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(t1g - t0g).count());
@@ -115,6 +116,14 @@ bool run_gobp_fallback(Csm &csm,
                 if (det.solve_step() == 0) {
                     break;
                 }
+            }
+            // If no direct assignments happened, attempt a few preserve-row/col rectangle swaps
+            if (prog == 0) {
+                const unsigned samples = 48; // bounded work; tune via env if desired later
+                const unsigned accepts = 4;
+                const std::size_t gained = ::crsce::decompress::detail::gobp_preserve_rowcol_swap(
+                    csm, st, lh, dsm, xsm, samples, accepts);
+                (void)gained;
             }
             if ((i % 2000) == 0) {
                 (void)::crsce::decompress::detail::commit_valid_prefix(

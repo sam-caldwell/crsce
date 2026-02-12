@@ -19,6 +19,18 @@
 
 namespace crsce::decompress::detail {
 
+    /**
+     * @name reseed_residuals_from_csm
+     * @brief Recompute R/U residuals from the current CSM assignments and locks.
+     *        Guarantees 0 ≤ R ≤ U for each family (row/col/diag/xdiag) by clamping.
+     * @param csm Cross‑Sum Matrix containing current bits and locks.
+     * @param st Residual state to overwrite with recomputed values.
+     * @param lsm Target per‑row sums (size ≥ S).
+     * @param vsm Target per‑column sums (size ≥ S).
+     * @param dsm Target per‑diag sums (size ≥ S).
+     * @param xsm Target per‑anti‑diag sums (size ≥ S).
+     * @return void
+     */
     void reseed_residuals_from_csm(const Csm &csm,
                                    ConstraintState &st,
                                    std::span<const std::uint16_t> lsm,
@@ -58,10 +70,6 @@ namespace crsce::decompress::detail {
             }
         }
 
-        auto clamp_nonneg = [](int v) -> std::uint16_t {
-            return static_cast<std::uint16_t>(v > 0 ? v : 0);
-        };
-
         for (std::size_t i = 0; i < S; ++i) {
             const int r_need = (i < lsm.size()) ? static_cast<int>(lsm[i]) : 0;
             const int c_need = (i < vsm.size()) ? static_cast<int>(vsm[i]) : 0;
@@ -79,10 +87,14 @@ namespace crsce::decompress::detail {
             st.U_xdiag.at(i) = U_x;
 
             // Residual ones needed, clamped to available unknowns to preserve 0 ≤ R ≤ U
-            const std::uint16_t Rr = clamp_nonneg(r_need - static_cast<int>(ones_row.at(i)));
-            const std::uint16_t Rc = clamp_nonneg(c_need - static_cast<int>(ones_col.at(i)));
-            const std::uint16_t Rd = clamp_nonneg(d_need - static_cast<int>(ones_diag.at(i)));
-            const std::uint16_t Rx = clamp_nonneg(x_need - static_cast<int>(ones_x.at(i)));
+            const int r_gap = r_need - static_cast<int>(ones_row.at(i));
+            const int c_gap = c_need - static_cast<int>(ones_col.at(i));
+            const int d_gap = d_need - static_cast<int>(ones_diag.at(i));
+            const int x_gap = x_need - static_cast<int>(ones_x.at(i));
+            const auto Rr = static_cast<std::uint16_t>(r_gap > 0 ? r_gap : 0);
+            const auto Rc = static_cast<std::uint16_t>(c_gap > 0 ? c_gap : 0);
+            const auto Rd = static_cast<std::uint16_t>(d_gap > 0 ? d_gap : 0);
+            const auto Rx = static_cast<std::uint16_t>(x_gap > 0 ? x_gap : 0);
             st.R_row.at(i) = (Rr > U_r) ? U_r : Rr;
             st.R_col.at(i) = (Rc > U_c) ? U_c : Rc;
             st.R_diag.at(i) = (Rd > U_d) ? U_d : Rd;
