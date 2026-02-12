@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include <system_error>
+#include <cstdlib>
 
 namespace fs = std::filesystem;
 
@@ -29,8 +30,17 @@ namespace crsce::testrunner_zeroes::cli {
      * @return int
      */
     int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
-        constexpr std::int64_t kCompressPerBlockMs = 2000;
-        constexpr std::int64_t kDecompressPerBlockMs = 2000;
+        // Defaults; allow override via env to keep CI stable across machines
+        std::int64_t kCompressPerBlockMs = 2000;
+        std::int64_t kDecompressPerBlockMs = 3000;
+        if (const char *p = std::getenv("CRSCE_TR_COMPRESS_PER_BLOCK_MS"); p && *p) { // NOLINT(concurrency-mt-unsafe)
+            const std::int64_t v = std::strtoll(p, nullptr, 10);
+            if (v > 0) { kCompressPerBlockMs = v; }
+        }
+        if (const char *p = std::getenv("CRSCE_TR_DECOMPRESS_PER_BLOCK_MS"); p && *p) { // NOLINT(concurrency-mt-unsafe)
+            const std::int64_t v = std::strtoll(p, nullptr, 10);
+            if (v > 0) { kDecompressPerBlockMs = v; }
+        }
 
         std::error_code ec_mk; fs::create_directories(out_dir, ec_mk);
         const auto ts = crsce::testrunner::detail::now_ms();

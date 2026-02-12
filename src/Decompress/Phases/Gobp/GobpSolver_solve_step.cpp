@@ -79,6 +79,14 @@ namespace crsce::decompress {
                         apply_cell(r, c, true);
                         ++progress; ++hi_hits;
                     } else if (blended <= lo && !line_forbids_zero) {
+                        // Preserve row/column invariants: if this cell is currently 1 and the
+                        // row/column have no remaining ones to place, do not flip it to 0.
+                        const bool currently_one = (csm_.get(r, c) != 0);
+                        const bool row_full = (st_.R_row.at(r) == 0);
+                        const bool col_full = (st_.R_col.at(c) == 0);
+                        if (currently_one && (row_full || col_full)) {
+                            continue;
+                        }
                         apply_cell(r, c, false);
                         ++progress; ++lo_hits;
                     }
@@ -121,6 +129,12 @@ namespace crsce::decompress {
                         apply_cell(r, c, true);
                         ++progress; ++hi_hits;
                     } else if (blended <= lo && !line_forbids_zero) {
+                        const bool currently_one = (csm_.get(r, c) != 0);
+                        const bool row_full = (st_.R_row.at(r) == 0);
+                        const bool col_full = (st_.R_col.at(c) == 0);
+                        if (currently_one && (row_full || col_full)) {
+                            continue;
+                        }
                         apply_cell(r, c, false);
                         ++progress; ++lo_hits;
                     }

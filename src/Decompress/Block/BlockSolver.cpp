@@ -27,6 +27,7 @@
 #include "decompress/Block/detail/execute_bitsplash_and_validate.h"
 #include "decompress/Block/detail/execute_radditz_and_validate.h"
 #include "decompress/Block/detail/verify_cross_sums_and_lh.h"
+#include "decompress/Block/detail/reseed_residuals_from_csm.h"
 #include "common/O11y/event.h"
 
 namespace crsce::decompress {
@@ -108,6 +109,15 @@ bool solve_block(const std::span<const std::uint8_t> lh,
         return ::crsce::decompress::detail::verify_cross_sums_and_lh(
             csm_out, lsm, vsm, dsm, xsm, lh, snap);
     }
+
+    // Sync residuals with current CSM so GOBP respects established row/column invariants
+    ::crsce::decompress::detail::reseed_residuals_from_csm(
+        csm_out, st,
+        std::span<const std::uint16_t>(lsm.begin(), lsm.end()),
+        std::span<const std::uint16_t>(vsm.begin(), vsm.end()),
+        std::span<const std::uint16_t>(dsm.begin(), dsm.end()),
+        std::span<const std::uint16_t>(xsm.begin(), xsm.end())
+    );
 
     // GOBP fallback
     const bool solved = ::crsce::decompress::detail::run_gobp_fallback(

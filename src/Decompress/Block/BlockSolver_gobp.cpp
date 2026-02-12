@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint> // NOLINT
+#include <cstdlib>
 
 #include "decompress/Block/detail/pre_polish_commit_valid_prefix.h"
 #include <span>
@@ -75,12 +76,36 @@ bool run_gobp_fallback(Csm &csm,
     ::crsce::decompress::GobpSolver gobp{csm, st};
     gobp.set_scan_flipped(false);
 
+    // Optional wall-clock time budget for the fallback, in milliseconds.
+    // If set (CRSCE_GOBP_TIMEOUT_MS>0), we will abort early and return false
+    // so callers can emit failure telemetry and completion_stats.log.
+    std::uint64_t timeout_ms = 0;
+    if (const char *p = std::getenv("CRSCE_GOBP_TIMEOUT_MS")) { // NOLINT(concurrency-mt-unsafe)
+        const std::int64_t v_ll = std::strtoll(p, nullptr, 10);
+        if (v_ll > 0) {
+            timeout_ms = static_cast<std::uint64_t>(v_ll);
+        }
+    }
+    const auto t_start = std::chrono::steady_clock::now();
+
     for (std::size_t ph = 0; ph < dampers.size() && !det.solved(); ++ph) {
         constexpr std::array<double, 4> confs{{0.995, 0.72, 0.86, 0.58}};
         constexpr std::array<int, 4> iters{{6000, 9000, 80000, 120000}};
         gobp.set_damping(dampers.at(ph));
         gobp.set_assign_confidence(confs.at(ph));
         for (int i = 0; i < iters.at(ph) && !det.solved(); ++i) {
+            // Check the optional wall-clock budget
+            if (timeout_ms > 0) {
+                const auto now = std::chrono::steady_clock::now();
+                const std::uint64_t elapsed_ms = static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - t_start).count());
+                if (elapsed_ms >= timeout_ms) {
+                    ::crsce::o11y::event("gobp_timeout");
+                    snap.phase = BlockSolveSnapshot::Phase::endOfIterations;
+                    set_block_solve_snapshot(snap);
+                    return false;
+                }
+            }
             const auto t0g = std::chrono::steady_clock::now();
             (void)gobp.solve_step();
             const auto t1g = std::chrono::steady_clock::now();
