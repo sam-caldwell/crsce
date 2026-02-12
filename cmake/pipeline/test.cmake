@@ -12,6 +12,7 @@ include_guard(GLOBAL)
 
 # --- GoogleTest dependency (vendored via FetchContent to ensure static linkage) ---
 include(FetchContent)
+include(CheckCXXCompilerFlag)
 set(BUILD_GMOCK OFF CACHE BOOL "Build GoogleMock")
 set(INSTALL_GTEST OFF CACHE BOOL "Disable gtest installation")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Force static libraries for gtest")
@@ -23,18 +24,25 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 # Do not run clang-tidy on third-party gtest targets
+check_cxx_compiler_flag("-Wno-character-conversion" CRSCE_HAS_WNO_CHARACTER_CONVERSION)
+
 if (TARGET gtest)
   set_target_properties(gtest PROPERTIES CXX_CLANG_TIDY "")
   if (APPLE)
     target_compile_definitions(gtest PRIVATE _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE)
-    target_compile_options(gtest PRIVATE -Wno-character-conversion)
+    # Suppress noisy character-conversion diagnostics inside gtest headers when supported.
+    if (CRSCE_HAS_WNO_CHARACTER_CONVERSION)
+      target_compile_options(gtest PRIVATE -Wno-character-conversion)
+    endif ()
   endif ()
 endif ()
 if (TARGET gtest_main)
   set_target_properties(gtest_main PROPERTIES CXX_CLANG_TIDY "")
   if (APPLE)
     target_compile_definitions(gtest_main PRIVATE _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE)
-    target_compile_options(gtest_main PRIVATE -Wno-character-conversion)
+    if (CRSCE_HAS_WNO_CHARACTER_CONVERSION)
+      target_compile_options(gtest_main PRIVATE -Wno-character-conversion)
+    endif ()
   endif ()
 endif ()
 
