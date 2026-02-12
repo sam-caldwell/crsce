@@ -81,8 +81,7 @@ bool run_gobp_fallback(Csm &csm,
     // so callers can emit failure telemetry and completion_stats.log.
     std::uint64_t timeout_ms = 0;
     if (const char *p = std::getenv("CRSCE_GOBP_TIMEOUT_MS")) { // NOLINT(concurrency-mt-unsafe)
-        const std::int64_t v_ll = std::strtoll(p, nullptr, 10);
-        if (v_ll > 0) {
+        if (const std::int64_t v_ll = std::strtoll(p, nullptr, 10); v_ll > 0) {
             timeout_ms = static_cast<std::uint64_t>(v_ll);
         }
     }
@@ -115,8 +114,8 @@ bool run_gobp_fallback(Csm &csm,
             // Do not run DE here: after Radditz, value changes must preserve row/col; DE assigns cells.
             // If no direct assignments happened, attempt a few preserve-row/col rectangle swaps
             if (prog == 0) {
-                const unsigned samples = 48; // bounded work; tune via env if desired later
-                const unsigned accepts = 4;
+                constexpr unsigned samples = 48; // bounded work; tune via env if desired later
+                constexpr unsigned accepts = 4;
                 const std::size_t gained = ::crsce::decompress::detail::gobp_preserve_rowcol_swap(
                     csm, st, lh, dsm, xsm, samples, accepts);
                 (void)gained;
