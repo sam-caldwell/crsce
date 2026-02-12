@@ -20,6 +20,20 @@
 
 namespace crsce::decompress::detail {
 
+    /**
+     * @name gobp_preserve_rowcol_swap
+     * @brief Bounded 2×2 rectangle swap pass that preserves row/col sums and
+     *        accepts swaps only when DSM/XSM local cost strictly decreases
+     *        (tie-break on LH improvement for the two affected rows).
+     * @param csm Cross‑Sum Matrix to update in place.
+     * @param st Residual constraint state; updates only diag/xdiag residuals for touched indices.
+     * @param lh Span of LH payload bytes used for LH tie‑break verification.
+     * @param dsm Target per‑diag sums (size ≥ S).
+     * @param xsm Target per‑anti‑diag sums (size ≥ S).
+     * @param sample_rects Maximum rectangles to evaluate in this pass.
+     * @param accept_limit Maximum accepted swaps to apply in this pass.
+     * @return std::size_t Number of swaps applied in this pass.
+     */
     std::size_t gobp_preserve_rowcol_swap(Csm &csm,
                                           ConstraintState &st,
                                           std::span<const std::uint8_t> lh,
@@ -43,11 +57,11 @@ namespace crsce::decompress::detail {
         }
 
         std::size_t accepted = 0;
+        const crsce::decompress::RowHashVerifier ver{};
 
         // Deterministic sampling using simple strides to avoid external RNG dependencies.
         // This pass is bounded; occasional modulus/divisions are acceptable here.
         for (unsigned s = 0; s < sample_rects && accepted < accept_limit; ++s) {
-            constexpr crsce::decompress::RowHashVerifier ver{};
             const std::size_t r0 = (static_cast<std::size_t>(s) * 73U) % S;
             const std::size_t r1 = (r0 + 1U + ((static_cast<std::size_t>(s) * 97U) % (S - 1U))) % S;
             const std::size_t c0 = (static_cast<std::size_t>(s) * 89U) % S;
