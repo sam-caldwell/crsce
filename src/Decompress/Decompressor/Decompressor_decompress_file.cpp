@@ -79,13 +79,19 @@ namespace crsce::decompress {
 
         // counters declared above for summary
 
-        // Announce the expected completion stats log location up-front for test harnesses.
+        // Announce the expected completion stats log location up-front for test harnesses
+        // and "touch" the file so it exists while solving is in progress.
         try {
             namespace fs = std::filesystem;
             const auto outp = fs::path(output_path_);
             const fs::path outdir = outp.has_parent_path() ? outp.parent_path() : fs::path(".");
             const fs::path rowlog_announce = outdir / "completion_stats.log";
             std::println("ROW_COMPLETION_LOG={}", rowlog_announce.string());
+            // Ensure the file exists early for tailers/watchdogs; keep append-only semantics
+            {
+                const std::ofstream os(rowlog_announce, std::ios::binary | std::ios::app);
+                (void)os.good();
+            }
         } catch (...) {
             // best-effort announcement only
         }

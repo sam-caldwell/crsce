@@ -19,6 +19,7 @@
 #include "decompress/Block/detail/rows_match_lsm.h"
 #include "decompress/Phases/RadditzSift/RadditzSift.h"
 #include "common/O11y/event.h"
+#include "decompress/Block/detail/set_block_solve_snapshot.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -40,6 +41,7 @@ namespace crsce::decompress::detail {
         snap.phase = BlockSolveSnapshot::Phase::radditzSift;
         ::crsce::o11y::event("radditz_sift_start");
         snap.radditz_status = 1; // started
+        set_block_solve_snapshot(snap);
         const std::size_t rsf = ::crsce::decompress::phases::radditz_sift_phase(csm, st, snap, 0);
         (void)rsf; // no DE settle here
         snap.U_row.assign(st.U_row.begin(), st.U_row.end());
@@ -79,6 +81,7 @@ namespace crsce::decompress::detail {
                            static_cast<std::uint64_t>(snap.rng_seed_belief));
             } catch (...) { /* ignore */ }
         }
+        set_block_solve_snapshot(snap);
         return ok;
     }
 }

@@ -17,7 +17,10 @@ Usage:
   python3 tools/useless_watchdog.py --hours 10 \
     [--pidfile build/uselessTest/night_runner.pid] \
     [--log build/uselessTest/completion_stats.log] \
-    [--idle-minutes 45] [--check-interval 60]
+    [--dx-stdout build/uselessTest/decompress.stdout.txt] \
+    [--idle-minutes 45] [--check-interval 60] \
+    [--hb-stall-ms 30000] [--hb-stall-intervals 3] \
+    [--boost-samples 384] [--boost-accepts 24] [--gobp-timeout 90000]
 
 Notes:
 - Uses the existing tools/useless_night_runner.py and tools/useless_ab_sweep.py
@@ -32,7 +35,8 @@ import os
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+import re
 
 
 def now_str() -> str:
@@ -81,6 +85,49 @@ def read_pid(path: str) -> Optional[int]:
 
 def run_py(args: List[str], capture: bool = True, env: Optional[Dict[str, str]] = None) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable] + args, text=True, capture_output=capture, env=env)
+
+
+def parse_last_gobp_heartbeat(path: str) -> Optional[Dict[str, int]]:
+    """Return metrics from the last 'phase=gobp' heartbeat line in dx stdout.
+
+    Extracts: ts_ms, iters, rect_acc, rect_att, stall_ms, acc_rate_bp (optional).
+    Returns None if no gobp line found or file missing.
+    """
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            lines = f.read().splitlines()
+    except Exception:
+        return None
+    last = None
+    for line in reversed(lines[-1000:]):  # scan last 1000 lines max
+        if 'phase=gobp' in line:
+            last = line
+            break
+    if not last:
+        return None
+    # Example:
+    # [1739480000000] phase=gobp solved=1234 unknown=510 gobp_status=1 phase_idx=2 iters=18432 rect_passes=384 rect_acc/att=96/18432 cells=0 rows_committed=12 cols_finished=0 stall_ms=12054
+    m_ts = re.search(r"\[(\d+)\]", last)
+    ts_ms = int(m_ts.group(1)) if m_ts else 0
+    m_iters = re.search(r"\biters=(\d+)\b", last)
+    iters = int(m_iters.group(1)) if m_iters else 0
+    m_rect = re.search(r"rect_acc/att=(\d+)/(\d+)", last)
+    rect_acc = int(m_rect.group(1)) if m_rect else 0
+    rect_att = int(m_rect.group(2)) if m_rect else 0
+    m_stall = re.search(r"stall_ms=(\d+|na)\b", last)
+    stall_ms = int(m_stall.group(1)) if (m_stall and m_stall.group(1).isdigit()) else 0
+    m_rate = re.search(r"acc_rate_bp=(\d+)\b", last)
+    acc_rate_bp = int(m_rate.group(1)) if m_rate else 0
+    return {
+        'ts_ms': ts_ms,
+        'iters': iters,
+        'rect_acc': rect_acc,
+        'rect_att': rect_att,
+        'stall_ms': stall_ms,
+        'acc_rate_bp': acc_rate_bp,
+    }
 
 
 def parse_concatenated_json(path: str, max_records: int = 50) -> List[Dict[str, Any]]:
@@ -220,9 +267,17 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--hours', type=float, default=10.0, help='How long to keep watching')
     ap.add_argument('--pidfile', default=os.path.join('build', 'uselessTest', 'night_runner.pid'))
     ap.add_argument('--log', default=os.path.join('build', 'uselessTest', 'completion_stats.log'))
+    ap.add_argument('--dx-stdout', default=os.path.join('build', 'uselessTest', 'decompress.stdout.txt'))
     ap.add_argument('--idle-minutes', type=int, default=45, help='No log writes beyond this triggers a boost')
     ap.add_argument('--check-interval', type=int, default=60, help='Seconds between checks')
     ap.add_argument('--runner', choices=['night', 'c1c2'], default='night', help='Which runner to restart if dead')
+    # Heartbeat stall detection params
+    ap.add_argument('--hb-stall-ms', type=int, default=30000, help='Consider hard-stall if stall_ms exceeds this')
+    ap.add_argument('--hb-stall-intervals', type=int, default=3, help='Intervals with unchanged rect_acc to declare hard-stall')
+    # Next-run boost parameters on hard-stall
+    ap.add_argument('--boost-samples', type=int, default=384, help='CRSCE_GOBP_STALL_BOOST_SAMPLES on restart')
+    ap.add_argument('--boost-accepts', type=int, default=24, help='CRSCE_GOBP_STALL_BOOST_ACCEPTS on restart')
+    ap.add_argument('--gobp-timeout', type=int, default=90000, help='CRSCE_GOBP_TIMEOUT_MS on restart')
     args = ap.parse_args(argv[1:])
 
     # Record our PID
@@ -232,6 +287,11 @@ def main(argv: List[str]) -> int:
     # Track size for delta reporting
     last_size = os.path.getsize(args.log) if os.path.exists(args.log) else 0
     last_boost_ts = 0.0
+
+    # Heartbeat state
+    hb_last_acc = None  # type: Optional[int]
+    hb_unchanged_cnt = 0
+    last_hardstall_ts = 0.0
 
     while time.monotonic() < end_ts:
         # 1) Ensure runner alive
@@ -270,6 +330,26 @@ def main(argv: List[str]) -> int:
         sigs = last_signals(records)
         any_pos = any_positive(records, window=12)
 
+        # 2b) Heartbeat-based stall detection (live gobp status)
+        hb = parse_last_gobp_heartbeat(args.dx_stdout)
+        hard_stall = False
+        if hb is not None:
+            rect_acc = hb['rect_acc']
+            stall_ms = hb['stall_ms']
+            acc_rate_bp = hb['acc_rate_bp']
+            if hb_last_acc is None:
+                hb_last_acc = rect_acc
+                hb_unchanged_cnt = 0
+            else:
+                if rect_acc <= hb_last_acc:
+                    hb_unchanged_cnt += 1
+                else:
+                    hb_unchanged_cnt = 0
+                hb_last_acc = rect_acc
+            # Hard-stall rule: stall_ms over threshold and rect_acc unchanged for N intervals and acc_rate very low
+            if stall_ms >= args.hb_stall_ms and hb_unchanged_cnt >= args.hb_stall_intervals and acc_rate_bp <= 5:
+                hard_stall = True
+
         # 3) Intervene on stall (rate-limited)
         now_mono = time.monotonic()
         if stalled and (now_mono - last_boost_ts) > 15 * 60:
@@ -280,6 +360,36 @@ def main(argv: List[str]) -> int:
         if (not stalled) and (not any_pos) and (now_mono - last_boost_ts) > 30 * 60:
             run_ab_boost('no positive signals window')
             last_boost_ts = now_mono
+
+        # 4b) Hard-stall by heartbeat: kill+restart immediately with stronger env (rate-limited)
+        if hard_stall and (now_mono - last_hardstall_ts) > 10 * 60 and remaining_h > 0.10:
+            append(
+                os.path.join('build', 'uselessTest', 'watchdog_alerts.log'),
+                f"[{now_str()}] heartbeat hard-stall: stall_ms>={args.hb_stall_ms} unchanged={hb_unchanged_cnt}, restarting with boost env\n",
+            )
+            # Kill runner if alive
+            if runner_alive and runner_pid:
+                try:
+                    os.kill(runner_pid, 15)
+                except Exception:
+                    pass
+            # Strengthen env for relaunch (inherited by child)
+            os.environ['CRSCE_GOBP_STALL_BOOST_SAMPLES'] = str(args.boost_samples)
+            os.environ['CRSCE_GOBP_STALL_BOOST_ACCEPTS'] = str(args.boost_accepts)
+            os.environ['CRSCE_GOBP_TIMEOUT_MS'] = str(args.gobp_timeout)
+            # Restart immediately
+            if args.runner == 'c1c2':
+                script = os.path.join('tools', 'useless_night_runner_c1c2.py')
+                outp = os.path.join('build', 'uselessTest', 'night_runner_followon.out')
+            else:
+                script = os.path.join('tools', 'useless_night_runner.py')
+                outp = os.path.join('build', 'uselessTest', 'night_runner.out')
+            pid2 = start_runner(remaining_h, outp, args.pidfile, script)
+            append(
+                os.path.join('build', 'uselessTest', 'watchdog_alerts.log'),
+                f"[{now_str()}] restarted runner after hard-stall pid={pid2}\n",
+            )
+            last_hardstall_ts = now_mono
 
         # 5) Heartbeat status
         status = []
@@ -295,7 +405,13 @@ def main(argv: List[str]) -> int:
             f"prefix_gt_0={sigs['prefix_gt_0']} "
             f"bnb_nodes>0.81M={sigs['bnb_nodes_gt_0_81M']}"
         )
-        status.append(f"stalled={stalled}")
+        hb_line = (
+            f"hb: ts={hb['ts_ms']} iters={hb['iters']} acc={hb['rect_acc']} att={hb['rect_att']} "
+            f"stall_ms={hb['stall_ms']} acc_bp={hb['acc_rate_bp']} unchanged_cnt={hb_unchanged_cnt}"
+            if hb is not None else 'hb: n/a'
+        )
+        status.append(f"stalled={stalled} hard_stall={hard_stall}")
+        status.append(hb_line)
         write_text(os.path.join('build', 'uselessTest', 'watchdog_status.txt'), '\n'.join(status) + '\n')
 
         last_size = size

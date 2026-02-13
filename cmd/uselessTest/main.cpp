@@ -52,6 +52,7 @@ int main() try {
         std::error_code ec;
         if (fs::exists(cx_path)) { fs::remove(cx_path, ec); }
         if (fs::exists(dx_path)) { fs::remove(dx_path, ec); }
+        // Do not remove decompress.stdout.txt / decompress.stderr.txt; append-only per requirements.
     }
 
     // Always announce useful locations up-front for debugging
@@ -83,6 +84,12 @@ int main() try {
         os.write(text.data(), static_cast<std::streamsize>(text.size()));
         return os.good();
     };
+    auto append_text = [](const fs::path &p, const std::string &text) {
+        std::ofstream os(p, std::ios::binary | std::ios::app);
+        if (!os.good()) { return false; }
+        os.write(text.data(), static_cast<std::streamsize>(text.size()));
+        return os.good();
+    };
 
     // Compress
     {
@@ -97,8 +104,8 @@ int main() try {
             }
             const fs::path so = out_dir / "compress.stdout.txt";
             const fs::path se = out_dir / "compress.stderr.txt";
-            (void)write_text(so, res.out);
-            (void)write_text(se, res.err);
+            (void)append_text(so, res.out);
+            (void)append_text(se, res.err);
             std::cout << "USL_COMPRESS_CMD=" << cmd.str() << "\n";
             std::cout << "USL_COMPRESS_EXIT=" << res.exit_code << "\n";
             std::cout << "USL_COMPRESS_STDOUT=" << so.string() << "\n";
@@ -131,7 +138,15 @@ int main() try {
     std::string recon_hash;
     {
         std::cout << "Starting decompress phase...\n";
-        const std::vector<std::string> argv = { dx_exe, "-in", cx_path.string(), "-out", dx_path.string() };
+        // Route decompressor heartbeat directly to a live file so users can tail progress.
+        const std::string hb_path = (out_dir / "decompress.stdout.txt").string();
+        const std::vector<std::string> argv = {
+            "env",
+            std::string("CRSCE_HEARTBEAT_PATH=") + hb_path,
+            dx_exe,
+            "-in", cx_path.string(),
+            "-out", dx_path.string()
+        };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
         std::cout << "USL_DECOMPRESS_EXIT=" << res.exit_code << "\n";
         if (res.exit_code != 0) {
@@ -142,8 +157,8 @@ int main() try {
             }
             const fs::path so = out_dir / "decompress.stdout.txt";
             const fs::path se = out_dir / "decompress.stderr.txt";
-            (void)write_text(so, res.out);
-            (void)write_text(se, res.err);
+            (void)append_text(so, res.out);
+            (void)append_text(se, res.err);
             std::cout << "USL_DECOMPRESS_CMD=" << cmd.str() << "\n";
             std::cout << "USL_DECOMPRESS_EXIT=" << res.exit_code << "\n";
             std::cout << "USL_DECOMPRESS_STDOUT=" << so.string() << "\n";

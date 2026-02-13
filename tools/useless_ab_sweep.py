@@ -258,6 +258,14 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--ms2-window', type=int, dest='ms2_window', help='CRSCE_MS2_WINDOW')
     ap.add_argument('--ms2-max-ms', type=int, dest='ms2_max_ms', help='CRSCE_MS2_MAX_MS')
     ap.add_argument('--ms2-max-nodes', type=int, dest='ms2_max_nodes', help='CRSCE_MS2_MAX_NODES')
+    # GOBP stall/timeout controls
+    ap.add_argument('--gobpTimeout', type=int, help='CRSCE_GOBP_TIMEOUT_MS')
+    ap.add_argument('--stallMs', type=int, help='CRSCE_GOBP_STALL_MS')
+    ap.add_argument('--phase0AdvMs', type=int, help='CRSCE_GOBP_PHASE0_ADV_MS')
+    ap.add_argument('--stallBoostPasses', type=int, help='CRSCE_GOBP_STALL_BOOST_PASSES')
+    ap.add_argument('--stallBoostSamples', type=int, help='CRSCE_GOBP_STALL_BOOST_SAMPLES')
+    ap.add_argument('--stallBoostAccepts', type=int, help='CRSCE_GOBP_STALL_BOOST_ACCEPTS')
+    ap.add_argument('--stallEarlyExit', type=int, choices=[0,1], help='CRSCE_GOBP_STALL_EARLY_EXIT (0/1)')
     args = ap.parse_args(argv[1:])
 
     # Resolve default binary to a release build if user did not override --bin
@@ -340,6 +348,21 @@ def main(argv: List[str]) -> int:
             env['CRSCE_MS2_MAX_MS'] = str(args.ms2_max_ms)
         if args.ms2_max_nodes:
             env['CRSCE_MS2_MAX_NODES'] = str(args.ms2_max_nodes)
+        # GOBP stall/timeout controls
+        if args.gobpTimeout:
+            env['CRSCE_GOBP_TIMEOUT_MS'] = str(args.gobpTimeout)
+        if args.stallMs:
+            env['CRSCE_GOBP_STALL_MS'] = str(args.stallMs)
+        if args.phase0AdvMs:
+            env['CRSCE_GOBP_PHASE0_ADV_MS'] = str(args.phase0AdvMs)
+        if args.stallBoostPasses:
+            env['CRSCE_GOBP_STALL_BOOST_PASSES'] = str(args.stallBoostPasses)
+        if args.stallBoostSamples:
+            env['CRSCE_GOBP_STALL_BOOST_SAMPLES'] = str(args.stallBoostSamples)
+        if args.stallBoostAccepts:
+            env['CRSCE_GOBP_STALL_BOOST_ACCEPTS'] = str(args.stallBoostAccepts)
+        if args.stallEarlyExit is not None:
+            env['CRSCE_GOBP_STALL_EARLY_EXIT'] = str(args.stallEarlyExit)
         if args.direct:
             rc, last = run_one_direct(args.container, args.outdir, env)
         else:

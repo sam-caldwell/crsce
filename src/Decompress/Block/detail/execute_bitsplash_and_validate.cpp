@@ -38,6 +38,7 @@ namespace crsce::decompress::detail {
         snap.phase = BlockSolveSnapshot::Phase::rowPhase;
         ::crsce::o11y::event("bitsplash_start");
         snap.bitsplash_status = 1; // started
+        set_block_solve_snapshot(snap);
         (void) ::crsce::decompress::phases::bit_splash(csm, st, snap, 0);
         snap.U_row.assign(st.U_row.begin(), st.U_row.end());
         snap.U_col.assign(st.U_col.begin(), st.U_col.end());
@@ -76,6 +77,7 @@ namespace crsce::decompress::detail {
             set_block_solve_snapshot(snap);
             return false;
         }
+        set_block_solve_snapshot(snap);
         return true;
     }
 }

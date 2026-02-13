@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <optional>
 #include <span>
 #include <string>
 #include "decompress/DeterministicElimination/DeterministicElimination.h"
@@ -41,6 +42,7 @@ namespace crsce::decompress::detail {
                       const int max_iters) {
         constexpr std::size_t S = Csm::kS;
         snap.de_status = 1;
+        std::optional<std::size_t> last_unknown_total; // no prior sample
         Csm baseline_csm = csm; // localized baseline for prefix commits during DE
         ConstraintState baseline_st = st;
         for (int iter = 0; iter < max_iters; ++iter) {
@@ -99,11 +101,22 @@ namespace crsce::decompress::detail {
                     }
                 }
             }
+            // Recompute unknowns after any prefix activity to judge net progress
+            std::size_t sumU_after = 0; for (const auto u: st.U_row) { sumU_after += static_cast<std::size_t>(u); }
+
             if (det.solved()) {
                 snap.de_status = 3; // completed
                 ::crsce::o11y::event("block_terminating", {{"reason", std::string("possible_solution")}});
                 break;
             }
+            // If DE made no net reduction in unknown cells, transition to BitSplash
+            if (last_unknown_total.has_value() && sumU_after == *last_unknown_total) {
+                ::crsce::o11y::event("de_no_unknown_progress");
+                snap.de_status = 3;
+                break;
+            }
+            last_unknown_total = sumU_after;
+
             if (progress == 0) {
                 ::crsce::o11y::event("de_steady_state");
                 ::crsce::o11y::metric("de_to_gobp", 1LL);

@@ -68,8 +68,10 @@ bool run_gobp_fallback(Csm &csm,
         return true;
     }
 
+    snap.phase = BlockSolveSnapshot::Phase::gobp;
     snap.gobp_status = 1;
     ::crsce::o11y::event("gobp_start_simple");
+    set_block_solve_snapshot(snap);
 
     constexpr std::array<double, 4> dampers{{0.50, 0.12, 0.35, 0.03}};
 
@@ -86,6 +88,49 @@ bool run_gobp_fallback(Csm &csm,
         }
     }
     const auto t_start = std::chrono::steady_clock::now();
+    const auto sys_start_ms = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+
+    // Stall breaker configuration (env-tunable)
+    std::uint64_t stall_ms_thresh = 15000ULL; // default 15s
+    if (const char *p = std::getenv("CRSCE_GOBP_STALL_MS")) { // NOLINT(concurrency-mt-unsafe)
+        if (const std::int64_t v_ll = std::strtoll(p, nullptr, 10); v_ll > 0) {
+            stall_ms_thresh = static_cast<std::uint64_t>(v_ll);
+        }
+    }
+    std::uint64_t phase0_advance_ms = stall_ms_thresh; // reuse unless overridden
+    if (const char *p = std::getenv("CRSCE_GOBP_PHASE0_ADV_MS")) { // NOLINT(concurrency-mt-unsafe)
+        if (const std::int64_t v_ll = std::strtoll(p, nullptr, 10); v_ll > 0) {
+            phase0_advance_ms = static_cast<std::uint64_t>(v_ll);
+        }
+    }
+    unsigned boost_passes = 8U;
+    if (const char *p = std::getenv("CRSCE_GOBP_STALL_BOOST_PASSES")) { // NOLINT(concurrency-mt-unsafe)
+        if (const std::int64_t v_ll = std::strtoll(p, nullptr, 10); v_ll > 0) {
+            boost_passes = static_cast<unsigned>(v_ll);
+        }
+    }
+    unsigned boost_samples = 256U;
+    if (const char *p = std::getenv("CRSCE_GOBP_STALL_BOOST_SAMPLES")) { // NOLINT(concurrency-mt-unsafe)
+        if (const std::int64_t v_ll = std::strtoll(p, nullptr, 10); v_ll > 0) {
+            boost_samples = static_cast<unsigned>(v_ll);
+        }
+    }
+    unsigned boost_accepts = 16U;
+    if (const char *p = std::getenv("CRSCE_GOBP_STALL_BOOST_ACCEPTS")) { // NOLINT(concurrency-mt-unsafe)
+        if (const std::int64_t v_ll = std::strtoll(p, nullptr, 10); v_ll > 0) {
+            boost_accepts = static_cast<unsigned>(v_ll);
+        }
+    }
+    bool early_exit_on_stall = true;
+    if (const char *p = std::getenv("CRSCE_GOBP_STALL_EARLY_EXIT")) { // NOLINT(concurrency-mt-unsafe)
+        if (*p == '0') { early_exit_on_stall = false; }
+    }
+
+    bool stall_active = false;
+    unsigned stall_boost_remaining = 0U;
+    std::size_t stall_baseline_accepts = 0U;
 
     for (std::size_t ph = 0; ph < dampers.size() && !det.solved(); ++ph) {
         // Post‑Radditz: forbid single‑cell assignments; only allow preserve‑row/col swaps.
@@ -93,6 +138,7 @@ bool run_gobp_fallback(Csm &csm,
         constexpr std::array<int, 4> iters{{6000, 9000, 80000, 120000}};
         gobp.set_damping(dampers.at(ph));
         gobp.set_assign_confidence(confs.at(ph));
+        snap.gobp_phase_index = ph;
         for (int i = 0; i < iters.at(ph) && !det.solved(); ++i) {
             // Check the optional wall-clock budget
             if (timeout_ms > 0) {
@@ -111,14 +157,56 @@ bool run_gobp_fallback(Csm &csm,
             const auto t1g = std::chrono::steady_clock::now();
             snap.time_gobp_ms += static_cast<std::size_t>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(t1g - t0g).count());
+            if (prog > 0) { snap.gobp_cells_solved_total += prog; }
+            ++snap.gobp_iters_run;
+            if (prog > 0) {
+                snap.gobp_last_accept_iter = snap.gobp_iters_run;
+            }
             // Do not run DE here: after Radditz, value changes must preserve row/col; DE assigns cells.
             // If no direct assignments happened, attempt a few preserve-row/col rectangle swaps
+            bool publish = (prog > 0);
             if (prog == 0) {
-                constexpr unsigned samples = 48; // bounded work; tune via env if desired later
-                constexpr unsigned accepts = 4;
+                // Stall detection (time since last accept)
+                const auto now_ms = static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count());
+                const std::uint64_t last_ms = (snap.gobp_last_accept_ms != 0U) ? snap.gobp_last_accept_ms : sys_start_ms;
+                const std::uint64_t stall_ms = (now_ms > last_ms) ? (now_ms - last_ms) : 0ULL;
+                if (!stall_active && stall_ms >= stall_ms_thresh) {
+                    stall_active = true;
+                    stall_boost_remaining = boost_passes;
+                    stall_baseline_accepts = snap.gobp_rect_accepts_total;
+                    ::crsce::o11y::event("gobp_stall_boost_start");
+                }
+
+                const unsigned samples = stall_active ? boost_samples : 48U;
+                const unsigned accepts = stall_active ? boost_accepts : 4U;
                 const std::size_t gained = ::crsce::decompress::detail::gobp_preserve_rowcol_swap(
                     csm, st, lh, dsm, xsm, samples, accepts);
-                (void)gained;
+                ++snap.gobp_rect_passes;
+                snap.gobp_rect_attempts_total += samples;
+                snap.gobp_rect_accepts_total += gained;
+                if (gained > 0) {
+                    const auto now_ms = static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count());
+                    snap.gobp_last_accept_ms = now_ms;
+                    snap.gobp_last_accept_iter = snap.gobp_iters_run;
+                    publish = true;
+                    stall_active = false; // leave boost mode on any accept
+                } else if (stall_active) {
+                    if (stall_boost_remaining > 0U) {
+                        --stall_boost_remaining;
+                    }
+                    if (stall_boost_remaining == 0U && early_exit_on_stall &&
+                        snap.gobp_rect_accepts_total == stall_baseline_accepts) {
+                        ::crsce::o11y::event("gobp_stall_early_exit");
+                        snap.phase = BlockSolveSnapshot::Phase::endOfIterations;
+                        snap.gobp_status = 2; // failed
+                        set_block_solve_snapshot(snap);
+                        return false;
+                    }
+                }
             }
             // No valid-prefix commits: after Radditz, preserve row/col counts strictly.
             std::size_t sumU = 0; for (const auto u : st.U_row) {
@@ -126,6 +214,39 @@ bool run_gobp_fallback(Csm &csm,
             }
             snap.unknown_total = sumU;
             snap.solved = (S * S) - sumU;
+            // Iter distance to last accept
+            if (snap.gobp_iters_run >= snap.gobp_last_accept_iter) {
+                snap.gobp_iters_since_accept = snap.gobp_iters_run - snap.gobp_last_accept_iter;
+            } else {
+                snap.gobp_iters_since_accept = 0;
+            }
+            // Update short-window accept rate (basis points) every 256 rectangle passes (delta over last window)
+            if ((snap.gobp_rect_passes - snap.gobp_rate_ckpt_passes) >= 256U) {
+                const std::size_t d_acc = snap.gobp_rect_accepts_total - snap.gobp_rate_ckpt_accepts;
+                const std::size_t d_att = snap.gobp_rect_attempts_total - snap.gobp_rate_ckpt_attempts;
+                const std::size_t att_nz = (d_att == 0U) ? 1U : d_att;
+                const std::size_t rate_bp = (d_acc * 10000U) / att_nz; // 10000 bp = 100%
+                snap.gobp_accept_rate_bp = static_cast<std::uint16_t>((rate_bp > 10000U) ? 10000U : rate_bp);
+                snap.gobp_rate_ckpt_passes = snap.gobp_rect_passes;
+                snap.gobp_rate_ckpt_accepts = snap.gobp_rect_accepts_total;
+                snap.gobp_rate_ckpt_attempts = snap.gobp_rect_attempts_total;
+            }
+            // Early phase advance: if stalling in phase 0, skip ahead
+            if (ph == 0) {
+                const auto now_ms2 = static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count());
+                const std::uint64_t last_ms2 = (snap.gobp_last_accept_ms != 0U) ? snap.gobp_last_accept_ms : sys_start_ms;
+                const std::uint64_t stall_ms2 = (now_ms2 > last_ms2) ? (now_ms2 - last_ms2) : 0ULL;
+                if (stall_ms2 >= phase0_advance_ms) {
+                    ::crsce::o11y::event("gobp_phase0_advance");
+                    break; // advance to next phase
+                }
+            }
+            // Publish incremental progress for heartbeat visibility (throttled)
+            if (publish || ((snap.gobp_iters_run & 63U) == 0U)) {
+                set_block_solve_snapshot(snap);
+            }
         }
     }
     if (!det.solved()) {
@@ -135,6 +256,7 @@ bool run_gobp_fallback(Csm &csm,
         return false;
     }
     snap.gobp_status = 3;
+    set_block_solve_snapshot(snap);
     return true;
 }
 

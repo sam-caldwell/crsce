@@ -9,10 +9,14 @@
 
 #include <atomic>
 #include <chrono>
-#include <print>
 #include <thread>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <sstream>
+#include <string>
+#include <fstream>
+#include <ios>
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Decompressor/detail/phase_to_cstr.h"
@@ -28,44 +32,78 @@ namespace crsce::decompress::cli::detail {
      */
     void heartbeat_worker(std::atomic<bool> *run_flag, const unsigned interval_ms) {
         using namespace std::chrono;
+        const char *hb_path = std::getenv("CRSCE_HEARTBEAT_PATH"); // NOLINT(concurrency-mt-unsafe)
+        std::ofstream hb_stream;
+        if (hb_path && *hb_path) {
+            hb_stream.open(hb_path, std::ios::out | std::ios::app);
+        }
         while (run_flag && run_flag->load(std::memory_order_relaxed)) {
             const auto now = system_clock::now();
             const auto ms = duration_cast<milliseconds>(now.time_since_epoch()).count();
             const auto ts_ms = static_cast<std::int64_t>(ms);
             const auto snap_opt = ::crsce::decompress::get_block_solve_snapshot();
+            std::ostringstream oss;
             if (snap_opt) {
                 const auto &s = *snap_opt;
                 const char *ph = ::crsce::decompress::detail::phase_to_cstr(s.phase);
-                std::print("[{}] phase={} solved={} unknown={}",
-                           ts_ms, ph,
-                           static_cast<std::uint64_t>(s.solved),
-                           static_cast<std::uint64_t>(s.unknown_total));
+                oss << '[' << ts_ms << "] phase=" << ph
+                    << " solved=" << static_cast<std::uint64_t>(s.solved)
+                    << " unknown=" << static_cast<std::uint64_t>(s.unknown_total);
                 switch (s.phase) {
                     case ::crsce::decompress::BlockSolveSnapshot::Phase::de:
-                        std::print(",de_status={}", s.de_status);
+                        oss << ",de_status=" << s.de_status;
                         break;
                     case ::crsce::decompress::BlockSolveSnapshot::Phase::rowPhase:
-                        std::print(",rows_it={},row_status={}",
-                                   static_cast<std::uint64_t>(s.row_phase_iterations),
-                                   s.bitsplash_status);
+                        oss << ",rows_it=" << static_cast<std::uint64_t>(s.row_phase_iterations)
+                            << ",row_status=" << s.bitsplash_status;
                         break;
                     case ::crsce::decompress::BlockSolveSnapshot::Phase::radditzSift:
-                        std::print(",r_cols_left={},r_passes={}",
-                                   static_cast<std::uint64_t>(s.radditz_cols_remaining),
-                                   static_cast<std::uint64_t>(s.radditz_passes_last));
+                        oss << ",r_cols_left=" << static_cast<std::uint64_t>(s.radditz_cols_remaining)
+                            << ",r_passes=" << static_cast<std::uint64_t>(s.radditz_passes_last);
                         break;
-                    case ::crsce::decompress::BlockSolveSnapshot::Phase::gobp:
-                        std::print(",gobp_status={}", s.gobp_status);
+                    case ::crsce::decompress::BlockSolveSnapshot::Phase::gobp: {
+                        // Rich GOBP internals to distinguish live progress vs. stalls
+                        oss << ",gobp_status=" << s.gobp_status
+                            << ",phase_idx=" << static_cast<std::uint64_t>(s.gobp_phase_index)
+                            << ",iters=" << static_cast<std::uint64_t>(s.gobp_iters_run)
+                            << ",iters_since_accept=" << static_cast<std::uint64_t>(s.gobp_iters_since_accept)
+                            << ",rect_passes=" << static_cast<std::uint64_t>(s.gobp_rect_passes)
+                            << ",rect_acc/att=" << static_cast<std::uint64_t>(s.gobp_rect_accepts_total)
+                            << '/' << static_cast<std::uint64_t>(s.gobp_rect_attempts_total)
+                            << ",acc_rate_bp=" << static_cast<unsigned int>(s.gobp_accept_rate_bp)
+                            << ",cells=" << static_cast<std::uint64_t>(s.gobp_cells_solved_total)
+                            << ",rows_committed=" << static_cast<std::uint64_t>(s.rows_committed)
+                            << ",cols_finished=" << static_cast<std::uint64_t>(s.cols_finished);
+                        // Derive stall_ms since last accepted rectangle (0 if none yet)
+                        if (s.gobp_last_accept_ms != 0U) {
+                            const std::uint64_t now_u = (ts_ms >= 0)
+                                                         ? static_cast<std::uint64_t>(ts_ms)
+                                                         : 0ULL;
+                            const std::uint64_t stall_ms = (now_u > s.gobp_last_accept_ms)
+                                                           ? (now_u - s.gobp_last_accept_ms)
+                                                           : 0ULL;
+                            oss << ",stall_ms=" << stall_ms;
+                        } else {
+                            oss << ",stall_ms=na";
+                        }
                         break;
+                    }
                     default:
                         break;
                 }
-                std::print("\n");
             } else {
-                std::print("[{}] phase=init\n", ts_ms);
+                oss << '[' << ts_ms << "] phase=init";
             }
+            oss << '\n';
+            const std::string line = oss.str();
+            std::fputs(line.c_str(), stdout);
             std::fflush(stdout);
+            if (hb_stream.is_open()) {
+                hb_stream << line;
+                hb_stream.flush();
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         }
+        if (hb_stream.is_open()) { hb_stream.close(); }
     }
 }

@@ -32,7 +32,8 @@ namespace crsce::testrunner_ones::cli {
     int run(const std::filesystem::path &out_dir) { // NOLINT(misc-use-internal-linkage)
         // Defaults; allow override via env to keep CI stable across machines
         std::int64_t kCompressPerBlockMs = 2000;
-        std::int64_t kDecompressPerBlockMs = 3000;
+        // Allow a bit more headroom for instrumentation/heartbeat overhead
+        std::int64_t kDecompressPerBlockMs = 4000;
         if (const char *p = std::getenv("CRSCE_TR_COMPRESS_PER_BLOCK_MS"); p && *p) { // NOLINT(concurrency-mt-unsafe)
             const std::int64_t v = std::strtoll(p, nullptr, 10);
             if (v > 0) { kCompressPerBlockMs = v; }

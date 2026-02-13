@@ -14,5 +14,9 @@ namespace crsce::decompress::detail {
      * @name g_last_snapshot
      * @brief Thread-local store for the most recent BlockSolveSnapshot.
      */
-    extern thread_local std::optional<BlockSolveSnapshot> g_last_snapshot; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    /**
+     * @name g_last_snapshot
+     * @brief The most recent BlockSolveSnapshot shared across threads.
+     */
+    extern std::optional<BlockSolveSnapshot> g_last_snapshot; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }

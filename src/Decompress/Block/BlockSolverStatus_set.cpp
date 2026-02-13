@@ -6,9 +6,11 @@
  */
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "decompress/Block/detail/BlockSolverStatus_state.h"
+#include "decompress/Block/detail/BlockSolverStatus_mutex.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include <optional>
+#include <mutex>
 
 namespace crsce::decompress {
 
@@ -19,6 +21,7 @@ namespace crsce::decompress {
      * @return void
      */
     void set_block_solve_snapshot(const BlockSolveSnapshot &s) { // NOLINT(misc-use-internal-linkage)
+        const std::scoped_lock<std::mutex> lk{crsce::decompress::detail::g_last_snapshot_mu};
         crsce::decompress::detail::g_last_snapshot = s;
     }
 }

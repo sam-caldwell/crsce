@@ -82,6 +82,20 @@ namespace crsce::decompress {
         std::size_t partial_adoptions{0};         // non-verified partial improvements adopted
         std::size_t gobp_cells_solved_total{0};   // total cells assigned by GOBP (not DE)
 
+        // GOBP preserve-row/col swap micro-pass diagnostics
+        std::size_t gobp_phase_index{0};          // current GOBP schedule phase index (0-based)
+        std::size_t gobp_rect_passes{0};          // number of 2x2 swap passes executed
+        std::size_t gobp_rect_attempts_total{0};  // total rectangles evaluated across passes
+        std::size_t gobp_rect_accepts_total{0};   // total accepted swaps across passes
+        std::uint64_t gobp_last_accept_ms{0};     // epoch ms timestamp of last accepted swap (0=none yet)
+        std::size_t gobp_last_accept_iter{0};     // iteration index at last accept (0 if none yet)
+        std::size_t gobp_iters_since_accept{0};   // iterations since last accept
+        std::uint16_t gobp_accept_rate_bp{0};     // short-window accept rate (basis points 0..10000)
+        // short-window accept rate checkpoint totals (for delta computation)
+        std::size_t gobp_rate_ckpt_passes{0};
+        std::size_t gobp_rate_ckpt_accepts{0};
+        std::size_t gobp_rate_ckpt_attempts{0};
+
         // Focused boundary completion (inside GOBP phases)
         std::size_t focus_boundary_attempts{0};
         std::size_t focus_boundary_prefix_locks{0};
