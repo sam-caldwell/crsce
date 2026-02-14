@@ -81,6 +81,9 @@ namespace crsce::decompress {
         std::size_t gating_calls{0};              // how many times gating/finishers block executed
         std::size_t partial_adoptions{0};         // non-verified partial improvements adopted
         std::size_t gobp_cells_solved_total{0};   // total cells assigned by GOBP (not DE)
+        // Satisfaction telemetry (diag/xdiag) for accepted 2x2 swaps
+        std::size_t gobp_sat_lost{0};             // total satisfied diag/xdiag groups broken by accepted swaps
+        std::size_t gobp_sat_gained{0};           // total newly satisfied diag/xdiag groups from accepted swaps
 
         // GOBP preserve-row/col swap micro-pass diagnostics
         std::size_t gobp_phase_index{0};          // current GOBP schedule phase index (0-based)
@@ -95,6 +98,11 @@ namespace crsce::decompress {
         std::size_t gobp_rate_ckpt_passes{0};
         std::size_t gobp_rate_ckpt_accepts{0};
         std::size_t gobp_rate_ckpt_attempts{0};
+        // Subphase indicator (1=dx_focus, 2=lh_focus)
+        int gobp_subphase{0};
+        // Post-sift enforcement guards (1=true)
+        int lock_dsm_sat{0};
+        int lock_xsm_sat{0};
 
         // Focused boundary completion (inside GOBP phases)
         std::size_t focus_boundary_attempts{0};
@@ -133,6 +141,8 @@ namespace crsce::decompress {
         std::size_t radditz_deficit_abs_before{0};
         std::size_t radditz_deficit_abs_after{0};
         std::size_t radditz_cols_remaining{0};
+        // Radditz stage kind for heartbeat labeling: 1=vsm, 2=dsm, 3=xsm
+        int radditz_kind{0};
 
         // Phase status indicators for row-completion-stats (0=not_started,1=started,2=failed,3=succeeded)
         int de_status{0};

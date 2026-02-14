@@ -17,6 +17,7 @@
 #include <string>
 #include <fstream>
 #include <ios>
+#include <vector>
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Decompressor/detail/phase_to_cstr.h"
@@ -46,9 +47,29 @@ namespace crsce::decompress::cli::detail {
             if (snap_opt) {
                 const auto &s = *snap_opt;
                 const char *ph = ::crsce::decompress::detail::phase_to_cstr(s.phase);
-                oss << '[' << ts_ms << "] phase=" << ph
+                std::string ph_label = ph ? std::string(ph) : std::string("init");
+                if (s.phase == ::crsce::decompress::BlockSolveSnapshot::Phase::radditzSift) {
+                    if (s.radditz_kind == 2) {
+                        ph_label = "radditz-sift-dsm";
+                    } else if (s.radditz_kind == 3) {
+                        ph_label = "radditz-sift-xsm";
+                    } else {
+                        ph_label = "radditz-sift-vsm";
+                    }
+                }
+                oss << '[' << ts_ms << "] phase=" << ph_label
                     << " solved=" << static_cast<std::uint64_t>(s.solved)
                     << " unknown=" << static_cast<std::uint64_t>(s.unknown_total);
+                // Diagonal/anti-diagonal satisfaction (percentage) when U vectors are available
+                auto pct_sat = [](const std::vector<std::uint16_t> &u) -> int {
+                    if (u.empty()) { return -1; }
+                    std::size_t ok = 0;
+                    for (auto v : u) { if (v == 0U) { ++ok; } }
+                    const std::size_t n = u.size();
+                    return static_cast<int>((ok * 100ULL) / (n ? n : 1ULL));
+                };
+                const int dsm_sat_pct = pct_sat(s.U_diag);
+                const int xsm_sat_pct = pct_sat(s.U_xdiag);
                 switch (s.phase) {
                     case ::crsce::decompress::BlockSolveSnapshot::Phase::de:
                         oss << ",de_status=" << s.de_status;
@@ -73,7 +94,12 @@ namespace crsce::decompress::cli::detail {
                             << ",acc_rate_bp=" << static_cast<unsigned int>(s.gobp_accept_rate_bp)
                             << ",cells=" << static_cast<std::uint64_t>(s.gobp_cells_solved_total)
                             << ",rows_committed=" << static_cast<std::uint64_t>(s.rows_committed)
-                            << ",cols_finished=" << static_cast<std::uint64_t>(s.cols_finished);
+                            << ",cols_finished=" << static_cast<std::uint64_t>(s.cols_finished)
+                            << ",subphase=" << (s.gobp_subphase == 2 ? "lh" : "dx")
+                            << ",sat_lost=" << static_cast<std::uint64_t>(s.gobp_sat_lost)
+                            << ",sat_gained=" << static_cast<std::uint64_t>(s.gobp_sat_gained);
+                        if (dsm_sat_pct >= 0) { oss << ",dsm_sat_pct=" << dsm_sat_pct; }
+                        if (xsm_sat_pct >= 0) { oss << ",xsm_sat_pct=" << xsm_sat_pct; }
                         // Derive stall_ms since last accepted rectangle (0 if none yet)
                         if (s.gobp_last_accept_ms != 0U) {
                             const std::uint64_t now_u = (ts_ms >= 0)

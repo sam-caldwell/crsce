@@ -139,6 +139,21 @@ bool run_gobp_fallback(Csm &csm,
         gobp.set_damping(dampers.at(ph));
         gobp.set_assign_confidence(confs.at(ph));
         snap.gobp_phase_index = ph;
+        // Initialize subphase scheduler (1=dx_focus, 2=lh_focus)
+        std::int64_t dx_focus_iters = 2048;
+        std::int64_t lh_focus_iters = 4096;
+        if (const char *p1 = std::getenv("CRSCE_DX_FOCUS_ITERS")) { // NOLINT(concurrency-mt-unsafe)
+            const std::int64_t v = std::strtoll(p1, nullptr, 10);
+            if (v > 0) { dx_focus_iters = v; }
+        }
+        if (const char *p2 = std::getenv("CRSCE_LH_FOCUS_ITERS")) { // NOLINT(concurrency-mt-unsafe)
+            const std::int64_t v = std::strtoll(p2, nullptr, 10);
+            if (v > 0) { lh_focus_iters = v; }
+        }
+        int subphase = 1; // start with DX focus
+        std::int64_t sub_iters = dx_focus_iters;
+        snap.gobp_subphase = subphase;
+        set_block_solve_snapshot(snap);
         for (int i = 0; i < iters.at(ph) && !det.solved(); ++i) {
             // Check the optional wall-clock budget
             if (timeout_ms > 0) {
@@ -230,6 +245,13 @@ bool run_gobp_fallback(Csm &csm,
                 snap.gobp_rate_ckpt_passes = snap.gobp_rect_passes;
                 snap.gobp_rate_ckpt_accepts = snap.gobp_rect_accepts_total;
                 snap.gobp_rate_ckpt_attempts = snap.gobp_rect_attempts_total;
+            }
+            // Subphase toggle window
+            if (--sub_iters <= 0) {
+                if (subphase == 1) { subphase = 2; sub_iters = lh_focus_iters; }
+                else { subphase = 1; sub_iters = dx_focus_iters; }
+                snap.gobp_subphase = subphase;
+                set_block_solve_snapshot(snap);
             }
             // Early phase advance: if stalling in phase 0, skip ahead
             if (ph == 0) {

@@ -11,12 +11,16 @@
 #include <cstddef>
 #include <cstdint> // NOLINT
 #include <span>
+#include <cstdlib>
 
 #include "decompress/Csm/detail/Csm.h"
 #include "decompress/DeterministicElimination/detail/ConstraintState.h"
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
+// Snapshot updates for telemetry
+#include "decompress/Block/detail/get_block_solve_snapshot.h"
+#include "decompress/Block/detail/set_block_solve_snapshot.h"
 
 namespace crsce::decompress::detail {
 
@@ -57,7 +61,30 @@ namespace crsce::decompress::detail {
         }
 
         std::size_t accepted = 0;
+        // Env-driven penalty threshold: allow breaking satisfied diag/xdiag only if dx improves by at least this amount
+        unsigned sat_loss_min_improve = 2U;
+        if (const char *p = std::getenv("CRSCE_MS2_SAT_LOSS_MIN_IMPROVE")) { // NOLINT(concurrency-mt-unsafe)
+            const std::int64_t v = std::strtoll(p, nullptr, 10);
+            if (v >= 0) { sat_loss_min_improve = static_cast<unsigned>(v); }
+        }
         const crsce::decompress::RowHashVerifier ver{};
+        // Determine current subphase (dx or lh focus) from snapshot
+        int subphase = 1;
+        if (const auto snap_opt = ::crsce::decompress::get_block_solve_snapshot(); snap_opt.has_value()) {
+            subphase = snap_opt->gobp_subphase;
+        }
+        const bool lh_focus = (subphase == 2);
+        // LH-focus budgets
+        unsigned lh_dx_budget = 0U;
+        unsigned lh_sat_loss_budget = 0U;
+        if (const char *p = std::getenv("CRSCE_LH_DX_BUDGET")) { // NOLINT(concurrency-mt-unsafe)
+            const std::int64_t v = std::strtoll(p, nullptr, 10);
+            if (v >= 0) { lh_dx_budget = static_cast<unsigned>(v); }
+        }
+        if (const char *p = std::getenv("CRSCE_LH_SAT_LOSS_BUDGET")) { // NOLINT(concurrency-mt-unsafe)
+            const std::int64_t v = std::strtoll(p, nullptr, 10);
+            if (v >= 0) { lh_sat_loss_budget = static_cast<unsigned>(v); }
+        }
 
         // Deterministic sampling using simple strides to avoid external RNG dependencies.
         // This pass is bounded; occasional modulus/divisions are acceptable here.
@@ -145,16 +172,85 @@ namespace crsce::decompress::detail {
             const std::size_t dx_before = cost_d_before + cost_x_before;
             const std::size_t dx_after  = cost_d_after + cost_x_after;
 
+            // Satisfaction before/after for affected diags/xdiags (1 when exactly satisfied)
+            const bool d00_sat_b = (dcnt.at(d00) == dsm[d00]);
+            const bool d11_sat_b = (dcnt.at(d11) == dsm[d11]);
+            const bool d01_sat_b = (dcnt.at(d01) == dsm[d01]);
+            const bool d10_sat_b = (dcnt.at(d10) == dsm[d10]);
+            const bool x00_sat_b = (xcnt.at(x00) == xsm[x00]);
+            const bool x11_sat_b = (xcnt.at(x11) == xsm[x11]);
+            const bool x01_sat_b = (xcnt.at(x01) == xsm[x01]);
+            const bool x10_sat_b = (xcnt.at(x10) == xsm[x10]);
+            const bool d00_sat_a = (d00_n == dsm[d00]);
+            const bool d11_sat_a = (d11_n == dsm[d11]);
+            const bool d01_sat_a = (d01_n == dsm[d01]);
+            const bool d10_sat_a = (d10_n == dsm[d10]);
+            const bool x00_sat_a = (x00_n == xsm[x00]);
+            const bool x11_sat_a = (x11_n == xsm[x11]);
+            const bool x01_sat_a = (x01_n == xsm[x01]);
+            const bool x10_sat_a = (x10_n == xsm[x10]);
+            int sat_lost = 0;
+            sat_lost += (d00_sat_b && !d00_sat_a) ? 1 : 0;
+            sat_lost += (d11_sat_b && !d11_sat_a) ? 1 : 0;
+            sat_lost += (d01_sat_b && !d01_sat_a) ? 1 : 0;
+            sat_lost += (d10_sat_b && !d10_sat_a) ? 1 : 0;
+            sat_lost += (x00_sat_b && !x00_sat_a) ? 1 : 0;
+            sat_lost += (x11_sat_b && !x11_sat_a) ? 1 : 0;
+            sat_lost += (x01_sat_b && !x01_sat_a) ? 1 : 0;
+            sat_lost += (x10_sat_b && !x10_sat_a) ? 1 : 0;
+            int sat_gain = 0;
+            sat_gain += (!d00_sat_b && d00_sat_a) ? 1 : 0;
+            sat_gain += (!d11_sat_b && d11_sat_a) ? 1 : 0;
+            sat_gain += (!d01_sat_b && d01_sat_a) ? 1 : 0;
+            sat_gain += (!d10_sat_b && d10_sat_a) ? 1 : 0;
+            sat_gain += (!x00_sat_b && x00_sat_a) ? 1 : 0;
+            sat_gain += (!x11_sat_b && x11_sat_a) ? 1 : 0;
+            sat_gain += (!x01_sat_b && x01_sat_a) ? 1 : 0;
+            sat_gain += (!x10_sat_b && x10_sat_a) ? 1 : 0;
+            // Per-family sat loss (DSM/XSM) for enforcement locks
+            const int d_sat_lost = (d00_sat_b && !d00_sat_a) + (d11_sat_b && !d11_sat_a) + (d01_sat_b && !d01_sat_a) + (d10_sat_b && !d10_sat_a);
+            const int x_sat_lost = (x00_sat_b && !x00_sat_a) + (x11_sat_b && !x11_sat_a) + (x01_sat_b && !x01_sat_a) + (x10_sat_b && !x10_sat_a);
+
             // LH tie-breaker: count how many of the two rows verify before/after
             int lh_before = 0;
             if (ver.verify_row(csm, lh, r0)) { ++lh_before; }
             if (ver.verify_row(csm, lh, r1)) { ++lh_before; }
 
             bool accept = false;
+            // Enforce family locks: reject if attempting to break a locked family's satisfied member
+            if (const auto snap_l = ::crsce::decompress::get_block_solve_snapshot(); snap_l.has_value()) {
+                if ((snap_l->lock_dsm_sat && d_sat_lost > 0) || (snap_l->lock_xsm_sat && x_sat_lost > 0)) {
+                    continue;
+                }
+            }
             if (dx_after < dx_before) {
-                accept = true;
+                // If we are about to break any satisfied diag/xdiag, require a minimum dx improvement
+                // and also require LH to strictly improve.
+                if (sat_lost > 0) {
+                    const std::size_t improve = dx_before - dx_after;
+                    if (improve < sat_loss_min_improve) {
+                        accept = false;
+                    } else {
+                    const bool v00 = b00; const bool v11 = b11; const bool v01 = b01; const bool v10 = b10;
+                    if (main) {
+                        csm.put(r0, c0, false); csm.put(r1, c1, false);
+                        csm.put(r0, c1, true);  csm.put(r1, c0, true);
+                    } else {
+                        csm.put(r0, c1, false); csm.put(r1, c0, false);
+                        csm.put(r0, c0, true);  csm.put(r1, c1, true);
+                    }
+                    int lh_after = 0;
+                    if (ver.verify_row(csm, lh, r0)) { ++lh_after; }
+                    if (ver.verify_row(csm, lh, r1)) { ++lh_after; }
+                    csm.put(r0, c0, v00); csm.put(r1, c1, v11);
+                    csm.put(r0, c1, v01); csm.put(r1, c0, v10);
+                        accept = (lh_after > lh_before);
+                    }
+                } else {
+                    accept = true;
+                }
             } else if (dx_after == dx_before) {
-                // Temporarily apply to check LH improvement
+                // Tie: accept only if LH improves AND we do not break satisfied diag/xdiag
                 const bool v00 = b00;
                 const bool v11 = b11;
                 const bool v01 = b01;
@@ -172,8 +268,23 @@ namespace crsce::decompress::detail {
                 // Revert for now
                 csm.put(r0, c0, v00); csm.put(r1, c1, v11);
                 csm.put(r0, c1, v01); csm.put(r1, c0, v10);
-                if (lh_after > lh_before) {
-                    accept = true;
+                if (lh_after > lh_before && sat_lost == 0) { accept = true; }
+            } else {
+                // dx_after > dx_before (worse DX). Permit only in LH-focus if LH strictly improves and within budgets.
+                if (lh_focus) {
+                    const std::size_t worsen = dx_after - dx_before;
+                    const bool within_dx = (worsen <= static_cast<std::size_t>(lh_dx_budget));
+                    const auto sat_lost_u = (sat_lost > 0) ? static_cast<std::size_t>(sat_lost) : static_cast<std::size_t>(0);
+                    const auto sat_budget_u = static_cast<std::size_t>(lh_sat_loss_budget);
+                    const bool within_sat = (sat_lost_u <= sat_budget_u);
+                    const bool v00 = b00; const bool v11 = b11; const bool v01 = b01; const bool v10 = b10;
+                    if (main) { csm.put(r0, c0, false); csm.put(r1, c1, false); csm.put(r0, c1, true); csm.put(r1, c0, true); }
+                    else { csm.put(r0, c1, false); csm.put(r1, c0, false); csm.put(r0, c0, true); csm.put(r1, c1, true); }
+                    int lh_after = 0;
+                    if (ver.verify_row(csm, lh, r0)) { ++lh_after; }
+                    if (ver.verify_row(csm, lh, r1)) { ++lh_after; }
+                    csm.put(r0, c0, v00); csm.put(r1, c1, v11); csm.put(r0, c1, v01); csm.put(r1, c0, v10);
+                    if (lh_after > lh_before && within_dx && within_sat) { accept = true; }
                 }
             }
 
@@ -190,6 +301,14 @@ namespace crsce::decompress::detail {
                 csm.put(r0, c0, true);  csm.put(r1, c1, true);
                 dcnt.at(d00) = d00_n; dcnt.at(d11) = d11_n; dcnt.at(d01) = d01_n; dcnt.at(d10) = d10_n;
                 xcnt.at(x00) = x00_n; xcnt.at(x11) = x11_n; xcnt.at(x01) = x01_n; xcnt.at(x10) = x10_n;
+            }
+
+            // Telemetry: record satisfaction lost/gained for accepted swap
+            if (const auto snap_opt = ::crsce::decompress::get_block_solve_snapshot(); snap_opt.has_value()) {
+                auto snap = *snap_opt;
+                snap.gobp_sat_lost += static_cast<std::size_t>(sat_lost);
+                snap.gobp_sat_gained += static_cast<std::size_t>(sat_gain);
+                ::crsce::decompress::set_block_solve_snapshot(snap);
             }
 
             // Update residuals for only the touched diag/xdiag indices (clamp R ≤ U)

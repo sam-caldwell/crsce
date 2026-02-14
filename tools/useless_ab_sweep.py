@@ -193,6 +193,9 @@ def run_one_direct(container: str, out_dir: str, env: Dict[str, str]) -> Tuple[i
     full_env = dict(os.environ)
     full_env.update(env)
     full_env['PATH'] = os.pathsep.join([os.path.abspath('bin'), full_env.get('PATH', '')])
+    # Ensure heartbeat writes to the shared uselessTest path so users can tail a single file
+    hb_path = os.path.join('build', 'uselessTest', 'decompress.stdout.txt')
+    full_env['CRSCE_HEARTBEAT_PATH'] = os.path.abspath(hb_path)
     os.makedirs(out_dir, exist_ok=True)
     # unique output to avoid overwrite errors
     seed = env.get('CRSCE_SOLVER_SEED', '0')

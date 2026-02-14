@@ -15,6 +15,9 @@
 #include "decompress/Utils/detail/decompress_emit_summary.h"
 #include "decompress/Block/detail/restart_action_to_cstr.h"
 #include "decompress/Utils/detail/decode9.tcc"
+// Helpers to compute diag/anti-diag indices for satisfaction vectors
+#include "decompress/Utils/detail/index_calc_d.h"
+#include "decompress/Utils/detail/index_calc_x.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -183,10 +186,16 @@ namespace crsce::decompress {
                     constexpr std::size_t vec_bytes = 575U;
                     const auto lsm = decode_9bit_stream<S>(sums.subspan(0 * vec_bytes, vec_bytes));
                     const auto vsm = decode_9bit_stream<S>(sums.subspan(1 * vec_bytes, vec_bytes));
+                    const auto dsm = decode_9bit_stream<S>(sums.subspan(2 * vec_bytes, vec_bytes));
+                    const auto xsm = decode_9bit_stream<S>(sums.subspan(3 * vec_bytes, vec_bytes));
                     std::vector<int> row_ok(S, 0);
                     std::vector<int> col_ok(S, 0);
+                    std::vector<int> dsm_ok(S, 0);
+                    std::vector<int> xsm_ok(S, 0);
                     std::size_t row_ok_count = 0;
                     std::size_t col_ok_count = 0;
+                    std::size_t d_ok_count = 0;
+                    std::size_t x_ok_count = 0;
                     for (std::size_t r = 0; r < S; ++r) {
                         std::size_t ones = 0;
                         for (std::size_t c = 0; c < S; ++c) { if (csm.get(r, c)) { ++ones; } }
@@ -203,8 +212,32 @@ namespace crsce::decompress {
                             ++col_ok_count;
                         }
                     }
+                    // Diagonal and anti-diagonal satisfaction
+                    {
+                        using crsce::decompress::detail::calc_d;
+                        using crsce::decompress::detail::calc_x;
+                        std::vector<std::size_t> dcnt(S, 0);
+                        std::vector<std::size_t> xcnt(S, 0);
+                        for (std::size_t r = 0; r < S; ++r) {
+                            for (std::size_t c = 0; c < S; ++c) {
+                                if (csm.get(r, c)) {
+                                    const auto di = calc_d(r, c);
+                                    const auto xi = calc_x(r, c);
+                                    ++dcnt[di];
+                                    ++xcnt[xi];
+                                }
+                            }
+                        }
+                        for (std::size_t i = 0; i < S; ++i) {
+                            if (dcnt[i] == static_cast<std::size_t>(dsm.at(i))) { dsm_ok[i] = 1; ++d_ok_count; }
+                            if (xcnt[i] == static_cast<std::size_t>(xsm.at(i))) { xsm_ok[i] = 1; ++x_ok_count; }
+                        }
+                    }
                     const double row_avg = (static_cast<double>(row_ok_count) / static_cast<double>(S));
                     const double col_avg = (static_cast<double>(col_ok_count) / static_cast<double>(S));
+                    // Satisfaction percentages: fraction of satisfied diagonals/anti-diagonals (matches lsm/vsm semantics)
+                    const double dsm_avg = (static_cast<double>(d_ok_count) / static_cast<double>(S)) * 100.0;
+                    const double xsm_avg = (static_cast<double>(x_ok_count) / static_cast<double>(S)) * 100.0;
                     const auto run_end = std::chrono::system_clock::now();
                     const auto start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                         run_start.time_since_epoch()).count();
@@ -310,6 +343,8 @@ namespace crsce::decompress {
                                     << "  \"lock_in_row_count\":" << s2->lock_in_row_count << ",\n"
                                     << "  \"restart_contradiction_count\":" << s2->restart_contradiction_count << ",\n"
                                     << "  \"gobp_iters_run\":" << s2->gobp_iters_run << ",\n"
+                                    << "  \"gobp_sat_lost\":" << s2->gobp_sat_lost << ",\n"
+                                    << "  \"gobp_sat_gained\":" << s2->gobp_sat_gained << ",\n"
                                     // Phase status indicators
                                     << "  \"de_status\":" << s2->de_status << ",\n"
                                     << "  \"bitsplash_status\":" << s2->bitsplash_status << ",\n"
@@ -441,6 +476,20 @@ namespace crsce::decompress {
                             if (c) { os << ","; }
                             os << col_ok[c];
                         }
+                        os << "],\n"
+                                << "  \"dsm_avg_pct\":" << dsm_avg << ",\n"
+                                << "  \"dsm\":[";
+                        for (std::size_t i = 0; i < S; ++i) {
+                            if (i) { os << ","; }
+                            os << dsm_ok[i];
+                        }
+                        os << "],\n"
+                                << "  \"xsm_avg_pct\":" << xsm_avg << ",\n"
+                                << "  \"xsm\":[";
+                        for (std::size_t i = 0; i < S; ++i) {
+                            if (i) { os << ","; }
+                            os << xsm_ok[i];
+                        }
                         os << "]\n"
                                 << "}\n";
                     }
@@ -466,10 +515,16 @@ namespace crsce::decompress {
                 constexpr std::size_t vec_bytes2 = 575U;
                 const auto lsm2 = decode_9bit_stream<S2>(sums.subspan(0 * vec_bytes2, vec_bytes2));
                 const auto vsm2 = decode_9bit_stream<S2>(sums.subspan(1 * vec_bytes2, vec_bytes2));
+                const auto dsm2 = decode_9bit_stream<S2>(sums.subspan(2 * vec_bytes2, vec_bytes2));
+                const auto xsm2 = decode_9bit_stream<S2>(sums.subspan(3 * vec_bytes2, vec_bytes2));
                 std::vector<int> row_ok(S2, 0);
                 std::vector<int> col_ok(S2, 0);
+                std::vector<int> dsm_ok2(S2, 0);
+                std::vector<int> xsm_ok2(S2, 0);
                 std::size_t row_ok_count = 0;
                 std::size_t col_ok_count = 0;
+                std::size_t d_ok_count2 = 0;
+                std::size_t x_ok_count2 = 0;
                 for (std::size_t r = 0; r < S2; ++r) {
                     std::size_t ones = 0;
                     for (std::size_t c = 0; c < S2; ++c) { if (csm.get(r, c)) { ++ones; } }
@@ -486,8 +541,32 @@ namespace crsce::decompress {
                         ++col_ok_count;
                     }
                 }
+                // Diagonal and anti-diagonal satisfaction (success path)
+                {
+                    using crsce::decompress::detail::calc_d;
+                    using crsce::decompress::detail::calc_x;
+                    std::vector<std::size_t> dcnt2(S2, 0);
+                    std::vector<std::size_t> xcnt2(S2, 0);
+                    for (std::size_t r = 0; r < S2; ++r) {
+                        for (std::size_t c = 0; c < S2; ++c) {
+                            if (csm.get(r, c)) {
+                                const auto di = calc_d(r, c);
+                                const auto xi = calc_x(r, c);
+                                ++dcnt2[di];
+                                ++xcnt2[xi];
+                            }
+                        }
+                    }
+                    for (std::size_t i2 = 0; i2 < S2; ++i2) {
+                        if (dcnt2[i2] == static_cast<std::size_t>(dsm2.at(i2))) { dsm_ok2[i2] = 1; ++d_ok_count2; }
+                        if (xcnt2[i2] == static_cast<std::size_t>(xsm2.at(i2))) { xsm_ok2[i2] = 1; ++x_ok_count2; }
+                    }
+                }
                 const double row_avg = (static_cast<double>(row_ok_count) / static_cast<double>(S2));
                 const double col_avg = (static_cast<double>(col_ok_count) / static_cast<double>(S2));
+                // Satisfaction percentages for diagonals/anti-diagonals
+                const double dsm_avg2 = (static_cast<double>(d_ok_count2) / static_cast<double>(S2)) * 100.0;
+                const double xsm_avg2 = (static_cast<double>(x_ok_count2) / static_cast<double>(S2)) * 100.0;
                 const auto run_end2 = std::chrono::system_clock::now();
                 const auto start_ms2 = std::chrono::duration_cast<std::chrono::milliseconds>(
                     run_start.time_since_epoch()).count();
@@ -599,6 +678,15 @@ namespace crsce::decompress {
                         if (c) { os << ","; }
                         os << col_ok[c];
                     }
+                    // Append diagonal/anti-diagonal satisfaction and densities
+                    os << "],\n"
+                       << "  \"dsm_avg_pct\":" << dsm_avg2 << ",\n"
+                       << "  \"dsm\":[";
+                    for (std::size_t i2 = 0; i2 < S2; ++i2) { if (i2) { os << ","; } os << dsm_ok2[i2]; }
+                    os << "],\n"
+                       << "  \"xsm_avg_pct\":" << xsm_avg2 << ",\n"
+                       << "  \"xsm\":[";
+                    for (std::size_t i2 = 0; i2 < S2; ++i2) { if (i2) { os << ","; } os << xsm_ok2[i2]; }
                     os << "]\n";
                     // Also dump restarts/counters/schedule if available from snapshot
                     if (const auto s3 = get_block_solve_snapshot(); s3.has_value()) {
@@ -659,7 +747,9 @@ namespace crsce::decompress {
                            << "  \"lock_in_prefix_count\":" << s3->lock_in_prefix_count << ",\n"
                            << "  \"lock_in_row_count\":" << s3->lock_in_row_count << ",\n"
                            << "  \"restart_contradiction_count\":" << s3->restart_contradiction_count << ",\n"
-                           << "  \"gobp_iters_run\":" << s3->gobp_iters_run << ",\n"
+                                    << "  \"gobp_iters_run\":" << s3->gobp_iters_run << ",\n"
+                                    << "  \"gobp_sat_lost\":" << s3->gobp_sat_lost << ",\n"
+                                    << "  \"gobp_sat_gained\":" << s3->gobp_sat_gained << ",\n"
                         // Phase status indicators (0=not_started,1=started,2=failed,3=succeeded)
                            << "  \"de_status\":" << s3->de_status << ",\n"
                            << "  \"bitsplash_status\":" << s3->bitsplash_status << ",\n"

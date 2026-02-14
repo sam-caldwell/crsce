@@ -39,6 +39,7 @@ namespace crsce::decompress::detail {
                                       std::span<const std::uint16_t> vsm) {
         constexpr std::size_t S = Csm::kS;
         snap.phase = BlockSolveSnapshot::Phase::radditzSift;
+        snap.radditz_kind = 1; // VSM-focused Radditz
         ::crsce::o11y::event("radditz_sift_start");
         snap.radditz_status = 1; // started
         set_block_solve_snapshot(snap);
