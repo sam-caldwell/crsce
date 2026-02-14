@@ -144,6 +144,16 @@ namespace crsce::decompress {
         // Radditz stage kind for heartbeat labeling: 1=vsm, 2=dsm, 3=xsm
         int radditz_kind{0};
 
+        // DSM-focused radditz-sift live activity counters (exposed in heartbeat)
+        std::size_t dsm_rectangles_chosen{0};  // number of canonicalized 2x2 rectangles evaluated in DSM sift
+        std::size_t dsm_swaps{0};              // number of accepted DSM swaps (2x2 commits)
+        // DSM live quality metrics (updated periodically during DSM sift)
+        std::uint16_t dsm_err_min{0};          // min |cnt[d]-tgt[d]| across all DSM diagonals (point-in-time)
+        std::uint16_t dsm_err_max{0};          // max |cnt[d]-tgt[d]| across all DSM diagonals (point-in-time)
+        int dsm_avg_pct{0};                    // percent of DSM diagonals currently satisfied (point-in-time)
+        // DSM acceptance quality accumulators (monotonic)
+        std::uint64_t dsm_cost_improve_total{0}; // sum of local (cost_before - cost_after) over accepted swaps
+
         // Phase status indicators for row-completion-stats (0=not_started,1=started,2=failed,3=succeeded)
         int de_status{0};
         int bitsplash_status{0};

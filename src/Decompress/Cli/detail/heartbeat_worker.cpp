@@ -18,6 +18,9 @@
 #include <fstream>
 #include <ios>
 #include <vector>
+#if defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Decompressor/detail/phase_to_cstr.h"
@@ -38,6 +41,11 @@ namespace crsce::decompress::cli::detail {
         if (hb_path && *hb_path) {
             hb_stream.open(hb_path, std::ios::out | std::ios::app);
         }
+        // Record process id once for inclusion in each heartbeat line
+        std::uint64_t pid_ul = 0ULL;
+#if defined(__unix__) || defined(__APPLE__)
+        pid_ul = static_cast<std::uint64_t>(::getpid());
+#endif
         while (run_flag && run_flag->load(std::memory_order_relaxed)) {
             const auto now = system_clock::now();
             const auto ms = duration_cast<milliseconds>(now.time_since_epoch()).count();
@@ -57,7 +65,7 @@ namespace crsce::decompress::cli::detail {
                         ph_label = "radditz-sift-vsm";
                     }
                 }
-                oss << '[' << ts_ms << "] phase=" << ph_label
+                oss << '[' << ts_ms << "] pid=" << pid_ul << " phase=" << ph_label
                     << " solved=" << static_cast<std::uint64_t>(s.solved)
                     << " unknown=" << static_cast<std::uint64_t>(s.unknown_total);
                 // Diagonal/anti-diagonal satisfaction (percentage) when U vectors are available
@@ -78,10 +86,46 @@ namespace crsce::decompress::cli::detail {
                         oss << ",rows_it=" << static_cast<std::uint64_t>(s.row_phase_iterations)
                             << ",row_status=" << s.bitsplash_status;
                         break;
-                    case ::crsce::decompress::BlockSolveSnapshot::Phase::radditzSift:
-                        oss << ",r_cols_left=" << static_cast<std::uint64_t>(s.radditz_cols_remaining)
-                            << ",r_passes=" << static_cast<std::uint64_t>(s.radditz_passes_last);
+                    case ::crsce::decompress::BlockSolveSnapshot::Phase::radditzSift: {
+                        // For VSM/XSM keep original counters; for DSM show custom live metrics
+                        if (s.radditz_kind == 2) {
+                            // DSM-focused: show passes, VSM pass flag, and speeds
+                            oss << ",r_passes=" << static_cast<std::uint64_t>(s.radditz_passes_last);
+                            const int c_passes = (s.radditz_cols_remaining == 0 ? 1 : 0);
+                            oss << ",c_passes=" << c_passes;
+                            // Compute per-second rates based on last heartbeat deltas
+                            static std::uint64_t prev_ts_ms = 0ULL;
+                            static std::uint64_t prev_rect = 0ULL;
+                            static std::uint64_t prev_swaps = 0ULL;
+                            static bool have_prev = false;
+                            std::uint64_t rects_per_sec = 0ULL;
+                            std::uint64_t swaps_per_sec = 0ULL;
+                            const auto ts_now = static_cast<std::uint64_t>(ts_ms);
+                            if (have_prev && ts_now > prev_ts_ms) {
+                                const std::uint64_t dt_ms = ts_now - prev_ts_ms;
+                                const std::uint64_t drect = (s.dsm_rectangles_chosen >= prev_rect) ? (s.dsm_rectangles_chosen - prev_rect) : 0ULL;
+                                const std::uint64_t dswap = (s.dsm_swaps >= prev_swaps) ? (s.dsm_swaps - prev_swaps) : 0ULL;
+                                rects_per_sec = (dt_ms > 0) ? ((drect * 1000ULL) / dt_ms) : 0ULL;
+                                swaps_per_sec = (dt_ms > 0) ? ((dswap * 1000ULL) / dt_ms) : 0ULL;
+                            }
+                            prev_ts_ms = ts_now;
+                            prev_rect = s.dsm_rectangles_chosen;
+                            prev_swaps = s.dsm_swaps;
+                            have_prev = true;
+                            oss << ",rectangles_per_sec=" << rects_per_sec
+                                << ",num_swaps_per_sec=" << swaps_per_sec
+                                << ",num_rectangles_chosen=" << static_cast<std::uint64_t>(s.dsm_rectangles_chosen)
+                                << ",num_swaps=" << static_cast<std::uint64_t>(s.dsm_swaps)
+                                << ",dsm_err_min=" << static_cast<unsigned int>(s.dsm_err_min)
+                                << ",dsm_err_max=" << static_cast<unsigned int>(s.dsm_err_max)
+                                << ",dsm_avg_pct=" << s.dsm_avg_pct;
+                        } else {
+                            // VSM/XSM (original)
+                            oss << ",r_cols_left=" << static_cast<std::uint64_t>(s.radditz_cols_remaining)
+                                << ",r_passes=" << static_cast<std::uint64_t>(s.radditz_passes_last);
+                        }
                         break;
+                    }
                     case ::crsce::decompress::BlockSolveSnapshot::Phase::gobp: {
                         // Rich GOBP internals to distinguish live progress vs. stalls
                         oss << ",gobp_status=" << s.gobp_status
@@ -118,7 +162,7 @@ namespace crsce::decompress::cli::detail {
                         break;
                 }
             } else {
-                oss << '[' << ts_ms << "] phase=init";
+                oss << '[' << ts_ms << "] pid=" << pid_ul << " phase=init";
             }
             oss << '\n';
             const std::string line = oss.str();
