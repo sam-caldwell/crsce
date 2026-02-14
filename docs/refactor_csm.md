@@ -279,6 +279,12 @@ Defaults:
 - The default behavior is synchronous (`async=false`) to preserve strict consistency. Async can be enabled per‑call or
   via a future `set_async_mode()` if desired.
 
+Read consistency in async mode:
+
+- When `async==true`, `count_*` queries are eventually consistent and may temporarily lag the underlying bit state
+  until deferred counter updates complete. Use `flush()` before invariant checks or telemetry that require strict
+  consistency between `get_*` bit reads and `count_*` family sums.
+
 ## 12. Exceptions
 
 - `CsmIndexOutOfBounds` — thrown on any rc/dx API call with index ≥ S.
@@ -294,13 +300,6 @@ Defaults:
 
 ## 14. Performance Considerations
 
-- Memory:
-    - `cells_`: 511×511×1B ≈ 261,121 B (~0.25 MB)
-    - `data_`: 511×511×8B ≈ 2.0 MB
-    - Counters: 4×511×2B ≈ 4 KB
-    - Rotated pointers: 511×511×8B ≈ 2.0 MB (if 64‑bit pointers); consider 32‑bit if address space allows.
-    - Series locks: negligible.
-    - Total ≈ 4.3–4.5 MB, acceptable per requirements.
 - Hot loops:
     - dx traversal uses `dx_cells_` to avoid per‑cell modulo or calc calls.
     - rc traversal is contiguous in memory for strong cache locality.
@@ -340,6 +339,9 @@ Defaults:
   lock churn.
 - Keep critical sections short; never perform heavy work while holding series locks or a cell mu.
 - Use `lock=false` only when higher‑level logic already guarantees exclusivity.
+- When using async writes (`async=true`), be aware that `count_*` may lag bit state until pending tasks finish. Call
+  `flush()` before any invariant checks (e.g., row/diag/xdiag sum verifications, telemetry snapshots) that require
+  strict consistency between cell bits and family counters.
 
 ## 18. Out‑of‑Scope
 
