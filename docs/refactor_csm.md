@@ -178,6 +178,31 @@ Notes:
 - `get_*` and `count_*` do not acquire locks. They read the current value; races with concurrent writers are benign
   under the above ordering. If stronger read consistency is required, callers can coordinate via series locks.
 
+### 6.4 Guard typedefs (RAII)
+
+To standardize locking and ensure exception‑safe release, provide small RAII helpers and typedefs:
+
+- `using SeriesLock = /* atomic_flag or custom spinlock type */;`
+- `struct SeriesGuard { /* acquires one series lock in ctor; releases in dtor */ };`
+- `struct SeriesScopeGuard { /* acquires a fixed ordered tuple of series locks (row→col→diag→xdg); releases in reverse */ };`
+- `struct CellMuGuard { /* spins on Bits::try_lock_mu() with bounded backoff; releases in dtor */ };`
+
+These helpers encode the canonical acquisition order and guarantee unlock on all control paths.
+
+### 6.5 Snapshot helper (diagnostics)
+
+Provide a helper to take a consistent diagnostic snapshot of all four cross‑sum arrays:
+
+- `struct CounterSnapshot { uint16_t lsm[S]; uint16_t vsm[S]; uint16_t dsm[S]; uint16_t xsm[S]; };`
+- `CounterSnapshot take_counter_snapshot() const;`
+
+Semantics:
+
+- Internally acquires all series locks in canonical order (row[0..S‑1] → col[0..S‑1] → diag[0..S‑1] → xdg[0..S‑1]) via a
+  `SeriesScopeGuard`, copies counters, then releases in reverse order.
+- This is heavyweight and intended only for occasional diagnostics/telemetry. For targeted checks, prefer acquiring a
+  single family’s series lock and reading its counter array directly.
+
 ## 7. Write Operations (rc/dx)
 
 Shared algorithm for `put_rc(r,c,v, lock=true, async=false)` and `put_dx(d,x,v, lock=true, async=false)`:
@@ -218,6 +243,14 @@ acquired stages.
   solved‑lock unless the caller chooses to enforce it externally (mirrors current behavior where data updates skip
   solved cells at call sites).
 - Data writes do not affect cross‑sum counters or row versions.
+
+Optional symmetry for dx‑oriented code paths (can be added when needed):
+
+- `double get_data_dx(size_t d,size_t x) const;`
+- `void set_data_dx(size_t d,size_t x,double value,bool lock=true, bool async=false);`
+
+These delegate to the same underlying `data_[r][c]` storage using the rotated mapping and honor the same locking
+semantics.
 
 ## 11. Asynchronous Operations (Coroutines)
 
@@ -318,4 +351,3 @@ Defaults:
 
 This specification is complete and implementation‑ready. Deviations, if any, should be discussed and reflected here
 before coding.
-
