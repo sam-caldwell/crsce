@@ -5,12 +5,9 @@
  */
 #include "decompress/Utils/detail/verify_cross_sums.h"
 #include "decompress/Csm/detail/Csm.h" // direct provider for Csm
-#include "decompress/Utils/detail/calc_d.h"
-#include "decompress/Utils/detail/calc_x.h"
 #include <array>    // direct provider for std::array
 #include <cstddef>  // direct provider for std::size_t
 #include <cstdint>  // direct provider for std::uint16_t
-#include <algorithm>
 
 namespace crsce::decompress {
     /**
@@ -29,25 +26,12 @@ namespace crsce::decompress {
                            const std::array<std::uint16_t, Csm::kS> &dsm,
                            const std::array<std::uint16_t, Csm::kS> &xsm) {
         constexpr std::size_t S = Csm::kS;
-        std::array<std::uint16_t, S> row{};
-        std::array<std::uint16_t, S> col{};
-        std::array<std::uint16_t, S> diag{};
-        std::array<std::uint16_t, S> xdg{};
-
-        for (std::size_t r = 0; r < S; ++r) {
-            for (std::size_t c = 0; c < S; ++c) {
-                if (const bool bit = csm.get(r, c); !bit) { continue; }
-                row.at(r) = static_cast<std::uint16_t>(row.at(r) + 1U);
-                col.at(c) = static_cast<std::uint16_t>(col.at(c) + 1U);
-                const std::size_t d = ::crsce::decompress::detail::calc_d(r, c);
-                const std::size_t x = ::crsce::decompress::detail::calc_x(r, c);
-                diag.at(d) = static_cast<std::uint16_t>(diag.at(d) + 1U);
-                xdg.at(x) = static_cast<std::uint16_t>(xdg.at(x) + 1U);
-            }
+        for (std::size_t i = 0; i < S; ++i) {
+            if (csm.count_lsm(i) != lsm.at(i)) { return false; }
+            if (csm.count_vsm(i) != vsm.at(i)) { return false; }
+            if (csm.count_dsm(i) != dsm.at(i)) { return false; }
+            if (csm.count_xsm(i) != xsm.at(i)) { return false; }
         }
-        return std::equal(row.begin(), row.end(), lsm.begin()) &&
-               std::equal(col.begin(), col.end(), vsm.begin()) &&
-               std::equal(diag.begin(), diag.end(), dsm.begin()) &&
-               std::equal(xdg.begin(), xdg.end(), xsm.begin());
+        return true;
     }
 } // namespace crsce::decompress

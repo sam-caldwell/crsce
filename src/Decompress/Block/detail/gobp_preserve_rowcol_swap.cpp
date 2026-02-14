@@ -46,18 +46,12 @@ namespace crsce::decompress::detail {
                                           const unsigned sample_rects,
                                           const unsigned accept_limit) {
         constexpr std::size_t S = Csm::kS;
-        // Precompute diag/xdiag ones counts once for this pass
+        // Initialize diag/xdiag ones counts from CSM live counters once for this pass
         std::array<std::uint16_t, S> dcnt{};
         std::array<std::uint16_t, S> xcnt{};
-        for (std::size_t r = 0; r < S; ++r) {
-            for (std::size_t c = 0; c < S; ++c) {
-                if (csm.get(r, c)) {
-                    const auto d = detail::calc_d(r, c);
-                    const auto x = detail::calc_x(r, c);
-                    ++dcnt.at(d);
-                    ++xcnt.at(x);
-                }
-            }
+        for (std::size_t i = 0; i < S; ++i) {
+            dcnt.at(i) = csm.count_dsm(i);
+            xcnt.at(i) = csm.count_xsm(i);
         }
 
         std::size_t accepted = 0;

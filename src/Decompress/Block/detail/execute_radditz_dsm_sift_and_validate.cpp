@@ -1,6 +1,8 @@
 /**
  * @file execute_radditz_dsm_sift_and_validate.cpp
  * @brief DSM-focused 2x2 swap sift to reduce diagonal deficits while preserving row/col.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Block/detail/execute_radditz_dsm_sift_and_validate.h"
 
@@ -23,6 +25,16 @@
 // dsm_accept_swap moved to its own TU
 
 namespace crsce::decompress::detail {
+    /**
+     * @name execute_radditz_dsm_sift_and_validate
+     * @brief Execute DSM-focused 2x2 swap sift to reduce diagonal deficits while preserving row/col.
+     * @param csm : 2d cross-sum data matrix under reconstruction
+     * @param st : constraint state
+     * @param snap : block solve snapshot
+     * @param dsm : DSM data
+     * @param lh : LH (hash) data
+     * @return true if valid, false otherwise
+     */
     bool execute_radditz_dsm_sift_and_validate(Csm &csm,
                                                ConstraintState &st,
                                                BlockSolveSnapshot &snap,
@@ -38,18 +50,18 @@ namespace crsce::decompress::detail {
         snap.phase = BlockSolveSnapshot::Phase::radditzSift;
         snap.radditz_kind = 2;
 
-        // Build current diag/xdiag counts
+        // Initialize diag/xdiag counts from CSM live counters (O(1) each)
         std::vector<std::uint16_t> dcnt(S, 0);
         std::vector<std::uint16_t> xcnt(S, 0);
-        for (std::size_t r = 0; r < S; ++r) {
-            for (std::size_t c = 0; c < S; ++c) {
-                if (csm.get(r, c)) {
-                    ++dcnt[calc_d(r, c)];
-                    ++xcnt[calc_x(r, c)];
-                }
-            }
+        for (std::size_t i = 0; i < S; ++i) {
+            dcnt[i] = csm.count_dsm(i);
+            xcnt[i] = csm.count_xsm(i);
         }
-
+        /**
+         * @name refresh_dsm_metrics
+         * @brief Refresh DSM metrics for current state
+         * @return void
+         */
         auto refresh_dsm_metrics = [&]() {
             std::uint16_t err_min = 0xFFFFU;
             std::uint16_t err_max = 0U;
@@ -116,6 +128,13 @@ namespace crsce::decompress::detail {
                         deficit.push_back(Ent{ .err = static_cast<std::uint16_t>(tgt - cnt), .idx = static_cast<std::uint16_t>(i) });
                     }
                 }
+                /**
+                 * @name by_err_desc
+                 * @brief Sort comparison function for Ent by error magnitude in descending order
+                 * @param a : Ent
+                 * @param b : Ent
+                 * @return true if a.err > b.err, false otherwise
+                 */
                 auto by_err_desc = [](const Ent &a, const Ent &b) {
                     return a.err > b.err;
                 };
@@ -170,6 +189,15 @@ namespace crsce::decompress::detail {
                                     ++tried; continue;
                                 }
 
+                                /**
+                                 * @name is_csm_locked
+                                 * @brief Check if any of the specified cells in the CSM are locked
+                                 * @param a row coordinage, cell 1
+                                 * @param b col coordinate, cell 1
+                                 * @param c row coordinage, cell 2
+                                 * @param d col coordinate, cell 2
+                                 * @return true if any cell is locked, false otherwise
+                                 */
                                 const auto is_csm_locked = [&](
                                     const std::size_t a, const std::size_t b, const std::size_t c, const std::size_t d) {
                                     return csm.is_locked(a,b) || csm.is_locked(c,d) ||

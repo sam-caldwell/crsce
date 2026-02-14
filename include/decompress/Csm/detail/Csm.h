@@ -1,176 +1,123 @@
 /**
  * @file Csm.h
- * @brief CRSCE v1 Cross-Sum Matrix (CSM) container for decompression.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @brief CRSCE v1 Cross-Sum Matrix (CSM) refactored container.
  */
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <atomic>
+#include <array>
+#include "decompress/Csm/detail/Bits.h"
 
 namespace crsce::decompress {
     /**
      * @class Csm
-     * @name Csm
-     * @brief Represents a 511x511 bit matrix with parallel lock and data layers.
-     *
-     * - Bit layer: stores the reconstructed CSM bits.
-     * - Lock layer: marks solved bits that must not be changed by heuristic passes.
-     * - Data layer: auxiliary scores/stats used by probabilistic guidance (LBP, etc.).
+     * @brief 511×511 grid of Bits with live cross-sum counters and concurrency helpers.
      */
     class Csm {
     public:
         static constexpr std::size_t kS = 511;
-        static constexpr std::size_t kTotalBits = kS * kS;
-        static constexpr std::size_t kBytes = (kTotalBits + 7) / 8;
 
-        /**
-         * @name Csm::Csm
-         * @brief Construct a zero-initialized matrix with all locks cleared.
-         */
+        // Addressing helpers
+        [[nodiscard]] static constexpr std::size_t calc_d(const std::size_t r, const std::size_t c) noexcept {
+            const auto S = static_cast<std::uint32_t>(kS);
+            const auto rr = static_cast<std::uint32_t>(r);
+            const auto cc = static_cast<std::uint32_t>(c);
+            const std::uint32_t t = cc + S - rr;
+            const std::uint32_t d = t - (t >= S ? S : 0U);
+            return static_cast<std::size_t>(d);
+        }
+        [[nodiscard]] static constexpr std::size_t calc_x(const std::size_t r, const std::size_t c) noexcept {
+            const auto S = static_cast<std::uint32_t>(kS);
+            const auto rr = static_cast<std::uint32_t>(r);
+            const auto cc = static_cast<std::uint32_t>(c);
+            const std::uint32_t t = rr + cc;
+            const std::uint32_t x = t - (t >= S ? S : 0U);
+            return static_cast<std::size_t>(x);
+        }
+
+        // Construction / reset
         Csm();
+        void reset();
 
-        /**
-         * @name Csm::reset
-         * @brief Reset all layers to defaults: bits=0, locks=false, data=0.0.
-         * @return void
-         */
-        void reset() noexcept;
+        // rc APIs (legacy aliases provided)
+        [[nodiscard]] bool get_rc(std::size_t r, std::size_t c) const;
+        void put_rc(std::size_t r, std::size_t c, bool v, bool lock=true, bool async=false);
+        void lock_rc(std::size_t r, std::size_t c, bool lock=true);
+        [[nodiscard]] bool is_locked_rc(std::size_t r, std::size_t c) const;
 
-        /**
-         * @name Csm::put
-         * @brief Store bit value at position (r,c). Bounds: 0..510.
-         * @param r Row index.
-         * @param c Column index.
-         * @param v Bit value to store.
-         * @return void
-         */
-        void put(std::size_t r, std::size_t c, bool v);
+        // Legacy aliases
+        [[nodiscard]] bool get(std::size_t r, std::size_t c) const { return get_rc(r, c); }
+        void put(std::size_t r, std::size_t c, bool v, bool lock=true, bool async=false) { put_rc(r, c, v, lock, async); }
+        void lock(std::size_t r, std::size_t c) { lock_rc(r, c, true); }
+        [[nodiscard]] bool is_locked(std::size_t r, std::size_t c) const { return is_locked_rc(r, c); }
 
-        /**
-         * @name Csm::get
-         * @brief Retrieve bit value at position (r,c).
-         * @param r Row index.
-         * @param c Column index.
-         * @return bool Stored bit value.
-         */
-        [[nodiscard]] bool get(std::size_t r, std::size_t c) const;
+        // dx APIs
+        [[nodiscard]] bool get_dx(std::size_t d, std::size_t x) const;
+        void put_dx(std::size_t d, std::size_t x, bool v, bool lock=true, bool async=false);
+        void lock_dx(std::size_t d, std::size_t x, bool lock=true);
+        [[nodiscard]] bool is_locked_dx(std::size_t d, std::size_t x) const;
 
-        /**
-         * @name Csm::lock
-         * @brief Lock bit at (r,c) to mark as solved.
-         * @param r Row index.
-         * @param c Column index.
-         * @return void
-         */
-        void lock(std::size_t r, std::size_t c);
-
-        /**
-         * @name Csm::is_locked
-         * @brief Query whether position (r,c) is locked.
-         * @param r Row index.
-         * @param c Column index.
-         * @return bool True if locked; false otherwise.
-         */
-        [[nodiscard]] bool is_locked(std::size_t r, std::size_t c) const;
-
-        /**
-         * @name Csm::set_data
-         * @brief Set auxiliary data value for (r,c).
-         * @param r Row index.
-         * @param c Column index.
-         * @param value Data value to set.
-         * @return void
-         */
-        void set_data(std::size_t r, std::size_t c, double value);
-
-        /**
-         * @name Csm::get_data
-         * @brief Get auxiliary data value for (r,c).
-         * @param r Row index.
-         * @param c Column index.
-         * @return double Data value stored for the cell.
-         */
+        // Data layer
+        void set_data(std::size_t r, std::size_t c, double value, bool lock=true, bool async=false);
         [[nodiscard]] double get_data(std::size_t r, std::size_t c) const;
 
-        /**
-         * @name Csm::row_version
-         * @brief Monotonic counter incremented when any bit in row r changes.
-         * @param r Row index.
-         * @return std::uint64_t Version number for the row.
-         */
-        [[nodiscard]] std::uint64_t row_version(std::size_t r) const noexcept { return row_versions_[r]; }
+        // Counts
+        [[nodiscard]] std::uint16_t count_lsm(std::size_t r) const { return lsm_c_.at(r); }
+        [[nodiscard]] std::uint16_t count_vsm(std::size_t c) const { return vsm_c_.at(c); }
+        [[nodiscard]] std::uint16_t count_dsm(std::size_t d) const { return dsm_c_.at(d); }
+        [[nodiscard]] std::uint16_t count_xsm(std::size_t x) const { return xsm_c_.at(x); }
 
-        /**
-         * @name bytes_capacity
-         * @brief Access raw backing size in bytes for the bit layer.
-         * @return Number of bytes in bits_ buffer (kBytes).
-         */
-        [[nodiscard]] static constexpr std::size_t bytes_capacity() noexcept { return kBytes; }
+        // Version
+        [[nodiscard]] std::uint64_t row_version(std::size_t r) const { return row_versions_.at(r).load(std::memory_order_relaxed); }
+
+        // Async
+        void flush() noexcept {} // placeholder: synchronous baseline
+
+        // Special members
+        ~Csm() = default;
+        Csm(const Csm &other);
+        Csm &operator=(const Csm &other);
+        Csm(Csm &&other) = delete;
+        Csm &operator=(Csm &&other) = delete;
+
+        // RAII Guards and snapshot (lightweight inline decls)
+        class SeriesLock { public: void lock() noexcept { while (f_.test_and_set(std::memory_order_acquire)) { /*spin*/ } } void unlock() noexcept { f_.clear(std::memory_order_release); } private: std::atomic_flag f_ = ATOMIC_FLAG_INIT; };
+        class SeriesGuard { public: explicit SeriesGuard(SeriesLock &lk) : l_(lk) { l_.lock(); } ~SeriesGuard() { l_.unlock(); } SeriesGuard(const SeriesGuard&) = delete; SeriesGuard &operator=(const SeriesGuard&) = delete; SeriesGuard(SeriesGuard&&) = delete; SeriesGuard &operator=(SeriesGuard&&) = delete; private: SeriesLock &l_; };
+        class CellMuGuard { public: explicit CellMuGuard(Bits &bb) : b_(bb) { while (!b_.try_lock_mu()) { /* spin with trivial backoff */ } } ~CellMuGuard() { b_.unlock_mu(); } CellMuGuard(const CellMuGuard&) = delete; CellMuGuard &operator=(const CellMuGuard&) = delete; CellMuGuard(CellMuGuard&&) = delete; CellMuGuard &operator=(CellMuGuard&&) = delete; private: Bits &b_; };
+        class SeriesScopeGuard { public: SeriesScopeGuard(SeriesLock &r, SeriesLock &c, SeriesLock &d, SeriesLock &x) : row_(&r), col_(&c), diag_(&d), xdg_(&x) { row_->lock(); col_->lock(); diag_->lock(); xdg_->lock(); } ~SeriesScopeGuard() { xdg_->unlock(); diag_->unlock(); col_->unlock(); row_->unlock(); } SeriesScopeGuard(const SeriesScopeGuard&) = delete; SeriesScopeGuard &operator=(const SeriesScopeGuard&) = delete; SeriesScopeGuard(SeriesScopeGuard&&) = delete; SeriesScopeGuard &operator=(SeriesScopeGuard&&) = delete; private: SeriesLock *row_; SeriesLock *col_; SeriesLock *diag_; SeriesLock *xdg_; };
+
+        struct CounterSnapshot { std::array<std::uint16_t, kS> lsm{}; std::array<std::uint16_t, kS> vsm{}; std::array<std::uint16_t, kS> dsm{}; std::array<std::uint16_t, kS> xsm{}; };
+        [[nodiscard]] CounterSnapshot take_counter_snapshot() const;
+
+        // Bounds helper
+        [[nodiscard]] static constexpr bool in_bounds(const std::size_t r, const std::size_t c) noexcept { return r < kS && c < kS; }
 
     private:
-        /**
-         * @name in_bounds
-         * @brief Check matrix bounds for (r,c).
-         * @param r Row index.
-         * @param c Column index.
-         * @return true if 0 ≤ r,c < kS; false otherwise.
-         */
-        [[nodiscard]] static constexpr bool in_bounds(const std::size_t r, const std::size_t c) noexcept {
-            return r < kS && c < kS;
-        }
+        // Internal helpers
+        void build_dx_tables();
+        void update_counters_after_flip(std::size_t r, std::size_t c, bool old_v, bool new_v);
 
-        /**
-         * @name index_of
-         * @brief Compute linear index for (r,c) in row-major order.
-         * @param r Row index.
-         * @param c Column index.
-         * @return Linear index into data_ for (r,c).
-         */
-        [[nodiscard]] static constexpr std::size_t index_of(const std::size_t r, const std::size_t c) noexcept {
-            return (r * kS) + c; // row-major
-        }
+        // Storage
+        std::array<std::array<Bits, kS>, kS> cells_{};         // row-major
+        std::array<std::array<double, kS>, kS> data_{};        // advisory data
+        std::array<std::atomic<std::uint64_t>, kS> row_versions_{};
 
-        /**
-         * @name byte_index
-         * @brief Compute byte index containing a given bit position.
-         * @param bit_index Bit index into the bit layer.
-         * @return Index into bits_ (byte address) containing the bit.
-         */
-        [[nodiscard]] static constexpr std::size_t byte_index(std::size_t const bit_index) noexcept {
-            return bit_index >> 3; // divide by 8
-        }
+        // Live counters
+        std::array<std::uint16_t, kS> lsm_c_{};
+        std::array<std::uint16_t, kS> vsm_c_{};
+        std::array<std::uint16_t, kS> dsm_c_{};
+        std::array<std::uint16_t, kS> xsm_c_{};
 
-        /**
-         * @name bit_mask
-         * @brief Compute bit mask within a byte for a given bit index.
-         * @param bit_index Bit index into the bit layer.
-         * @return Mask with a single 1 at the position for bit_index within its byte.
-         */
-        [[nodiscard]] static constexpr std::uint8_t bit_mask(std::size_t bit_index) noexcept {
-            // LSB-first within a byte to keep operations simple
-            const auto off = static_cast<std::uint8_t>(bit_index & 0x7U);
-            return static_cast<std::uint8_t>(1U << off);
-        }
+        // Series locks
+        mutable std::array<SeriesLock, kS> row_mu_{};
+        mutable std::array<SeriesLock, kS> col_mu_{};
+        mutable std::array<SeriesLock, kS> diag_mu_{};
+        mutable std::array<SeriesLock, kS> xdg_mu_{};
 
-        /**
-         * @name bits_
-         * @brief Packed bit layer (LSB-first per byte), size kBytes.
-         */
-        std::vector<std::uint8_t> bits_;
-
-        /**
-         * @name locks_
-         * @brief Lock layer: 0=unlocked, 1=locked for each of kTotalBits positions.
-         */
-        std::vector<std::uint8_t> locks_;
-
-        /**
-         * @name data_
-         * @brief Auxiliary floating-point data per cell (beliefs or scores), size kTotalBits. Use double for precision.
-         */
-        std::vector<double> data_;
-        std::vector<std::uint64_t> row_versions_;
+        // Rotated view
+        std::array<std::array<Bits*, kS>, kS> dx_cells_{};          // alias into cells_
+        std::array<std::array<std::uint16_t, kS>, kS> dx_row_{};    // row index for version bumps in dx writes
     };
 } // namespace crsce::decompress

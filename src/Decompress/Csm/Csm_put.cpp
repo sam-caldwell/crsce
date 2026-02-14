@@ -1,42 +1,41 @@
 /**
  * @file Csm_put.cpp
  * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/detail/Csm.h"
 #include "common/exceptions/CsmIndexOutOfBounds.h"
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
-#include <cstddef>
+#include <optional>
 #include <cstdint>
+#include <atomic>
+#include <cstddef>
 
 namespace crsce::decompress {
-    /**
-     * @name Csm::put
-     * @brief Store bit value at (r,c), rejecting writes to locked cells.
-     * @param r Row index.
-     * @param c Column index.
-     * @param v Bit value to store.
-     * @return void
-     */
-    void Csm::put(const std::size_t r, const std::size_t c, const bool v) {
-        if (!in_bounds(r, c)) {
-            throw CsmIndexOutOfBounds(r, c, kS);
-        }
-        const auto idx = index_of(r, c);
-        const auto bidx = byte_index(idx);
-        if (locks_[idx] != 0U) {
-            throw WriteFailureOnLockedCsmElement("Csm::put: write to locked element");
-        }
-        const auto mask = bit_mask(idx);
-        const bool old_v = (static_cast<bool>(bits_[bidx] & mask));
-        if (v != old_v) {
-            if (v) {
-                bits_[bidx] = static_cast<std::uint8_t>(bits_[bidx] | mask);
-            } else {
-                bits_[bidx] = static_cast<std::uint8_t>(bits_[bidx] & static_cast<std::uint8_t>(~mask));
-            }
-            // bump row version on change
-            if (r < row_versions_.size()) { row_versions_[r] += 1ULL; }
+    void Csm::update_counters_after_flip(const std::size_t r, const std::size_t c, const bool old_v, const bool new_v) {
+        if (old_v == new_v) { return; }
+        const std::size_t d = calc_d(r, c);
+        const std::size_t x = calc_x(r, c);
+        const int delta = new_v ? +1 : -1;
+        lsm_c_.at(r) = static_cast<std::uint16_t>(static_cast<int>(lsm_c_.at(r)) + delta);
+        vsm_c_.at(c) = static_cast<std::uint16_t>(static_cast<int>(vsm_c_.at(c)) + delta);
+        dsm_c_.at(d) = static_cast<std::uint16_t>(static_cast<int>(dsm_c_.at(d)) + delta);
+        xsm_c_.at(x) = static_cast<std::uint16_t>(static_cast<int>(xsm_c_.at(x)) + delta);
+    }
+
+    void Csm::put_rc(const std::size_t r, const std::size_t c, const bool v, const bool lock_cell, bool /*async*/) {
+        if (!in_bounds(r, c)) { throw CsmIndexOutOfBounds(r, c, kS); }
+        const std::size_t d = calc_d(r, c);
+        const std::size_t x = calc_x(r, c);
+        const SeriesScopeGuard scope(row_mu_.at(r), col_mu_.at(c), diag_mu_.at(d), xdg_mu_.at(x));
+        auto &cell = cells_.at(r).at(c);
+        std::optional<CellMuGuard> cmu;
+        if (lock_cell) { cmu.emplace(cell); }
+        if (cell.locked()) { throw WriteFailureOnLockedCsmElement("Csm::put: write to locked element"); }
+        const bool old_v = cell.data();
+        if (old_v != v) {
+            cell.set_data(v);
+            update_counters_after_flip(r, c, old_v, v);
+            row_versions_.at(r).fetch_add(1ULL, std::memory_order_relaxed);
         }
     }
 } // namespace crsce::decompress

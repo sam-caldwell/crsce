@@ -1,24 +1,14 @@
 /**
  * @file Csm_is_locked.cpp
  * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/detail/Csm.h"
 #include "common/exceptions/CsmIndexOutOfBounds.h"
 #include <cstddef>
 
 namespace crsce::decompress {
-    /**
-     * @name Csm::is_locked
-     * @brief Query whether the cell (r,c) is locked.
-     * @param r Row index.
-     * @param c Column index.
-     * @return bool True if locked; false otherwise.
-     */
-    bool Csm::is_locked(const std::size_t r, const std::size_t c) const {
-        if (!in_bounds(r, c)) {
-            throw CsmIndexOutOfBounds(r, c, kS);
-        }
-        return locks_[index_of(r, c)] != 0U;
+    bool Csm::is_locked_rc(const std::size_t r, const std::size_t c) const {
+        if (!in_bounds(r, c)) { throw CsmIndexOutOfBounds(r, c, kS); }
+        return cells_.at(r).at(c).locked();
     }
 } // namespace crsce::decompress

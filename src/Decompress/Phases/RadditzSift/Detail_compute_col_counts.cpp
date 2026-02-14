@@ -20,9 +20,7 @@ namespace crsce::decompress::phases::detail {
         const std::size_t S = Csm::kS;
         std::vector<int> col_count(S, 0);
         for (std::size_t c = 0; c < S; ++c) {
-            int cnt = 0;
-            for (std::size_t r = 0; r < S; ++r) { if (csm.get(r, c)) { ++cnt; } }
-            col_count[c] = cnt;
+            col_count[c] = static_cast<int>(csm.count_vsm(c));
         }
         return col_count;
     }

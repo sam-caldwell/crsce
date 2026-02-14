@@ -22,11 +22,7 @@ namespace crsce::decompress::detail {
         const std::size_t S = Csm::kS;
         if (lsm.size() < S) { return false; }
         for (std::size_t r = 0; r < S; ++r) {
-            std::size_t ones = 0;
-            for (std::size_t c = 0; c < S; ++c) {
-                if (csm.get(r, c)) { ++ones; }
-            }
-            if (ones != static_cast<std::size_t>(lsm[r])) { return false; }
+            if (static_cast<std::size_t>(csm.count_lsm(r)) != static_cast<std::size_t>(lsm[r])) { return false; }
         }
         return true;
     }

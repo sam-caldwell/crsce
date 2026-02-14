@@ -54,14 +54,16 @@ namespace crsce::decompress::phases {
 
             const std::size_t l_need = (r < lsm.size()) ? static_cast<std::size_t>(lsm[r]) : 0U;
 
-            // Count locked ones and total ones
+            // Use live counter for total ones; scan only for locked ones (early exit if impossible)
+            const auto total_ones = static_cast<std::size_t>(csm.count_lsm(r));
             std::size_t locked_ones = 0;
-            std::size_t total_ones = 0;
-            for (std::size_t c = 0; c < S; ++c) {
-                if (const bool b = csm.get(r, c)) {
-                    ++total_ones;
-                    if (csm.is_locked(r, c)) {
+            if (total_ones != l_need) {
+                for (std::size_t c = 0; c < S; ++c) {
+                    if (csm.is_locked(r, c) && csm.get(r, c)) {
                         ++locked_ones;
+                        if (locked_ones > l_need) {
+                            break; // no need to continue scanning
+                        }
                     }
                 }
             }

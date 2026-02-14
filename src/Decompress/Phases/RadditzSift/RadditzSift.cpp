@@ -54,6 +54,10 @@ namespace crsce::decompress::phases {
         constexpr std::size_t S = Csm::kS;
         std::size_t swaps = 0;
 
+        // Ensure heartbeat shows we are in VSM-focused Radditz stage
+        snap.phase = BlockSolveSnapshot::Phase::radditzSift;
+        snap.radditz_kind = 1;
+
         const std::vector<int> col_count = compute_col_counts(csm);
 
         std::vector<int> deficit = compute_deficits(col_count, std::span<const std::uint16_t>(snap.vsm.data(), snap.vsm.size()));

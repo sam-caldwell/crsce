@@ -48,13 +48,9 @@ namespace crsce::decompress::detail {
         snap.radditz_kind = 3;
         std::vector<std::uint16_t> dcnt(S, 0);
         std::vector<std::uint16_t> xcnt(S, 0);
-        for (std::size_t r = 0; r < S; ++r) {
-            for (std::size_t c = 0; c < S; ++c) {
-                if (csm.get(r, c)) {
-                    ++dcnt[calc_d(r, c)];
-                    ++xcnt[calc_x(r, c)];
-                }
-            }
+        for (std::size_t i = 0; i < S; ++i) {
+            dcnt[i] = csm.count_dsm(i);
+            xcnt[i] = csm.count_xsm(i);
         }
 
         auto xerr = [&](std::size_t x, std::uint16_t cnt){ const std::uint16_t tgt = (x<xsm.size())?xsm[x]:0; return (cnt>tgt)?(cnt-tgt):(tgt-cnt); };

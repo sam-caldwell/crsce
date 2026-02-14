@@ -55,8 +55,8 @@ namespace crsce::decompress::detail {
 
         bool ok = true;
         for (std::size_t c = 0; c < S; ++c) {
-            std::size_t ones = 0; for (std::size_t r = 0; r < S; ++r) { if (csm.get(r, c)) { ++ones; } }
-            if (ones != static_cast<std::size_t>(vsm[c])) { ok = false; break; }
+            const auto have = static_cast<std::size_t>(csm.count_vsm(c));
+            if (have != static_cast<std::size_t>(vsm[c])) { ok = false; break; }
         }
         if (ok && !rows_match_lsm(csm, lsm)) {
             ok = false;
@@ -67,14 +67,14 @@ namespace crsce::decompress::detail {
             try {
                 std::vector<std::size_t> bad; bad.reserve(16);
                 for (std::size_t c = 0; c < S; ++c) {
-                    std::size_t ones = 0; for (std::size_t r = 0; r < S; ++r) { if (csm.get(r, c)) { ++ones; } }
-                    if (ones != static_cast<std::size_t>(vsm[c])) { bad.push_back(c); if (bad.size() >= 16) { break; } }
+                    const auto have = static_cast<std::size_t>(csm.count_vsm(c));
+                    if (have != static_cast<std::size_t>(vsm[c])) { bad.push_back(c); if (bad.size() >= 16) { break; } }
                 }
                 std::string sample;
                 for (std::size_t i = 0; i < bad.size(); ++i) {
                     const std::size_t c = bad[i];
-                    std::size_t ones = 0; for (std::size_t r = 0; r < S; ++r) { if (csm.get(r, c)) { ++ones; } }
-                    sample += "(c=" + std::to_string(c) + ",have=" + std::to_string(ones) + ",vsm=" + std::to_string(vsm[c]) + ")";
+                    const auto have = static_cast<std::size_t>(csm.count_vsm(c));
+                    sample += "(c=" + std::to_string(c) + ",have=" + std::to_string(have) + ",vsm=" + std::to_string(vsm[c]) + ")";
                     if (i + 1U < bad.size()) { sample += ", "; }
                 }
                 std::print(stderr, "radditz: failed cols={} sample={} (seed_belief={})\n",
