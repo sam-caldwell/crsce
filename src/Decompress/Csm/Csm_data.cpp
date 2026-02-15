@@ -5,9 +5,7 @@
  * @copyright (c) 2026 Sam Caldwell. See License.txt for details.
  */
 #include "decompress/Csm/Csm.h"
-#include "common/exceptions/CsmIndexOutOfBounds.h"
 #include <cstddef>
-#include <thread>
 
 namespace crsce::decompress {
     /**
@@ -20,7 +18,7 @@ namespace crsce::decompress {
     double Csm::get_data(const std::size_t r, const std::size_t c) const {
 
         bounds_check(r, c);
-        auto &cell = cells_.at(r).at(c);
+        const auto &cell = cells_.at(r).at(c);
         cell.wait_on_lock();
         return data_.at(r).at(c);
     }
