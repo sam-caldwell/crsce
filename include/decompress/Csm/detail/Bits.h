@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cstdint>
-#include <atomic>
 
 namespace crsce::decompress {
     /**
@@ -14,77 +13,41 @@ namespace crsce::decompress {
      */
     class Bits {
     public:
+        // Resolved cell state (distinct from MU lock used for concurrency)
+        enum class CellLock : std::uint8_t { Unsolved = 0, Resolved = 1 };
         static constexpr std::uint8_t kData = 0x01U;  // bit0
         static constexpr std::uint8_t kMu   = 0x40U;  // bit6
         static constexpr std::uint8_t kLock = 0x80U;  // bit7
 
-        constexpr Bits() = default;
-        constexpr explicit Bits(const std::uint8_t raw) : b_(static_cast<std::uint8_t>(raw & (kData | kMu | kLock))) {}
-        constexpr Bits(const bool data, const bool lock, const bool mu=false)
-            : b_(static_cast<std::uint8_t>((data ? kData : 0U) | (mu ? kMu : 0U) | (lock ? kLock : 0U))) {}
+        Bits();
+        explicit Bits(std::uint8_t raw);
+        Bits(bool data, bool lock, bool mu=false);
 
         // Accessors
-        [[nodiscard]] constexpr bool data() const noexcept { return (b_ & kData) != 0U; }
-        [[nodiscard]] constexpr bool locked() const noexcept { return (b_ & kLock) != 0U; }
-        [[nodiscard]] constexpr bool mu_locked() const noexcept { return (b_ & kMu) != 0U; }
-        [[nodiscard]] constexpr std::uint8_t raw() const noexcept { return b_; }
+        [[nodiscard]] bool data() const noexcept;
+        [[nodiscard]] bool locked() const noexcept;
+        [[nodiscard]] bool resolved() const noexcept;
+        [[nodiscard]] bool mu_locked() const noexcept;
+        [[nodiscard]] std::uint8_t raw() const noexcept;
 
         // Mutators (atomic RMW on the single byte)
-        void set_data(const bool v) noexcept {
-            const std::atomic_ref<std::uint8_t> a(b_);
-            if (v) {
-                a.fetch_or(kData, std::memory_order_acq_rel);
-            } else {
-                a.fetch_and(static_cast<std::uint8_t>(~kData), std::memory_order_acq_rel);
-            }
-        }
-        void flip_data() noexcept {
-            const std::atomic_ref<std::uint8_t> a(b_);
-            a.fetch_xor(kData, std::memory_order_acq_rel);
-        }
-        void set_locked(const bool on=true) noexcept {
-            const std::atomic_ref<std::uint8_t> a(b_);
-            if (on) {
-                a.fetch_or(kLock, std::memory_order_acq_rel);
-            } else {
-                a.fetch_and(static_cast<std::uint8_t>(~kLock), std::memory_order_acq_rel);
-            }
-        }
-        void set_mu_locked(const bool on=true) noexcept {
-            const std::atomic_ref<std::uint8_t> a(b_);
-            if (on) {
-                a.fetch_or(kMu, std::memory_order_acq_rel);
-            } else {
-                a.fetch_and(static_cast<std::uint8_t>(~kMu), std::memory_order_acq_rel);
-            }
-        }
-        void assign(const bool data_bit, const bool lock_bit, const bool mu_bit=false) noexcept {
-            set_raw(static_cast<std::uint8_t>((data_bit ? kData : 0U) | (mu_bit ? kMu : 0U) | (lock_bit ? kLock : 0U)));
-        }
-        void set_raw(const std::uint8_t v) noexcept {
-            const std::atomic_ref<std::uint8_t> a(b_);
-            a.store(static_cast<std::uint8_t>(v & (kData | kMu | kLock)), std::memory_order_release);
-        }
-        void clear() noexcept { set_raw(0U); }
+        void set_data(bool v) noexcept;
+        void flip_data() noexcept;
+        void set_locked(bool on=true) noexcept;
+        void set_locked(CellLock state) noexcept;
+        void set_mu_locked(bool on=true) noexcept;
+        void assign(bool data_bit, bool lock_bit, bool mu_bit=false) noexcept;
+        void set_raw(std::uint8_t v) noexcept;
+        void clear() noexcept;
 
         // Mu helpers
-        bool try_lock_mu() noexcept {
-            const std::atomic_ref<std::uint8_t> a(b_);
-            const auto old = a.fetch_or(kMu, std::memory_order_acq_rel);
-            return (static_cast<std::uint8_t>(old & kMu) == 0U);
-        }
-        void unlock_mu() noexcept {
-            const std::atomic_ref<std::uint8_t> a(b_);
-            (void)a.fetch_and(static_cast<std::uint8_t>(~kMu), std::memory_order_release);
-        }
+        bool try_lock_mu() noexcept;
+        void unlock_mu() noexcept;
 
         // Operators
-        [[nodiscard]] explicit operator bool() const noexcept { return data(); }
-        Bits &operator=(const bool v) noexcept {
-            set_data(v);
-            return *this;
-        }
-        [[nodiscard]] constexpr bool operator==(const Bits &rhs) const noexcept { return b_ == rhs.b_; }
+        [[nodiscard]] explicit operator bool() const noexcept;
+        Bits &operator=(bool v) noexcept;
+        [[nodiscard]] bool operator==(const Bits &rhs) const noexcept;
     private:
         std::uint8_t b_{0U};
     };
