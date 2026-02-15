@@ -97,30 +97,7 @@ namespace crsce::decompress::detail {
         }
         std::print("],\n");
 
-        // Unknowns per family
-        std::print("  \"U_row\":[");
-        for (std::size_t k = 0; k < s.U_row.size(); ++k) {
-            std::print("{}{}", (k ? "," : ""), static_cast<std::uint64_t>(s.U_row[k]));
-        }
-        std::print("],\n");
-
-        std::print("  \"U_col\":[");
-        for (std::size_t k = 0; k < s.U_col.size(); ++k) {
-            std::print("{}{}", (k ? "," : ""), static_cast<std::uint64_t>(s.U_col[k]));
-        }
-        std::print("],\n");
-
-        std::print("  \"U_diag\":[");
-        for (std::size_t k = 0; k < s.U_diag.size(); ++k) {
-            std::print("{}{}", (k ? "," : ""), static_cast<std::uint64_t>(s.U_diag[k]));
-        }
-        std::print("],\n");
-
-        std::print("  \"U_xdiag\":[");
-        for (std::size_t k = 0; k < s.U_xdiag.size(); ++k) {
-            std::print("{}{}", (k ? "," : ""), static_cast<std::uint64_t>(s.U_xdiag[k]));
-        }
-        std::print("],\n");
+        // Unknowns per family arrays removed from stdout for brevity
 
         std::print(
             "  \"unknown_sums\":{{\"rows\":{},\"cols\":{},\"diags\":{},\"xdiags\":{}}},\n",
