@@ -3,8 +3,8 @@
  * @brief Implementation of DeterministicElimination::validate_bounds (phase).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
 #include <cstddef>
 #include "common/exceptions/ConstraintBoundsInvalid.h"

@@ -3,7 +3,7 @@
  * @brief Implementation of DeterministicElimination::force_row (phase).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include <cstddef>
 
 namespace crsce::decompress {

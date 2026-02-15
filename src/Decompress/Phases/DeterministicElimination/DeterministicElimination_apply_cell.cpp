@@ -3,11 +3,11 @@
  * @brief Implementation of DeterministicElimination::apply_cell (phase).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "common/exceptions/DeterministicEliminationError.h"
 #include <cstddef>
 
@@ -56,7 +56,7 @@ namespace crsce::decompress {
             --st_.R_diag.at(d);
             --st_.R_xdiag.at(x);
         }
-        csm_.put(r, c, value);
+        if (value) { csm_.set(r, c); } else { csm_.clear(r, c); }
         csm_.lock(r, c);
     }
 } // namespace crsce::decompress
