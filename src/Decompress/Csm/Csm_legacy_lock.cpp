@@ -1,5 +1,5 @@
 /**
- * @file Csm_lock.cpp
+ * @file Csm_legacy_lock.cpp
  * @author Sam Caldwell
  * @brief Implementation
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details
