@@ -10,6 +10,8 @@
 #include <filesystem>
 #include <fstream>
 #include <print>
+#include <string>
+#include <ios>
 
 namespace crsce::decompress {
     /**
@@ -33,4 +35,3 @@ namespace crsce::decompress {
 }
 
 } // namespace crsce::decompress
-

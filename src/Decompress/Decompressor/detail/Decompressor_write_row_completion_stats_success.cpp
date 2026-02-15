@@ -6,12 +6,19 @@
  */
 
 #include "decompress/Decompressor/detail/RowLog.h"
+#include "decompress/Csm/Csm.h"
 
 #include <filesystem>
 #include <fstream>
 #include <print>
 #include <array>
 #include <vector>
+#include <string>
+#include <span>
+#include <chrono>
+#include <cstdint>
+#include <cstddef>
+#include <ios>
 
 #include "decompress/Utils/detail/decode9.tcc"
 #include "decompress/Utils/detail/index_calc_d.h"
@@ -53,24 +60,59 @@ namespace crsce::decompress {
         const auto dsm2 = decode_9bit_stream<S2>(sums.subspan(2 * vec_bytes2, vec_bytes2));
         const auto xsm2 = decode_9bit_stream<S2>(sums.subspan(3 * vec_bytes2, vec_bytes2));
 
-        std::vector<int> row_ok(S2, 0), col_ok(S2, 0), dsm_ok2(S2, 0), xsm_ok2(S2, 0);
-        std::size_t row_ok_count = 0, col_ok_count = 0, d_ok_count2 = 0, x_ok_count2 = 0;
+        std::vector<int> row_ok(S2, 0);
+        std::vector<int> col_ok(S2, 0);
+        std::vector<int> dsm_ok2(S2, 0);
+        std::vector<int> xsm_ok2(S2, 0);
+        std::size_t row_ok_count = 0;
+        std::size_t col_ok_count = 0;
+        std::size_t d_ok_count2 = 0;
+        std::size_t x_ok_count2 = 0;
         for (std::size_t r = 0; r < S2; ++r) {
-            std::size_t ones = 0; for (std::size_t c = 0; c < S2; ++c) if (csm.get(r, c)) ++ones;
-            if (ones == static_cast<std::size_t>(lsm2.at(r))) { row_ok[r] = 1; ++row_ok_count; }
+            std::size_t ones = 0;
+            for (std::size_t c = 0; c < S2; ++c) {
+                if (csm.get(r, c)) {
+                    ++ones;
+                }
+            }
+            if (ones == static_cast<std::size_t>(lsm2.at(r))) {
+                row_ok[r] = 1;
+                ++row_ok_count;
+            }
         }
         for (std::size_t c = 0; c < S2; ++c) {
-            std::size_t ones = 0; for (std::size_t r = 0; r < S2; ++r) if (csm.get(r, c)) ++ones;
-            if (ones == static_cast<std::size_t>(vsm2.at(c))) { col_ok[c] = 1; ++col_ok_count; }
+            std::size_t ones = 0;
+            for (std::size_t r = 0; r < S2; ++r) {
+                if (csm.get(r, c)) {
+                    ++ones;
+                }
+            }
+            if (ones == static_cast<std::size_t>(vsm2.at(c))) {
+                col_ok[c] = 1;
+                ++col_ok_count;
+            }
         }
-        using detail::calc_d; using detail::calc_x;
-        std::vector<std::size_t> dcnt2(S2, 0), xcnt2(S2, 0);
-        for (std::size_t r = 0; r < S2; ++r) for (std::size_t c = 0; c < S2; ++c) if (csm.get(r, c)) {
-            ++dcnt2[calc_d(r, c)]; ++xcnt2[calc_x(r, c)];
+        using detail::calc_d;
+        using detail::calc_x;
+        std::vector<std::size_t> dcnt2(S2, 0);
+        std::vector<std::size_t> xcnt2(S2, 0);
+        for (std::size_t r = 0; r < S2; ++r) {
+            for (std::size_t c = 0; c < S2; ++c) {
+                if (csm.get(r, c)) {
+                    ++dcnt2[calc_d(r, c)];
+                    ++xcnt2[calc_x(r, c)];
+                }
+            }
         }
         for (std::size_t i2 = 0; i2 < S2; ++i2) {
-            if (dcnt2[i2] == static_cast<std::size_t>(dsm2.at(i2))) { dsm_ok2[i2] = 1; ++d_ok_count2; }
-            if (xcnt2[i2] == static_cast<std::size_t>(xsm2.at(i2))) { xsm_ok2[i2] = 1; ++x_ok_count2; }
+            if (dcnt2[i2] == static_cast<std::size_t>(dsm2.at(i2))) {
+                dsm_ok2[i2] = 1;
+                ++d_ok_count2;
+            }
+            if (xcnt2[i2] == static_cast<std::size_t>(xsm2.at(i2))) {
+                xsm_ok2[i2] = 1;
+                ++x_ok_count2;
+            }
         }
 
         const double row_avg = static_cast<double>(row_ok_count) / static_cast<double>(S2);
@@ -133,21 +175,37 @@ namespace crsce::decompress {
                 os << "  \"valid_prefix\":" << valid_prefix << ",\n"
                    << "  \"verified_rows\":[";
                 bool first = true;
-                for (std::size_t r0 = 0; r0 < S2; ++r0) if (ver.verify_row(csm, lh, r0)) {
-                    if (!first) os << ",";
-                    first = false; os << r0;
+                for (std::size_t r0 = 0; r0 < S2; ++r0) {
+                    if (ver.verify_row(csm, lh, r0)) {
+                        if (!first) {
+                            os << ",";
+                        }
+                        first = false;
+                        os << r0;
+                    }
                 }
                 os << "],\n";
 
                 using ::crsce::decompress::detail::to_hex;
                 std::array<std::uint8_t, 64> row0{};
                 {
-                    std::size_t byte_idx = 0; int bit_pos = 0; std::uint8_t curr = 0;
+                    std::size_t byte_idx = 0;
+                    int bit_pos = 0;
+                    std::uint8_t curr = 0;
                     for (std::size_t c0 = 0; c0 < S2; ++c0) {
-                        if (csm.get(0, c0)) curr = static_cast<std::uint8_t>(curr | static_cast<std::uint8_t>(1U << (7 - bit_pos)));
-                        ++bit_pos; if (bit_pos >= 8) { row0.at(byte_idx++) = curr; curr = 0; bit_pos = 0; }
+                        if (csm.get(0, c0)) {
+                            curr = static_cast<std::uint8_t>(curr | static_cast<std::uint8_t>(1U << (7 - bit_pos)));
+                        }
+                        ++bit_pos;
+                        if (bit_pos >= 8) {
+                            row0.at(byte_idx++) = curr;
+                            curr = 0;
+                            bit_pos = 0;
+                        }
                     }
-                    if (bit_pos != 0) row0.at(byte_idx) = curr;
+                    if (bit_pos != 0) {
+                        row0.at(byte_idx) = curr;
+                    }
                 }
                 const auto d0 = crsce::common::detail::sha256::sha256_digest(row0.data(), row0.size());
                 const auto expected0 = lh.subspan(0, 32);
@@ -161,19 +219,39 @@ namespace crsce::decompress {
             // Summaries
             os << "  \"row_avg_pct\":" << (row_avg * 100.0) << ",\n"
                << "  \"rows\":[";
-            for (std::size_t r = 0; r < S2; ++r) { if (r) os << ","; os << row_ok[r]; }
+            for (std::size_t r = 0; r < S2; ++r) {
+                if (r) {
+                    os << ",";
+                }
+                os << row_ok[r];
+            }
             os << "],\n"
                << "  \"col_avg_pct\":" << (col_avg * 100.0) << ",\n"
                << "  \"cols\":[";
-            for (std::size_t c = 0; c < S2; ++c) { if (c) os << ","; os << col_ok[c]; }
+            for (std::size_t c = 0; c < S2; ++c) {
+                if (c) {
+                    os << ",";
+                }
+                os << col_ok[c];
+            }
             os << "],\n"
                << "  \"dsm_avg_pct\":" << dsm_avg2 << ",\n"
                << "  \"dsm\":[";
-            for (std::size_t i2 = 0; i2 < S2; ++i2) { if (i2) os << ","; os << dsm_ok2[i2]; }
+            for (std::size_t i2 = 0; i2 < S2; ++i2) {
+                if (i2) {
+                    os << ",";
+                }
+                os << dsm_ok2[i2];
+            }
             os << "],\n"
                << "  \"xsm_avg_pct\":" << xsm_avg2 << ",\n"
                << "  \"xsm\":[";
-            for (std::size_t i2 = 0; i2 < S2; ++i2) { if (i2) os << ","; os << xsm_ok2[i2]; }
+            for (std::size_t i2 = 0; i2 < S2; ++i2) {
+                if (i2) {
+                    os << ",";
+                }
+                os << xsm_ok2[i2];
+            }
             os << "]\n";
 
             // Also dump restarts/counters/schedule if available from snapshot
@@ -187,7 +265,9 @@ namespace crsce::decompress {
                        << ",\"prefix_rows\":" << e.prefix_rows
                        << ",\"unknown_total\":" << e.unknown_total
                        << ",\"action\":\"" << restart_action_to_cstr(e.action) << "\"}";
-                    if (qi + 1U < ev2.size()) os << ",";
+                    if (qi + 1U < ev2.size()) {
+                        os << ",";
+                    }
                     os << "\n";
                 }
                 os << "  ],\n"
@@ -199,19 +279,25 @@ namespace crsce::decompress {
                     os << "  \"adaptive_schedule\":{\n"
                        << "    \"conf\":[";
                     for (std::size_t idx = 0; idx < s3->phase_conf.size(); ++idx) {
-                        if (idx) os << ",";
+                        if (idx) {
+                            os << ",";
+                        }
                         os << s3->phase_conf[idx];
                     }
                     os << "],\n"
                        << "    \"damp\":[";
                     for (std::size_t idx = 0; idx < s3->phase_damp.size(); ++idx) {
-                        if (idx) os << ",";
+                        if (idx) {
+                            os << ",";
+                        }
                         os << s3->phase_damp[idx];
                     }
                     os << "],\n"
                        << "    \"iters\":[";
                     for (std::size_t idx = 0; idx < s3->phase_iters.size(); ++idx) {
-                        if (idx) os << ",";
+                        if (idx) {
+                            os << ",";
+                        }
                         os << s3->phase_iters[idx];
                     }
                     os << "]\n"
@@ -256,14 +342,18 @@ namespace crsce::decompress {
                        << "\",\"start_ms\":" << te.start_ms
                        << ",\"stop_ms\":" << te.stop_ms
                        << ",\"outcome\":\"" << ::crsce::decompress::detail::js_escape(te.outcome) << "\"}";
-                    if (ti + 1U < s3->thread_events.size()) os << ",";
+                    if (ti + 1U < s3->thread_events.size()) {
+                        os << ",";
+                    }
                 }
                 os << "],\n"
                    << "  \"unknown_history\":[";
                 const std::size_t uh2_n = s3->unknown_history.size();
                 const std::size_t uh2_start = (uh2_n > 256) ? (uh2_n - 256) : 0;
                 for (std::size_t ui = uh2_start; ui < uh2_n; ++ui) {
-                    if (ui > uh2_start) os << ",";
+                    if (ui > uh2_start) {
+                        os << ",";
+                    }
                     os << s3->unknown_history[ui];
                 }
                 os << "],\n"
@@ -271,7 +361,9 @@ namespace crsce::decompress {
                 for (std::size_t pi = 0; pi < s3->prefix_progress.size(); ++pi) {
                     const auto &p = s3->prefix_progress[pi];
                     os << "{\"iter\":" << p.iter << ",\"value\":" << p.prefix_len << "}";
-                    if (pi + 1U < s3->prefix_progress.size()) os << ",";
+                    if (pi + 1U < s3->prefix_progress.size()) {
+                        os << ",";
+                    }
                 }
                 os << "]\n";
             }
@@ -283,4 +375,3 @@ namespace crsce::decompress {
 }
 
 } // namespace crsce::decompress
-

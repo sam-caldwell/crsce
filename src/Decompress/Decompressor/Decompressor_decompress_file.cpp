@@ -24,6 +24,8 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <cstdint>
+#include <ios>
 
 namespace crsce::decompress {
     /**
