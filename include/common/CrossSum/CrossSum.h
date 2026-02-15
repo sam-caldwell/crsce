@@ -1,5 +1,6 @@
 /**
  * @file CrossSum.h
+ * @author Sam Caldwell
  * @brief Cross-sum vector helper (511 elements, 9-bit serialization).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

@@ -1,5 +1,6 @@
 /**
  * @file CsmIndexOutOfBounds.h
+ * @author Sam Caldwell
  * @brief Exception for CSM (r,c) index out-of-bounds errors.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

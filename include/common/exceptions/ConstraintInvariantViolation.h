@@ -1,5 +1,6 @@
 /**
  * @file ConstraintInvariantViolation.h
+ * @author Sam Caldwell
  * @brief Exception for violations of R ≤ U invariant in constraint lines.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

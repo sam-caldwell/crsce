@@ -1,5 +1,6 @@
 /**
  * @file ch.h
+ * @author Sam Caldwell
  * @brief SHA-256 choose function.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

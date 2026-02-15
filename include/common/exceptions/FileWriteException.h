@@ -1,5 +1,6 @@
 /**
  * @file FileWriteException.h
+ * @author Sam Caldwell
  * @brief Thrown when writing to a file fails.
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details

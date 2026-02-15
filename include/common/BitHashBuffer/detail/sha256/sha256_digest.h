@@ -1,5 +1,6 @@
 /**
  * @file sha256_digest.h
+ * @author Sam Caldwell
  * @brief Compute SHA-256 over a byte span.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

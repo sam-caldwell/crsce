@@ -1,5 +1,6 @@
 /**
  * @file HeaderV1.h
+ * @author Sam Caldwell
  * @brief CRSCE v1 container header (28 bytes LE) packing helper.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */

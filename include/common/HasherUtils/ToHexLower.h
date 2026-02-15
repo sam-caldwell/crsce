@@ -1,5 +1,6 @@
 /**
  * @file ToHexLower.h
+ * @author Sam Caldwell
  * @brief Convert a 32-byte digest to 64-char lowercase hex.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

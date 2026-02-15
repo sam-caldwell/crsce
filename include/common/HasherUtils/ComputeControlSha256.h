@@ -1,5 +1,6 @@
 /**
  * @file ComputeControlSha256.h
+ * @author Sam Caldwell
  * @brief Resolve and execute system SHA-256 tool to compute control hash.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */

@@ -1,5 +1,6 @@
 /**
  * @file FileBitSerializer.h
+ * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Buffered bitwise reader for files (1 KiB chunked, MSB-first per byte).
  */

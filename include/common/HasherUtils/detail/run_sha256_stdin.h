@@ -1,5 +1,6 @@
 /**
  * @file run_sha256_stdin.h
+ * @author Sam Caldwell
  * @brief Execute external SHA-256 tool via stdin and capture hex digest.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

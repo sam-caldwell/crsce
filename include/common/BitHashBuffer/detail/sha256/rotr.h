@@ -1,5 +1,6 @@
 /**
  * @file rotr.h
+ * @author Sam Caldwell
  * @brief SHA-256 rotate-right utility for 32-bit values.
  * @copyright Sam Caldwell.  See LICENSE.txt for details
  */

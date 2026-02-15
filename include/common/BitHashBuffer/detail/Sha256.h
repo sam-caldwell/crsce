@@ -1,5 +1,6 @@
 /**
  * @file Sha256.h
+ * @author Sam Caldwell
  * @brief Aggregator for SHA-256 declarations; includes per-function headers.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

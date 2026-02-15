@@ -1,5 +1,6 @@
 /**
  * @file big_sigma1.h
+ * @author Sam Caldwell
  * @brief SHA-256 Σ1 function.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

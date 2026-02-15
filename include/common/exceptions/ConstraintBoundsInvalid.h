@@ -1,5 +1,6 @@
 /**
  * @file ConstraintBoundsInvalid.h
+ * @author Sam Caldwell
  * @brief Exception for invalid constraint upper bounds (U out of [0,S]).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

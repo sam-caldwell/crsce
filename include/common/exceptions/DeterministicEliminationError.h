@@ -1,5 +1,6 @@
 /**
  * @file DeterministicEliminationError.h
+ * @author Sam Caldwell
  * @brief Exception for deterministic elimination constraint violations.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

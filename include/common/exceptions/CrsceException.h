@@ -1,5 +1,6 @@
 /**
  * @file CrsceException.h
+ * @author Sam Caldwell
  * @brief Base exception type for CRSCE that enables targeted catching.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

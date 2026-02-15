@@ -1,5 +1,6 @@
 /**
  * @file DecompressNonZeroExitException.h
+ * @author Sam Caldwell
  * @brief Thrown when the decompress tool exits with a non-zero status.
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details

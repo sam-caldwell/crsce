@@ -1,5 +1,6 @@
 /**
  * @file ArgParser.h
+ * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Simple command-line argument parser shared by project binaries.
  * @note Located under include/common/ArgParser.

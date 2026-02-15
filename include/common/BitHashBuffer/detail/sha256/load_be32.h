@@ -1,5 +1,6 @@
 /**
  * @file load_be32.h
+ * @author Sam Caldwell
  * @brief Load a 32-bit word from big-endian order.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

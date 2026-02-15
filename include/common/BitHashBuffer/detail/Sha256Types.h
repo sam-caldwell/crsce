@@ -1,5 +1,6 @@
 /**
  * @file Sha256Types.h
+ * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Fundamental type aliases used by SHA-256 routines.
  */

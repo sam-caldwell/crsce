@@ -1,5 +1,6 @@
 /**
  * @file CompressTimeoutException.h
+ * @author Sam Caldwell
  * @brief Thrown when compression exceeds the allowed time per block.
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details

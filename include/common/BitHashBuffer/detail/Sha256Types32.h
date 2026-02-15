@@ -1,5 +1,6 @@
 /**
  * @file Sha256Types32.h
+ * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  * @brief 32-bit alias used by SHA-256 routines.
  */

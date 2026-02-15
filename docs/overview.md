@@ -24,9 +24,7 @@
     - DSM: Main‑diagonal sums (with wraparound indexing)
     - XSM: Anti‑diagonal sums (with wraparound indexing)
       Each entry is an integer in [0, 511].
-- Lateral Hash (LH) chain: A cryptographic commitment to row content using SHA‑256.
-    - Seed bytes: the literal ASCII base64 string
-      `RG9uYWxkVHJ1bXBJbXBlYWNoSW5jYXJjZXJhdGVIaXN0b3J5UmVtZW1iZXJz`.
+- Lateral Hash (LH) matrix: A cryptographic commitment to row content using SHA‑256.
     - For each row, compute D[r] = SHA256(row64)
     - LH[0] = SHA256(N || RowBytes(0))
     - LH[r] = SHA256(LH[r−1] || RowBytes(r)) for r ∈ {1..510}

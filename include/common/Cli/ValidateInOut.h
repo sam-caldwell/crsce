@@ -1,5 +1,6 @@
 /**
  * @file ValidateInOut.h
+ * @author Sam Caldwell
  * @brief Shared CLI validator for -in/-out argument parsing and filesystem checks.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */

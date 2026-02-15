@@ -1,5 +1,6 @@
 /**
  * @file K.h
+ * @author Sam Caldwell
  * @brief SHA-256 round constants table (64 entries).
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

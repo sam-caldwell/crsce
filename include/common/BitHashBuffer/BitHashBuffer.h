@@ -1,5 +1,6 @@
 /**
  * @file BitHashBuffer.h
+ * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief Bitwise buffer that emits per-row SHA-256 digests (no chaining).
  */

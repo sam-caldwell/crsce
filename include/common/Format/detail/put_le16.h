@@ -1,5 +1,6 @@
 /**
  * @file put_le16.h
+ * @author Sam Caldwell
  * @brief Declaration for little-endian 16-bit store helper.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */

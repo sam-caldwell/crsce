@@ -1,5 +1,6 @@
 /**
  * @file ExtractFirstHex64.h
+ * @author Sam Caldwell
  * @brief Extract first 64 hex chars from text; lowercase output.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */

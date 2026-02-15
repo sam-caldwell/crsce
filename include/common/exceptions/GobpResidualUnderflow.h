@@ -1,5 +1,6 @@
 /**
  * @file GobpResidualUnderflow.h
+ * @author Sam Caldwell
  * @brief Exception for residual underflow or invalid assignments in GOBP.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
