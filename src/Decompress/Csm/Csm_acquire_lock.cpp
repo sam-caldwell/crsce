@@ -1,6 +1,8 @@
 /**
  * @file Csm_acquire_lock.cpp
- * @brief Private helper to acquire all four series locks with timeout.
+ * @author Sam Caldwell
+ * @brief Implementation
+ * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/Csm/Csm.h"
 #include <chrono>
@@ -9,6 +11,15 @@
 #include <cstdint>
 
 namespace crsce::decompress {
+    /**
+     * @name acquire_lock
+     * @brief Private helper to acquire all four series locks with timeout.
+     * @param row
+     * @param col
+     * @param dg
+     * @param xg
+     * @return
+     */
     bool Csm::acquire_lock(SeriesLock &row, SeriesLock &col, SeriesLock &dg, SeriesLock &xg) const {
         const auto t0 = std::chrono::steady_clock::now();
         std::uint64_t tm_ms = 5000ULL;
