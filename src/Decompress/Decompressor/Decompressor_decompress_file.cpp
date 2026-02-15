@@ -63,9 +63,14 @@ namespace crsce::decompress {
             auto payload = read_block();
             if (!payload.has_value()) {
                 ::crsce::o11y::event("decompress_error", {
-                                         {"type", std::string("short_read")}, {"block", std::to_string(i)}
+                                         {"type", std::string("short_read")},
+                                         {"block", std::to_string(i)}
                                      });
-                ::crsce::decompress::detail::emit_decompress_summary("short_read", blocks_attempted, blocks_successful);
+                ::crsce::decompress::detail::emit_decompress_summary(
+                    "short_read",
+                    blocks_attempted,
+                    blocks_successful
+                );
                 return false;
             }
 
@@ -118,14 +123,18 @@ namespace crsce::decompress {
                                      });
             } catch (...) {
                 ::crsce::o11y::event("decompress_error", {
-                                         {"type", std::string("solve_exception_unknown")}, {"block", std::to_string(i)}
-                                     });
+                                         {"type", std::string("solve_exception_unknown")},
+                                         {"block", std::to_string(i)}
+                                     }
+                );
             } // end try...catch...
 
             if (!solved_ok) {
                 ::crsce::o11y::event("decompress_error", {
-                                         {"type", std::string("solve_failed")}, {"block", std::to_string(i)}
-                                     });
+                                         {"type", std::string("solve_failed")},
+                                         {"block", std::to_string(i)}
+                                     }
+                );
 
                 if (const auto snap = get_block_solve_snapshot(); snap.has_value()) {
                     try {
