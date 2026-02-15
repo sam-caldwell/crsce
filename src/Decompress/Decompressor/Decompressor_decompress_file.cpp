@@ -175,7 +175,9 @@ namespace crsce::decompress {
                                                                  blocks_successful);
             return false;
         }
-        for (const auto b: output_bytes) out.put(static_cast<char>(b));
+        for (const auto b: output_bytes) {
+            out.put(static_cast<char>(b));
+        }
         if (!out.good()) {
             ::crsce::o11y::event(
                 "decompress_error", {
