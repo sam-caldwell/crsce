@@ -10,6 +10,7 @@ namespace crsce::decompress {
     /**
      * @name flush
      * @brief a reserved (nop) flush method for future use
+     * @return void
      */
     void Csm::flush() noexcept {}
 }
