@@ -1,5 +1,6 @@
 /**
  * @file Decompressor_parse_header.cpp
+ * @author Sam Caldwell
  * @brief Implementation of Decompressor::parse_header.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
@@ -10,7 +11,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 
 namespace crsce::decompress {

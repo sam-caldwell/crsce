@@ -1,5 +1,6 @@
 /**
  * @file Decompressor_read_header.cpp
+ * @author Sam Caldwell
  * @brief Implementation of Decompressor::read_header.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
