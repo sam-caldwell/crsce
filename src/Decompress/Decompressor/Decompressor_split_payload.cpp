@@ -1,11 +1,12 @@
 /**
  * @file Decompressor_split_payload.cpp
+ * @author Sam Caldwell
  * @brief Implementation of Decompressor::split_payload.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Decompressor/Decompressor.h"
 
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <vector>
 

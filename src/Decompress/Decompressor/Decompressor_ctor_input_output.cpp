@@ -1,5 +1,6 @@
 /**
  * @file Decompressor_ctor_input_output.cpp
+ * @author Sam Caldwell
  * @brief Implementation of Decompressor two-arg constructor.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
