@@ -6,6 +6,7 @@
  */
 #include "decompress/Csm/Csm.h"
 #include "common/exceptions/CsmIndexOutOfBounds.h"
+#include <cstddef>
 
 namespace crsce::decompress {
     /**
@@ -21,4 +22,3 @@ namespace crsce::decompress {
         }
     }
 }
-
