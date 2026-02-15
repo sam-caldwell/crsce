@@ -1,13 +1,19 @@
 /**
  * @file Csm_reset.cpp
  * @brief Implementation
+ * @author Sam Caldwell
+ * @copyright (c) 2026 Sam Caldwell. See License.txt for details.
  */
 #include "decompress/Csm/Csm.h"
 #include <cstddef>
 #include <atomic>
 
 namespace crsce::decompress {
-
+    /**
+     * @name reset
+     * @brief reset the CSM state
+     * @return void
+     */
     void Csm::reset() {
         // Zero storage
         for (std::size_t r = 0; r < kS; ++r) {

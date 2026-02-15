@@ -1,6 +1,6 @@
 /**
  * @file Csm_ctor.cpp
- * @brief Csm Class constructor
+ * @brief Implementation
  * @author Sam Caldwell
  * @copyright (c) 2026 Sam Caldwell. See License.txt for details.
  */
