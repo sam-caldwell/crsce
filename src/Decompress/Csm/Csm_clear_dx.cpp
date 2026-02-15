@@ -5,12 +5,13 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Csm/Csm.h"
-#include "common/exceptions/CsmIndexOutOfBounds.h"
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
 #include "decompress/Utils/detail/calc_c_from_d.h"
 #include <cstddef>
 #include <optional>
 #include <atomic>
+#include <chrono>
+#include <cstdlib>
 
 namespace crsce::decompress {
     /**
@@ -19,33 +20,42 @@ namespace crsce::decompress {
      * @param d diagonal coordinate
      * @param x anti-diagonal coordinate
      * @param lock mutex lock
-     * @param async boolean which indicates whether operation is asynchronous.
      */
-    void Csm::clear_dx(const std::size_t d, const std::size_t x, const MuLockFlag lock, const bool /*async*/) {
+    void Csm::clear_dx(const std::size_t d, const std::size_t x, const MuLockFlag lock) {
 
-        if (!in_bounds(d, x)) {
-            throw CsmIndexOutOfBounds(d, x, kS);
-        }
+        bounds_check(d, x);
 
         const std::size_t r = dx_row_.at(d).at(x);
         const std::size_t c = ::crsce::decompress::detail::calc_c_from_d(r, d);
+        auto &row = row_mu_.at(r);
+        auto &col = col_mu_.at(c);
+        auto &dg  = diag_mu_.at(d);
+        auto &xg  = xdg_mu_.at(x);
 
-        const SeriesScopeGuard scope(row_mu_.at(r), col_mu_.at(c), diag_mu_.at(d), xdg_mu_.at(x));
+        if (!acquire_lock(row, col, dg, xg)) { return; }
 
-        auto *cell = dx_cells_.at(d).at(x);
-
-        if (lock == MuLockFlag::Locked) {
-            std::optional<CellMuGuard> cmu;
-            cmu.emplace(*cell);
+        try {
+            auto *cell = dx_cells_.at(d).at(x);
+            if (lock == MuLockFlag::Locked) {
+                std::optional<CellMuGuard> cmu;
+                cmu.emplace(*cell);
+            }
+            if (cell->resolved()) {
+                throw WriteFailureOnLockedCsmElement("Csm::clear_dx: write to locked element");
+            }
+            cell->set_data(false);
+            update_counters_after_flip(r, c, true, false);
+            row_versions_.at(r).fetch_add(1ULL, std::memory_order_relaxed);
+        } catch (...) {
+            xg.unlock();
+            dg.unlock();
+            col.unlock();
+            row.unlock();
+            throw;
         }
-
-        if (cell->locked()) {
-            // locked cells are resolved by a previous stage.  Changing them questions all other calculations.
-            throw WriteFailureOnLockedCsmElement("Csm::clear_dx: write to locked element");
-        }
-
-        cell->set_data(false);
-        update_counters_after_flip(r, c, true, false);
-        row_versions_.at(r).fetch_add(1ULL, std::memory_order_relaxed);
+        xg.unlock();
+        dg.unlock();
+        col.unlock();
+        row.unlock();
     }
 }
