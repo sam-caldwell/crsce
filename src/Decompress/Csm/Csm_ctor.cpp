@@ -5,8 +5,7 @@
  * @copyright (c) 2026 Sam Caldwell. See License.txt for details.
  */
 #include "decompress/Csm/Csm.h"
-#include <cstddef>
-#include <atomic>
+#include <cstddef> // NOLINT
 
 namespace crsce::decompress {
     /**
