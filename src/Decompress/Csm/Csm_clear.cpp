@@ -8,10 +8,6 @@
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
 #include <cstddef>
 #include <optional>
-#include <atomic>
-#include <chrono>
-#include <thread>
-#include <cstdlib>
 
 namespace crsce::decompress {
     /**
@@ -33,37 +29,8 @@ namespace crsce::decompress {
         auto &dg  = diag_mu_.at(d);
         auto &xg  = xdg_mu_.at(x);
 
-        const auto t0 = std::chrono::steady_clock::now();
-
-        const auto timeout = std::chrono::milliseconds([](){
-
-            if (const char *env = std::getenv("WRITE_LOCK_TIMEOUT"); env && *env) {
-
-                if (std::int64_t v = std::strtoll(env, nullptr, 10); v > 0)
-                    return static_cast<std::uint64_t>(v);
-            }
-
-            return 5000ULL;
-        }());
-
-        bool acquired = false;
-
-        while (true) {
-            if (row.try_lock() && col.try_lock() && dg.try_lock() && xg.try_lock()) {
-                acquired = true; break;
-            }
-
-            if (xg.try_lock()) xg.unlock();
-            if (dg.try_lock()) dg.unlock();
-            if (col.try_lock()) col.unlock();
-            if (row.try_lock()) row.unlock();
-
-            if ((std::chrono::steady_clock::now() - t0) >= timeout) {
-                return;
-            }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
+        if (!acquire_lock(row, col, dg, xg)) {
+            return;
         }
         // ensure unlock even if exception
         try {
@@ -77,14 +44,15 @@ namespace crsce::decompress {
             update_counters_after_flip(r, c, true, false);
             row_versions_.at(r).fetch_add(1ULL, std::memory_order_relaxed);
         } catch (...) {
-            if (acquired) { xg.unlock(); dg.unlock(); col.unlock(); row.unlock(); }
-            throw;
-        }
-        if (acquired) {
             xg.unlock();
             dg.unlock();
             col.unlock();
             row.unlock();
+            throw;
         }
+        xg.unlock();
+        dg.unlock();
+        col.unlock();
+        row.unlock();
     }
 }
