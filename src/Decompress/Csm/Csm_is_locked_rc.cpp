@@ -5,7 +5,6 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/Csm/Csm.h"
-#include "common/exceptions/CsmIndexOutOfBounds.h"
 #include <cstddef>
 
 namespace crsce::decompress {
