@@ -7,6 +7,7 @@
 #include "decompress/Csm/Csm.h"
 #include "common/exceptions/CsmIndexOutOfBounds.h"
 #include <cstddef>
+#include <thread>
 
 namespace crsce::decompress {
     /**
@@ -17,7 +18,9 @@ namespace crsce::decompress {
      * @return boolean cell value (set/clear)
      */
     bool Csm::get_rc(const std::size_t r, const std::size_t c) const {
-        if (!in_bounds(r, c)) { throw CsmIndexOutOfBounds(r, c, kS); }
-        return cells_.at(r).at(c).data();
+        bounds_check(r, c);
+        auto &cell = cells_.at(r).at(c);
+        cell.wait_on_lock();
+        return cell.data();
     }
 } // namespace crsce::decompress
