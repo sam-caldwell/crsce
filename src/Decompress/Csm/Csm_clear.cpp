@@ -8,6 +8,7 @@
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
 #include <cstddef>
 #include <optional>
+#include <atomic>
 
 namespace crsce::decompress {
     /**

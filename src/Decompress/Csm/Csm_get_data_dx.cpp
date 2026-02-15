@@ -5,10 +5,8 @@
  * @copyright (c) 2026 Sam Caldwell.  See License.txt for details.
  */
 #include "decompress/Csm/Csm.h"
-#include "common/exceptions/CsmIndexOutOfBounds.h"
 #include "decompress/Utils/detail/calc_c_from_d.h"
 #include <cstddef>
-#include <thread>
 
 namespace crsce::decompress {
     /**
@@ -22,7 +20,7 @@ namespace crsce::decompress {
         bounds_check(d, x);
         const std::size_t r = dx_row_.at(d).at(x);
         const std::size_t c = ::crsce::decompress::detail::calc_c_from_d(r, d);
-        const Bits *cell = dx_cells_.at(d).at(x);
+        const auto *cell = dx_cells_.at(d).at(x);
         cell->wait_on_lock();
         return data_.at(r).at(c);
     }

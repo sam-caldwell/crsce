@@ -9,6 +9,7 @@
 #include "decompress/Utils/detail/calc_c_from_d.h"
 #include <cstddef>
 #include <optional>
+#include <atomic>
 
 namespace crsce::decompress {
     /**
