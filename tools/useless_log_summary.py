@@ -22,7 +22,6 @@ import os
 import statistics as stats
 import sys
 from typing import Any, Dict, List
-import re
 
 
 def load_objects(path: str) -> List[Dict[str, Any]]:
@@ -282,14 +281,14 @@ def main(argv: List[str]) -> int:
     try:
         if isinstance(last.get('U_diag'), list):
             dsm_sat = [1 if int(u) == 0 else 0 for u in last['U_diag']]
-            print(f"- dsm_avg_pct_last: { (sum(dsm_sat) / max(1, len(dsm_sat))) * 100.0:.4f}")
+            print(f"- dsm_avg_pct_last: {(sum(dsm_sat) / max(1, len(dsm_sat))) * 100.0:.4f}")
             print(f"- dsm: {dsm_sat}")
     except Exception:
         pass
     try:
         if isinstance(last.get('U_xdiag'), list):
             xsm_sat = [1 if int(u) == 0 else 0 for u in last['U_xdiag']]
-            print(f"- xsm_avg_pct_last: { (sum(xsm_sat) / max(1, len(xsm_sat))) * 100.0:.4f}")
+            print(f"- xsm_avg_pct_last: {(sum(xsm_sat) / max(1, len(xsm_sat))) * 100.0:.4f}")
             print(f"- xsm: {xsm_sat}")
     except Exception:
         pass
@@ -301,14 +300,14 @@ def main(argv: List[str]) -> int:
             try:
                 if isinstance(last_dx.get('U_diag'), list):
                     dsm_sat = [1 if int(u) == 0 else 0 for u in last_dx['U_diag']]
-                    print(f"- dsm_avg_pct_last(dx): { (sum(dsm_sat) / max(1, len(dsm_sat))) * 100.0:.4f}")
+                    print(f"- dsm_avg_pct_last(dx): {(sum(dsm_sat) / max(1, len(dsm_sat))) * 100.0:.4f}")
                     print(f"- dsm(dx): {dsm_sat}")
             except Exception:
                 pass
             try:
                 if isinstance(last_dx.get('U_xdiag'), list):
                     xsm_sat = [1 if int(u) == 0 else 0 for u in last_dx['U_xdiag']]
-                    print(f"- xsm_avg_pct_last(dx): { (sum(xsm_sat) / max(1, len(xsm_sat))) * 100.0:.4f}")
+                    print(f"- xsm_avg_pct_last(dx): {(sum(xsm_sat) / max(1, len(xsm_sat))) * 100.0:.4f}")
                     print(f"- xsm(dx): {xsm_sat}")
             except Exception:
                 pass

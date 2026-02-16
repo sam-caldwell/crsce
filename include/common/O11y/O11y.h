@@ -113,6 +113,12 @@ namespace crsce::o11y {
         void ensure_started();
         void worker_loop(std::stop_token st);
         void flush_now();
+        /**
+         * @brief Return whether the scheduler queue is non-empty.
+         * Caller must hold `sched_mu_` when invoking.
+         * @return bool True if there are pending jobs.
+         */
+        bool has_jobs() const { return !jobs_.empty(); }
 
         // Internal sync operations (scheduled on background thread)
         void do_counter(const std::string &name, const Tags &tags, std::uint64_t ts_ms);

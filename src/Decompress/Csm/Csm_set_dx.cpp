@@ -1,8 +1,8 @@
 /**
  * @file Csm_set_dx.cpp
  * @author Sam Caldwell
- * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details
+ * @brief Set a bit via (d,x) addressing and update counters/versions.
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/Csm/Csm.h"
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
@@ -14,10 +14,11 @@
 namespace crsce::decompress {
     /**
      * @name set_dx
-     * @brief set a value in (d,x) coordinate space
-     * @param d diagonal coordinate
-     * @param x antidiagonal coordinate
-     * @param lock mutex
+     * @brief Set the bit at (d,x) and update counters/versions.
+     * @param d Diagonal coordinate.
+     * @param x Anti-diagonal coordinate.
+     * @param lock MU lock behavior for write (Locked|Unlocked).
+     * @return void
      */
     void Csm::set_dx(const std::size_t d, const std::size_t x, const MuLockFlag lock) {
         bounds_check(d, x);

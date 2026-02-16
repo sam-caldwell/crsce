@@ -1,8 +1,8 @@
 /**
  * @file Csm_build_dx_tables.cpp
  * @author Sam Caldwell
- * @brief create the (d,x) address translation tables
- * @copyright (c) 2026 Sam Caldwell. See License.txt for details
+ * @brief Create the (d,x) address translation tables for CSM.
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/Csm/Csm.h"
 #include <cstddef>

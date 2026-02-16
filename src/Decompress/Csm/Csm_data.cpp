@@ -1,8 +1,8 @@
 /**
  * @file Csm_data.cpp
  * @author Sam Caldwell
- * @brief Csm method to return belief data.
- * @copyright (c) 2026 Sam Caldwell. See License.txt for details.
+ * @brief Read cell belief value (waits briefly if MU-locked).
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/Csm.h"
 #include <cstddef>

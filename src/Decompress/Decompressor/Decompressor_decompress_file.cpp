@@ -1,6 +1,8 @@
 /**
  * @file Decompressor_decompress_file.cpp
  * @brief Drive block-wise decompression and write reconstructed bytes to output_path_.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include "decompress/Decompressor/Decompressor.h"
@@ -28,9 +30,9 @@
 
 namespace crsce::decompress {
     /**
-     * @name decompress_files
-     * @brief this is the top-level decompressor function
-     * @return bool error state
+     * @name decompress_file
+     * @brief Top-level decompressor entry; decodes header and blocks, writes out bytes.
+     * @return bool True on success; false on error.
      */
     bool Decompressor::decompress_file() {
         const auto run_start = std::chrono::system_clock::now();

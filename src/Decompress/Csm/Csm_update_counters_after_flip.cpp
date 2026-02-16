@@ -1,8 +1,8 @@
 /**
  * @file Csm_update_counters_after_flip.cpp
  * @author Sam Caldwell
- * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details
+ * @brief Update counters after a bit flip to keep sums in sync.
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/Csm/Csm.h"
 #include <cstddef>
@@ -16,6 +16,7 @@ namespace crsce::decompress {
      * @param c column
      * @param old_v old value
      * @param new_v new value
+     * @return void
      */
     void Csm::update_counters_after_flip(const std::size_t r,
                                          const std::size_t c,

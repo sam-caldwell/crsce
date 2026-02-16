@@ -1,8 +1,8 @@
 /**
  * @file Csm_clear_dx.cpp
  * @author Sam Caldwell
- * @brief Csm::clear_dx() method definition
- * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
+ * @brief Clear dx-addressed reference cell and update counters/versions.
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Csm/Csm.h"
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
@@ -17,7 +17,8 @@ namespace crsce::decompress {
      * @brief clears the bit value at (d,x)
      * @param d diagonal coordinate
      * @param x anti-diagonal coordinate
-     * @param lock mutex lock
+     * @param lock MU lock behavior for write (Locked|Unlocked)
+     * @return void
      */
     void Csm::clear_dx(const std::size_t d, const std::size_t x, const MuLockFlag lock) {
 

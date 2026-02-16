@@ -33,14 +33,15 @@
 namespace crsce::decompress {
     /**
      * @name write_row_completion_stats_success
-     * @brief write the completion statistics on success
-     * @param output_path
-     * @param block_index
-     * @param csm
-     * @param lh
-     * @param sums
-     * @param run_start
-     */
+      * @brief Write completion-stats JSON snapshot on success.
+      * @param output_path Output path used to derive where to write the log.
+      * @param block_index Block number being reported.
+      * @param csm Cross‑Sum Matrix.
+      * @param lh Row hash payload.
+      * @param sums Packed 9-bit family sums.
+      * @param run_start Start time of decompression run.
+      * @return void
+      */
     void RowLog::write_row_completion_stats_success(const std::string &output_path,
                                             std::uint64_t block_index,
                                             const Csm &csm,

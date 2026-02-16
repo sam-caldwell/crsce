@@ -1,8 +1,8 @@
 /**
  * @file Csm_reset.cpp
- * @brief Implementation
  * @author Sam Caldwell
- * @copyright (c) 2026 Sam Caldwell. See License.txt for details.
+ * @brief Reset all cells, data, counters, and versions; rebuild dx tables.
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details.
  */
 #include "decompress/Csm/Csm.h"
 #include <cstddef>

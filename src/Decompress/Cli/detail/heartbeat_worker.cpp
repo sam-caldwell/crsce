@@ -25,7 +25,8 @@
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Decompressor/detail/phase_to_cstr.h"
 #include "common/O11y/O11y.h"
-#include "decompress/Cli/detail/heartbeat_helpers.h"
+#include "decompress/Cli/detail/heartbeat_pct_sat.h"
+#include "decompress/Cli/detail/heartbeat_sum_unknowns.h"
 
 namespace crsce::decompress::cli::detail {
     /**

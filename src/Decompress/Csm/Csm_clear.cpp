@@ -16,7 +16,8 @@ namespace crsce::decompress {
      * @brief clear CSM cell
      * @param r row
      * @param c column
-     * @param lock flag
+     * @param lock MU lock behavior for write (Locked|Unlocked)
+     * @return void
      */
     void Csm::clear(const std::size_t r, const std::size_t c, const MuLockFlag lock) {
 

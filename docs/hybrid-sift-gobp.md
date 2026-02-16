@@ -190,22 +190,22 @@ positions. For each step:
 Resolved choices and actionable defaults replacing prior open questions.
 
 - Heuristic Weights (value ordering):
-  - Defaults: `α=1.0`, `β=1.0`, `τ=1.0` (deterministic, conservative).
-  - Tunable flags: `CRSCE_HYB_ALPHA`, `CRSCE_HYB_BETA`, `CRSCE_HYB_TEMP` for test‑runner sweeps.
+    - Defaults: `α=1.0`, `β=1.0`, `τ=1.0` (deterministic, conservative).
+    - Tunable flags: `CRSCE_HYB_ALPHA`, `CRSCE_HYB_BETA`, `CRSCE_HYB_TEMP` for test‑runner sweeps.
 
 - Belief Refresh Frequency:
-  - Default: beliefs fixed for the duration of a Hybrid Sift run (deterministic, zero overhead).
-  - Optional stall‑based refresh (disabled by default):
-    - `CRSCE_HYB_REFRESH_ON_STALL_MS` (default `0` = disabled). When `>0`, if no bound hits and no acceptances are
-      observed for the given milliseconds, refresh beliefs (or locally update) at the next safe boundary.
-    - `CRSCE_HYB_REFRESH_DEPTH_INTERVAL` (default `64`): coarse depth interval to consider refresh when enabled.
+    - Default: beliefs fixed for the duration of a Hybrid Sift run (deterministic, zero overhead).
+    - Optional stall‑based refresh (disabled by default):
+        - `CRSCE_HYB_REFRESH_ON_STALL_MS` (default `0` = disabled). When `>0`, if no bound hits and no acceptances are
+          observed for the given milliseconds, refresh beliefs (or locally update) at the next safe boundary.
+        - `CRSCE_HYB_REFRESH_DEPTH_INTERVAL` (default `64`): coarse depth interval to consider refresh when enabled.
 
 - Transposition Key Granularity (if/when enabled):
-  - Key = `(row_index, compact residual signature per family, coarse candidate footprint hash)`.
-  - Residual signature coarsened into 8–16 bucket histograms per family (cols/diag/xdiag) to maximize reuse and control
-    memory.
+    - Key = `(row_index, compact residual signature per family, coarse candidate footprint hash)`.
+    - Residual signature coarsened into 8–16 bucket histograms per family (cols/diag/xdiag) to maximize reuse and control
+      memory.
 
 - DSM/XSM Specialized Bounds:
-  - Start with min/max forward‑checking for all families; adopt DSM/XSM tightening incrementally.
-  - Implementation will include code comments listing candidates for tightening (e.g., corridor/window bounds based on
-    candidate incidence; simple Hall‑like checks on diagonal capacities when slack is near zero) for posterity.
+    - Start with min/max forward‑checking for all families; adopt DSM/XSM tightening incrementally.
+    - Implementation will include code comments listing candidates for tightening (e.g., corridor/window bounds based on
+      candidate incidence; simple Hall‑like checks on diagonal capacities when slack is near zero) for posterity.

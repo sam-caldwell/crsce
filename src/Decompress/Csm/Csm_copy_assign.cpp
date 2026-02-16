@@ -2,7 +2,7 @@
  * @file Csm_copy_assign.cpp
  * @author Sam Caldwell
  * @brief Definition of Csm copy assignment operator.
- * @copyright (c) 2026 Sam Caldwell. See License.txt
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt
  */
 #include "decompress/Csm/Csm.h"
 #include <cstddef>
@@ -10,10 +10,10 @@
 
 namespace crsce::decompress {
     /**
-     * @name assignment operator
-     * @brief copy assignment operator for CSM matrix
-     * @param other CSM Matrix
-     * @return CSM Matrix
+     * @name operator=
+     * @brief Copy assignment operator for CSM matrix.
+     * @param other Source matrix.
+     * @return Csm& Reference to this.
      */
     Csm &Csm::operator=(const Csm &other) {
 

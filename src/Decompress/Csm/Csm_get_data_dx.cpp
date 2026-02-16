@@ -1,8 +1,8 @@
 /**
  * @file Csm_get_data_dx.cpp
  * @author Sam Caldwell
- * @brief Implementation of Csm::get_data_dx using (d,x) addressing.
- * @copyright (c) 2026 Sam Caldwell.  See License.txt for details.
+ * @brief Read cell belief value via (d,x) addressing (waits if MU-locked).
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Csm/Csm.h"
 #include "decompress/Utils/detail/calc_c_from_d.h"

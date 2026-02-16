@@ -13,10 +13,7 @@ namespace crsce::decompress {
      * @name verify_cross_sums
      * @brief Recompute cross-sums from CSM and compare against provided sums.
      * @param csm Reconstructed Cross-Sum Matrix.
-     * @param lsm Left-to-right row sums.
-     * @param vsm Top-to-bottom column sums.
-     * @param dsm Diagonal sums: d = (c - r) mod S.
-     * @param xsm Anti-diagonal sums: x = (r + c) mod S.
+     * @param sums Aggregate of cross-sum target vectors.
      * @return bool True if all four families match; false otherwise.
      */
     bool verify_cross_sums(const Csm &csm, const CrossSums &sums) {

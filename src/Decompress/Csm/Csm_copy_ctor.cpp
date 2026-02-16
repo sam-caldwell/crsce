@@ -2,7 +2,7 @@
  * @file Csm_copy_ctor.cpp
  * @author Sam Caldwell
  * @brief Definition of Csm copy constructor.
- * @copyright (c) 2026 Sam Caldwell. See License.txt for details
+ * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/Csm/Csm.h"
 #include <cstddef>
@@ -10,9 +10,10 @@
 
 namespace crsce::decompress {
     /**
-     * @name Csm Class Constructor
-     * @brief Class constructor initializes CSM (r,c) space and state along with (d,x) translation table)
-     * @param other
+     * @name Csm
+     * @brief Copy-construct CSM, including (r,c) contents and dx tables.
+     * @param other Source instance.
+     * @return Csm
      */
     Csm::Csm(const Csm &other) {
         for (std::size_t r = 0; r < kS; ++r) {

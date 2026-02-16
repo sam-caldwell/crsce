@@ -268,7 +268,7 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--stallBoostPasses', type=int, help='CRSCE_GOBP_STALL_BOOST_PASSES')
     ap.add_argument('--stallBoostSamples', type=int, help='CRSCE_GOBP_STALL_BOOST_SAMPLES')
     ap.add_argument('--stallBoostAccepts', type=int, help='CRSCE_GOBP_STALL_BOOST_ACCEPTS')
-    ap.add_argument('--stallEarlyExit', type=int, choices=[0,1], help='CRSCE_GOBP_STALL_EARLY_EXIT (0/1)')
+    ap.add_argument('--stallEarlyExit', type=int, choices=[0, 1], help='CRSCE_GOBP_STALL_EARLY_EXIT (0/1)')
     args = ap.parse_args(argv[1:])
 
     # Resolve default binary to a release build if user did not override --bin

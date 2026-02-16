@@ -35,7 +35,7 @@ import os
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import re
 
 
@@ -108,7 +108,8 @@ def parse_last_gobp_heartbeat(path: str) -> Optional[Dict[str, int]]:
     if not last:
         return None
     # Example:
-    # [1739480000000] phase=gobp solved=1234 unknown=510 gobp_status=1 phase_idx=2 iters=18432 rect_passes=384 rect_acc/att=96/18432 cells=0 rows_committed=12 cols_finished=0 stall_ms=12054
+    # [1739480000000] phase=gobp solved=1234 unknown=510 gobp_status=1 phase_idx=2 iters=18432
+    # rect_passes=384 rect_acc/att=96/18432 cells=0 rows_committed=12 cols_finished=0 stall_ms=12054
     m_ts = re.search(r"\[(\d+)\]", last)
     ts_ms = int(m_ts.group(1)) if m_ts else 0
     m_iters = re.search(r"\biters=(\d+)\b", last)
@@ -273,7 +274,10 @@ def main(argv: List[str]) -> int:
     ap.add_argument('--runner', choices=['night', 'c1c2'], default='night', help='Which runner to restart if dead')
     # Heartbeat stall detection params
     ap.add_argument('--hb-stall-ms', type=int, default=30000, help='Consider hard-stall if stall_ms exceeds this')
-    ap.add_argument('--hb-stall-intervals', type=int, default=3, help='Intervals with unchanged rect_acc to declare hard-stall')
+    ap.add_argument(
+        '--hb-stall-intervals', type=int, default=3,
+        help='Intervals with unchanged rect_acc to declare hard-stall',
+    )
     # Next-run boost parameters on hard-stall
     ap.add_argument('--boost-samples', type=int, default=384, help='CRSCE_GOBP_STALL_BOOST_SAMPLES on restart')
     ap.add_argument('--boost-accepts', type=int, default=24, help='CRSCE_GOBP_STALL_BOOST_ACCEPTS on restart')
@@ -365,7 +369,10 @@ def main(argv: List[str]) -> int:
         if hard_stall and (now_mono - last_hardstall_ts) > 10 * 60 and remaining_h > 0.10:
             append(
                 os.path.join('build', 'uselessTest', 'watchdog_alerts.log'),
-                f"[{now_str()}] heartbeat hard-stall: stall_ms>={args.hb_stall_ms} unchanged={hb_unchanged_cnt}, restarting with boost env\n",
+                (
+                    f"[{now_str()}] heartbeat hard-stall: stall_ms>={args.hb_stall_ms} "
+                    f"unchanged={hb_unchanged_cnt}, restarting with boost env\n"
+                ),
             )
             # Kill runner if alive
             if runner_alive and runner_pid:

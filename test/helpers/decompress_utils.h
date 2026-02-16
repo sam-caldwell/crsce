@@ -116,9 +116,11 @@ inline bool solve_block(std::span<const std::uint8_t> lh,
     st.U_row.fill(S); st.U_col.fill(S); st.U_diag.fill(S); st.U_xdiag.fill(S);
 
     csm_out.reset();
-    DeterministicElimination det{csm_out, st};
-    GobpSolver gobp{csm_out, st, /*damping*/ 0.25, /*assign_confidence*/ 0.995};
+    // Seed a snapshot for DE; pass decoded targets and a deterministic seed
+    crsce::decompress::BlockSolveSnapshot snap{S, st, lsm, vsm, dsm, xsm, 0ULL};
     constexpr int kMaxIters = 200;
+    DeterministicElimination det{static_cast<std::uint64_t>(kMaxIters), csm_out, st, snap, lh};
+    GobpSolver gobp{csm_out, st, /*damping*/ 0.25, /*assign_confidence*/ 0.995};
     for (int iter = 0; iter < kMaxIters; ++iter) {
         std::size_t progress = 0;
         progress += det.solve_step();

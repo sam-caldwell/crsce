@@ -35,7 +35,7 @@ so I can remember what I did later on and why.
     - `d = (c - r) mod S` → refer to `Csm::calc_d(r,c)`
     - `x = (r + c) mod S` → refer to `Csm::calc_x(r,c)`
     - This is important: I keep using modular math I've memorized rather than efficient operations I've learned.
-      - In the future I might consider adding linter rules to enforce this.
+        - In the future I might consider adding linter rules to enforce this.
 - All indices are 0‑based with bounds `[0, S)`.
 
 ## 3. Data Structures
@@ -184,7 +184,8 @@ To standardize locking and ensure exception‑safe release, provide small RAII h
 
 - `using SeriesLock = /* atomic_flag or custom spinlock type */;`
 - `struct SeriesGuard { /* acquires one series lock in ctor; releases in dtor */ };`
-- `struct SeriesScopeGuard { /* acquires a fixed ordered tuple of series locks (row→col→diag→xdg); releases in reverse */ };`
+- `struct SeriesScopeGuard { /* acquires a fixed ordered tuple of series locks */ };`
+  Acquires in the order: row → col → diag → xdg; releases in reverse.
 - `struct CellMuGuard { /* spins on Bits::try_lock_mu() with bounded backoff; releases in dtor */ };`
 
 These helpers encode the canonical acquisition order and guarantee unlock on all control paths.

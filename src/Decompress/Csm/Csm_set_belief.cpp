@@ -14,17 +14,19 @@ namespace crsce::decompress {
      * @param r row
      * @param c column
      * @param value belief value
-     * @param lock boolean lock
+     * @param lock Take MU lock during write if true.
+     * @param async Unused placeholder for async behavior.
      * @return void
      */
     void Csm::set_belief(const std::size_t r,
                          const std::size_t c,
                          const double value,
-                         const bool lock, bool /*async*/) {
+                         const bool lock, const bool async) {
 
         bounds_check(r, c);
         auto &cell = cells_.at(r).at(c);
 
+        (void)async; // parameter presently unused
         if (lock) {
             const CellMuGuard g(cell);
             data_.at(r).at(c) = value;
