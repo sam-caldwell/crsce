@@ -283,10 +283,17 @@ namespace crsce::o11y {
         (void) co_metric_i64(this, std::move(name), v, std::move(tags));
     }
 
+    void O11y::metric(std::string name, int v, Tags tags) {
+        ensure_started();
+        (void) co_metric_i64(this, std::move(name), static_cast<std::int64_t>(v), std::move(tags));
+    }
+
     void O11y::metric(std::string name, std::uint64_t v, Tags tags) {
         ensure_started();
         (void) co_metric_u64(this, std::move(name), v, std::move(tags));
     }
+
+    
 
     void O11y::metric(std::string name, std::uint32_t v, Tags tags) {
         ensure_started();

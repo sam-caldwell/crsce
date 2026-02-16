@@ -59,6 +59,7 @@ namespace crsce::o11y {
 
         // Metrics (overloads)
         void metric(std::string name, std::int64_t v, Tags tags = {});
+        void metric(std::string name, int v, Tags tags = {});
         void metric(std::string name, std::uint64_t v, Tags tags = {});
         void metric(std::string name, std::uint32_t v, Tags tags = {});
         void metric(std::string name, std::uint16_t v, Tags tags = {});
