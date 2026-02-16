@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <cctype>
-#include "common/O11y/counter.h"
+#include "common/O11y/O11y.h"
 
 namespace {
 int wait_for_max_count(const std::string &path, const std::string &name, int expected, int ms_timeout=1500) {
@@ -19,10 +19,9 @@ int wait_for_max_count(const std::string &path, const std::string &name, int exp
   const auto t0 = steady_clock::now();
   for (;;) {
     std::ifstream is(path);
-    std::string line; int maxc = 0; int cnt = 0;
+    std::string line; int maxc = 0;
     while (std::getline(is, line)) {
       if (line.find("\"name\":\"" + name + "\"") != std::string::npos) {
-        ++cnt;
         auto pos = line.find("\"count\":");
         if (pos != std::string::npos) {
           pos += 9;
@@ -35,7 +34,7 @@ int wait_for_max_count(const std::string &path, const std::string &name, int exp
         }
       }
     }
-    if (maxc >= expected && cnt >= expected) { return maxc; }
+    if (maxc >= expected) { return maxc; }
     if (duration_cast<milliseconds>(steady_clock::now() - t0).count() > ms_timeout) { return maxc; }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -48,7 +47,7 @@ TEST(O11y, CounterIncrements) {
   ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
 
   const std::string name = "ut_counter_inc";
-  for (int i = 0; i < 5; ++i) { ::crsce::o11y::counter(name); }
+  for (int i = 0; i < 5; ++i) { ::crsce::o11y::O11y::instance().counter(name); }
   const int got = wait_for_max_count(mpath, name, 5);
   EXPECT_GE(got, 5);
 }

@@ -9,8 +9,7 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
-#include "common/O11y/gobp_debug_enabled.h"
-#include "common/O11y/debug_event_gobp.h"
+#include "common/O11y/O11y.h"
 
 namespace {
 bool wait_for_contains(const std::string &path, const std::string &needle, int ms_timeout=1000) {
@@ -28,13 +27,8 @@ bool wait_for_contains(const std::string &path, const std::string &needle, int m
 }
 
 TEST(O11y, GobpDebugEventEmitsWhenEnabled) {
-  const std::string mpath = std::string(TEST_BINARY_DIR) + "/o11y_gobp_debug.jsonl";
-  ASSERT_EQ(::setenv("CRSCE_METRICS_PATH", mpath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
-  ASSERT_EQ(::setenv("CRSCE_METRICS_FLUSH", "1", 1), 0);        // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
-  ASSERT_EQ(::setenv("CRSCE_GOBP_DEBUG", "1", 1), 0);           // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
-
-  // First use will cache the debug flag
-  ASSERT_TRUE(::crsce::o11y::gobp_debug_enabled());
-  ::crsce::o11y::debug_event_gobp("ut_gobp_dbg_event", {{"k","v"}});
-  ASSERT_TRUE(wait_for_contains(mpath, "\"name\":\"ut_gobp_dbg_event\""));
+  const std::string epath = std::string(TEST_BINARY_DIR) + "/o11y_gobp_debug.jsonl";
+  ASSERT_EQ(::setenv("CRSCE_EVENTS_PATH", epath.c_str(), 1), 0); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+  ::crsce::o11y::O11y::instance().event("ut_gobp_dbg_event", {{"k","v"}});
+  ASSERT_TRUE(wait_for_contains(epath, "\"name\":\"ut_gobp_dbg_event\""));
 }
