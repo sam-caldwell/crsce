@@ -40,6 +40,8 @@ make cover                     # optional: enforce code coverage
 See the documentation index at [docs/README.md](docs/README.md) for an overview, theory, format details, usage guides,
 build instructions, and security notes.
 
+For runtime instrumentation and logs, see [observability].
+
 ## Usage
 
 ```bash
@@ -72,3 +74,5 @@ build/bin/decompress -in output.crsce -out recovered.bin
 ## License
 
 Copyright &copy; 2026 Sam Caldwell. See [LICENSE.txt](LICENSE.txt) for details.
+
+[observability]: docs/o11y.md
