@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "decompress/Csm/Csm.h"
+#include "decompress/CrossSum/CrossSum.h"
 
 namespace crsce::decompress {
     /**
@@ -22,9 +23,5 @@ namespace crsce::decompress {
      * @param xsm Expected anti-diagonal counts (length S).
      * @return bool True if computed counts match expected vectors.
      */
-    bool verify_cross_sums(const Csm &csm,
-                           const std::array<std::uint16_t, Csm::kS> &lsm,
-                           const std::array<std::uint16_t, Csm::kS> &vsm,
-                           const std::array<std::uint16_t, Csm::kS> &dsm,
-                           const std::array<std::uint16_t, Csm::kS> &xsm);
+    bool verify_cross_sums(const Csm &csm, const CrossSums &sums);
 } // namespace crsce::decompress

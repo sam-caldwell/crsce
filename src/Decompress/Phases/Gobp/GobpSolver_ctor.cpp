@@ -4,6 +4,7 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Phases/Gobp/GobpSolver.h"
+#include "decompress/Solver/Solver.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
@@ -20,5 +21,7 @@ namespace crsce::decompress {
     GobpSolver::GobpSolver(Csm &csm, ConstraintState &state,
                            const double damping,
                            const double assign_confidence)
-        : csm_(csm), st_(state), damping_(clamp01(damping)), assign_confidence_(clamp_conf(assign_confidence)) {}
+        : Solver(csm, state),
+          csm_(csm), st_(state),
+          damping_(clamp01(damping)), assign_confidence_(clamp_conf(assign_confidence)) {}
 } // namespace crsce::decompress

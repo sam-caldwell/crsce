@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <span>
 #include "decompress/Csm/Csm.h"
+#include "decompress/CrossSum/CrossSum.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
@@ -26,10 +27,7 @@ namespace crsce::decompress::detail {
      * @return bool True if both checks pass; false otherwise.
      */
     bool verify_cross_sums_and_lh(Csm &csm,
-                                  const std::array<std::uint16_t, Csm::kS> &lsm,
-                                  const std::array<std::uint16_t, Csm::kS> &vsm,
-                                  const std::array<std::uint16_t, Csm::kS> &dsm,
-                                  const std::array<std::uint16_t, Csm::kS> &xsm,
+                                  const CrossSums &sums,
                                   std::span<const std::uint8_t> lh,
                                   BlockSolveSnapshot &snap);
 }

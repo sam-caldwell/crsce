@@ -13,6 +13,7 @@
 #include "decompress/Utils/detail/decompress_emit_summary.h"
 #include "decompress/Decompressor/detail/RowLog.h"
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
+#include "decompress/CrossSum/CrossSum.h"
 
 #include "common/O11y/event.h"
 #include "common/O11y/metric_i64.h"
@@ -59,32 +60,28 @@ namespace crsce::decompress {
 
         ::crsce::o11y::metric("decompress_begin_blocks", static_cast<std::int64_t>(hdr.block_count));
 
-        for (std::uint64_t i = 0; i < hdr.block_count; ++i) {
-            ::crsce::o11y::metric("block_open", static_cast<std::int64_t>(i));
+        for (std::uint64_t block_id = 0; block_id < hdr.block_count; ++block_id) {
+            ::crsce::o11y::metric("block_open", static_cast<std::int64_t>(block_id));
 
             auto payload = read_block();
             if (!payload.has_value()) {
                 ::crsce::o11y::event("decompress_error", {
                                          {"type", std::string("short_read")},
-                                         {"block", std::to_string(i)}
+                                         {"block", std::to_string(block_id)}
                                      });
-                ::crsce::decompress::detail::emit_decompress_summary(
-                    "short_read",
-                    blocks_attempted,
-                    blocks_successful
-                );
+
                 return false;
             }
 
             ++blocks_attempted;
 
             std::span<const std::uint8_t> lh;
-            std::span<const std::uint8_t> sums;
+            std::span<const std::uint8_t> sums_packed;
 
-            if (!split_payload(*payload, lh, sums)) {
+            if (!split_payload(*payload, lh, sums_packed)) {
                 ::crsce::o11y::event("decompress_error", {
                                          {"type", std::string("bad_block_payload")},
-                                         {"block", std::to_string(i)}
+                                         {"block", std::to_string(block_id)}
                                      });
                 ::crsce::decompress::detail::emit_decompress_summary("bad_block_payload",
                                                                      blocks_attempted,
@@ -100,7 +97,7 @@ namespace crsce::decompress {
             }
             const std::uint64_t remain = total_bits - bits_done;
             const std::uint64_t to_take = std::min(remain, bits_per_block);
-            ::crsce::o11y::metric("block_pre_solve", static_cast<std::int64_t>(i),
+            ::crsce::o11y::metric("block_pre_solve", static_cast<std::int64_t>(block_id),
                                   {
                                       {"remain_bits", std::to_string(remain)},
                                       {"take_bits", std::to_string(to_take)}
@@ -110,23 +107,24 @@ namespace crsce::decompress {
             Csm csm; // solver target grid
             bool solved_ok = false;
             try {
-                ::crsce::o11y::metric("block_solve_begin", static_cast<std::int64_t>(i),
+                ::crsce::o11y::metric("block_solve_begin", static_cast<std::int64_t>(block_id),
                                       {{"valid_bits", std::to_string(to_take)}});
 
+                const auto sums = CrossSums::from_packed(sums_packed);
                 solved_ok = solve_block(lh, sums, csm, to_take);
 
-                ::crsce::o11y::metric("block_solve_end", static_cast<std::int64_t>(i), {
+                ::crsce::o11y::metric("block_solve_end", static_cast<std::int64_t>(block_id), {
                                           {"ok", (solved_ok ? std::string("true") : std::string("false"))}
                                       });
             } catch (const std::exception &ex) {
                 ::crsce::o11y::event("decompress_error", {
-                                         {"type", std::string("solve_exception")}, {"block", std::to_string(i)},
+                                         {"type", std::string("solve_exception")}, {"block", std::to_string(block_id)},
                                          {"what", std::string(ex.what())}
                                      });
             } catch (...) {
                 ::crsce::o11y::event("decompress_error", {
                                          {"type", std::string("solve_exception_unknown")},
-                                         {"block", std::to_string(i)}
+                                         {"block", std::to_string(block_id)}
                                      }
                 );
             } // end try...catch...
@@ -134,7 +132,7 @@ namespace crsce::decompress {
             if (!solved_ok) {
                 ::crsce::o11y::event("decompress_error", {
                                          {"type", std::string("solve_failed")},
-                                         {"block", std::to_string(i)}
+                                         {"block", std::to_string(block_id)}
                                      }
                 );
 
@@ -144,14 +142,14 @@ namespace crsce::decompress {
                             hdr.block_count,
                             blocks_attempted,
                             blocks_successful,
-                            i, *snap
+                            block_id, *snap
                         );
                     } catch (...) {
                         /* ignore */
                     }
                 }
 
-                write_row_completion_stats_failure(output_path_, i, csm, lh, sums, run_start);
+                write_row_completion_stats_failure(output_path_, block_id, csm, lh, sums_packed, run_start);
 
                 ::crsce::decompress::detail::emit_decompress_summary("solve_failed", blocks_attempted,
                                                                      blocks_successful);
@@ -160,7 +158,7 @@ namespace crsce::decompress {
 
             append_bits_from_csm(csm, to_take, output_bytes, curr, bit_pos);
             ++blocks_successful;
-            write_row_completion_stats_success(output_path_, i, csm, lh, sums, run_start);
+            write_row_completion_stats_success(output_path_, block_id, csm, lh, sums_packed, run_start);
         }
 
         // Finalize output

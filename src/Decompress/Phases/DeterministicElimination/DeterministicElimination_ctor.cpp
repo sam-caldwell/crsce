@@ -4,6 +4,7 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Solver/Solver.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
@@ -27,7 +28,8 @@ namespace crsce::decompress {
         const std::uint64_t kMaxIters,
         Csm &csm, ConstraintState &state,
         BlockSolveSnapshot &snap,
-        const std::span<const uint8_t> &lh) : kMaxIters(kMaxIters),
+        const std::span<const uint8_t> &lh) : Solver(csm, state),
+                                              kMaxIters(kMaxIters),
                                               csm_(csm),
                                               st_(state),
                                               snap_(snap),

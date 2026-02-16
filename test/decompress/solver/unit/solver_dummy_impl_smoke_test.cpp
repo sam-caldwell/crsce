@@ -6,13 +6,16 @@
 #include <cstddef>
 
 #include "decompress/Solver/Solver.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
 using crsce::decompress::Solver;
 
 namespace {
     class DummySolver final : public Solver {
     public:
-        DummySolver() = default;
+        DummySolver(crsce::decompress::Csm &csm, crsce::decompress::ConstraintState &st)
+            : Solver(csm, st) {}
 
         std::size_t solve_step() override {
             if (steps_ < 2) {
@@ -43,7 +46,9 @@ namespace {
  *         Assumptions: default environment and explicit setup within this test.
  */
 TEST(SolverDummyImplSmoke, CallsThroughBasePointer) { // NOLINT
-    DummySolver impl;
+    crsce::decompress::Csm csm;
+    crsce::decompress::ConstraintState st;
+    DummySolver impl(csm, st);
     Solver *s = &impl; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     EXPECT_FALSE(s->solved());
     EXPECT_EQ(s->solve_step(), 1U);

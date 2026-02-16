@@ -7,9 +7,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <span>
 
 #include "decompress/Block/detail/solve_block.h"
 #include "decompress/Csm/Csm.h"
+#include "decompress/CrossSum/CrossSum.h"
 
 TEST(SolveBlock, PrelocksPaddedCells) {
     using crsce::decompress::Csm;
@@ -26,7 +28,8 @@ TEST(SolveBlock, PrelocksPaddedCells) {
     const std::uint64_t valid_bits = total_bits > 100 ? (total_bits - 100) : total_bits;
     Csm csm;
     // Invoke solver to trigger pre-locks; return value may be false due to LH mismatch with zeroed LH payloads.
-    (void)crsce::decompress::solve_block(lh, sums, csm, valid_bits);
+    const auto csums = crsce::decompress::CrossSums::from_packed(std::span<const std::uint8_t>(sums.data(), sums.size()));
+    (void)crsce::decompress::solve_block(lh, csums, csm, valid_bits);
 
     for (std::uint64_t idx = valid_bits; idx < total_bits; ++idx) {
         const auto r = static_cast<std::size_t>(idx / S);

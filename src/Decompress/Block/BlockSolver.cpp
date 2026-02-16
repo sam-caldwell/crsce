@@ -1,7 +1,7 @@
 /**
  * @file BlockSolver.cpp
  * @author Sam Caldwell
- * @brief High-level block solver: orchestrates DE -> BitSplash -> Radditz -> GOBP with verification.
+ * @brief High-level block solver: orchestrates DE → BitSplash → Radditz → Hybrid Sift with final verification.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 
@@ -17,7 +17,7 @@
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
-#include "decompress/Utils/detail/decode9.tcc"
+#include "decompress/CrossSum/CrossSum.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "decompress/Block/detail/run_hybrid_sift.h"
@@ -27,6 +27,9 @@
 #include "decompress/Block/detail/execute_radditz_and_validate.h"
 #include "decompress/Block/detail/verify_cross_sums_and_lh.h"
 #include "decompress/Block/detail/reseed_residuals_from_csm.h"
+#ifdef CRSCE_USE_GOBP_ONLY
+#include "decompress/Solvers/GobpSolvers/GobpSolver.h"
+#endif
 #include "common/O11y/event.h"
 
 namespace crsce::decompress {
@@ -42,20 +45,30 @@ namespace crsce::decompress {
      * @return bool True on success (verification passed); false on failure.
      */
     bool solve_block(const std::span<const std::uint8_t> lh,
-                     const std::span<const std::uint8_t> sums,
+                     const CrossSums &sums,
                      Csm &csm_out,
                      const std::uint64_t valid_bits) {
         constexpr std::size_t S = Csm::kS;
-        constexpr std::size_t vec_bytes = 575U;
         static constexpr int kMaxDeIters = 60000;
 
-        //
-        //unpack cross sums from 9-bit packed bitstream to uint16_t cross-sum arrays
-        //
-        const auto lsm = decode_9bit_stream<S>(sums.subspan(0 * vec_bytes, vec_bytes));
-        const auto vsm = decode_9bit_stream<S>(sums.subspan(1 * vec_bytes, vec_bytes));
-        const auto dsm = decode_9bit_stream<S>(sums.subspan(2 * vec_bytes, vec_bytes));
-        const auto xsm = decode_9bit_stream<S>(sums.subspan(3 * vec_bytes, vec_bytes));
+        // Compile-time switch to experiment with alternative solver drivers.
+        // Default keeps the existing pipeline unless CRSCE_USE_GOBP_ONLY is defined.
+#ifdef CRSCE_USE_GOBP_ONLY
+        ::crsce::o11y::event("gobp_driver_begin");
+        // Pre-lock any padded tail cells.
+        ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
+        // Run GOBP smoothing/assignment until no progress.
+        ::crsce::decompress::solvers::gobp::GobpSolver gobp(csm_out, st, 0.5, 0.995, false);
+        for (int it = 0; it < 20000; ++it) {
+            const std::size_t prog = gobp.solve_step();
+            if (prog == 0 || gobp.solved()) { break; }
+        }
+        return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
+#else
+        const auto &lsm = sums.lsm().targets();
+        const auto &vsm = sums.vsm().targets();
+        const auto &dsm = sums.dsm().targets();
+        const auto &xsm = sums.xsm().targets();
         //
         // Snapshot and constraints
         //
@@ -68,9 +81,7 @@ namespace crsce::decompress {
                                 std::span<const std::uint16_t>(xsm.begin(), xsm.end()),
                                 0ULL};
         set_block_solve_snapshot(snap);
-        Csm baseline_csm = csm_out; // NOLINT(misc-const-correctness)
-        ConstraintState baseline_st = st; // NOLINT(misc-const-correctness)
-        csm_out.reset();
+        // Fresh CSM provided by caller; no baseline or resets needed.
         //
         // Deterministic Elimination
         //
@@ -80,7 +91,7 @@ namespace crsce::decompress {
             return false;
         }
         if (det.solved()) {
-            return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, lsm, vsm, dsm, xsm, lh, snap);
+            return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
         }
         //
         // Pre-lock padding and seed beliefs
@@ -102,11 +113,11 @@ namespace crsce::decompress {
             return false;
         }
 
-        // Removed DSM/XSM sifts and gating: proceed to optional Hybrid Sift and then GOBP.
+        // Removed DSM/XSM sifts and gating: proceed to optional Hybrid Sift.
         // NOTE: Do not lock any cells here; Bitsplash and Radditz phases must remain unlock-only until final verify.
 
 
-        // Sync residuals with current CSM so GOBP respects established row/column invariants and DSM/XSM after sifts
+        // Sync residuals with current CSM so subsequent sifts respect established row/column invariants and DSM/XSM
         ::crsce::decompress::detail::reseed_residuals_from_csm(
             csm_out, st,
             std::span<const std::uint16_t>(lsm.begin(), lsm.end()),
@@ -123,22 +134,12 @@ namespace crsce::decompress {
             std::span<const std::uint16_t>(xsm.begin(), xsm.end()));
             set_block_solve_snapshot(snap);
 
-        // GOBP fallback
-        // const bool solved = ::crsce::decompress::detail::run_gobp_fallback(
-        //     csm_out, st, det, baseline_csm, baseline_st, lh,
-        //     std::span<const std::uint16_t>(lsm), std::span<const std::uint16_t>(vsm),
-        //     std::span<const std::uint16_t>(dsm), std::span<const std::uint16_t>(xsm),
-        //     snap, valid_bits);
-        // if (!solved) {
-        //     return false;
-        // }
+        // GOBP fallback removed; final verification follows Hybrid Sift.
         return ::crsce::decompress::detail::verify_cross_sums_and_lh(
             csm_out,
-            lsm,
-            vsm,
-            dsm,
-            xsm,
+            sums,
             lh,
             snap);
+#endif
     }
 } // namespace crsce::decompress
