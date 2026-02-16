@@ -1,8 +1,8 @@
 /**
  * @file Bits_ctor_flags.cpp
+ * @brief Explicit flags constructor for Bits.
  * @author Sam Caldwell
- * @brief Implementation
- * @copyright (c) 2026 Sam Caldwell.  See License.txt for details
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Csm/detail/Bits.h"
 #include <cstdint>

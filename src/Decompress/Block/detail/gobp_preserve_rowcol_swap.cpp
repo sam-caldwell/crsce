@@ -18,6 +18,8 @@
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
+// helper for LH simulation
+#include "decompress/Block/detail/gobp_simulate_lh_after.h"
 // Snapshot updates for telemetry
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
@@ -210,29 +212,7 @@ namespace crsce::decompress::detail {
             if (ver.verify_row(csm, lh, r0)) { ++lh_before; }
             if (ver.verify_row(csm, lh, r1)) { ++lh_before; }
 
-            // Helper to simulate swap, compute LH rows verified, then revert
-            auto simulate_lh_after = [&]() -> int {
-                const bool v00 = b00;
-                const bool v11 = b11;
-                const bool v01 = b01;
-                const bool v10 = b10;
-                if (main) {
-                    csm.clear(r0, c0); csm.clear(r1, c1);
-                    csm.set(r0, c1);   csm.set(r1, c0);
-                } else {
-                    csm.clear(r0, c1); csm.clear(r1, c0);
-                    csm.set(r0, c0);   csm.set(r1, c1);
-                }
-                int lh_after = 0;
-                if (ver.verify_row(csm, lh, r0)) { ++lh_after; }
-                if (ver.verify_row(csm, lh, r1)) { ++lh_after; }
-                // revert
-                if (v00) { csm.set(r0, c0); } else { csm.clear(r0, c0); }
-                if (v11) { csm.set(r1, c1); } else { csm.clear(r1, c1); }
-                if (v01) { csm.set(r0, c1); } else { csm.clear(r0, c1); }
-                if (v10) { csm.set(r1, c0); } else { csm.clear(r1, c0); }
-                return lh_after;
-            };
+            // Helper moved to header to satisfy ODPCPP single-construct rule
 
             // Enforce family locks: reject if attempting to break a locked family's satisfied member
             if (const auto snap_l = ::crsce::decompress::get_block_solve_snapshot(); snap_l.has_value()) {
@@ -249,13 +229,13 @@ namespace crsce::decompress::detail {
                 } else {
                     const std::size_t improve = dx_before - dx_after;
                     if (improve < sat_loss_min_improve) { continue; }
-                    const int lh_after = simulate_lh_after();
+                    const int lh_after = gobp_simulate_lh_after(csm, lh, r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
                     if (lh_after <= lh_before) { continue; }
                     accept = true;
                 }
             } else if (dx_after == dx_before) {
                 if (sat_lost != 0) { continue; }
-                const int lh_after = simulate_lh_after();
+                const int lh_after = gobp_simulate_lh_after(csm, lh, r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
                 if (lh_after <= lh_before) { continue; }
                 accept = true;
             } else { // dx worsened
@@ -266,7 +246,7 @@ namespace crsce::decompress::detail {
                 const auto sat_budget_u = static_cast<std::size_t>(lh_sat_loss_budget);
                 const bool within_sat = (sat_lost_u <= sat_budget_u);
                 if (!within_dx || !within_sat) { continue; }
-                const int lh_after = simulate_lh_after();
+                const int lh_after = gobp_simulate_lh_after(csm, lh, r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
                 if (lh_after <= lh_before) { continue; }
                 accept = true;
             }

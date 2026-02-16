@@ -1,5 +1,8 @@
 /**
  * @file CrossSum_compute_deficit.cpp
+ * @brief Compute absolute deficits between targets and live counts for a family.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/CrossSum/CrossSum.h"
 #include "decompress/Csm/Csm.h"
@@ -7,6 +10,12 @@
 #include <cstdint>
 
 namespace crsce::decompress {
+    /**
+     * @name compute_deficit
+     * @brief Return |target - count| per index for the selected family.
+     * @param csm Cross‑Sum Matrix providing live counts.
+     * @return Vec Per-index absolute deficits.
+     */
     CrossSum::Vec CrossSum::compute_deficit(const Csm &csm) const {
         const Vec cnt = compute_counts(csm);
         Vec out{};

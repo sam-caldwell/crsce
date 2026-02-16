@@ -1,6 +1,8 @@
 /**
  * @file BlockSolveSnapshot_ctor.cpp
  * @brief Constructor implementation for BlockSolveSnapshot to seed initial snapshot state.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
@@ -9,6 +11,18 @@
 #include <cstddef>
 
 namespace crsce::decompress {
+    /**
+     * @name BlockSolveSnapshot
+     * @brief Initialize snapshot fields using constraint state and targets.
+     * @param S_ Board size (S x S).
+     * @param st Constraint state providing unknown vectors.
+     * @param lsm_in Row targets vector.
+     * @param vsm_in Column targets vector.
+     * @param dsm_in Diagonal targets vector.
+     * @param xsm_in Anti-diagonal targets vector.
+     * @param belief_seed RNG seed for belief engine provenance.
+     * @return BlockSolveSnapshot
+     */
     BlockSolveSnapshot::BlockSolveSnapshot(std::size_t S_,
                                            const ConstraintState &st,
                                            std::span<const std::uint16_t> lsm_in,

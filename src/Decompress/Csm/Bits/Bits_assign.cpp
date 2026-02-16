@@ -14,6 +14,7 @@ namespace crsce::decompress {
      * @param data_bit data bit (0|1) represented as boolean
      * @param lock_bit indicates whether a cell is resolved
      * @param mu_bit indicates whether a cell is locked for async operations
+     * @return void
      */
     void Bits::assign(const bool data_bit, const bool lock_bit, const bool mu_bit) noexcept {
         set_raw(

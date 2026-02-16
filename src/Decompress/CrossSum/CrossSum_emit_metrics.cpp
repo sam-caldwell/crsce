@@ -1,5 +1,8 @@
 /**
  * @file CrossSum_emit_metrics.cpp
+ * @brief Emit CrossSum family metrics via O11y.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/CrossSum/CrossSum.h"
 #include "decompress/Csm/Csm.h"
@@ -7,20 +10,17 @@
 #include "common/O11y/O11y.h"
 #include <string>
 #include <cstdint>
+#include "decompress/CrossSum/detail/family_label.h"
 
 namespace crsce::decompress {
-    namespace {
-    const char *family_label(const CrossSumFamily f) {
-        switch (f) {
-            case CrossSumFamily::Row: return "lsm";
-            case CrossSumFamily::Col: return "vsm";
-            case CrossSumFamily::Diag: return "dsm";
-            case CrossSumFamily::XDiag: return "xsm";
-        }
-        return "cs";
-    }
-    } // namespace
-
+    /**
+     * @name emit_metrics
+     * @brief Emit min/max error, satisfaction percent, and optional unknown total.
+     * @param prefix Metric name prefix (e.g., "crosssum").
+     * @param csm Reference to CSM for computing error/satisfaction.
+     * @param st Optional constraint state; if provided, emits unknown_total.
+     * @return void
+     */
     void CrossSum::emit_metrics(const char *prefix, const Csm &csm, const ConstraintState *st) const {
         const char *fam = family_label(fam_);
         const auto min_e = static_cast<std::int64_t>(error_min(csm));
