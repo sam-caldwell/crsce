@@ -1,6 +1,8 @@
 /**
  * @file Csm.h
  * @brief CRSCE v1 Cross-Sum Matrix (CSM) refactored container.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -12,6 +14,10 @@
 #include "decompress/Csm/detail/MuLockFlag.h"
 
 namespace crsce::decompress {
+    /**
+     * @class Csm
+     * @brief Lock-aware matrix of bits and belief values with cross-sum helpers.
+     */
     class Csm {
     public:
         static constexpr std::size_t kS = 511;

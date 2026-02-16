@@ -8,8 +8,7 @@
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"
 #include <cstdlib>    // getenv
-#include "common/O11y/gobp_debug_enabled.h"
-#include "common/O11y/debug_event_gobp.h"
+#include "common/O11y/O11y.h"
 #include <cmath>      // std::fabs
 #include <algorithm>  // std::min,std::max
 #include <string>
@@ -142,31 +141,29 @@ namespace crsce::decompress {
             }
         }
 
-        if (::crsce::o11y::gobp_debug_enabled()) {
-            // Summarize residuals and unknowns remaining (use U_row sum as unknown cell count)
-            std::size_t sum_U_row = 0;
-            std::size_t sum_R_row = 0;
-            for (const auto u : st_.U_row) { sum_U_row += static_cast<std::size_t>(u); }
-            for (const auto r : st_.R_row) { sum_R_row += static_cast<std::size_t>(r); }
-            const double avg_delta = (unlocked_before > 0) ? (sum_delta / static_cast<double>(unlocked_before)) : 0.0;
-            ::crsce::o11y::debug_event_gobp(
-                "gobp_step_diag",
-                {{"unlocked", std::to_string(unlocked_before)},
-                 {"assign_progress", std::to_string(progress)},
-                 {"hi_hits", std::to_string(hi_hits)},
-                 {"lo_hits", std::to_string(lo_hits)},
-                 {"unknown_cells", std::to_string(sum_U_row)},
-                 {"row_ones_remaining", std::to_string(sum_R_row)},
-                 {"belief_min", std::to_string(min_bel)},
-                 {"belief_max", std::to_string(max_bel)},
-                 {"blended_min", std::to_string(min_blend)},
-                 {"blended_max", std::to_string(max_blend)},
-                 {"delta_avg", std::to_string(avg_delta)},
-                 {"delta_max", std::to_string(max_delta)},
-                 {"ambiguous_at_0_5", std::to_string(ambiguous)},
-                 {"damping", std::to_string(damping_)},
-                 {"conf", std::to_string(assign_confidence_)}});
-        }
+        // Summarize residuals and unknowns remaining (use U_row sum as unknown cell count)
+        std::size_t sum_U_row = 0;
+        std::size_t sum_R_row = 0;
+        for (const auto u : st_.U_row) { sum_U_row += static_cast<std::size_t>(u); }
+        for (const auto r : st_.R_row) { sum_R_row += static_cast<std::size_t>(r); }
+        const double avg_delta = (unlocked_before > 0) ? (sum_delta / static_cast<double>(unlocked_before)) : 0.0;
+        ::crsce::o11y::O11y::instance().event(
+            "gobp_step_diag",
+            {{"unlocked", std::to_string(unlocked_before)},
+             {"assign_progress", std::to_string(progress)},
+             {"hi_hits", std::to_string(hi_hits)},
+             {"lo_hits", std::to_string(lo_hits)},
+             {"unknown_cells", std::to_string(sum_U_row)},
+             {"row_ones_remaining", std::to_string(sum_R_row)},
+             {"belief_min", std::to_string(min_bel)},
+             {"belief_max", std::to_string(max_bel)},
+             {"blended_min", std::to_string(min_blend)},
+             {"blended_max", std::string(std::to_string(max_blend))},
+             {"delta_avg", std::to_string(avg_delta)},
+             {"delta_max", std::to_string(max_delta)},
+             {"ambiguous_at_0_5", std::to_string(ambiguous)},
+             {"damping", std::to_string(damping_)},
+             {"conf", std::to_string(assign_confidence_)}});
         return progress;
     }
 } // namespace crsce::decompress

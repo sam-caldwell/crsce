@@ -41,7 +41,7 @@ namespace crsce::decompress {
      * @param sums
      * @param run_start
      */
-    void write_row_completion_stats_success(const std::string &output_path,
+    void RowLog::write_row_completion_stats_success(const std::string &output_path,
                                             std::uint64_t block_index,
                                             const Csm &csm,
                                             std::span<const std::uint8_t> lh,

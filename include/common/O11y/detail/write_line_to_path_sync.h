@@ -1,6 +1,8 @@
 /**
  * @file write_line_to_path_sync.h
  * @brief Append one JSON line to a specified file (thread-safe).
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -12,6 +14,13 @@
 #include <cstdio>
 
 namespace crsce::o11y::detail {
+    /**
+     * @name write_line_to_path_sync
+     * @brief Append one JSON line to an explicit output path. Creates parent directories as needed.
+     * @param line JSON string (no trailing newline required).
+     * @param path Destination file path.
+     * @return void
+     */
     inline void write_line_to_path_sync(const std::string &line, const std::string &path) {
         static std::mutex mu; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
         const std::scoped_lock lk(mu);
@@ -33,4 +42,3 @@ namespace crsce::o11y::detail {
         os << line << '\n';
     }
 }
-

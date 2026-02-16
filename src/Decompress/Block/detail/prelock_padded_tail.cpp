@@ -14,7 +14,7 @@
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
-#include "common/O11y/metric_i64.h"
+#include "common/O11y/O11y.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -38,7 +38,7 @@ namespace crsce::decompress::detail {
         if (prelock_dbg == 1) {
             const auto start_r = static_cast<std::size_t>(valid_bits / S);
             const auto start_c = static_cast<std::size_t>(valid_bits % S);
-            ::crsce::o11y::metric(
+            ::crsce::o11y::O11y::instance().metric(
                 "prelock_padded_tail",
                 static_cast<std::int64_t>(valid_bits),
                 {

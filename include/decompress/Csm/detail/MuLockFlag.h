@@ -1,6 +1,8 @@
 /**
  * @file MuLockFlag.h
  * @brief MU-guard flag for per-cell write serialization (not a resolve-lock).
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -17,4 +19,3 @@ namespace crsce::decompress {
         Unlocked = 0
     };
 }
-

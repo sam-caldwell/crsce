@@ -7,7 +7,7 @@
 #include "common/HasherUtils/detail/run_sha256_stdin.h"
 
 #include <cstdlib>
-#include "common/O11y/event.h"
+#include "common/O11y/O11y.h"
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -25,7 +25,7 @@ namespace crsce::common::hasher {
 #if defined(__unix__) || defined(__APPLE__)
         if (const char *tool = std::getenv("CRSCE_HASHER_CMD"); tool && *tool) { // NOLINT(concurrency-mt-unsafe)
             if (!run_sha256_stdin({tool}, data, hex_out)) {
-                ::crsce::o11y::event("hasher_error", {{"cause", std::string("CRSCE_HASHER_CMD_failed")}});
+                ::crsce::o11y::O11y::instance().event("hasher_error", {{"cause", std::string("CRSCE_HASHER_CMD_failed")}});
                 return false;
             }
             return true;
@@ -33,7 +33,7 @@ namespace crsce::common::hasher {
 
         if (const char *candidate = std::getenv("CRSCE_HASHER_CANDIDATE"); candidate && *candidate) { // NOLINT(concurrency-mt-unsafe)
             if (!run_sha256_stdin({candidate}, data, hex_out)) {
-                ::crsce::o11y::event("hasher_error", {{"cause", std::string("candidate_override_failed")}});
+                ::crsce::o11y::O11y::instance().event("hasher_error", {{"cause", std::string("candidate_override_failed")}});
                 return false;
             }
             return true;
@@ -53,12 +53,12 @@ namespace crsce::common::hasher {
                 return true;
             }
         }
-        ::crsce::o11y::event("hasher_error", {{"cause", std::string("sha256sum_shasum_not_found")}});
+        ::crsce::o11y::O11y::instance().event("hasher_error", {{"cause", std::string("sha256sum_shasum_not_found")}});
         return false;
 #else
         (void) data;
         (void) hex_out;
-        ::crsce::o11y::event("hasher_error", {{"cause", std::string("unsupported_platform")}});
+        ::crsce::o11y::O11y::instance().event("hasher_error", {{"cause", std::string("unsupported_platform")}});
         return false;
 #endif
     }

@@ -12,6 +12,7 @@
 namespace crsce::decompress::detail {
     /**
      * @var g_last_snapshot_mu
+     * @name g_last_snapshot_mu
      * @brief Mutex guarding access to g_last_snapshot.
      */
     std::mutex g_last_snapshot_mu; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

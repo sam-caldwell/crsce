@@ -1,12 +1,12 @@
 /**
  * @file Bits.h
  * @brief Single-byte cell with data bit, per-cell mu, and resolved state.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
 #include <cstdint>
-// wait_on_lock() implementation uses timeout constant; declared here for API
-namespace crsce::decompress { inline constexpr bool kBitsHasWaitOnLock = true; }
 
 namespace crsce::decompress {
     /**
@@ -15,6 +15,8 @@ namespace crsce::decompress {
      */
     class Bits {
     public:
+        // API flag for availability of wait_on_lock
+        static constexpr bool kHasWaitOnLock = true;
         // Resolved cell state (distinct from MU lock used for concurrency)
         enum class CellLock : std::uint8_t { Unsolved = 0, Resolved = 1 };
         static constexpr std::uint8_t kData    = 0x01U;  // bit0

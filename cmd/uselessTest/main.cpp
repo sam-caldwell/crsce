@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <fstream>
+#include "common/O11y/O11y.h"
 
 #include "testRunnerRandom/detail/sha512.h"
 #include "testRunnerRandom/detail/run_process.h"
@@ -25,6 +26,7 @@
 namespace fs = std::filesystem;
 
 int main() try {
+    ::crsce::o11y::O11y::instance().start();
     // Arm process watchdog (default 30 minutes; overridable via CRSCE_WATCHDOG_SECS)
     unsigned int watchdog_secs = 3600U; // 30 minutes
     if (const char *w = std::getenv("CRSCE_WATCHDOG_SECS"); w && *w) { // NOLINT(concurrency-mt-unsafe)

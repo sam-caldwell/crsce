@@ -1,6 +1,8 @@
 /**
  * @file CsmReadLockTimeoutException.h
  * @brief Exception thrown when waiting on a CSM cell MU lock times out during read.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
@@ -8,6 +10,10 @@
 #include "common/exceptions/CrsceException.h"
 
 namespace crsce::decompress {
+    /**
+     * @class CsmReadLockTimeoutException
+     * @brief Indicates a timeout acquiring a CSM cell read lock.
+     */
     class CsmReadLockTimeoutException : public crsce::common::exceptions::CrsceException {
     public:
         explicit CsmReadLockTimeoutException(const std::string &what_arg)
@@ -16,4 +22,3 @@ namespace crsce::decompress {
             : CrsceException(what_arg) {}
     };
 }
-

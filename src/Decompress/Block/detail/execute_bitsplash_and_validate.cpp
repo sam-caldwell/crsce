@@ -19,7 +19,7 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/BitSplash/BitSplash.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
-#include "common/O11y/event.h"
+#include "common/O11y/O11y.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -37,7 +37,7 @@ namespace crsce::decompress::detail {
                                         const std::span<const std::uint16_t> lsm) {
         constexpr std::size_t S = Csm::kS;
         snap.phase = BlockSolveSnapshot::Phase::rowPhase;
-        ::crsce::o11y::event("bitsplash_start");
+        ::crsce::o11y::O11y::instance().event("bitsplash_start");
         snap.bitsplash_status = 1; // started
         set_block_solve_snapshot(snap);
         (void) ::crsce::decompress::phases::bit_splash(csm, st, snap, 0);

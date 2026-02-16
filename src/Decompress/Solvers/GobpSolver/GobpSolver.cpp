@@ -1,9 +1,8 @@
 /**
  * @file GobpSolver.cpp
  */
-#include "decompress/Solvers/GobpSolvers/GobpSolver.h"
+#include "decompress/Solvers/GobpSolver/GobpSolver.h"
 
 namespace crsce::decompress::solvers::gobp {
     // All methods defined inline or trivially forwarded.
 }
-

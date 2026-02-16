@@ -11,8 +11,6 @@
 #include <print>
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Decompressor/detail/phase_to_cstr.h"
-#include "common/O11y/Obj.h"
-#include "common/O11y/metric_obj_emit.h"
 
 namespace crsce::decompress::detail {
     // phase_to_cstr provided in header to avoid extra constructs
@@ -36,23 +34,6 @@ namespace crsce::decompress::detail {
         std::size_t sumU_col = 0; for (auto v : s.U_col) { sumU_col += static_cast<std::size_t>(v); }
         std::size_t sumU_diag = 0; for (auto v : s.U_diag) { sumU_diag += static_cast<std::size_t>(v); }
         std::size_t sumU_xdg = 0; for (auto v : s.U_xdiag) { sumU_xdg += static_cast<std::size_t>(v); }
-
-        // Emit a compact o11y summary (avoid large arrays)
-        ::crsce::o11y::Obj o{"decompress_failure"};
-        o.add("total_blocks", static_cast<std::int64_t>(total_blocks))
-         .add("blocks_attempted", static_cast<std::int64_t>(blocks_attempted))
-         .add("blocks_successful", static_cast<std::int64_t>(blocks_successful))
-         .add("block_index", static_cast<std::int64_t>(failed_index))
-         .add("phase", std::string(phase_to_cstr(s.phase)))
-         .add("iter", static_cast<std::int64_t>(s.iter))
-         .add("solved", static_cast<std::int64_t>(s.solved))
-         .add("unknown_total", static_cast<std::int64_t>(s.unknown_total))
-         .add("U_rows_sum", static_cast<std::int64_t>(sumU_row))
-         .add("U_cols_sum", static_cast<std::int64_t>(sumU_col))
-         .add("U_diags_sum", static_cast<std::int64_t>(sumU_diag))
-         .add("U_xdiags_sum", static_cast<std::int64_t>(sumU_xdg))
-         .add("message", s.message);
-        ::crsce::o11y::metric(o);
 
         // Print JSON (stdout) for test runners to capture
         std::print("{{\n");

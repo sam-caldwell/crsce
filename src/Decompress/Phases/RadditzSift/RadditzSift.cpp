@@ -21,7 +21,7 @@
 #include "decompress/Phases/RadditzSift/greedy_pair_row.h"
 #include "decompress/Phases/RadditzSift/all_deficits_zero.h"
 #include "decompress/Phases/RadditzSift/verify_row_sums.h"
-#include "common/O11y/event.h"
+#include "common/O11y/O11y.h"
 
 namespace crsce::decompress::phases {
 
@@ -107,7 +107,7 @@ namespace crsce::decompress::phases {
                 snap.message = "radditz sift violated row-sum invariant";
             }
         } catch (...) { /* ignore */ }
-        ::crsce::o11y::event("radditz_sift_end", {{"swaps", std::to_string(swaps)}});
+        ::crsce::o11y::O11y::instance().event("radditz_sift_end", {{"swaps", std::to_string(swaps)}});
         return swaps;
     }
 }

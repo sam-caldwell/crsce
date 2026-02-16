@@ -1,6 +1,8 @@
 /**
  * @file BlockSolver_hybrid.cpp
  * @brief Implementation of Hybrid Radditz‑Sift guided by GOBP beliefs.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  *
  * Deterministic 2x2 rectangle swaps that preserve row/col sums and accept
  * only when a combined DSM/XSM error + belief score improves. Updates
@@ -24,26 +26,12 @@
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "common/O11y/event.h"
+#include "decompress/Block/detail/hybrid_read_env_i64.h"
+#include "decompress/Block/detail/hybrid_read_env_f64.h"
+#include "decompress/Block/detail/hybrid_clamp_need.h"
+#include "common/O11y/O11y.h"
 
 namespace crsce::decompress::detail {
-
-namespace {
-    inline std::int64_t read_env_i64(const char *name, std::int64_t def) {
-        if (const char *p = std::getenv(name)) { // NOLINT(concurrency-mt-unsafe)
-            const std::int64_t v = std::strtoll(p, nullptr, 10);
-            return v;
-        }
-        return def;
-    }
-    inline double read_env_f64(const char *name, double def) {
-        if (const char *p = std::getenv(name)) { // NOLINT(concurrency-mt-unsafe)
-            const double v = std::strtod(p, nullptr);
-            return v;
-        }
-        return def;
-    }
-}
 
 /**
  * @name run_hybrid_sift
@@ -69,7 +57,7 @@ std::size_t run_hybrid_sift(Csm &csm,
     // Phase labeling and status
     snap.phase = BlockSolveSnapshot::Phase::radditzSift; // reuse existing label for heartbeat
     snap.radditz_kind = 4; // 4 = hybrid
-    ::crsce::o11y::event("hybrid_sift_start");
+    ::crsce::o11y::O11y::instance().event("hybrid_sift_start");
     set_block_solve_snapshot(snap);
 
     const auto timeout_ms = read_env_i64("CRSCE_HYB_TIMEOUT_MS", 0);
@@ -110,7 +98,7 @@ std::size_t run_hybrid_sift(Csm &csm,
                 const auto now = std::chrono::steady_clock::now();
                 const auto el_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - wall_start).count();
                 if (el_ms >= timeout_ms) {
-                    ::crsce::o11y::event("hybrid_sift_timeout");
+                    ::crsce::o11y::O11y::instance().event("hybrid_sift_timeout");
                     goto HYB_DONE; // break out of both loops
                 }
             }
@@ -280,9 +268,7 @@ std::size_t run_hybrid_sift(Csm &csm,
             }
 
             // Update residuals for only the touched diag/xdiag indices (clamp R ≤ U)
-            const auto clamp_need = [](std::uint16_t need, std::uint16_t U) -> std::uint16_t {
-                return (need > U) ? U : need;
-            };
+            
             {
                 const std::uint16_t U_d00 = st.U_diag.at(d00);
                 const std::uint16_t need_d00 = (dsm[d00] > dcnt.at(d00)) ? static_cast<std::uint16_t>(dsm[d00] - dcnt.at(d00)) : 0U;
@@ -325,7 +311,7 @@ HYB_DONE:
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
     snap.time_hybrid_ms += static_cast<std::size_t>(ms);
     snap.hyb_swaps_total += total_accepted;
-    ::crsce::o11y::event("hybrid_sift_end", {{"accepted", std::to_string(total_accepted)}});
+    ::crsce::o11y::O11y::instance().event("hybrid_sift_end", {{"accepted", std::to_string(total_accepted)}});
     set_block_solve_snapshot(snap);
     return total_accepted;
 }

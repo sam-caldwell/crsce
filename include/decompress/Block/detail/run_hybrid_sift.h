@@ -1,6 +1,8 @@
 /**
  * @file run_hybrid_sift.h
  * @brief Hybrid Radditz‑Sift guided by GOBP beliefs (deterministic 2x2 swaps).
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  *
  * Replaces DSM/XSM sifts with a unified pass that preserves row/col counts
  * and accepts rectangles when a combined cost over DSM/XSM residual error and

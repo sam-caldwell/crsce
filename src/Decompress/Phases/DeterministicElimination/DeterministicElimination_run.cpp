@@ -10,8 +10,7 @@
 #include <cstdint>
 #include <exception>
 
-#include "common/O11y/event.h"
-#include "common/O11y/metric_i64.h"
+#include "common/O11y/O11y.h"
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 
 
@@ -56,7 +55,7 @@ bool crsce::decompress::DeterministicElimination::run(){
             for (const auto u: st_.U_row) { sumU += static_cast<std::size_t>(u); }
             snap_.unknown_total = sumU;
             snap_.solved = (S * S) - sumU;
-            if ((iter % 250) == 0) { ::crsce::o11y::metric("de_progress", static_cast<std::int64_t>(snap_.solved)); }
+            if ((iter % 250) == 0) { ::crsce::o11y::O11y::instance().metric("de_progress", static_cast<std::int64_t>(snap_.solved)); }
         }
 
         // Recompute unknowns after any prefix activity to judge net progress
@@ -67,17 +66,17 @@ bool crsce::decompress::DeterministicElimination::run(){
 
         if (solved()) {
             snap_.de_status = 3; // completed
-            ::crsce::o11y::event("block_terminating", {{"reason", std::string("possible_solution")}});
+            ::crsce::o11y::O11y::instance().event("block_terminating", {{"reason", std::string("possible_solution")}});
             break;
         }
 
         if (progress == 0) {
-            ::crsce::o11y::event("de_steady_state");
-            ::crsce::o11y::metric("de_to_gobp", 1LL);
+            ::crsce::o11y::O11y::instance().event("de_steady_state");
+            ::crsce::o11y::O11y::instance().metric("de_to_gobp", static_cast<std::int64_t>(1));
             snap_.de_status = 3; // completed DE stage
             break;
         }
-        ::crsce::o11y::metric("block_iter_end", static_cast<std::int64_t>(iter),
+        ::crsce::o11y::O11y::instance().metric("block_iter_end", static_cast<std::int64_t>(iter),
                               {{"max", std::to_string(kMaxIters)}, {"progress", std::to_string(progress)}});
     }
     return true;

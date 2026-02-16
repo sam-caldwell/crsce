@@ -19,7 +19,7 @@
 #include <vector>
 #include "decompress/Block/detail/rows_match_lsm.h"
 #include "decompress/Phases/RadditzSift/RadditzSift.h"
-#include "common/O11y/event.h"
+#include "common/O11y/O11y.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 
 namespace crsce::decompress::detail {
@@ -41,7 +41,7 @@ namespace crsce::decompress::detail {
         constexpr std::size_t S = Csm::kS;
         snap.phase = BlockSolveSnapshot::Phase::radditzSift;
         snap.radditz_kind = 1; // VSM-focused Radditz
-        ::crsce::o11y::event("radditz_sift_start");
+        ::crsce::o11y::O11y::instance().event("radditz_sift_start");
         snap.radditz_status = 1; // started
         set_block_solve_snapshot(snap);
         const std::size_t rsf = ::crsce::decompress::phases::radditz_sift_phase(csm, st, snap, 0);

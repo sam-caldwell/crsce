@@ -6,6 +6,7 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Cli/detail/run.h"
+#include "common/O11y/O11y.h"
 #include <span>
 #include <cstddef>
 
@@ -16,6 +17,8 @@
  * @return Process exit code (0 on success, non-zero represents an error state).
  */
 auto main(const int argc, char *argv[]) -> int {
+    // Start background o11y so metrics/counters/events persist asynchronously.
+    ::crsce::o11y::O11y::instance().start();
     const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
     return crsce::decompress::cli::run(args);
 }

@@ -17,7 +17,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include "common/O11y/counter.h"
+#include "common/O11y/O11y.h"
 #include <span>
 #include <utility>
 #include <functional>
@@ -126,7 +126,7 @@ namespace crsce::decompress::detail {
                         }
                         if (st_try.U_row.at(r) < before_row || st_try.U_col.at(c) < before_col) {
                             if (before_col > 0 && st_try.U_col.at(c) == 0) { ++snap.cols_finished; }
-                            csm_out = c_try; st = st_try; ++snap.partial_adoptions; ::crsce::o11y::counter("partial_adoptions");
+                            csm_out = c_try; st = st_try; ++snap.partial_adoptions; ::crsce::o11y::O11y::instance().counter("partial_adoptions");
                         }
                     }
                 }

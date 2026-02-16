@@ -1,6 +1,8 @@
 /**
  * @file GenericSolver.h
  * @brief Concrete base class for polymorphic solvers with common state.
+ * @author Sam Caldwell
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 

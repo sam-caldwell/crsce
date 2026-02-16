@@ -7,7 +7,6 @@
 
 #include <array>
 #include <cstdint> // NOLINT
-#include "decompress/Phases/DeterministicElimination/detail/kSeedHash.h"
 #include "decompress/Phases/DeterministicElimination/detail/kRowZerosDigest.h"
 #include "decompress/Phases/DeterministicElimination/detail/kRowOnesDigest.h"
 #include "decompress/Phases/DeterministicElimination/detail/kRowAlt0101Digest.h"

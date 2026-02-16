@@ -16,8 +16,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include "common/O11y/metric_i64.h"
-#include "common/O11y/counter.h"
+#include "common/O11y/O11y.h"
 #include <string>
 #include <span>
 #include <utility>
@@ -50,12 +49,12 @@ namespace crsce::decompress::detail {
                                       int stall_ticks) {
         constexpr std::size_t S = Csm::kS;
         ++snap.boundary_finisher_attempts;
-        ::crsce::o11y::counter("boundary_finisher_attempts");
+        ::crsce::o11y::O11y::instance().counter("boundary_finisher_attempts");
         // Use first row with unknown cells as boundary candidate (avoid full LH scan here)
         std::size_t boundary = 0;
         for (; boundary < S; ++boundary) { if (baseline_st.U_row.at(boundary) > 0) { break; } }
         if (boundary >= S) { return false; }
-        ::crsce::o11y::metric(
+        ::crsce::o11y::O11y::instance().metric(
             "boundary_finisher_invoked",
             static_cast<std::int64_t>(boundary),
             {{"U", std::to_string(static_cast<unsigned>(st.U_row.at(boundary)))}});
@@ -133,7 +132,7 @@ namespace crsce::decompress::detail {
                 ev.restart_index = rs; ev.prefix_rows = check_rows; ev.unknown_total = snap.unknown_total; ev.action = BlockSolveSnapshot::RestartAction::lockIn;
                 snap.restarts.push_back(ev);
                 ++snap.boundary_finisher_successes;
-                ::crsce::o11y::counter("boundary_finisher_successes");
+                ::crsce::o11y::O11y::instance().counter("boundary_finisher_successes");
                 return true;
             }
         }
@@ -141,7 +140,7 @@ namespace crsce::decompress::detail {
         if (any_adopted_ever) {
             csm_out = c_work; st = st_work;
             ++snap.partial_adoptions;
-            ::crsce::o11y::counter("partial_adoptions");
+            ::crsce::o11y::O11y::instance().counter("partial_adoptions");
             return false;
         }
         return false;

@@ -14,7 +14,7 @@
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "common/O11y/event.h"
+#include "common/O11y/O11y.h"
 
 namespace {
     using crsce::decompress::Csm;
@@ -109,7 +109,7 @@ namespace crsce::decompress::phases {
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
         snap.time_row_phase_ms += static_cast<std::size_t>(ms);
         ++snap.row_phase_iterations;
-        ::crsce::o11y::event("bitsplash_end", {{"adopted", std::to_string(adopted)}});
+        ::crsce::o11y::O11y::instance().event("bitsplash_end", {{"adopted", std::to_string(adopted)}});
         return adopted;
     }
 }

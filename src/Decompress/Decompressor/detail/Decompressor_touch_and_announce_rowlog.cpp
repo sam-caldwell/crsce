@@ -20,7 +20,7 @@ namespace crsce::decompress {
      * @param output_path log directory
      * @return void
      */
-    void touch_and_announce_rowlog(const std::string &output_path) {
+    void RowLog::touch_and_announce_rowlog(const std::string &output_path) {
     try {
         namespace fs = std::filesystem;
         const auto outp = fs::path(output_path);

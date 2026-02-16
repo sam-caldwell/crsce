@@ -8,5 +8,8 @@
 #include "decompress/Solvers/GenericSolver.h"
 
 namespace crsce::decompress {
+    /**
+     * @brief Type alias for the default decompressor solver implementation.
+     */
     using Solver = ::crsce::decompress::solvers::GenericSolver;
 }

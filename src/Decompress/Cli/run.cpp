@@ -21,9 +21,7 @@
 #include <thread>
 #include <atomic>
 #include <cstdlib>
-#include "common/O11y/metric_i64.h"
-#include "common/O11y/counter.h"
-#include "common/O11y/event.h"
+#include "common/O11y/O11y.h"
 
 namespace crsce::decompress::cli {
     /**
@@ -52,8 +50,8 @@ namespace crsce::decompress::cli {
             }
             const auto &[input, output, help] = parser.options();
 
-            ::crsce::o11y::metric("decompress_begin", 1LL, {{"in", input}, {"out", output}});
-            ::crsce::o11y::counter("decompress_files_attempted");
+            ::crsce::o11y::O11y::instance().metric("decompress_begin", static_cast<std::int64_t>(1), {{"in", input}, {"out", output}});
+            ::crsce::o11y::O11y::instance().counter("decompress_files_attempted");
 
             // Heartbeat thread: periodically print timestamp, phase, and a few progress metrics.
             std::atomic<bool> hb_run{true};
@@ -80,25 +78,25 @@ namespace crsce::decompress::cli {
             hb_run.store(false, std::memory_order_relaxed);
             if (hb_enabled && hb_thr.joinable()) { hb_thr.join(); }
             if (ok) {
-                ::crsce::o11y::counter("decompress_files_success");
+                ::crsce::o11y::O11y::instance().counter("decompress_files_success");
             } else {
-                ::crsce::o11y::event("decompress_error", {{"type", std::string("pipeline_failed")}});
-                ::crsce::o11y::counter("decompress_files_failed");
+                ::crsce::o11y::O11y::instance().event("decompress_error", {{"type", std::string("pipeline_failed")}});
+                ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
             }
-            ::crsce::o11y::metric("decompress_end", 1LL, {{"status", (ok ? std::string("OK") : std::string("FAIL"))}});
+            ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1), {{"status", (ok ? std::string("OK") : std::string("FAIL"))}});
             if (!ok) { return 4; }
             return 0;
         } catch (const std::exception &e) {
             std::fputs("error: ", stderr);
             std::fputs(e.what(), stderr);
             std::fputs("\n", stderr);
-            ::crsce::o11y::event("decompress_error", {{"type", std::string("exception")}, {"what", std::string(e.what())}});
-            ::crsce::o11y::counter("decompress_files_failed");
+            ::crsce::o11y::O11y::instance().event("decompress_error", {{"type", std::string("exception")}, {"what", std::string(e.what())}});
+            ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
             return 1;
         } catch (...) {
             std::fputs("error: unknown exception\n", stderr);
-            ::crsce::o11y::event("decompress_error", {{"type", std::string("exception_unknown")}});
-            ::crsce::o11y::counter("decompress_files_failed");
+            ::crsce::o11y::O11y::instance().event("decompress_error", {{"type", std::string("exception_unknown")}});
+            ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
             return 1;
         }
     }

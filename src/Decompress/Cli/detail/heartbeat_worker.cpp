@@ -24,7 +24,8 @@
 
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Decompressor/detail/phase_to_cstr.h"
-#include "common/O11y/metric_i64.h"
+#include "common/O11y/O11y.h"
+#include "decompress/Cli/detail/heartbeat_helpers.h"
 
 namespace crsce::decompress::cli::detail {
     /**
@@ -70,29 +71,19 @@ namespace crsce::decompress::cli::detail {
                     << " solved=" << static_cast<std::uint64_t>(s.solved)
                     << " unknown=" << static_cast<std::uint64_t>(s.unknown_total);
                 // Diagonal/anti-diagonal satisfaction (percentage) when U vectors are available
-                auto pct_sat = [](const std::vector<std::uint16_t> &u) -> int {
-                    if (u.empty()) { return -1; }
-                    std::size_t ok = 0;
-                    for (auto v : u) { if (v == 0U) { ++ok; } }
-                    const std::size_t n = u.size();
-                    return static_cast<int>((ok * 100ULL) / (n ? n : 1ULL));
-                };
                 const int lsm_sat_pct = pct_sat(s.U_row);
                 const int vsm_sat_pct = pct_sat(s.U_col);
                 const int dsm_sat_pct = pct_sat(s.U_diag);
                 const int xsm_sat_pct = pct_sat(s.U_xdiag);
                 // Emit cross-sum satisfaction and unknown totals as o11y metrics
-                auto sum_unknowns = [](const std::vector<std::uint16_t> &u) -> std::int64_t {
-                    std::uint64_t s = 0ULL; for (auto v : u) { s += v; } return static_cast<std::int64_t>(s);
-                };
-                ::crsce::o11y::metric("crosssum.sat_pct", static_cast<std::int64_t>(lsm_sat_pct), {{"family","lsm"}});
-                ::crsce::o11y::metric("crosssum.sat_pct", static_cast<std::int64_t>(vsm_sat_pct), {{"family","vsm"}});
-                ::crsce::o11y::metric("crosssum.sat_pct", static_cast<std::int64_t>(dsm_sat_pct), {{"family","dsm"}});
-                ::crsce::o11y::metric("crosssum.sat_pct", static_cast<std::int64_t>(xsm_sat_pct), {{"family","xsm"}});
-                ::crsce::o11y::metric("crosssum.unknown_total", sum_unknowns(s.U_row), {{"family","lsm"}});
-                ::crsce::o11y::metric("crosssum.unknown_total", sum_unknowns(s.U_col), {{"family","vsm"}});
-                ::crsce::o11y::metric("crosssum.unknown_total", sum_unknowns(s.U_diag), {{"family","dsm"}});
-                ::crsce::o11y::metric("crosssum.unknown_total", sum_unknowns(s.U_xdiag), {{"family","xsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.sat_pct", static_cast<std::int64_t>(lsm_sat_pct), {{"family","lsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.sat_pct", static_cast<std::int64_t>(vsm_sat_pct), {{"family","vsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.sat_pct", static_cast<std::int64_t>(dsm_sat_pct), {{"family","dsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.sat_pct", static_cast<std::int64_t>(xsm_sat_pct), {{"family","xsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.unknown_total", sum_unknowns(s.U_row), {{"family","lsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.unknown_total", sum_unknowns(s.U_col), {{"family","vsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.unknown_total", sum_unknowns(s.U_diag), {{"family","dsm"}});
+                ::crsce::o11y::O11y::instance().metric("crosssum.unknown_total", sum_unknowns(s.U_xdiag), {{"family","xsm"}});
                 switch (s.phase) {
                     case ::crsce::decompress::BlockSolveSnapshot::Phase::de:
                         oss << ",de_status=" << s.de_status;

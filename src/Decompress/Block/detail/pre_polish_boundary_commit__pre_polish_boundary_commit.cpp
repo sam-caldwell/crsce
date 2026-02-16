@@ -15,8 +15,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include "common/O11y/counter.h"
-#include "common/O11y/metric_i64.h"
+#include "common/O11y/O11y.h"
 #include <span>
 #include <string>
 #include <utility>
@@ -60,7 +59,7 @@ namespace crsce::decompress::detail {
         Csm c_work = baseline_csm;
         ConstraintState st_work = baseline_st;
         ++snap.boundary_finisher_attempts;
-        ::crsce::o11y::counter("boundary_finisher_attempts");
+        ::crsce::o11y::O11y::instance().counter("boundary_finisher_attempts");
         int steps = 0;
         while (st_work.U_row.at(boundary) > 0 && steps < kBoundaryMaxSteps) {
             ++steps;
@@ -115,7 +114,7 @@ namespace crsce::decompress::detail {
             if (check_rows > 0 && ver_try.verify_rows(c_work, lh, check_rows)) {
                 csm_out = c_work; st = st_work;
                 std::size_t sumU2 = 0; for (const auto u : st.U_row) { sumU2 += static_cast<std::size_t>(u); }
-                ::crsce::o11y::metric(
+                ::crsce::o11y::O11y::instance().metric(
                     "prefix_locked_in",
                     static_cast<std::int64_t>(check_rows),
                     {{"unknown", std::to_string(sumU2)},
@@ -126,7 +125,7 @@ namespace crsce::decompress::detail {
             ev.restart_index = rs; ev.prefix_rows = check_rows; ev.unknown_total = sumU2; ev.action = BlockSolveSnapshot::RestartAction::lockIn;
                 snap.restarts.push_back(ev);
                 ++snap.boundary_finisher_successes;
-                ::crsce::o11y::counter("boundary_finisher_successes");
+                ::crsce::o11y::O11y::instance().counter("boundary_finisher_successes");
                 return true;
             }
         }

@@ -12,7 +12,7 @@
 #include <span>
 #include <string>
 #include <sys/stat.h>
-#include "common/O11y/event.h"
+#include "common/O11y/O11y.h"
 
 namespace crsce::common::cli {
     /**
@@ -32,7 +32,7 @@ namespace crsce::common::cli {
         const bool parsed_ok = parser.parse(args);
         const auto &[input, output, help] = parser.options();
         if (help) {
-            ::crsce::o11y::event("cli_help", {{"usage", parser.usage()}});
+            ::crsce::o11y::O11y::instance().event("cli_help", {{"usage", parser.usage()}});
             std::println(stderr, "usage: {}", parser.usage());
             return 0;
         }
@@ -42,22 +42,22 @@ namespace crsce::common::cli {
                 const std::string a = args[i];
                 if ((a == "-in" || a == "-out") && (i + 1 >= args.size())) {
                     if (a == "-in") {
-                        ::crsce::o11y::event("cli_error", {{"type", std::string("missing_in_value")}});
+                        ::crsce::o11y::O11y::instance().event("cli_error", {{"type", std::string("missing_in_value")}});
                         std::println(stderr, "error: insufficient arguments (-in <file> -out <file>) are required.");
                         return 4; // treat missing input value as insufficient args
                     }
                     // Missing -out value: treat as usage error
-                    ::crsce::o11y::event("cli_error", {{"type", std::string("missing_out_value")}});
+                    ::crsce::o11y::O11y::instance().event("cli_error", {{"type", std::string("missing_out_value")}});
                     std::println(stderr, "usage: {}", parser.usage());
                     return 2;
                 }
             }
-            ::crsce::o11y::event("cli_error", {{"type", std::string("parse_failed")}});
+            ::crsce::o11y::O11y::instance().event("cli_error", {{"type", std::string("parse_failed")}});
             std::println(stderr, "usage: {}", parser.usage());
             return 2;
         }
         if (input.empty() || output.empty()) {
-            ::crsce::o11y::event("cli_error", {{"type", std::string("insufficient_arguments")}});
+            ::crsce::o11y::O11y::instance().event("cli_error", {{"type", std::string("insufficient_arguments")}});
             std::println(stderr, "error: insufficient arguments (-in <file> -out <file>) are required.");
             return 4;
         }
@@ -65,12 +65,12 @@ namespace crsce::common::cli {
         // Validate file paths per usage: input must exist; output must NOT exist
         struct stat statbuf{};
         if (stat(input.c_str(), &statbuf) != 0) {
-            ::crsce::o11y::event("cli_error", {{"type", std::string("input_missing")}, {"path", input}});
+            ::crsce::o11y::O11y::instance().event("cli_error", {{"type", std::string("input_missing")}, {"path", input}});
             std::println(stderr, "error: input file does not exist: {}", input);
             return 3;
         }
         if (stat(output.c_str(), &statbuf) == 0) {
-            ::crsce::o11y::event("cli_error", {{"type", std::string("output_exists")}, {"path", output}});
+            ::crsce::o11y::O11y::instance().event("cli_error", {{"type", std::string("output_exists")}, {"path", output}});
             std::println(stderr, "error: output file already exists: {}", output);
             return 3;
         }
