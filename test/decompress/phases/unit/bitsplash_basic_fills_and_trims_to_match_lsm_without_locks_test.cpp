@@ -4,8 +4,8 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/BitSplash/BitSplash.h"
 
@@ -18,7 +18,7 @@ TEST(BitSplashBasic, FillsAndTrimsToMatchLsmWithoutLocks) { // NOLINT
     constexpr std::size_t S = Csm::kS;
     Csm csm; csm.reset();
     ConstraintState st{}; (void)st; // unused by BitSplash
-    BlockSolveSnapshot snap{};
+    BlockSolveSnapshot snap{S, st, {}, {}, {}, {}, 0ULL};
     snap.lsm.assign(S, 0);
 
     // Row r_add: needs exactly 2 ones; currently empty
@@ -27,9 +27,9 @@ TEST(BitSplashBasic, FillsAndTrimsToMatchLsmWithoutLocks) { // NOLINT
 
     // Row r_trim: currently has 3 ones (unlocked), but LSM=1
     constexpr std::size_t r_trim = 7;
-    csm.put(r_trim, 1, true);
-    csm.put(r_trim, 2, true);
-    csm.put(r_trim, 3, true);
+    csm.set(r_trim, 1);
+    csm.set(r_trim, 2);
+    csm.set(r_trim, 3);
     snap.lsm.at(r_trim) = 1;
 
     const std::size_t flips = bit_splash(csm, st, snap, /*max_rows*/0);
@@ -52,4 +52,3 @@ TEST(BitSplashBasic, FillsAndTrimsToMatchLsmWithoutLocks) { // NOLINT
     EXPECT_EQ(snap.row_phase_iterations, 1U);
     EXPECT_GE(snap.partial_adoptions, 1U);
 }
-

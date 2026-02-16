@@ -7,9 +7,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include <span>
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
@@ -39,7 +41,9 @@ TEST(DeterministicEliminationHappy, ForceRowAllZeros) { // NOLINT
     ASSERT_EQ(st.R_row.at(1), 0);
     ASSERT_EQ(st.U_row.at(1), static_cast<std::uint16_t>(Csm::kS));
 
-    DeterministicElimination de{csm, st};
+    crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh{};
+    DeterministicElimination de{0ULL, csm, st, snap, empty_lh};
     const auto progress = de.solve_step();
     // Expect one full row assigned
     EXPECT_EQ(progress, Csm::kS);

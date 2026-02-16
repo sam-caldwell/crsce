@@ -5,7 +5,7 @@
 
 #include <cstddef>
 
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
 
 using crsce::decompress::Csm;
@@ -23,10 +23,10 @@ TEST(CsmWriteOnLockedElementTest, PutThrowsOnLockedCell) { // NOLINT
     const std::size_t c = 456 % Csm::kS;
 
     // Set a value and lock the cell
-    csm.put(r, c, true);
+    csm.set(r, c);
     csm.lock(r, c);
 
     // Any subsequent write to the same cell must throw
-    EXPECT_THROW(csm.put(r, c, false), WriteFailureOnLockedCsmElement);
-    EXPECT_THROW(csm.put(r, c, true), WriteFailureOnLockedCsmElement);
+    EXPECT_THROW(csm.clear(r, c), WriteFailureOnLockedCsmElement);
+    EXPECT_THROW(csm.set(r, c), WriteFailureOnLockedCsmElement);
 }

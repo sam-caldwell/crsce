@@ -3,7 +3,7 @@
  * @brief Serialize CrossSum elements as contiguous 9-bit MSB-first bitstream.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 #include <cstddef>
 #include <cstdint>
 #include <vector>

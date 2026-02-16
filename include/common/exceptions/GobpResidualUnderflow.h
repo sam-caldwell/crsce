@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <format>
 
 #include "common/exceptions/CrsceException.h"
 
@@ -32,10 +33,10 @@ namespace crsce::decompress {
 
     private:
         static std::string make_message(Kind kind, std::size_t r, std::size_t c, std::size_t d, std::size_t x) {
-            const char *k = (kind == Kind::U_zero_on_assign) ? "U already zero on a line while assigning"
-                                                             : "R underflow on a line while assigning 1";
-            return std::string("GOBP: ") + k + ": r=" + std::to_string(r) + ", c=" + std::to_string(c)
-                   + ", d=" + std::to_string(d) + ", x=" + std::to_string(x);
+            const char *k = (kind == Kind::U_zero_on_assign)
+                ? "U already zero on a line while assigning"
+                : "R underflow on a line while assigning 1";
+            return std::format("GOBP: {}: r={}, c={}, d={}, x={}", k, r, c, d, x);
         }
 
         Kind kind_;

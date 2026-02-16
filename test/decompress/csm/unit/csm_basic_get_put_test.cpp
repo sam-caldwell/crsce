@@ -2,7 +2,7 @@
  * @file csm_basic_get_put_test.cpp
  */
 #include <gtest/gtest.h>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 using crsce::decompress::Csm;
 
@@ -29,11 +29,11 @@ TEST(CsmBasic, DefaultsAreZero) { // NOLINT
 TEST(CsmBasic, PutAndGetRoundtrip) { // NOLINT
     Csm cs;
     // Set bits at various positions and verify
-    cs.put(0, 0, true);
-    cs.put(0, 1, true);
-    cs.put(0, 2, false); // explicit false should keep zero
-    cs.put(510, 510, true);
-    cs.put(255, 255, true);
+    cs.set(0, 0);
+    cs.set(0, 1);
+    cs.clear(0, 2); // explicit false should keep zero
+    cs.set(510, 510);
+    cs.set(255, 255);
 
     EXPECT_TRUE(cs.get(0, 0));
     EXPECT_TRUE(cs.get(0, 1));
@@ -42,6 +42,6 @@ TEST(CsmBasic, PutAndGetRoundtrip) { // NOLINT
     EXPECT_TRUE(cs.get(255, 255));
 
     // Toggle back to zero
-    cs.put(255, 255, false);
+    cs.clear(255, 255);
     EXPECT_FALSE(cs.get(255, 255));
 }

@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 
 #include "compress/Compress/Compress.h"
 

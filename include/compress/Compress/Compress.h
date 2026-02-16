@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "common/BitHashBuffer/BitHashBuffer.h"
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 
 namespace crsce::compress {
     /**

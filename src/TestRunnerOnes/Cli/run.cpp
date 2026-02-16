@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <format>
 #include <vector>
 #include <system_error>
 #include <cstdlib>
@@ -51,7 +52,7 @@ namespace crsce::testrunner_ones::cli {
             const std::string suffix = std::to_string(static_cast<std::uint64_t>(nblocks));
 
             const std::uint64_t in_bytes = crsce::testrunner::detail::min_bytes_for_n_blocks(nblocks);
-            const fs::path in_path = out_dir / ("ones_input_" + suffix + "_" + std::to_string(ts) + ".bin");
+            const fs::path in_path = out_dir / std::format("ones_input_{}_{}.bin", suffix, ts);
 
             crsce::testrunner::detail::write_one_file(in_path, in_bytes);
             const auto gi = crsce::testrunner_random::cli::make_input(in_path, in_bytes);

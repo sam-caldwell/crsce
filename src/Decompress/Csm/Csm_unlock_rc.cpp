@@ -17,7 +17,9 @@ namespace crsce::decompress {
      */
     void Csm::unlock_rc(const std::size_t r, const std::size_t c) {
         bounds_check(r, c);
+        // Clearing the resolved flag makes the cell writable again.
+        // MU is a concurrency primitive and is not the logical "lock" here.
         auto &cell = cells_.at(r).at(c);
-        cell.unlock_mu();
+        cell.set_resolved(false);
     }
 }

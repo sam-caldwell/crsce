@@ -11,7 +11,7 @@
 
 #include "testRunnerRandom/detail/write_alternating01_file.h"
 #include "common/FileBitSerializer/FileBitSerializer.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 using crsce::decompress::Csm;
 

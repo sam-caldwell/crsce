@@ -6,9 +6,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include <span>
 #include "common/exceptions/ConstraintBoundsInvalid.h"
 #include "common/exceptions/ConstraintInvariantViolation.h"
 
@@ -26,7 +28,9 @@ TEST(DeterministicEliminationBounds, ThrowsOnUOutOfRange) { // NOLINT
     }
     st.U_diag.at(7) = static_cast<std::uint16_t>(Csm::kS + 1);
 
-    EXPECT_THROW((DeterministicElimination{csm, st}), crsce::decompress::ConstraintBoundsInvalid);
+    crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh{};
+    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap, empty_lh}), crsce::decompress::ConstraintBoundsInvalid);
 }
 
 TEST(DeterministicEliminationBounds, ThrowsOnRGreaterThanU) { // NOLINT
@@ -39,5 +43,7 @@ TEST(DeterministicEliminationBounds, ThrowsOnRGreaterThanU) { // NOLINT
     st.U_col.at(5) = 10;
     st.R_col.at(5) = 11;
 
-    EXPECT_THROW((DeterministicElimination{csm, st}), crsce::decompress::ConstraintInvariantViolation);
+    crsce::decompress::BlockSolveSnapshot snap2{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh2{};
+    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap2, empty_lh2}), crsce::decompress::ConstraintInvariantViolation);
 }

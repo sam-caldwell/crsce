@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "decompress/Csm/Csm.h"
-#include "decompress/DeterministicElimination/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Solver/Solver.h"
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"

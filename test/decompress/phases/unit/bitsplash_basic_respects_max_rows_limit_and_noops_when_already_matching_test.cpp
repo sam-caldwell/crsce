@@ -4,8 +4,8 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/BitSplash/BitSplash.h"
 
@@ -18,12 +18,12 @@ TEST(BitSplashBasic, RespectsMaxRowsLimitAndNoOpsWhenAlreadyMatching) { // NOLIN
     constexpr std::size_t S = Csm::kS;
     Csm csm; csm.reset();
     ConstraintState st{}; (void)st;
-    BlockSolveSnapshot snap{};
+    BlockSolveSnapshot snap{S, st, {}, {}, {}, {}, 0ULL};
     snap.lsm.assign(S, 0);
 
     // Row r0 already matches LSM=1 because we pre-place one 1
     constexpr std::size_t r0 = 2;
-    csm.put(r0, 0, true);
+    csm.set(r0, 0);
     snap.lsm.at(r0) = 1;
 
     // Row r1 needs 2 ones, but we limit max_rows=1 so it won't be processed
@@ -44,4 +44,3 @@ TEST(BitSplashBasic, RespectsMaxRowsLimitAndNoOpsWhenAlreadyMatching) { // NOLIN
     }
     EXPECT_EQ(ones1, 0U);
 }
-

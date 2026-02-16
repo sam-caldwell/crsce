@@ -41,9 +41,12 @@ namespace crsce::decompress {
             if (cell->resolved()) {
                 throw WriteFailureOnLockedCsmElement("Csm::clear_dx: write to locked element");
             }
-            cell->set_data(false);
-            update_counters_after_flip(r, c, true, false);
-            row_versions_.at(r).fetch_add(1ULL, std::memory_order_relaxed);
+            const bool old_v = cell->data();
+            if (old_v) {
+                cell->set_data(false);
+                update_counters_after_flip(r, c, true, false);
+                row_versions_.at(r).fetch_add(1ULL, std::memory_order_relaxed);
+            }
         } catch (...) {
             xg.unlock();
             dg.unlock();

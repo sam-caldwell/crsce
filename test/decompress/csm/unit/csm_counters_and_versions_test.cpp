@@ -3,7 +3,7 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 using crsce::decompress::Csm;
 
@@ -15,7 +15,7 @@ TEST(CsmCounters, LiveCountersAndRowVersionsRcDx) {
     const std::size_t r = 3;
     const std::size_t c = 7;
     const auto ver0 = csm.row_version(r);
-    csm.put(r, c, true);
+    csm.set(r, c);
     EXPECT_EQ(csm.count_lsm(r), 1);
     EXPECT_EQ(csm.count_vsm(c), 1);
     EXPECT_EQ(csm.count_dsm(Csm::calc_d(r, c)), 1);
@@ -23,13 +23,13 @@ TEST(CsmCounters, LiveCountersAndRowVersionsRcDx) {
     EXPECT_GT(csm.row_version(r), ver0);
     // no-op write does not bump version
     const auto ver1 = csm.row_version(r);
-    csm.put(r, c, true);
+    csm.set(r, c);
     EXPECT_EQ(csm.row_version(r), ver1);
 
     // dx write toggling back to 0
     const std::size_t d = Csm::calc_d(r, c);
     const std::size_t x = Csm::calc_x(r, c);
-    csm.put_dx(d, x, false);
+    csm.clear_dx(d, x);
     EXPECT_EQ(csm.count_lsm(r), 0);
     EXPECT_EQ(csm.count_vsm(c), 0);
     EXPECT_EQ(csm.count_dsm(d), 0);
@@ -39,9 +39,9 @@ TEST(CsmCounters, LiveCountersAndRowVersionsRcDx) {
 TEST(CsmSnapshot, CounterSnapshotConsistentWithCounters) {
     Csm csm;
     // simple pattern
-    csm.put(0, 0, true);
-    csm.put(1, 2, true);
-    csm.put(3, 5, true);
+    csm.set(0, 0);
+    csm.set(1, 2);
+    csm.set(3, 5);
     auto snap = csm.take_counter_snapshot();
     for (std::size_t i = 0; i < Csm::kS; ++i) {
         EXPECT_EQ(snap.lsm.at(i), csm.count_lsm(i));

@@ -7,7 +7,7 @@
 #include "decompress/Utils/detail/calc_x.h"
 #include "decompress/Utils/detail/calc_c_from_d.h"
 #include "decompress/Utils/detail/calc_c_from_x.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include <cstddef>
 
 using crsce::decompress::Csm;

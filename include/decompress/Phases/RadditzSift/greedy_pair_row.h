@@ -8,7 +8,7 @@
 
 #include <vector>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::phases::detail {

@@ -57,7 +57,7 @@ namespace crsce::decompress {
                     max_bel = std::max(belief, max_bel);
                     const double prev = csm_.get_data(r, c);
                     const double blended = (damping_ * prev) + ((1.0 - damping_) * belief);
-                    csm_.set_data(r, c, blended);
+                    csm_.set_belief(r, c, blended);
                     min_blend = std::min(blended, min_blend);
                     max_blend = std::max(blended, max_blend);
                     const double delta = std::fabs(blended - prev);
@@ -107,7 +107,7 @@ namespace crsce::decompress {
                     max_bel = std::max(belief, max_bel);
                     const double prev = csm_.get_data(r, c);
                     const double blended = (damping_ * prev) + ((1.0 - damping_) * belief);
-                    csm_.set_data(r, c, blended);
+                    csm_.set_belief(r, c, blended);
                     min_blend = std::min(blended, min_blend);
                     max_blend = std::max(blended, max_blend);
                     const double delta = std::fabs(blended - prev);

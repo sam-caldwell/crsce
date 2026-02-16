@@ -4,8 +4,8 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/RadditzSift/RadditzSift.h"
 
@@ -18,7 +18,8 @@ TEST(RadditzSiftPhaseBasic, TelemetryOnUnresolvableDeficits) { // NOLINT
     constexpr std::size_t S = Csm::kS;
     Csm csm; csm.reset();
     ConstraintState st{};
-    BlockSolveSnapshot snap{};
+    const ConstraintState st_pre{};
+    BlockSolveSnapshot snap{S, st_pre, {}, {}, {}, {}, 0ULL};
 
     // Lock two ones in donor columns that vsm sets to zero; target columns need ones
     const std::size_t r = 5;
@@ -26,8 +27,8 @@ TEST(RadditzSiftPhaseBasic, TelemetryOnUnresolvableDeficits) { // NOLINT
     constexpr std::size_t cDonB = 20;
     constexpr std::size_t cNeedA = 30;
     constexpr std::size_t cNeedB = 40;
-    csm.put(r, cDonA, true); csm.lock(r, cDonA);
-    csm.put(r, cDonB, true); csm.lock(r, cDonB);
+    csm.set(r, cDonA); csm.lock(r, cDonA);
+    csm.set(r, cDonB); csm.lock(r, cDonB);
 
     snap.vsm.assign(S, 0);
     snap.vsm.at(cDonA) = 0;
@@ -43,4 +44,3 @@ TEST(RadditzSiftPhaseBasic, TelemetryOnUnresolvableDeficits) { // NOLINT
     EXPECT_GT(snap.radditz_deficit_abs_after, 0U);
     EXPECT_GE(snap.radditz_passes_last, 1U);
 }
-

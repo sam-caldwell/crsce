@@ -2,7 +2,7 @@
  * @file csm_dx_view_roundtrip_test.cpp
  */
 #include <gtest/gtest.h>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include <cstddef>
 
 using crsce::decompress::Csm;
@@ -15,9 +15,9 @@ TEST(CsmDxView, RoundTripRcDx) {
         for (std::size_t c = 0; c < 10; ++c) {
             const std::size_t d = Csm::calc_d(r, c);
             const std::size_t x = Csm::calc_x(r, c);
-            csm.put(r, c, true);
+            csm.set(r, c);
             EXPECT_TRUE(csm.get_dx(d, x));
-            csm.put_dx(d, x, false);
+            csm.clear_dx(d, x);
             EXPECT_FALSE(csm.get(r, c));
         }
     }

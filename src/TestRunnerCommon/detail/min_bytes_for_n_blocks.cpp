@@ -5,7 +5,7 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "testRunnerRandom/detail/min_bytes_for_n_blocks.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include <cstdint>
 
 namespace crsce::testrunner::detail {

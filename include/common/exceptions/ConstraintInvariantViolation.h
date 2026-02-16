@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <string>
+#include <format>
 
 #include "common/exceptions/CrsceException.h"
 
@@ -28,8 +29,7 @@ namespace crsce::decompress {
 
     private:
         static std::string make_message(const char *family, std::size_t index, std::size_t R, std::size_t U) {
-            return std::string("R > U invariant violated for ") + family + "[" + std::to_string(index) + "] : R="
-                   + std::to_string(R) + ", U=" + std::to_string(U);
+            return std::format("R > U invariant violated for {}[{}] : R={}, U={}", family, index, R, U);
         }
 
         std::string family_;

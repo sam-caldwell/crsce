@@ -3,7 +3,7 @@
  * @brief Increment XSM index using mapping (r + c) mod kSize.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 #include <cstddef>
 
 namespace crsce::common {

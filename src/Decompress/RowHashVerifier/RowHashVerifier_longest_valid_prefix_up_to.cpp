@@ -6,7 +6,7 @@
  */
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 #include <algorithm>
 #include <array>

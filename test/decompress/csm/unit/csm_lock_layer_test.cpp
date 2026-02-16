@@ -2,7 +2,7 @@
  * @file csm_lock_layer_test.cpp
  */
 #include <gtest/gtest.h>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "common/exceptions/WriteFailureOnLockedCsmElement.h"
 
 using crsce::decompress::Csm;
@@ -21,7 +21,7 @@ TEST(CsmLock, LockAndQuery) { // NOLINT
 
     // Locking should prevent subsequent writes and preserve prior bit value
     EXPECT_FALSE(cs.get(1, 1));
-    EXPECT_THROW(cs.put(1, 1, true), crsce::decompress::WriteFailureOnLockedCsmElement);
+    EXPECT_THROW(cs.set(1, 1), crsce::decompress::WriteFailureOnLockedCsmElement);
     EXPECT_FALSE(cs.get(1, 1));
     EXPECT_TRUE(cs.is_locked(1, 1));
 }

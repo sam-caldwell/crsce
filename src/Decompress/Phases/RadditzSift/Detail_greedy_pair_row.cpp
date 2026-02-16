@@ -6,7 +6,7 @@
  */
 #include <vector>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/RadditzSift/greedy_pair_row.h"
 #include "decompress/Phases/RadditzSift/swap_lateral.h"

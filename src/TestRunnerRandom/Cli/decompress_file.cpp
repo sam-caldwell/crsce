@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <sstream>
 #include <string>
+#include <format>
 #include <cstdint> //NOLINT
 #include <optional>
 #include <cstdlib>
@@ -113,8 +114,8 @@ namespace crsce::testrunner_random::cli {
             if (elapsed > timeout_ms) {
                 throw crsce::common::exceptions::DecompressTimeoutException("decompress timed out");
             }
-            std::ostringstream oss; oss << "decompress exited with code " << dx_res.exit_code;
-            throw crsce::common::exceptions::DecompressNonZeroExitException(oss.str());
+            throw crsce::common::exceptions::DecompressNonZeroExitException(
+                std::format("decompress exited with code {}", dx_res.exit_code));
         }
 
         // Compute output hash and extract gobp cells solved from completion_stats.log

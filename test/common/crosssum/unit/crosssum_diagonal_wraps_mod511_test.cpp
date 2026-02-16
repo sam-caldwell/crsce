@@ -2,7 +2,7 @@
  * @file crosssum_diagonal_wraps_mod511_test.cpp
  * @brief Verify DSM mapping d(r,c) = (c - r) mod 511 wraps correctly.
  */
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 #include <gtest/gtest.h>
 
 using crsce::common::CrossSum;

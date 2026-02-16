@@ -6,9 +6,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include <span>
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
@@ -31,7 +33,9 @@ TEST(DeterministicEliminationPatterns, AllZerosEliminatedByDE) { // NOLINT
         st.R_diag.at(i) = 0;
         st.R_xdiag.at(i) = 0;
     }
-    DeterministicElimination de{csm, st};
+    crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh{};
+    DeterministicElimination de{0ULL, csm, st, snap, empty_lh};
     // Hash-based elimination removed; DE performs only forced moves.
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, Csm::kS * Csm::kS);
@@ -62,7 +66,9 @@ TEST(DeterministicEliminationPatterns, AllOnesEliminatedByDE) { // NOLINT
         st.R_diag.at(i) = static_cast<std::uint16_t>(Csm::kS);
         st.R_xdiag.at(i) = static_cast<std::uint16_t>(Csm::kS);
     }
-    DeterministicElimination de{csm, st};
+    crsce::decompress::BlockSolveSnapshot snap2{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh2{};
+    DeterministicElimination de{0ULL, csm, st, snap2, empty_lh2};
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, Csm::kS * Csm::kS);
     for (std::size_t r = 0; r < Csm::kS; ++r) {
@@ -89,7 +95,7 @@ TEST(DeterministicEliminationPatterns, AlternatingRowsAlreadySolvedNoop) { // NO
             const bool bit = (r % 2U == 0U)
                                  ? ((c % 2U) != 0U) // 0101...
                                  : ((c % 2U) == 0U); // 1010...
-            csm.put(r, c, bit);
+            if (bit) { csm.set(r, c); } else { csm.clear(r, c); }
             csm.lock(r, c);
         }
     }
@@ -97,7 +103,9 @@ TEST(DeterministicEliminationPatterns, AlternatingRowsAlreadySolvedNoop) { // NO
         st.U_row.at(i) = st.U_col.at(i) = st.U_diag.at(i) = st.U_xdiag.at(i) = 0;
         st.R_row.at(i) = st.R_col.at(i) = st.R_diag.at(i) = st.R_xdiag.at(i) = 0;
     }
-    DeterministicElimination de{csm, st};
+    crsce::decompress::BlockSolveSnapshot snap3{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh3{};
+    DeterministicElimination de{0ULL, csm, st, snap3, empty_lh3};
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, 0U);
     EXPECT_TRUE(de.solved());
@@ -126,7 +134,9 @@ TEST(DeterministicEliminationPatterns, SingleRowForcedOnesOnly) { // NOLINT
     }
     st.R_row.at(k) = static_cast<std::uint16_t>(Csm::kS); // force row k to ones
 
-    DeterministicElimination de{csm, st};
+    crsce::decompress::BlockSolveSnapshot snap4{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh4{};
+    DeterministicElimination de{0ULL, csm, st, snap4, empty_lh4};
     const auto progress = de.solve_step();
 
     // Expect exactly one full row assigned

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 using crsce::decompress::RowHashVerifier;
 using crsce::decompress::Csm;

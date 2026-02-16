@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <string>
+#include <format>
 
 #include "common/exceptions/CrsceException.h"
 
@@ -27,8 +28,7 @@ namespace crsce::decompress {
 
     private:
         static std::string make_message(std::size_t r, std::size_t c, std::size_t limit) {
-            return std::string("CSM index out of bounds: r=") + std::to_string(r)
-                   + ", c=" + std::to_string(c) + ", valid range=[0," + std::to_string(limit) + ")";
+            return std::format("CSM index out of bounds: r={}, c={}, valid range=[0,{}]", r, c, limit);
         }
 
         std::size_t r_;

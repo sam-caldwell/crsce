@@ -1,12 +1,12 @@
 /**
  * @file kRowZerosDigest.h
  * @brief Precomputed LH digest for the all-zeros row.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace crsce::decompress::known_lh {
     /**
@@ -18,3 +18,4 @@ namespace crsce::decompress::known_lh {
         0x7C, 0xFE, 0xDA, 0xE4, 0x31, 0x85, 0x03, 0x62, 0xC0, 0xBF, 0x60, 0xBB, 0x3C, 0xE2, 0xC9, 0x2D
     };
 } // namespace crsce::decompress::known_lh
+

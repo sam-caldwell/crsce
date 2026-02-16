@@ -2,7 +2,7 @@
  * @file csm_counts_live_update_test.cpp
  */
 #include <gtest/gtest.h>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include <cstddef>
 
 using crsce::decompress::Csm;
@@ -18,7 +18,7 @@ TEST(CsmCounts, LiveUpdatesRcAndDx) {
         EXPECT_EQ(csm.count_xsm(i), 0);
     }
     // Write a few rc bits and verify counters and versions
-    csm.put(0, 0, true);
+    csm.set(0, 0);
     EXPECT_TRUE(csm.get(0,0));
     EXPECT_EQ(csm.count_lsm(0), 1);
     EXPECT_EQ(csm.count_vsm(0), 1);
@@ -26,10 +26,10 @@ TEST(CsmCounts, LiveUpdatesRcAndDx) {
     EXPECT_EQ(csm.count_xsm(Csm::calc_x(0,0)), 1);
     const auto v0 = csm.row_version(0);
     // No-op write should not bump
-    csm.put(0, 0, true);
+    csm.set(0, 0);
     EXPECT_EQ(csm.row_version(0), v0);
     // Flip back to 0
-    csm.put(0, 0, false);
+    csm.clear(0, 0);
     EXPECT_FALSE(csm.get(0,0));
     EXPECT_EQ(csm.count_lsm(0), 0);
     EXPECT_EQ(csm.count_vsm(0), 0);
@@ -38,7 +38,7 @@ TEST(CsmCounts, LiveUpdatesRcAndDx) {
     const std::size_t c = 6;
     const std::size_t d = Csm::calc_d(r, c);
     const std::size_t x = Csm::calc_x(r, c);
-    csm.put_dx(d, x, true);
+    csm.set_dx(d, x);
     EXPECT_TRUE(csm.get(r,c));
     EXPECT_EQ(csm.count_lsm(r), 1);
     EXPECT_EQ(csm.count_vsm(c), 1);

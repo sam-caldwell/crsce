@@ -18,12 +18,12 @@
 #include <ranges>
 #include <cmath>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
 #include "micro_solver_helpers.h"
@@ -833,7 +833,10 @@ namespace crsce::decompress::detail {
 
         // Run a localized DE settle; stop if no progress
         {
-            DeterministicElimination det{c, w};
+            BlockSolveSnapshot dummy_snap{S, w, {}, {}, {}, {}, 0ULL};
+            const std::span<const std::uint8_t> empty_lh{};
+            static constexpr std::uint64_t de_iters = 6000ULL;
+            DeterministicElimination det{de_iters, c, w, dummy_snap, empty_lh};
             for (int it = 0; it < 8000; ++it) {
                 if (const std::size_t prog = det.solve_step(); prog == 0 || w.U_row.at(r) == 0) {
                     break;

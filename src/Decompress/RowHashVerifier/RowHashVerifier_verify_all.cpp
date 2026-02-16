@@ -5,7 +5,7 @@
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 #include <cstdint>
 #include <span>

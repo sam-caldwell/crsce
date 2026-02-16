@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace crsce::decompress::known_lh {
     /**
@@ -18,3 +18,4 @@ namespace crsce::decompress::known_lh {
         0x8D, 0x18, 0xBC, 0xE4, 0x5F, 0x41, 0xAC, 0x12, 0xBB, 0xD5, 0x25, 0x05, 0xB7, 0xE3, 0x08, 0x71
     };
 } // namespace crsce::decompress::known_lh
+

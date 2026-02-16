@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <format>
 #include <system_error>
 
 namespace fs = std::filesystem;
@@ -40,7 +41,7 @@ namespace crsce::testrunner_alternating01::cli {
         const auto ts = crsce::testrunner::detail::now_ms();
         const std::string suffix = std::to_string(static_cast<std::uint64_t>(blocks));
         const std::uint64_t in_bytes = crsce::testrunner::detail::min_bytes_for_n_blocks(blocks);
-        const fs::path in_path = out_dir / ("alternating01_input_" + suffix + "_" + std::to_string(ts) + ".bin");
+        const fs::path in_path = out_dir / std::format("alternating01_input_{}_{}.bin", suffix, ts);
 
         crsce::testrunner::detail::write_alternating01_file(in_path, in_bytes);
         const auto gi = crsce::testrunner_random::cli::make_input(in_path, in_bytes);

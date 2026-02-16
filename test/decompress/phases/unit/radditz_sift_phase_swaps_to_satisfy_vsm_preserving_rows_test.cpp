@@ -4,8 +4,8 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/RadditzSift/RadditzSift.h"
 
@@ -18,15 +18,16 @@ TEST(RadditzSiftPhaseBasic, SwapsToSatisfyVsmPreservingRows) { // NOLINT
     constexpr std::size_t S = Csm::kS;
     Csm csm; csm.reset();
     ConstraintState st{}; // unused by Radditz
-    BlockSolveSnapshot snap{};
+    const ConstraintState st_pre{};
+    BlockSolveSnapshot snap{S, st_pre, {}, {}, {}, {}, 0ULL};
 
     // Setup: two rows each with a single 1 in donor columns (will be moved)
     constexpr std::size_t r0 = 2;
     constexpr std::size_t r1 = 9;
     constexpr std::size_t cDon0 = 4;
     constexpr std::size_t cDon1 = 8;
-    csm.put(r0, cDon0, true);
-    csm.put(r1, cDon1, true);
+    csm.set(r0, cDon0);
+    csm.set(r1, cDon1);
 
     // Target VSM: place ones into two specific columns
     constexpr std::size_t cT0 = 7;
@@ -73,4 +74,3 @@ TEST(RadditzSiftPhaseBasic, SwapsToSatisfyVsmPreservingRows) { // NOLINT
     EXPECT_EQ(snap.radditz_cols_remaining, 0U);
     EXPECT_EQ(snap.radditz_deficit_abs_after, 0U);
 }
-

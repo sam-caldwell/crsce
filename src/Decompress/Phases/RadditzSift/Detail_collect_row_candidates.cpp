@@ -6,7 +6,7 @@
  */
 #include <vector>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Phases/RadditzSift/collect_row_candidates.h"
 
 namespace crsce::decompress::phases::detail {

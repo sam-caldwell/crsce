@@ -8,12 +8,12 @@
 
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <span>
 #include <vector>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
@@ -35,8 +35,8 @@ namespace crsce::decompress::detail {
 std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen, // NOLINT(misc-use-internal-linkage)
                            std::vector<char> &pc_ok,
                            std::size_t &pc_prefix_len,
-                           Csm &csm,
-                           ConstraintState &st,
+                           const Csm &csm,
+                           const ConstraintState &st,
                            std::span<const std::uint8_t> lh,
                            BlockSolveSnapshot &snap) {
     constexpr std::size_t S = Csm::kS;
@@ -59,7 +59,7 @@ std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen, // NOLINT(mi
         if (st.U_row.at(r) != 0 || st.R_row.at(r) != 0) {
             break;
         }
-        const RowHashVerifier verifier{};
+        constexpr RowHashVerifier verifier{};
         const auto t0 = std::chrono::steady_clock::now();
         const bool ok = verifier.verify_row(csm, lh, r);
         const auto t1 = std::chrono::steady_clock::now();

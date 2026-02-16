@@ -9,9 +9,10 @@
 #include <chrono>
 #include <cstddef>
 #include <string>
+#include <format>
 #include <stdexcept>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "common/O11y/event.h"
 
@@ -41,7 +42,8 @@ namespace crsce::decompress::phases {
         std::size_t adopted = 0;
 
         // Rows-only BitSplash: set exactly LSM[r] ones per row using only unlocked cells.
-        // Do not lock placements; ignore VSM/DSM/XSM at this stage.
+        // Concurrency note: `put(..., mu_guard=false)` disables the per-cell MU guard for speed; either way,
+        // BitSplash never calls resolve-lock (csm.lock/lock_cell). No cells are marked solved here.
         std::size_t rows_seen = 0;
 
         const auto &lsm = snap.lsm;
@@ -68,8 +70,8 @@ namespace crsce::decompress::phases {
                 }
             }
             if (locked_ones > l_need) {
-                throw std::runtime_error(
-                    "BitSplash: corrupted data: locked ones exceed LSM for row " + std::to_string(r));
+                throw std::runtime_error(std::format(
+                    "BitSplash: corrupted data: locked ones exceed LSM for row {}", r));
             }
             if (total_ones < l_need) {
                 // Add ones in unlocked zero cells, left-to-right
@@ -79,7 +81,7 @@ namespace crsce::decompress::phases {
                         continue;
                     }
                     if (!csm.get(r, c)) {
-                        csm.put(r, c, true);
+                        csm.set(r, c, Csm::MuLockFlag::Unlocked);
                         ++adopted;
                         ++snap.partial_adoptions;
                         --add;
@@ -94,7 +96,7 @@ namespace crsce::decompress::phases {
                         continue;
                     }
                     if (csm.get(r, cc)) {
-                        csm.put(r, cc, false);
+                        csm.clear(r, cc, Csm::MuLockFlag::Unlocked);
                         ++adopted;
                         ++snap.partial_adoptions;
                         --rem;

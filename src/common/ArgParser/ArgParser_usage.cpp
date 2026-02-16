@@ -5,6 +5,7 @@
  */
 #include "common/ArgParser/ArgParser.h"
 #include <string>
+#include <format>
 
 namespace crsce::common {
     /**
@@ -13,7 +14,5 @@ namespace crsce::common {
      * @return A single-line usage string combining the program name and required flags.
      * @details Example: "compress -in <file> -out <file>".
      */
-    auto ArgParser::usage() const -> std::string {
-        return programName_ + " -in <file> -out <file>";
-    }
+    auto ArgParser::usage() const -> std::string { return std::format("{} -in <file> -out <file>", programName_); }
 } // namespace crsce::common

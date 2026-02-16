@@ -8,6 +8,9 @@
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <span>
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress {
     /**

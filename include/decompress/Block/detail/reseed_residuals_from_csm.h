@@ -11,7 +11,7 @@
 #include <span>
 
 #include "decompress/Csm/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"
 
@@ -35,4 +35,3 @@ namespace crsce::decompress::detail {
                                    std::span<const std::uint16_t> dsm,
                                    std::span<const std::uint16_t> xsm);
 }
-

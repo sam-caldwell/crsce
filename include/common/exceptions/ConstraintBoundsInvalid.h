@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <string>
+#include <format>
 
 #include "common/exceptions/CrsceException.h"
 
@@ -28,8 +29,7 @@ namespace crsce::decompress {
 
     private:
         static std::string make_message(const char *family, std::size_t index, std::size_t value, std::size_t S) {
-            return std::string("Invalid U_") + family + ": index=" + std::to_string(index)
-                    + ", value=" + std::to_string(value) + ", allowed=[0," + std::to_string(S) + "]";
+            return std::format("Invalid U_{}: index={}, value={}, allowed=[0,{}]", family, index, value, S);
         }
 
         std::string family_;

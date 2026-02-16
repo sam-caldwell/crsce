@@ -9,12 +9,12 @@ using crsce::decompress::Bits;
 TEST(BitsTest, DataLockMuOps) {
     Bits b;
     EXPECT_FALSE(b.data());
-    EXPECT_FALSE(b.locked());
+    EXPECT_FALSE(b.resolved());
     EXPECT_FALSE(b.mu_locked());
     b.set_data(true);
     EXPECT_TRUE(b.data());
-    b.set_locked(true);
-    EXPECT_TRUE(b.locked());
+    b.set_resolved(true);
+    EXPECT_TRUE(b.resolved());
     // try_lock_mu transitions from 0->1
     EXPECT_TRUE(b.try_lock_mu());
     EXPECT_TRUE(b.mu_locked());
@@ -25,4 +25,3 @@ TEST(BitsTest, DataLockMuOps) {
     b.flip_data();
     EXPECT_FALSE(b.data());
 }
-

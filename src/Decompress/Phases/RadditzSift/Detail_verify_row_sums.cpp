@@ -7,7 +7,7 @@
 #include <span>
 #include <cstdint>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Phases/RadditzSift/verify_row_sums.h"
 
 namespace crsce::decompress::phases::detail {

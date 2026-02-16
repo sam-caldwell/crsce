@@ -7,7 +7,7 @@
 #pragma once
 
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 namespace crsce::decompress::phases::detail {
     /** @brief Swap a single row's bits laterally: 1@cf→0, 0@ct→1. */

@@ -6,8 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Phases/Gobp/GobpSolver.h"
 
 using crsce::decompress::Csm;
@@ -36,7 +36,7 @@ TEST(GobpSolverSad, ThrowsOnRAssignUnderflowForOne) { // NOLINT
     st.R_col.at(c) = 0;
 
     // Make the solver choose to assign 1 regardless of current belief by setting damping=1 and prev data=1.0.
-    csm.set_data(r, c, 1.0);
+    csm.set_belief(r, c, 1.0);
 
     GobpSolver gobp{csm, st, /*damping*/ 1.0, /*assign_confidence*/ 0.9};
     // With feasibility guards, the solver must not attempt an impossible '1' assignment; no throw, no progress.

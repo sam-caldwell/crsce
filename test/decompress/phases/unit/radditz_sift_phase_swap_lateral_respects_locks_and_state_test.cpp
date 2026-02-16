@@ -4,7 +4,7 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Phases/RadditzSift/swap_lateral.h"
 
 using crsce::decompress::Csm;
@@ -17,13 +17,12 @@ TEST(RadditzSiftPhaseBasic, SwapLateralRespectsLocksAndState) { // NOLINT
     const std::size_t ct = 9;
     // invalid because from is 0
     EXPECT_FALSE(swap_lateral(csm, r, cf, ct));
-    csm.put(r, cf, true);
+    csm.set(r, cf);
     // invalid because to already 1
-    csm.put(r, ct, true);
+    csm.set(r, ct);
     EXPECT_FALSE(swap_lateral(csm, r, cf, ct));
     // unlock to 0 and lock donor
-    csm.put(r, ct, false);
+    csm.clear(r, ct);
     csm.lock(r, cf);
     EXPECT_FALSE(swap_lateral(csm, r, cf, ct));
 }
-

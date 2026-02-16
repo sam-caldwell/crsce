@@ -17,13 +17,14 @@
 #include <random>
 #include <span>
 #include <string>
+#include <format>
 
 #include "decompress/Phases/Gobp/GobpSolver.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Utils/detail/now_ms.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
 namespace crsce::decompress::detail {
 
@@ -85,7 +86,7 @@ void run_restart_worker(std::size_t wi, // NOLINT(misc-use-internal-linkage)
                 const double v = c_try.get_data(r0, c0);
                 const double j = delta(rng_local);
                 const double nv = std::clamp(v + j, 0.0, 1.0);
-                c_try.set_data(r0, c0, nv);
+                c_try.set_belief(r0, c0, nv);
             }
         }
         std::array<double, 4> dampers{{0.50, 0.10, 0.35, 0.02}};
@@ -126,14 +127,14 @@ void run_restart_worker(std::size_t wi, // NOLINT(misc-use-internal-linkage)
             }
             const auto p1 = now_ms();
             auto &ep = ev_phase_wi.at(ph);
-            ep.name = std::string("rsw_") + std::to_string(wi) + std::string("_ph") + std::to_string(ph);
+            ep.name = std::format("rsw_{}_ph{}", wi, ph);
             ep.start_ms = p0; ep.stop_ms = p1; ep.outcome = outcome;
             if (adopted.load(std::memory_order_relaxed)) { break; }
         }
     }
     const auto t1 = now_ms();
     auto &et = ev_total_wi;
-    et.name = std::string("rsw_total_") + std::to_string(wi);
+    et.name = std::format("rsw_total_{}", wi);
     et.start_ms = t0; et.stop_ms = t1; et.outcome = outcome;
 }
 

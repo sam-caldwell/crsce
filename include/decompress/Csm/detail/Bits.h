@@ -1,31 +1,32 @@
 /**
  * @file Bits.h
- * @brief Single-byte cell with data bit, per-cell mu, and solved-lock.
+ * @brief Single-byte cell with data bit, per-cell mu, and resolved state.
  */
 #pragma once
 
 #include <cstdint>
+// wait_on_lock() implementation uses timeout constant; declared here for API
+namespace crsce::decompress { inline constexpr bool kBitsHasWaitOnLock = true; }
 
 namespace crsce::decompress {
     /**
      * @class Bits
-     * @brief 1-byte cell packing data(0), mu(6), and solved-lock(7).
+     * @brief 1-byte cell packing data(0), mu(6), and resolved(7).
      */
     class Bits {
     public:
         // Resolved cell state (distinct from MU lock used for concurrency)
         enum class CellLock : std::uint8_t { Unsolved = 0, Resolved = 1 };
-        static constexpr std::uint8_t kData = 0x01U;  // bit0
-        static constexpr std::uint8_t kMu   = 0x40U;  // bit6
-        static constexpr std::uint8_t kLock = 0x80U;  // bit7
+        static constexpr std::uint8_t kData    = 0x01U;  // bit0
+        static constexpr std::uint8_t kMu      = 0x40U;  // bit6
+        static constexpr std::uint8_t kResolved= 0x80U;  // bit7
 
         Bits();
         explicit Bits(std::uint8_t raw);
-        Bits(bool data, bool lock, bool mu=false);
+        Bits(bool data, bool resolved, bool mu=false);
 
         // Accessors
         [[nodiscard]] bool data() const noexcept;
-        [[nodiscard]] bool locked() const noexcept;
         [[nodiscard]] bool resolved() const noexcept;
         [[nodiscard]] bool mu_locked() const noexcept;
         [[nodiscard]] std::uint8_t raw() const noexcept;
@@ -33,8 +34,8 @@ namespace crsce::decompress {
         // Mutators (atomic RMW on the single byte)
         void set_data(bool v) noexcept;
         void flip_data() noexcept;
-        void set_locked(bool on=true) noexcept;
-        void set_locked(CellLock state) noexcept;
+        void set_resolved(bool on=true) noexcept;
+        void set_resolved(CellLock state) noexcept;
         void set_mu_locked(bool on=true) noexcept;
         void assign(bool data_bit, bool lock_bit, bool mu_bit=false) noexcept;
         void set_raw(std::uint8_t v) noexcept;
@@ -43,6 +44,7 @@ namespace crsce::decompress {
         // Mu helpers
         bool try_lock_mu() noexcept;
         void unlock_mu() noexcept;
+        void wait_on_lock() const; // blocks until MU is released or timeout
 
         // Operators
         [[nodiscard]] explicit operator bool() const noexcept;

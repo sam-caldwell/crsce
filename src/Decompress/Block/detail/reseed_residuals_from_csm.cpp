@@ -12,8 +12,8 @@
 #include <cstdint>
 #include <span>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"
 

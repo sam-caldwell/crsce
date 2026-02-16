@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <string>
 #include <sstream>
+#include <format>
 #include <vector>
 #include <optional>
 #include <cstdint>
@@ -50,9 +51,10 @@ namespace crsce::testrunner::detail {
         std::random_device rd;
         const std::uint64_t rnd =
             (static_cast<std::uint64_t>(rd()) << 32U) ^ static_cast<std::uint64_t>(rd());
-        const std::string base = std::to_string(static_cast<std::uint64_t>(ts))
-                                 + "_" + std::to_string(pid)
-                                 + "_" + std::to_string(rnd);
+        const std::string base = std::format("{}_{}_{}",
+                                            static_cast<std::uint64_t>(ts),
+                                            pid,
+                                            rnd);
         const fs::path out_tmp = tmp_dir / (base + ".stdout.txt");
         const fs::path err_tmp = tmp_dir / (base + ".stderr.txt");
 

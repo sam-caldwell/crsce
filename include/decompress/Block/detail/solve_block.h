@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include <span>
-#include <string>
 
 #include "decompress/Csm/Csm.h"
 
@@ -18,7 +17,6 @@ namespace crsce::decompress {
      * @param lh Span of LH payload bytes.
      * @param sums Span of cross-sum payload bytes.
      * @param csm_out Output CSM to populate when successful.
-     * @param seed Deterministic seed used by the solver.
      * @param valid_bits Number of valid bits within the block; bits beyond this
      *        are considered padding and should be treated as zero-locked before solving.
      * @return true on success; false on failure.
@@ -26,6 +24,5 @@ namespace crsce::decompress {
     bool solve_block(std::span<const std::uint8_t> lh,
                      std::span<const std::uint8_t> sums,
                      Csm &csm_out,
-                     const std::string &seed,
                      std::uint64_t valid_bits);
 }

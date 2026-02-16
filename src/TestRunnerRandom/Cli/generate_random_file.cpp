@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <random>
 #include <string>
+#include <format>
 
 namespace fs = std::filesystem;
 
@@ -42,8 +43,7 @@ namespace crsce::testrunner_random::cli {
         const std::uint64_t in_bytes = dist(rng);
 
         const auto ts = crsce::testrunner::detail::now_ms();
-        const std::string ts_s = std::to_string(static_cast<std::uint64_t>(ts));
-        const fs::path in_path = out_dir / ("random_input_" + ts_s + ".bin");
+        const fs::path in_path = out_dir / std::format("random_input_{}.bin", static_cast<std::uint64_t>(ts));
 
         crsce::testrunner::detail::write_random_file(in_path, in_bytes, rng);
 

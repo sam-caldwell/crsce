@@ -11,8 +11,8 @@
 #include <chrono>
 #include <span>
 #include <cstdint> // NOLINT
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/RadditzSift/compute_col_counts.h"
 #include "decompress/Phases/RadditzSift/compute_deficits.h"

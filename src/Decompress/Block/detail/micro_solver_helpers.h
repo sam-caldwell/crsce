@@ -13,9 +13,9 @@
 #include <vector>
 #include <chrono>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Utils/detail/calc_d.h"
@@ -56,7 +56,7 @@ inline double hw_prior_score(std::size_t /*r*/, std::size_t /*c*/) { return 0.0;
 
 inline void assign_cell(Csm &c, ConstraintState &w, std::size_t r, std::size_t cc, bool v) {
     constexpr std::size_t S = Csm::kS;
-    c.put(r, cc, v);
+    if (v) { c.set(r, cc); } else { c.clear(r, cc); }
     c.lock(r, cc);
     if (w.U_row.at(r) > 0) { --w.U_row.at(r); }
     if (w.U_col.at(cc) > 0) { --w.U_col.at(cc); }

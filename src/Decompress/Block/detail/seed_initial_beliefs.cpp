@@ -13,8 +13,8 @@
 #include <utility>
 #include <vector>
 #include <functional>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/read_seed_or_default.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
@@ -62,7 +62,7 @@ namespace crsce::decompress::detail {
                 const double base = chosen[c] ? high : low;
                 double v = base + noise(rng);
                 v = std::clamp(v, 0.0, 1.0);
-                csm.set_data(r, c, v);
+                csm.set_belief(r, c, v);
             }
         }
         return belief_seed_used;

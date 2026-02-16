@@ -7,7 +7,7 @@
 #pragma once
 
 #include <vector>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 namespace crsce::decompress::phases::detail {
     /** @brief Count ones in each column of the CSM. */

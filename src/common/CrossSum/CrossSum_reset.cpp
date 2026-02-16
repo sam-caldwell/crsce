@@ -3,7 +3,7 @@
  * @brief Reset CrossSum to all zeros.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  */
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 #include <array>
 
 namespace crsce::common {

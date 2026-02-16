@@ -8,7 +8,7 @@
 
 #include <cstddef>
 #include "decompress/Csm/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
 

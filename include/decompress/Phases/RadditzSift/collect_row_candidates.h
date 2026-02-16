@@ -8,7 +8,7 @@
 
 #include <vector>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 namespace crsce::decompress::phases::detail {
     /** @brief Collect donor/target columns for a row given deficits. */

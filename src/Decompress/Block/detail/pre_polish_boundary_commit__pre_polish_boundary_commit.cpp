@@ -5,9 +5,9 @@
  */
 #include "decompress/Block/detail/pre_polish_boundary_commit_fn.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Utils/detail/calc_d.h"
 
@@ -82,7 +82,7 @@ namespace crsce::decompress::detail {
                     const bool assume_one = (vv == 1);
                     Csm c_try = c_work;
                     ConstraintState st_try = st_work;
-                    c_try.put(boundary, c_pick, assume_one);
+                    if (assume_one) { c_try.set(boundary, c_pick); } else { c_try.clear(boundary, c_pick); }
                     c_try.lock(boundary, c_pick);
                     if (st_try.U_row.at(boundary) > 0) { --st_try.U_row.at(boundary); }
                     if (st_try.U_col.at(c_pick) > 0) { --st_try.U_col.at(c_pick); }
@@ -96,7 +96,7 @@ namespace crsce::decompress::detail {
                         if (st_try.R_diag.at(d0) > 0) { --st_try.R_diag.at(d0); }
                         if (st_try.R_xdiag.at(x0) > 0) { --st_try.R_xdiag.at(x0); }
                     }
-                    DeterministicElimination det_bt{c_try, st_try};
+                    DeterministicElimination det_bt{static_cast<std::uint64_t>(12000), c_try, st_try, snap, lh};
                     for (int it0 = 0; it0 < kBoundaryBtIters; ++it0) {
                         const std::size_t prog0 = det_bt.solve_step();
                         if (st_try.U_row.at(boundary) == 0) { break; }

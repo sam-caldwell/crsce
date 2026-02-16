@@ -10,33 +10,33 @@ using crsce::decompress::Bits;
 TEST(BitsFull, ConstructorsAndAccessors) {
     const Bits b0; // default
     EXPECT_FALSE(b0.data());
-    EXPECT_FALSE(b0.locked());
+    EXPECT_FALSE(b0.resolved());
     EXPECT_FALSE(b0.mu_locked());
     EXPECT_EQ(b0.raw(), 0U);
 
     const Bits b1(true, true, true);
     EXPECT_TRUE(b1.data());
-    EXPECT_TRUE(b1.locked());
+    EXPECT_TRUE(b1.resolved());
     EXPECT_TRUE(b1.mu_locked());
     EXPECT_NE(b1.raw(), 0U);
 
     const Bits b2(static_cast<std::uint8_t>(0xFF)); // masked in ctor
     EXPECT_TRUE(b2.data());
-    EXPECT_TRUE(b2.locked());
+    EXPECT_TRUE(b2.resolved());
     EXPECT_TRUE(b2.mu_locked());
 }
 
 TEST(BitsFull, MutatorsAndRawOps) {
     Bits b;
     b.set_data(true); EXPECT_TRUE(b.data());
-    b.set_locked(true); EXPECT_TRUE(b.locked());
+    b.set_resolved(true); EXPECT_TRUE(b.resolved());
     b.set_mu_locked(true); EXPECT_TRUE(b.mu_locked());
 
     b.flip_data(); EXPECT_FALSE(b.data());
     b.set_raw(0U); EXPECT_EQ(b.raw(), 0U);
 
     b.assign(true, false, true);
-    EXPECT_TRUE(b.data()); EXPECT_FALSE(b.locked()); EXPECT_TRUE(b.mu_locked());
+    EXPECT_TRUE(b.data()); EXPECT_FALSE(b.resolved()); EXPECT_TRUE(b.mu_locked());
 
     b.clear(); EXPECT_EQ(b.raw(), 0U);
 }
@@ -61,6 +61,6 @@ TEST(BitsFull, Operators) {
 
     Bits c(true, false, false);
     EXPECT_TRUE(b == c);
-    c.set_locked(true);
+    c.set_resolved(true);
     EXPECT_FALSE(b == c);
 }

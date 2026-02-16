@@ -3,7 +3,7 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 using crsce::decompress::Csm;
 
@@ -12,13 +12,13 @@ TEST(CsmCopy, CopyConstructorAndAssignmentPreserveState) {
     // Set a pattern
     for (std::size_t r = 0; r < 6; ++r) {
         for (std::size_t c = 0; c < 6; ++c) {
-            if ((r ^ c) & 1U) { a.put(r, c, true); }
+            if ((r ^ c) & 1U) { a.set(r, c); }
         }
     }
     // Copy construct
     const Csm b = a;
     // Mutate original
-    a.put(0, 0, true);
+    a.set(0, 0);
     // Ensure copy unchanged at that position
     EXPECT_FALSE(b.get(0, 0));
 

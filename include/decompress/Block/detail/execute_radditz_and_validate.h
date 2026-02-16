@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <span>
 #include "decompress/Csm/Csm.h"
-#include "decompress/DeterministicElimination/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {

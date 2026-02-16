@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <sstream>
 #include <string>
+#include <format>
 #include <cstdint>
 #include <optional>
 #include <cstdlib>
@@ -102,8 +103,8 @@ namespace crsce::testrunner_random::cli {
             if (elapsed > timeout_ms) {
                 throw crsce::common::exceptions::CompressTimeoutException("compress timed out");
             }
-            std::ostringstream oss; oss << "compress exited with code " << cx_res.exit_code;
-            throw crsce::common::exceptions::CompressNonZeroExitException(oss.str());
+            throw crsce::common::exceptions::CompressNonZeroExitException(
+                std::format("compress exited with code {}", cx_res.exit_code));
         }
         return cx_res;
     }

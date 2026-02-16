@@ -6,8 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Phases/Gobp/GobpSolver.h"
 
 using crsce::decompress::Csm;

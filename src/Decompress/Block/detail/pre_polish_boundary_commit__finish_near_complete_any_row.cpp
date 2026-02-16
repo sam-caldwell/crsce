@@ -5,10 +5,10 @@
  */
 #include "decompress/Block/detail/pre_polish_finish_near_complete_any_row.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Block/detail/commit_row_locked.h"
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include <algorithm>
@@ -83,7 +83,7 @@ namespace crsce::decompress::detail {
                     Csm c_try = csm_out;
                     ConstraintState st_try = st;
                     if (c_try.is_locked(candidate, c_pick)) { continue; }
-                    c_try.put(candidate, c_pick, assume_one);
+                    if (assume_one) { c_try.set(candidate, c_pick); } else { c_try.clear(candidate, c_pick); }
                     c_try.lock(candidate, c_pick);
                     if (st_try.U_row.at(candidate) > 0) { --st_try.U_row.at(candidate); }
                     if (st_try.U_col.at(c_pick) > 0) { --st_try.U_col.at(c_pick); }
@@ -97,7 +97,7 @@ namespace crsce::decompress::detail {
                         if (st_try.R_diag.at(d0) > 0) { --st_try.R_diag.at(d0); }
                         if (st_try.R_xdiag.at(x0) > 0) { --st_try.R_xdiag.at(x0); }
                     }
-                    DeterministicElimination det_bt{c_try, st_try};
+                    DeterministicElimination det_bt{static_cast<std::uint64_t>(12000), c_try, st_try, snap, lh};
                     for (int it0 = 0; it0 < kFocusBtIters; ++it0) {
                         const std::size_t p = det_bt.solve_step();
                         if (det_bt.solved()) { break; }

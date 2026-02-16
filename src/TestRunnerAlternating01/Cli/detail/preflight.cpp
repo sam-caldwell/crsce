@@ -7,13 +7,13 @@
 #include "testrunnerAlternating01/Cli/detail/preflight.h"
 
 #include "common/FileBitSerializer/FileBitSerializer.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <stdexcept>
-#include <string>
+#include <format>
 #include <vector>
 
 namespace crsce::testrunner_alternating01::cli {
@@ -45,7 +45,7 @@ namespace crsce::testrunner_alternating01::cli {
         // 1) main diagonal zeros
         for (std::size_t i = 0; i < S; ++i) {
             if (b.at((i * S) + i) != 0) {
-                throw std::runtime_error("preflight: CSM[i,i] not zero at i=" + std::to_string(i));
+                throw std::runtime_error(std::format("preflight: CSM[i,i] not zero at i={}", i));
             }
         }
         // 2) CSM[0,1] == 1
@@ -73,7 +73,7 @@ namespace crsce::testrunner_alternating01::cli {
             }
             const std::size_t expect_d = ((d & 1U) == 0U) ? d : (S - d);
             if (sum_d != expect_d) {
-                throw std::runtime_error("preflight: DSM parity mismatch at d=" + std::to_string(d));
+                throw std::runtime_error(std::format("preflight: DSM parity mismatch at d={}", d));
             }
         }
 
@@ -89,7 +89,7 @@ namespace crsce::testrunner_alternating01::cli {
             }
             const std::size_t expect_x = ((x & 1U) == 0U) ? (S - x - 1) : (x + 1);
             if (sum_x != expect_x) {
-                throw std::runtime_error("preflight: XSM parity mismatch at x=" + std::to_string(x));
+                throw std::runtime_error(std::format("preflight: XSM parity mismatch at x={}", x));
             }
         }
     }

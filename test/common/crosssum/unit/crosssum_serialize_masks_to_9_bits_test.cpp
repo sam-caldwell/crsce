@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 
 using crsce::common::CrossSum;
 

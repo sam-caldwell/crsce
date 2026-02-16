@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <format>
 #include <vector>
 #include <system_error>
 
@@ -42,7 +43,7 @@ namespace crsce::testrunner_alternating10::cli {
         for (const auto nblocks : blocks) {
             const std::string suffix = std::to_string(static_cast<std::uint64_t>(nblocks));
             const std::uint64_t in_bytes = crsce::testrunner::detail::min_bytes_for_n_blocks(nblocks);
-            const fs::path in_path = out_dir / ("alternating10_input_" + suffix + "_" + std::to_string(ts) + ".bin");
+            const fs::path in_path = out_dir / std::format("alternating10_input_{}_{}.bin", suffix, ts);
 
             crsce::testrunner::detail::write_alternating10_file(in_path, in_bytes);
             const auto gi = crsce::testrunner_random::cli::make_input(in_path, in_bytes);

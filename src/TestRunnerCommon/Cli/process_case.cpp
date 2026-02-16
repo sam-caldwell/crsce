@@ -15,6 +15,7 @@
 
 #include <filesystem>
 #include <string>
+#include <format>
 #include <cstdint>
 #include <exception>
 #include <iostream>
@@ -43,23 +44,15 @@ namespace crsce::testrunner_random::cli {
         const auto ts = crsce::testrunner::detail::now_ms();
         const std::string ts_s = std::to_string(static_cast<std::uint64_t>(ts));
 
-        std::string base_output = prefix;
-        base_output += "_output_";
-        if (!suffix.empty()) {
-            base_output += suffix;
-            base_output += "_";
-        }
-        base_output += ts_s;
-        const fs::path cx_path = out_dir / (base_output + ".crsce");
+        const std::string base_output = suffix.empty()
+                                        ? std::format("{}_output_{}", prefix, ts_s)
+                                        : std::format("{}_output_{}_{}", prefix, suffix, ts_s);
+        const fs::path cx_path = out_dir / std::format("{}.crsce", base_output);
 
-        std::string base_recon = prefix;
-        base_recon += "_reconstructed_";
-        if (!suffix.empty()) {
-            base_recon += suffix;
-            base_recon += "_";
-        }
-        base_recon += ts_s;
-        const fs::path dx_path = out_dir / (base_recon + ".bin");
+        const std::string base_recon = suffix.empty()
+                                       ? std::format("{}_reconstructed_{}", prefix, ts_s)
+                                       : std::format("{}_reconstructed_{}_{}", prefix, suffix, ts_s);
+        const fs::path dx_path = out_dir / std::format("{}.bin", base_recon);
 
         const std::int64_t cx_timeout_ms = static_cast<std::int64_t>(gi.blocks) * compress_per_block_ms;
         const std::int64_t dx_timeout_ms = static_cast<std::int64_t>(gi.blocks) * decompress_per_block_ms;

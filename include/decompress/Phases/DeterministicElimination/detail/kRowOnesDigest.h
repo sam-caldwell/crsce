@@ -1,12 +1,12 @@
 /**
  * @file kRowOnesDigest.h
  * @brief Precomputed LH digest for the all-ones row.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #pragma once
 
 #include <array>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 namespace crsce::decompress::known_lh {
     /**
@@ -18,3 +18,4 @@ namespace crsce::decompress::known_lh {
         0x5D, 0x53, 0xE3, 0xDE, 0xE3, 0x74, 0xAD, 0xAA, 0x79, 0x68, 0xE8, 0x82, 0x3F, 0x2B, 0x41, 0x53
     };
 } // namespace crsce::decompress::known_lh
+

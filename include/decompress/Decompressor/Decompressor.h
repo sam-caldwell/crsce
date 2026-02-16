@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <fstream>
 #include <optional>
-#include <functional>
 #include <span>
 #include <string>
 #include <vector>
@@ -96,16 +95,7 @@ namespace crsce::decompress {
          */
         [[nodiscard]] std::uint64_t blocks_remaining() const noexcept { return blocks_remaining_; }
 
-        /**
-         * @name Decompressor::for_each_block
-         * @brief Iterate all blocks, invoking a callback with LH and sums spans for each.
-         * @param hdr Parsed header fields (input/output for state).
-         * @param fn Callback invoked per block with spans to LH and sums bytes.
-         * @return bool False if header invalid or any block cannot be read fully; true otherwise.
-         */
-        bool for_each_block(crsce::decompress::HeaderV1Fields &hdr,
-                            const std::function<void(std::span<const std::uint8_t> lh,
-                                                     std::span<const std::uint8_t> sums)> &fn);
+        // for_each_block removed (tests-only helper); use read_header + read_block + split_payload instead.
 
         /**
          * @name Decompressor::decompress_file

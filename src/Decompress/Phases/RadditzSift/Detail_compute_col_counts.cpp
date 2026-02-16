@@ -6,7 +6,7 @@
  */
 #include <vector>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Phases/RadditzSift/compute_col_counts.h"
 
 namespace crsce::decompress::phases::detail {

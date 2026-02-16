@@ -10,13 +10,24 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <span>
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
 namespace crsce::decompress {
     /**
      * @struct BlockSolveSnapshot
      * @brief Snapshot of solver state captured at failure or last iteration.
      */
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     struct BlockSolveSnapshot {
+        // Construct and seed snapshot from constraints and targets
+        BlockSolveSnapshot(std::size_t S_,
+                           const ConstraintState &st,
+                           std::span<const std::uint16_t> lsm_in,
+                           std::span<const std::uint16_t> vsm_in,
+                           std::span<const std::uint16_t> dsm_in,
+                           std::span<const std::uint16_t> xsm_in,
+                           std::uint64_t belief_seed);
         enum class Phase : std::uint8_t { init, de, rowPhase, radditzSift, gobp, verify, endOfIterations };
         std::size_t S{0};
         std::size_t iter{0};
@@ -127,6 +138,7 @@ namespace crsce::decompress {
         std::size_t time_de_in_gobp_ms{0};      // DE time executed as part of GOBP loop
         std::size_t time_row_phase_ms{0};       // time in Row Constraint Phase
         std::size_t time_radditz_ms{0};         // time in Radditz Sift Phase
+        std::size_t time_hybrid_ms{0};          // time in Hybrid Sift Phase
         std::size_t time_gobp_ms{0};            // time in GobpSolver::solve_step
         std::size_t time_lh_ms{0};              // time spent in LH verifications (row/prefix/all)
         std::size_t time_cross_verify_ms{0};    // time verifying cross sums at the end
@@ -143,6 +155,14 @@ namespace crsce::decompress {
         std::size_t radditz_cols_remaining{0};
         // Radditz stage kind for heartbeat labeling: 1=vsm, 2=dsm, 3=xsm
         int radditz_kind{0};
+
+        // Hybrid Sift (unified DSM/XSM guided by beliefs)
+        std::size_t hyb_swaps_total{0};               // total accepted swaps across all passes
+        std::size_t hyb_passes_last{0};               // number of passes executed in last run
+        std::size_t hyb_rect_attempts_total{0};       // rectangles evaluated (attempted)
+        std::size_t hyb_rect_accepts_total{0};        // accepted rectangles (swaps)
+        std::size_t hyb_sat_lost{0};                  // satisfied diag/xdiag broken by accepted swaps
+        std::size_t hyb_sat_gained{0};                // newly satisfied diag/xdiag from accepted swaps
 
         // DSM-focused radditz-sift live activity counters (exposed in heartbeat)
         std::size_t dsm_rectangles_chosen{0};  // number of canonicalized 2x2 rectangles evaluated in DSM sift
@@ -203,4 +223,5 @@ namespace crsce::decompress {
         std::size_t verify_row_failures{0};   // count of verify_row() false outcomes observed
         std::size_t verify_rows_failures{0};  // count of verify_rows() false outcomes observed
     };
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
 }

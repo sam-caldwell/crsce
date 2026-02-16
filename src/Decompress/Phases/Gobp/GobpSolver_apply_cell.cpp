@@ -44,7 +44,7 @@ namespace crsce::decompress {
             --st_.R_xdiag.at(x);
         }
 
-        csm_.put(r, c, value);
+        if (value) { csm_.set(r, c); } else { csm_.clear(r, c); }
         csm_.lock(r, c);
     }
 } // namespace crsce::decompress

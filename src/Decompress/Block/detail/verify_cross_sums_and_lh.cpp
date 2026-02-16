@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include <chrono>

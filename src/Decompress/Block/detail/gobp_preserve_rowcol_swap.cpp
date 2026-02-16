@@ -13,8 +13,8 @@
 #include <span>
 #include <cstdlib>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
@@ -210,89 +210,78 @@ namespace crsce::decompress::detail {
             if (ver.verify_row(csm, lh, r0)) { ++lh_before; }
             if (ver.verify_row(csm, lh, r1)) { ++lh_before; }
 
-            bool accept = false;
+            // Helper to simulate swap, compute LH rows verified, then revert
+            auto simulate_lh_after = [&]() -> int {
+                const bool v00 = b00;
+                const bool v11 = b11;
+                const bool v01 = b01;
+                const bool v10 = b10;
+                if (main) {
+                    csm.clear(r0, c0); csm.clear(r1, c1);
+                    csm.set(r0, c1);   csm.set(r1, c0);
+                } else {
+                    csm.clear(r0, c1); csm.clear(r1, c0);
+                    csm.set(r0, c0);   csm.set(r1, c1);
+                }
+                int lh_after = 0;
+                if (ver.verify_row(csm, lh, r0)) { ++lh_after; }
+                if (ver.verify_row(csm, lh, r1)) { ++lh_after; }
+                // revert
+                if (v00) { csm.set(r0, c0); } else { csm.clear(r0, c0); }
+                if (v11) { csm.set(r1, c1); } else { csm.clear(r1, c1); }
+                if (v01) { csm.set(r0, c1); } else { csm.clear(r0, c1); }
+                if (v10) { csm.set(r1, c0); } else { csm.clear(r1, c0); }
+                return lh_after;
+            };
+
             // Enforce family locks: reject if attempting to break a locked family's satisfied member
             if (const auto snap_l = ::crsce::decompress::get_block_solve_snapshot(); snap_l.has_value()) {
                 if ((snap_l->lock_dsm_sat && d_sat_lost > 0) || (snap_l->lock_xsm_sat && x_sat_lost > 0)) {
                     continue;
                 }
             }
+
+            // Decide acceptance with shallow nesting and early-continues
+            bool accept = false;
             if (dx_after < dx_before) {
-                // If we are about to break any satisfied diag/xdiag, require a minimum dx improvement
-                // and also require LH to strictly improve.
-                if (sat_lost > 0) {
-                    const std::size_t improve = dx_before - dx_after;
-                    if (improve < sat_loss_min_improve) {
-                        accept = false;
-                    } else {
-                    const bool v00 = b00; const bool v11 = b11; const bool v01 = b01; const bool v10 = b10;
-                    if (main) {
-                        csm.put(r0, c0, false); csm.put(r1, c1, false);
-                        csm.put(r0, c1, true);  csm.put(r1, c0, true);
-                    } else {
-                        csm.put(r0, c1, false); csm.put(r1, c0, false);
-                        csm.put(r0, c0, true);  csm.put(r1, c1, true);
-                    }
-                    int lh_after = 0;
-                    if (ver.verify_row(csm, lh, r0)) { ++lh_after; }
-                    if (ver.verify_row(csm, lh, r1)) { ++lh_after; }
-                    csm.put(r0, c0, v00); csm.put(r1, c1, v11);
-                    csm.put(r0, c1, v01); csm.put(r1, c0, v10);
-                        accept = (lh_after > lh_before);
-                    }
+                if (sat_lost == 0) {
+                    accept = true;
                 } else {
+                    const std::size_t improve = dx_before - dx_after;
+                    if (improve < sat_loss_min_improve) { continue; }
+                    const int lh_after = simulate_lh_after();
+                    if (lh_after <= lh_before) { continue; }
                     accept = true;
                 }
             } else if (dx_after == dx_before) {
-                // Tie: accept only if LH improves AND we do not break satisfied diag/xdiag
-                const bool v00 = b00;
-                const bool v11 = b11;
-                const bool v01 = b01;
-                const bool v10 = b10;
-                if (main) {
-                    csm.put(r0, c0, false); csm.put(r1, c1, false);
-                    csm.put(r0, c1, true);  csm.put(r1, c0, true);
-                } else {
-                    csm.put(r0, c1, false); csm.put(r1, c0, false);
-                    csm.put(r0, c0, true);  csm.put(r1, c1, true);
-                }
-                int lh_after = 0;
-                if (ver.verify_row(csm, lh, r0)) { ++lh_after; }
-                if (ver.verify_row(csm, lh, r1)) { ++lh_after; }
-                // Revert for now
-                csm.put(r0, c0, v00); csm.put(r1, c1, v11);
-                csm.put(r0, c1, v01); csm.put(r1, c0, v10);
-                if (lh_after > lh_before && sat_lost == 0) { accept = true; }
-            } else {
-                // dx_after > dx_before (worse DX). Permit only in LH-focus if LH strictly improves and within budgets.
-                if (lh_focus) {
-                    const std::size_t worsen = dx_after - dx_before;
-                    const bool within_dx = (worsen <= static_cast<std::size_t>(lh_dx_budget));
-                    const auto sat_lost_u = (sat_lost > 0) ? static_cast<std::size_t>(sat_lost) : static_cast<std::size_t>(0);
-                    const auto sat_budget_u = static_cast<std::size_t>(lh_sat_loss_budget);
-                    const bool within_sat = (sat_lost_u <= sat_budget_u);
-                    const bool v00 = b00; const bool v11 = b11; const bool v01 = b01; const bool v10 = b10;
-                    if (main) { csm.put(r0, c0, false); csm.put(r1, c1, false); csm.put(r0, c1, true); csm.put(r1, c0, true); }
-                    else { csm.put(r0, c1, false); csm.put(r1, c0, false); csm.put(r0, c0, true); csm.put(r1, c1, true); }
-                    int lh_after = 0;
-                    if (ver.verify_row(csm, lh, r0)) { ++lh_after; }
-                    if (ver.verify_row(csm, lh, r1)) { ++lh_after; }
-                    csm.put(r0, c0, v00); csm.put(r1, c1, v11); csm.put(r0, c1, v01); csm.put(r1, c0, v10);
-                    if (lh_after > lh_before && within_dx && within_sat) { accept = true; }
-                }
+                if (sat_lost != 0) { continue; }
+                const int lh_after = simulate_lh_after();
+                if (lh_after <= lh_before) { continue; }
+                accept = true;
+            } else { // dx worsened
+                if (!lh_focus) { continue; }
+                const std::size_t worsen = dx_after - dx_before;
+                const bool within_dx = (worsen <= static_cast<std::size_t>(lh_dx_budget));
+                const auto sat_lost_u = (sat_lost > 0) ? static_cast<std::size_t>(sat_lost) : static_cast<std::size_t>(0);
+                const auto sat_budget_u = static_cast<std::size_t>(lh_sat_loss_budget);
+                const bool within_sat = (sat_lost_u <= sat_budget_u);
+                if (!within_dx || !within_sat) { continue; }
+                const int lh_after = simulate_lh_after();
+                if (lh_after <= lh_before) { continue; }
+                accept = true;
             }
 
             if (!accept) { continue; }
 
             // Apply swap for real
             if (main) {
-                csm.put(r0, c0, false); csm.put(r1, c1, false);
-                csm.put(r0, c1, true);  csm.put(r1, c0, true);
+                csm.clear(r0, c0); csm.clear(r1, c1);
+                csm.set(r0, c1);   csm.set(r1, c0);
                 dcnt.at(d00) = d00_n; dcnt.at(d11) = d11_n; dcnt.at(d01) = d01_n; dcnt.at(d10) = d10_n;
                 xcnt.at(x00) = x00_n; xcnt.at(x11) = x11_n; xcnt.at(x01) = x01_n; xcnt.at(x10) = x10_n;
             } else {
-                csm.put(r0, c1, false); csm.put(r1, c0, false);
-                csm.put(r0, c0, true);  csm.put(r1, c1, true);
+                csm.clear(r0, c1); csm.clear(r1, c0);
+                csm.set(r0, c0);   csm.set(r1, c1);
                 dcnt.at(d00) = d00_n; dcnt.at(d11) = d11_n; dcnt.at(d01) = d01_n; dcnt.at(d10) = d10_n;
                 xcnt.at(x00) = x00_n; xcnt.at(x11) = x11_n; xcnt.at(x01) = x01_n; xcnt.at(x10) = x10_n;
             }

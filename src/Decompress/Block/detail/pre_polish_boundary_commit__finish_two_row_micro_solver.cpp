@@ -15,8 +15,8 @@
 #include <functional>
 #include <cstdlib>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Utils/detail/calc_d.h"

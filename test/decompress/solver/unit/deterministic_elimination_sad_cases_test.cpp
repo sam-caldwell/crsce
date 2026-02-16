@@ -8,9 +8,11 @@
 #include "common/exceptions/DeterministicEliminationError.h"
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include <span>
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
@@ -31,7 +33,9 @@ TEST(DeterministicEliminationSad, ConstructorRejectsRGreaterThanU) { // NOLINT
     }
     st.U_row.at(2) = 10;
     st.R_row.at(2) = 11; // invalid
-    EXPECT_THROW((DeterministicElimination{csm, st}), crsce::decompress::ConstraintInvariantViolation);
+    crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh{};
+    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap, empty_lh}), crsce::decompress::ConstraintInvariantViolation);
 }
 
 /**
@@ -53,6 +57,8 @@ TEST(DeterministicEliminationSad, ThrowsWhenULineZeroButCellUnlocked) { // NOLIN
     st.U_col.at(5) = 0;
     st.R_col.at(5) = 0;
 
-    DeterministicElimination de{csm, st};
+    crsce::decompress::BlockSolveSnapshot snap2{Csm::kS, st, {}, {}, {}, {}, 0ULL};
+    const std::span<const std::uint8_t> empty_lh2{};
+    DeterministicElimination de{0ULL, csm, st, snap2, empty_lh2};
     EXPECT_THROW((void)de.solve_step(), crsce::decompress::DeterministicEliminationError);
 }

@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "common/BitHashBuffer/detail/sha256/sha256_digest.h"
 
 using crsce::decompress::RowHashVerifier;
@@ -51,7 +51,8 @@ TEST(RowHashVerifier, SinglePatternRowOk) { // NOLINT
     // Build a 511-bit alternating pattern in CSM row 0
     Csm csm;
     for (std::size_t c = 0; c < Csm::kS; ++c) {
-        csm.put(0, c, (c % 2U) == 0U);
+        const bool v = ((c % 2U) == 0U);
+        if (v) { csm.set(0, c); } else { csm.clear(0, c); }
     }
 
     // Expected row bytes and digest

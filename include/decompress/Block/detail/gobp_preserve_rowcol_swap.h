@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <span>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -36,4 +36,3 @@ namespace crsce::decompress::detail {
                                           unsigned sample_rects,
                                           unsigned accept_limit);
 }
-

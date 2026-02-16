@@ -5,8 +5,8 @@
  */
 #include "decompress/Block/detail/pre_polish_audit_and_restart_on_contradiction.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include <cstddef>

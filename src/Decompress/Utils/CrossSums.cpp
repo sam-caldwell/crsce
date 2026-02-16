@@ -4,7 +4,7 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #include "decompress/Utils/detail/verify_cross_sums.h"
-#include "decompress/Csm/detail/Csm.h" // direct provider for Csm
+#include "decompress/Csm/Csm.h" // direct provider for Csm
 #include <array>    // direct provider for std::array
 #include <cstddef>  // direct provider for std::size_t
 #include <cstdint>  // direct provider for std::uint16_t

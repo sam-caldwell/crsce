@@ -8,7 +8,7 @@
 
 #include <span>
 #include <cstdint>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 namespace crsce::decompress::phases::detail {
     /** @brief Verify that each row’s 1-count equals its LSM target. */

@@ -7,8 +7,8 @@
 #include <span>
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/RadditzSift/RadditzSift.h"
 #include "decompress/Phases/RadditzSift/compute_col_counts.h"
@@ -33,11 +33,12 @@ TEST(RadditzVsm, SiftReducesDeficitPreservesRows) {
 
     // Seed a simple state: 20 rows with a 1 at cA and 0 at cB
     for (std::size_t r = 0; r < 20; ++r) {
-        csm.put(r, cA, true);
+        csm.set(r, cA);
     }
 
     // Prepare snapshot with LSM (row sums) based on initial state
-    BlockSolveSnapshot snap{};
+    const ConstraintState st_pre{};
+    BlockSolveSnapshot snap{S, st_pre, {}, {}, {}, {}, 0ULL};
     snap.lsm.assign(S, 0);
     for (std::size_t r = 0; r < 20; ++r) { snap.lsm[r] = 1; }
 
@@ -68,4 +69,3 @@ TEST(RadditzVsm, SiftReducesDeficitPreservesRows) {
     // And row sums preserved
     EXPECT_TRUE(verify_row_sums(csm, std::span<const std::uint16_t>(snap.lsm.data(), snap.lsm.size())));
 }
-

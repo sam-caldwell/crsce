@@ -14,14 +14,15 @@
 #include <mutex>
 #include <span>
 #include <string>
+#include <format>
 #include <vector>
 
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Utils/detail/now_ms.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 
 namespace crsce::decompress::detail {
 
@@ -67,7 +68,7 @@ void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-link
         Csm c_try = csm_in; ConstraintState st_try = st_in;
         const std::size_t c_pick = t.first;
         const bool assume_one = t.second;
-        c_try.put(boundary, c_pick, assume_one);
+        if (assume_one) { c_try.set(boundary, c_pick); } else { c_try.clear(boundary, c_pick); }
         c_try.lock(boundary, c_pick);
         if (st_try.U_row.at(boundary) > 0) { --st_try.U_row.at(boundary); }
         if (st_try.U_col.at(c_pick) > 0) { --st_try.U_col.at(c_pick); }
@@ -81,9 +82,11 @@ void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-link
             if (st_try.R_diag.at(d0) > 0) { --st_try.R_diag.at(d0); }
             if (st_try.R_xdiag.at(x0) > 0) { --st_try.R_xdiag.at(x0); }
         }
-        DeterministicElimination det_bt{c_try, st_try};
-        static constexpr int bt_iters = 6000;
-        for (int it = 0; it < bt_iters; ++it) {
+        BlockSolveSnapshot dummy_snap{S, st_try, {}, {}, {}, {}, 0ULL};
+        const std::span<const std::uint8_t> empty_lh{};
+        static constexpr std::uint64_t bt_iters = 6000ULL;
+        DeterministicElimination det_bt{bt_iters, c_try, st_try, dummy_snap, empty_lh};
+        for (std::uint64_t it = 0; it < bt_iters; ++it) {
             const std::size_t prog = det_bt.solve_step();
             if (st_try.U_row.at(boundary) == 0 || prog == 0) { break; }
         }
@@ -100,7 +103,7 @@ void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-link
         }
     }
     const auto stop = now_ms();
-    ev_out.name = std::string("btw_total_") + std::to_string(wi);
+    ev_out.name = std::format("btw_total_{}", wi);
     ev_out.start_ms = start; ev_out.stop_ms = stop; ev_out.outcome = outcome;
 }
 

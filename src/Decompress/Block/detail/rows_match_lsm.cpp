@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 
 namespace crsce::decompress::detail {
     /**

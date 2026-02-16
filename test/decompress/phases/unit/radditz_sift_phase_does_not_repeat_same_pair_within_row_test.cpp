@@ -4,8 +4,8 @@
  */
 #include <gtest/gtest.h>
 #include <cstddef>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/RadditzSift/RadditzSift.h"
 
@@ -20,12 +20,13 @@ TEST(RadditzSiftPhaseBasic, DoesNotRepeatSamePairWithinRow) { // NOLINT
     constexpr std::size_t S = Csm::kS;
     Csm csm; csm.reset();
     ConstraintState st{};
-    BlockSolveSnapshot snap{};
+    const ConstraintState st_pre{};
+    BlockSolveSnapshot snap{S, st_pre, {}, {}, {}, {}, 0ULL};
 
     const std::size_t r = 3;
     const std::size_t cFrom = 5;   // surplus column
     const std::size_t cTo   = 11;  // target column needs 3 ones total
-    csm.put(r, cFrom, true);
+    csm.set(r, cFrom);
 
     snap.vsm.assign(S, 0);
     snap.vsm.at(cFrom) = 0; // this column should end up with 0 ones
@@ -46,4 +47,3 @@ TEST(RadditzSiftPhaseBasic, DoesNotRepeatSamePairWithinRow) { // NOLINT
     EXPECT_GT(snap.radditz_cols_remaining, 0U);
     EXPECT_GE(snap.radditz_deficit_abs_after, 2U);
 }
-

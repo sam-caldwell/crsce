@@ -11,8 +11,8 @@
 #include <span>
 #include <vector>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {
@@ -32,8 +32,8 @@ namespace crsce::decompress::detail {
 std::size_t compute_prefix(std::vector<std::uint64_t> &pc_ver_seen,
                            std::vector<char> &pc_ok,
                            std::size_t &pc_prefix_len,
-                           Csm &csm,
-                           ConstraintState &st,
+                           const Csm &csm,
+                           const ConstraintState &st,
                            std::span<const std::uint8_t> lh,
                            BlockSolveSnapshot &snap);
 

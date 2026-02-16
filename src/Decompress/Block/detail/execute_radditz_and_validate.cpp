@@ -10,9 +10,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <print>
+#include <format>
 #include <span>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include <string>
 #include <vector>
@@ -36,7 +37,7 @@ namespace crsce::decompress::detail {
                                       ConstraintState &st,
                                       BlockSolveSnapshot &snap,
                                       const std::span<const std::uint16_t> lsm,
-                                      std::span<const std::uint16_t> vsm) {
+                                      const std::span<const std::uint16_t> vsm) {
         constexpr std::size_t S = Csm::kS;
         snap.phase = BlockSolveSnapshot::Phase::radditzSift;
         snap.radditz_kind = 1; // VSM-focused Radditz
@@ -74,8 +75,9 @@ namespace crsce::decompress::detail {
                 for (std::size_t i = 0; i < bad.size(); ++i) {
                     const std::size_t c = bad[i];
                     const auto have = static_cast<std::size_t>(csm.count_vsm(c));
-                    sample += "(c=" + std::to_string(c) + ",have=" + std::to_string(have) + ",vsm=" + std::to_string(vsm[c]) + ")";
-                    if (i + 1U < bad.size()) { sample += ", "; }
+                    if (i) { sample += ", "; }
+                    sample += std::format("(c={},have={},vsm={})", c, have,
+                                          static_cast<std::size_t>(vsm[c]));
                 }
                 std::print(stderr, "radditz: failed cols={} sample={} (seed_belief={})\n",
                            static_cast<std::uint64_t>(bad.size()), sample,

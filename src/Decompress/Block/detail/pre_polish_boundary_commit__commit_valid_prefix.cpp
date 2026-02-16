@@ -6,8 +6,8 @@
 #include "decompress/Block/detail/pre_polish_commit_valid_prefix.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Block/detail/commit_row_locked.h"
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include <cstddef>

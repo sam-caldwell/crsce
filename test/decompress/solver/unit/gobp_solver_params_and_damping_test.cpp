@@ -6,8 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Phases/Gobp/GobpSolver.h"
 
 using crsce::decompress::Csm;
@@ -60,7 +60,7 @@ TEST(GobpSolverParams, DampingBlendsPreviousData) { // NOLINT
 
     const std::size_t r = 10;
     const std::size_t c = 20;
-    csm.set_data(r, c, 1.0);
+    csm.set_belief(r, c, 1.0);
 
     GobpSolver gobp{csm, st, /*damping*/ 0.25, /*assign_confidence*/ 0.999999};
     (void) gobp.solve_step();
@@ -90,7 +90,7 @@ TEST(GobpSolverParams, SkipsLockedCells) { // NOLINT
 
     const std::size_t r = 50;
     const std::size_t c = 60;
-    csm.set_data(r, c, 0.123);
+    csm.set_belief(r, c, 0.123);
     csm.lock(r, c);
 
     GobpSolver gobp{csm, st, /*damping*/ 0.0, /*assign_confidence*/ 0.99};

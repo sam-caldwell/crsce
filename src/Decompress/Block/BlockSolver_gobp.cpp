@@ -16,9 +16,9 @@
 #include <span>
 #include "decompress/Phases/Gobp/GobpSolver.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "decompress/Block/detail/gobp_preserve_rowcol_swap.h"
 #include "common/O11y/event.h"

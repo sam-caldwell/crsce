@@ -8,6 +8,7 @@
 #include <chrono>
 #include <string>
 #include <cstdint>
+#include <exception>
 
 #include "common/O11y/event.h"
 #include "common/O11y/metric_i64.h"
@@ -21,7 +22,7 @@
  */
 bool crsce::decompress::DeterministicElimination::run(){
 
-    for (int iter = 0; iter < kMaxIters; ++iter) {
+    for (std::uint64_t iter = 0; iter < kMaxIters; ++iter) {
         std::size_t progress = 0;
         try {
             snap_.phase = BlockSolveSnapshot::Phase::de;

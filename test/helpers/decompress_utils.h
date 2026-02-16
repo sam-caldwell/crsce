@@ -12,8 +12,8 @@
 #include <string>
 #include <vector>
 
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Phases/Gobp/GobpSolver.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 
@@ -98,8 +98,7 @@ inline void append_bits_from_csm(const crsce::decompress::Csm &csm,
 // Solve a block using deterministic elimination + GOBP and verify sums/LH.
 inline bool solve_block(std::span<const std::uint8_t> lh,
                         std::span<const std::uint8_t> sums,
-                        crsce::decompress::Csm &csm_out,
-                        const std::string &seed) {
+                        crsce::decompress::Csm &csm_out) {
     using crsce::decompress::Csm;
     using crsce::decompress::ConstraintState;
     using crsce::decompress::DeterministicElimination;
@@ -129,7 +128,6 @@ inline bool solve_block(std::span<const std::uint8_t> lh,
     }
     if (!(det.solved() && gobp.solved())) { return false; }
     if (!verify_cross_sums(csm_out, lsm, vsm, dsm, xsm)) { return false; }
-    (void)seed; // unused in per-row verification
     const RowHashVerifier verifier;
     return verifier.verify_all(csm_out, lh);
 }

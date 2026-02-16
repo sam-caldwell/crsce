@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <string>
-#include "decompress/Csm/detail/Csm.h"
-#include "decompress/DeterministicElimination/detail/ConstraintState.h"
+#include "decompress/Csm/Csm.h"
+#include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Utils/detail/calc_d.h"
 #include "decompress/Utils/detail/calc_x.h"
 #include "common/O11y/metric_i64.h"
@@ -52,7 +52,7 @@ namespace crsce::decompress::detail {
         for (std::uint64_t idx = valid_bits; idx < total_bits; ++idx) {
             const auto r = static_cast<std::size_t>(idx / S);
             const auto c = static_cast<std::size_t>(idx % S);
-            csm.put(r, c, false);
+            csm.clear(r, c);
             csm.lock(r, c);
             if (st.U_row.at(r) > 0) { --st.U_row.at(r); }
             if (st.U_col.at(c) > 0) { --st.U_col.at(c); }

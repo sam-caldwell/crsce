@@ -3,7 +3,7 @@
  * @brief Test CrossSum::reset and out-of-bounds value() behavior.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "common/CrossSum/CrossSum.h"
+#include "compress/CrossSum/CrossSum.h"
 #include <gtest/gtest.h>
 #include <cstddef>
 

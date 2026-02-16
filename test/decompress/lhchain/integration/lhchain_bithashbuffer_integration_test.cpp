@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "common/BitHashBuffer/BitHashBuffer.h"
-#include "decompress/Csm/detail/Csm.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 
 using crsce::common::BitHashBuffer;
@@ -39,7 +39,7 @@ TEST(RowHashIntegration, BitHashBufferEndToEndVerification) { // NOLINT
     for (std::size_t r = 0; r < Csm::kS; ++r) {
         for (std::size_t c = 0; c < Csm::kS; ++c) {
             const bool bit = bit_dist(rng);
-            csm.put(r, c, bit);
+            if (bit) { csm.set(r, c); } else { csm.clear(r, c); }
             hasher.pushBit(bit);
         }
         // Pad bit (0) to complete 64 bytes for the row
