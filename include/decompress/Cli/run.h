@@ -5,13 +5,15 @@
  */
 #pragma once
 
-#include "decompress/Cli/detail/run.h"
+#include <string>
 
 namespace crsce::decompress::cli {
     /**
-     * @name DecompressCliRunTag
-     * @brief Tag type to satisfy one-definition-per-header for CLI run declaration.
+     * @name run
+     * @brief Thin CLI entrypoint: run decompression given input/output paths.
+     * @param input Input filename (source).
+     * @param output Output filename (target).
+     * @return int Process exit code (0 on success; non-zero on failure).
      */
-    struct DecompressCliRunTag {
-    };
+    int run(const std::string &input, const std::string &output);
 }

@@ -6,13 +6,13 @@
  */
 #pragma once
 
-#include "compress/Cli/detail/run.h"
+#include <string>
 
 namespace crsce::compress::cli {
     /**
-     * @name CompressCliRunTag
-     * @brief Tag type to satisfy one-definition-per-header for CLI run declaration.
+     * @name run
+     * @brief Thin CLI entry: run compression for input/output paths.
+     * @return 0 on success; non-zero on failure.
      */
-    struct CompressCliRunTag {
-    };
+    int run(const std::string &input, const std::string &output);
 }

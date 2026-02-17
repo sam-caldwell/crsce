@@ -60,6 +60,17 @@ namespace crsce::common {
         explicit ArgParser(std::string programName);
 
         /**
+         * @name ArgParser
+         * @brief Construct a parser and immediately parse argv; throws on help/no-arg/parse error.
+         * @param programName Program name for usage.
+         * @param args Raw argv span (argv[0]..argv[argc-1]).
+         * @throws crsce::common::exceptions::CliNoArgs when args.size() <= 1
+         * @throws crsce::common::exceptions::CliHelpRequested when -h/--help is present
+         * @throws crsce::common::exceptions::CliParseError on parse failure (unknown flag/missing value)
+         */
+        ArgParser(std::string programName, std::span<char *> args);
+
+        /**
          * @name parse
          * @brief Parse argv for -h/--help, -in <path>, -out <path>.
          * @usage if (!parser.parse({argv, argv+argc})) { show_usage(); }
