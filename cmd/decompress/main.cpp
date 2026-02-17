@@ -19,6 +19,8 @@
 auto main(const int argc, char *argv[]) -> int {
     // Start background o11y so metrics/counters/events persist asynchronously.
     ::crsce::o11y::O11y::instance().start();
-    const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
+    const std::span<char *> args{
+        argv, static_cast<std::size_t>(argc)
+    };
     return crsce::decompress::cli::run(args);
 }
