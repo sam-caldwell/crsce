@@ -111,7 +111,7 @@ namespace crsce::o11y {
 
     public:
         void ensure_started();
-        void worker_loop(std::stop_token st);
+        void worker_loop(const std::stop_token &st);
         void flush_now();
         /**
          * @brief Return whether the scheduler queue is non-empty.

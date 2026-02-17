@@ -4,7 +4,8 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/CrossSum/CrossSum.h"        // CrossSums
+#include "decompress/CrossSum/CrossSumType.h"    // CrossSum
 
 namespace crsce::decompress {
     /**
@@ -14,4 +15,3 @@ namespace crsce::decompress {
      */
     const CrossSum &CrossSums::vsm() const noexcept { return vsm_; }
 }
-

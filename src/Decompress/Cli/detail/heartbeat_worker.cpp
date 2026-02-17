@@ -17,7 +17,6 @@
 #include <string>
 #include <fstream>
 #include <ios>
-#include <vector>
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
 #endif

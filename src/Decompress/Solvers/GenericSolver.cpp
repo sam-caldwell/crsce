@@ -7,10 +7,12 @@
 #include "decompress/Solvers/GenericSolver.h"
 
 namespace crsce::decompress::solvers {
-    /**
-     * @name odpcpp_sentinel_genericsolver
-     * @brief Sentinel function to provide one construct in this TU.
-     * @return void
-     */
-    static void odpcpp_sentinel_genericsolver() {}
+    namespace {
+        /**
+         * @name odpcpp_sentinel_genericsolver
+         * @brief Sentinel function to provide one construct in this TU.
+         * @return void
+         */
+        void odpcpp_sentinel_genericsolver() {}
+    }
 }

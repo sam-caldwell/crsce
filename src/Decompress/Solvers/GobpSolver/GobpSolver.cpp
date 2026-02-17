@@ -7,10 +7,12 @@
 #include "decompress/Solvers/GobpSolver/GobpSolver.h"
 
 namespace crsce::decompress::solvers::gobp {
-    /**
-     * @name odpcpp_sentinel_gobpsolver
-     * @brief Sentinel function to provide one construct in this TU.
-     * @return void
-     */
-    static void odpcpp_sentinel_gobpsolver() {}
+    namespace {
+        /**
+         * @name odpcpp_sentinel_gobpsolver
+         * @brief Sentinel function to provide one construct in this TU.
+         * @return void
+         */
+        void odpcpp_sentinel_gobpsolver() {}
+    }
 }

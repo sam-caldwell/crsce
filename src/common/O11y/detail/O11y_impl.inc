@@ -1,3 +1,32 @@
+// Implementation dependencies
+#include <algorithm>
+#include <chrono>
+#include <coroutine>
+#include <cstdint>
+#include <mutex>
+#include <functional>
+#include <optional>
+#include <queue>
+#include <ios>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <stop_token>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <cstdlib>
+#include <atomic>
+
+#include "common/O11y/detail/escape_json.h"
+#include "common/O11y/detail/events_path.h"
+#include "common/O11y/detail/now_ms.h"
+#include "common/O11y/detail/write_line_sync.h"
+#include "common/O11y/detail/flush_enabled.h"
+#include "common/O11y/detail/write_line_to_path_sync.h"
+
+namespace crsce::o11y {
+
     /**
      * @name O11y
      * @brief Construct O11y; read flush interval from env.
@@ -38,10 +67,10 @@
      * @param b Second pair.
      * @return bool True if a.first < b.first.
      */
-    static bool tag_first_less(const std::pair<std::string, std::string> &a,
+    namespace { inline bool tag_first_less(const std::pair<std::string, std::string> &a,
                                const std::pair<std::string, std::string> &b) {
         return a.first < b.first;
-    }
+    } }
 
     std::string O11y::canonicalize_tags(const Tags &tags) {
         if (tags.empty()) { return {}; }
@@ -114,14 +143,14 @@
      */
     /**
      * @name start_worker_forward
-     * @brief Static forwarder to invoke worker_loop on an instance.
-     * @param self O11y instance pointer.
+     * @brief Forwarder to invoke worker_loop on an instance.
      * @param st Stop token.
+     * @param self O11y instance pointer.
      * @return void
      */
-    static void start_worker_forward(std::stop_token st, O11y *self) {
-        self->worker_loop(std::move(st));
-    }
+    namespace { inline void start_worker_forward(const std::stop_token &st, O11y *self) {
+        self->worker_loop(st);
+    } }
 
     void O11y::ensure_started() {
         bool expected = false;
@@ -157,18 +186,17 @@
      * @param st Stop token.
      * @return bool True if stop requested or jobs available.
      */
-    static bool should_wake(O11y *self, const std::stop_token &st) {
+    namespace { inline bool should_wake(O11y *self, const std::stop_token &st) {
         return st.stop_requested() || self->has_jobs();
-    }
+    } }
 
-    void O11y::worker_loop(std::stop_token st) {
+    void O11y::worker_loop(const std::stop_token &st) {
         using namespace std::chrono;
         auto next_flush = steady_clock::now() + milliseconds(flush_ms_);
         while (!st.stop_requested()) {
             std::unique_lock lk(sched_mu_);
             if (jobs_.empty()) {
-                using namespace std::placeholders;
-                auto pred = std::bind(should_wake, this, std::cref(st));
+                auto pred = [this, &st]() { return should_wake(this, st); };
                 sched_cv_.wait_until(lk, next_flush, pred);
             }
             std::queue<std::coroutine_handle<>> local;
@@ -570,31 +598,4 @@
         if (jt == it->second.end()) { return std::nullopt; }
         return jt->second;
     }
-// Internal includes required by the O11y implementation.
-#include <algorithm>
-#include <chrono>
-#include <coroutine>
-#include <cstdint>
-#include <mutex>
-#include <functional>
-#include <optional>
-#include <queue>
-#include <ios>
-#include <sstream>
-#include <string>
-#include <thread>
-#include <stop_token>
-#include <unordered_map>
-#include <utility>
-#include <vector>
-#include <cstdlib>
-#include <atomic>
-
-#include "common/O11y/detail/escape_json.h"
-#include "common/O11y/detail/events_path.h"
-#include "common/O11y/detail/now_ms.h"
-#include "common/O11y/detail/write_line_sync.h"
-#include "common/O11y/detail/flush_enabled.h"
-#include "common/O11y/detail/write_line_to_path_sync.h"
-
-namespace crsce::o11y {
+} // namespace crsce::o11y

@@ -4,8 +4,8 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "decompress/CrossSum/CrossSum.h"
-#include "decompress/Csm/Csm.h"
+#include "decompress/CrossSum/CrossSumType.h"  // CrossSum
+#include "decompress/Csm/Csm.h"  // Csm
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "common/O11y/O11y.h"
 #include <string>
