@@ -19,8 +19,8 @@ namespace crsce::decompress {
      */
     bool Decompressor::read_header(HeaderV1Fields &out) {
         std::array<std::uint8_t, kHeaderSize> hdr{};
-        in_.read(reinterpret_cast<char *>(hdr.data()), static_cast<std::streamsize>(hdr.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        if (in_.gcount() != static_cast<std::streamsize>(hdr.size())) {
+        input_path_.read(reinterpret_cast<char *>(hdr.data()), static_cast<std::streamsize>(hdr.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        if (input_path_.gcount() != static_cast<std::streamsize>(hdr.size())) {
             return false;
         }
         if (!parse_header(hdr, out)) {

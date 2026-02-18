@@ -21,8 +21,8 @@ namespace crsce::decompress {
             return std::nullopt;
         }
         std::vector<std::uint8_t> buf(kBlockBytes);
-        in_.read(reinterpret_cast<char *>(buf.data()), static_cast<std::streamsize>(buf.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        if (in_.gcount() != static_cast<std::streamsize>(buf.size())) {
+        input_path_.read(reinterpret_cast<char *>(buf.data()), static_cast<std::streamsize>(buf.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        if (input_path_.gcount() != static_cast<std::streamsize>(buf.size())) {
             return std::nullopt;
         }
         --blocks_remaining_;

@@ -64,7 +64,7 @@ namespace crsce::decompress {
          * @brief True if the underlying stream opened successfully.
          * @return true if the stream is in a good state; false otherwise.
          */
-        [[nodiscard]] bool good() const { return in_.good(); }
+        [[nodiscard]] bool good() const { return input_path_.good(); }
 
         /**
          * @name Decompressor::read_header
@@ -99,10 +99,10 @@ namespace crsce::decompress {
 
     private:
         /**
-         * @name in_
+         * @name input_path_
          * @brief Input file stream opened in binary mode.
          */
-        std::ifstream in_;
+        std::ifstream input_path_;
 
         /**
          * @name blocks_remaining_

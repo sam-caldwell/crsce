@@ -16,5 +16,5 @@ namespace crsce::decompress {
      * @param output_path Destination for decompressed output.
      */
     Decompressor::Decompressor(const std::string &input_path, const std::string &output_path)
-        : in_(input_path, std::ios::binary), output_path_(output_path) {}
+        : input_path_(input_path, std::ios::binary), output_path_(output_path) {}
 } // namespace crsce::decompress
