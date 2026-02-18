@@ -18,7 +18,7 @@
 #include <string>
 #include <print>
 #include <cstdio>
-#include <cstdint>
+#include <cstdint> // NOLINT
 
 /**
  * @brief Program entry point for decompressor CLI.
@@ -27,13 +27,11 @@
  * @return Process exit code (0 on success, non-zero represents an error state).
  */
 auto main(const int argc, char *argv[]) -> int {
-    // Start background o11y so metrics/counters/events persist asynchronously.
-    ::crsce::o11y::O11y::instance().start();
-    const std::span<char *> args{
-        argv, static_cast<std::size_t>(argc)
-    };
     try {
-        crsce::common::ArgParser parser("decompress", args);
+        ::crsce::o11y::O11y::instance().start();
+
+        const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
+        const crsce::common::ArgParser parser("decompress", args);
         const auto &[input, output, help] = parser.options();
 
         ::crsce::o11y::O11y::instance().metric("decompress_begin", static_cast<std::int64_t>(1),
@@ -41,7 +39,6 @@ auto main(const int argc, char *argv[]) -> int {
 
         crsce::decompress::cli::Heartbeat heartbeat;
         heartbeat.start();
-
         const int rc = crsce::decompress::cli::run(input, output);
         ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
                                                {{"status", (rc == 0 ? std::string("OK") : std::string("FAIL"))}});
@@ -71,6 +68,16 @@ auto main(const int argc, char *argv[]) -> int {
                                                });
         std::println(stderr, "usage: {}", e.what());
         return 2;
+    } catch (const crsce::common::exceptions::CliInputMissing &e) {
+        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
+                                               {{"status", "FAIL"}, {"detail", "INPUT_MISSING"}});
+        std::println(stderr, "{}", e.what());
+        return 3;
+    } catch (const crsce::common::exceptions::CliOutputExists &e) {
+        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
+                                               {{"status", "FAIL"}, {"detail", "OUTPUT_EXISTS"}});
+        std::println(stderr, "{}", e.what());
+        return 3;
     } catch (...) {
         ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
                                                {
