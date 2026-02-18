@@ -6,7 +6,8 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "common/O11y/O11y.h"
-#include "common/Cli/ValidateInOut.h"
+#include "common/exceptions/CliInputMissing.h"
+#include "common/exceptions/CliOutputExists.h"
 #include "decompress/Cli/run.h"
 #include "common/ArgParser/ArgParser.h"
 #include "common/exceptions/CliHelpRequested.h"
@@ -33,7 +34,6 @@ auto main(const int argc, char *argv[]) -> int {
     };
     try {
         crsce::common::ArgParser parser("decompress", args);
-        if (const int vrc = crsce::common::cli::validate_in_out(parser, args); vrc != 0) { return vrc; }
         const auto &[input, output, help] = parser.options();
 
         ::crsce::o11y::O11y::instance().metric("decompress_begin", static_cast<std::int64_t>(1),
