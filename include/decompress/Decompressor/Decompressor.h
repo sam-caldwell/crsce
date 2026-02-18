@@ -53,13 +53,6 @@ namespace crsce::decompress {
 
         /**
          * @name Decompressor::Decompressor
-         * @brief Construct a decompressor bound to an input file path.
-         * @param input_path Path to a CRSCE container file.
-         */
-        explicit Decompressor(const std::string &input_path);
-
-        /**
-         * @name Decompressor::Decompressor
          * @brief Construct a decompressor with input and output paths.
          * @param input_path Path to a CRSCE container file.
          * @param output_path Destination for decompressed output.

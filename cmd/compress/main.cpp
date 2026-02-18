@@ -16,6 +16,7 @@
 
 #include <span>
 #include <cstddef>
+#include <cstdint> // NOLINT
 #include <print>
 #include <cstdio>
 
