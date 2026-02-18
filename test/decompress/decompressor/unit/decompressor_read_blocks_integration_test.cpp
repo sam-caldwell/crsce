@@ -44,7 +44,7 @@ TEST(DecompressorIntegration, ReadOneBlockFromCompressedFile) { // NOLINT
     ASSERT_TRUE(fs::exists(out));
 
     // Decompressor: read header and one block
-    Decompressor dx(out);
+    Decompressor dx(out, std::string(TEST_BINARY_DIR) + "/d_oneblock_unused.out");
     HeaderV1Fields hdr{};
     ASSERT_TRUE(dx.read_header(hdr));
     EXPECT_EQ(hdr.block_count, 1U);
@@ -99,7 +99,7 @@ TEST(DecompressorIntegration, TruncatedBlockReturnsNullopt) { // NOLINT
         out_f.write(buf.data(), in_f.gcount());
     }
     // Decompressor on a truncated file: header ok, first block read fails
-    Decompressor dx(truncated);
+    Decompressor dx(truncated, std::string(TEST_BINARY_DIR) + "/d_trunc_unused.out");
     HeaderV1Fields hdr{};
     ASSERT_TRUE(dx.read_header(hdr));
     EXPECT_EQ(hdr.block_count, 1U);

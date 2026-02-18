@@ -29,7 +29,7 @@ TEST(Decompressor, ShortHeaderReturnsFalse) { // NOLINT
         std::array<char, 10> junk{};
         f.write(junk.data(), static_cast<std::streamsize>(junk.size()));
     }
-    Decompressor dx(p);
+    Decompressor dx(p, std::string(TEST_BINARY_DIR) + "/d_trunc_hdr_unused.out");
     HeaderV1Fields hdr{};
     EXPECT_FALSE(dx.read_header(hdr));
     // With no header, blocks_remaining is zero and read_block should be null
