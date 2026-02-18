@@ -11,6 +11,7 @@
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include <span>
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 #include "common/exceptions/ConstraintBoundsInvalid.h"
 #include "common/exceptions/ConstraintInvariantViolation.h"
 
@@ -30,7 +31,8 @@ TEST(DeterministicEliminationBounds, ThrowsOnUOutOfRange) { // NOLINT
 
     crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh{};
-    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap, empty_lh}), crsce::decompress::ConstraintBoundsInvalid);
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm{empty_lh};
+    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap, empty_lhm}), crsce::decompress::ConstraintBoundsInvalid);
 }
 
 TEST(DeterministicEliminationBounds, ThrowsOnRGreaterThanU) { // NOLINT
@@ -45,5 +47,6 @@ TEST(DeterministicEliminationBounds, ThrowsOnRGreaterThanU) { // NOLINT
 
     crsce::decompress::BlockSolveSnapshot snap2{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh2{};
-    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap2, empty_lh2}), crsce::decompress::ConstraintInvariantViolation);
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm2{empty_lh2};
+    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap2, empty_lhm2}), crsce::decompress::ConstraintInvariantViolation);
 }

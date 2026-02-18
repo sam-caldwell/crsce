@@ -12,7 +12,7 @@ function(_crsce_add_gtest_from_source SRC)
 
   add_executable(${TGT} "${SRC}")
   target_include_directories(${TGT} PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/test")
-  target_compile_definitions(${TGT} PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}")
+  target_compile_definitions(${TGT} PRIVATE TEST_BINARY_DIR="${CMAKE_BINARY_DIR}" CRSCE_TESTING=1)
   target_link_libraries(${TGT} PRIVATE crsce_static GTest::gtest GTest::gtest_main)
   # Suppress character-conversion warnings stemming from gtest headers if supported
   if (APPLE AND DEFINED CRSCE_HAS_WNO_CHARACTER_CONVERSION AND CRSCE_HAS_WNO_CHARACTER_CONVERSION)

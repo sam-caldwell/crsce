@@ -11,6 +11,7 @@
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include <span>
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
@@ -35,7 +36,8 @@ TEST(DeterministicEliminationPatterns, AllZerosEliminatedByDE) { // NOLINT
     }
     crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh{};
-    DeterministicElimination de{0ULL, csm, st, snap, empty_lh};
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm{empty_lh};
+    DeterministicElimination de{0ULL, csm, st, snap, empty_lhm};
     // Hash-based elimination removed; DE performs only forced moves.
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, Csm::kS * Csm::kS);
@@ -68,7 +70,8 @@ TEST(DeterministicEliminationPatterns, AllOnesEliminatedByDE) { // NOLINT
     }
     crsce::decompress::BlockSolveSnapshot snap2{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh2{};
-    DeterministicElimination de{0ULL, csm, st, snap2, empty_lh2};
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm2{empty_lh2};
+    DeterministicElimination de{0ULL, csm, st, snap2, empty_lhm2};
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, Csm::kS * Csm::kS);
     for (std::size_t r = 0; r < Csm::kS; ++r) {
@@ -105,7 +108,8 @@ TEST(DeterministicEliminationPatterns, AlternatingRowsAlreadySolvedNoop) { // NO
     }
     crsce::decompress::BlockSolveSnapshot snap3{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh3{};
-    DeterministicElimination de{0ULL, csm, st, snap3, empty_lh3};
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm3{empty_lh3};
+    DeterministicElimination de{0ULL, csm, st, snap3, empty_lhm3};
     const auto progress = de.solve_step();
     EXPECT_EQ(progress, 0U);
     EXPECT_TRUE(de.solved());
@@ -136,7 +140,8 @@ TEST(DeterministicEliminationPatterns, SingleRowForcedOnesOnly) { // NOLINT
 
     crsce::decompress::BlockSolveSnapshot snap4{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh4{};
-    DeterministicElimination de{0ULL, csm, st, snap4, empty_lh4};
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm4{empty_lh4};
+    DeterministicElimination de{0ULL, csm, st, snap4, empty_lhm4};
     const auto progress = de.solve_step();
 
     // Expect exactly one full row assigned

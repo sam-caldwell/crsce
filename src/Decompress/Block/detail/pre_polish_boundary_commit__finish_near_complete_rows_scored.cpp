@@ -6,6 +6,7 @@
 #include "decompress/Block/detail/pre_polish_finish_near_complete_rows_scored.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 #include "decompress/Block/detail/commit_row_locked.h"
 #include "decompress/Utils/detail/calc_x.h"
 #include "decompress/Csm/Csm.h"
@@ -89,7 +90,8 @@ namespace crsce::decompress::detail {
                         if (st_try.R_diag.at(d0) > 0) { --st_try.R_diag.at(d0); }
                         if (st_try.R_xdiag.at(x0) > 0) { --st_try.R_xdiag.at(x0); }
                     }
-                    DeterministicElimination det_bt{static_cast<std::uint64_t>(12000), c_try, st_try, snap, lh};
+                    const ::crsce::decompress::hashes::LateralHashMatrix lhm_bt{lh};
+                    DeterministicElimination det_bt{static_cast<std::uint64_t>(12000), c_try, st_try, snap, lhm_bt};
                     static constexpr int kFocusBtIters = 12000;
                     for (int it0 = 0; it0 < kFocusBtIters; ++it0) {
                         const std::size_t p = det_bt.solve_step();

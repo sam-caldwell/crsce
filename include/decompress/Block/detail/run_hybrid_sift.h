@@ -10,12 +10,14 @@
  */
 #pragma once
 
-#include <span>
 #include <cstdint>
 
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
+#include "decompress/CrossSum/DiagonalSumMatrix.h"
+#include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -45,7 +47,7 @@ namespace crsce::decompress::detail {
     std::size_t run_hybrid_sift(Csm &csm,
                                  crsce::decompress::ConstraintState &st,
                                  crsce::decompress::BlockSolveSnapshot &snap,
-                                 std::span<const std::uint8_t> lh,
-                                 std::span<const std::uint16_t> dsm,
-                                 std::span<const std::uint16_t> xsm);
+                                 const ::crsce::decompress::hashes::LateralHashMatrix &lh,
+                                 const ::crsce::decompress::xsum::DiagonalSumMatrix &dsm,
+                                 const ::crsce::decompress::xsum::AntiDiagonalSumMatrix &xsm);
 }

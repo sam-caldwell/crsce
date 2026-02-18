@@ -7,10 +7,10 @@
 #pragma once
 
 #include <cstdint>
-#include <span>
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/CrossSum/LateralSumMatrix.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -25,5 +25,5 @@ namespace crsce::decompress::detail {
     bool execute_bitsplash_and_validate(Csm &csm,
                                         ConstraintState &st,
                                         BlockSolveSnapshot &snap,
-                                        std::span<const std::uint16_t> lsm);
+                                        const ::crsce::decompress::xsum::LateralSumMatrix &lsm);
 }

@@ -9,12 +9,14 @@
  * BlockSolveSnapshot hybrid metrics and respects simple env flags.
  */
 
+#include "decompress/HashMatrix/LateralHashMatrix.h"
+#include "decompress/CrossSum/DiagonalSumMatrix.h"
+#include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
 #include "decompress/Block/detail/run_hybrid_sift.h"
 
 #include <array>
 #include <chrono>
 #include <cstdlib>
-#include <span>
 #include <string>
 #include <cstdint>
 
@@ -47,12 +49,14 @@ namespace crsce::decompress::detail {
 std::size_t run_hybrid_sift(Csm &csm,
                             ConstraintState &st,
                             BlockSolveSnapshot &snap,
-                            [[maybe_unused]] const std::span<const std::uint8_t> lh,
-                            const std::span<const std::uint16_t> dsm,
-                            const std::span<const std::uint16_t> xsm) {
+                            [[maybe_unused]] const ::crsce::decompress::hashes::LateralHashMatrix &lh,
+                            const ::crsce::decompress::xsum::DiagonalSumMatrix &dsm_t,
+                            const ::crsce::decompress::xsum::AntiDiagonalSumMatrix &xsm_t) {
 
     constexpr std::size_t S = Csm::kS;
     const auto t0 = std::chrono::steady_clock::now();
+    const auto dsm = dsm_t.targets();
+    const auto xsm = xsm_t.targets();
 
     // Phase labeling and status
     snap.phase = BlockSolveSnapshot::Phase::radditzSift; // reuse existing label for heartbeat

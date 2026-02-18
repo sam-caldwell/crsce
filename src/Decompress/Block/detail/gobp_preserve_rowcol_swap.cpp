@@ -10,7 +10,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint> // NOLINT
-#include <span>
 #include <cstdlib>
 
 #include "decompress/Csm/Csm.h"
@@ -23,6 +22,9 @@
 // Snapshot updates for telemetry
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
+#include "decompress/CrossSum/DiagonalSumMatrix.h"
+#include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
 
 namespace crsce::decompress::detail {
 
@@ -42,11 +44,13 @@ namespace crsce::decompress::detail {
      */
     std::size_t gobp_preserve_rowcol_swap(Csm &csm,
                                           ConstraintState &st,
-                                          std::span<const std::uint8_t> lh,
-                                          std::span<const std::uint16_t> dsm,
-                                          std::span<const std::uint16_t> xsm,
+                                          const ::crsce::decompress::hashes::LateralHashMatrix &lh,
+                                          const ::crsce::decompress::xsum::DiagonalSumMatrix &dsm_t,
+                                          const ::crsce::decompress::xsum::AntiDiagonalSumMatrix &xsm_t,
                                           const unsigned sample_rects,
                                           const unsigned accept_limit) {
+        const auto dsm = dsm_t.targets();
+        const auto xsm = xsm_t.targets();
         constexpr std::size_t S = Csm::kS;
         // Initialize diag/xdiag ones counts from CSM live counters once for this pass
         std::array<std::uint16_t, S> dcnt{};
@@ -209,8 +213,8 @@ namespace crsce::decompress::detail {
 
             // LH tie-breaker: count how many of the two rows verify before/after
             int lh_before = 0;
-            if (ver.verify_row(csm, lh, r0)) { ++lh_before; }
-            if (ver.verify_row(csm, lh, r1)) { ++lh_before; }
+            if (ver.verify_row(csm, lh.bytes(), r0)) { ++lh_before; }
+            if (ver.verify_row(csm, lh.bytes(), r1)) { ++lh_before; }
 
             // Helper moved to header to satisfy ODPCPP single-construct rule
 
@@ -229,13 +233,13 @@ namespace crsce::decompress::detail {
                 } else {
                     const std::size_t improve = dx_before - dx_after;
                     if (improve < sat_loss_min_improve) { continue; }
-                    const int lh_after = gobp_simulate_lh_after(csm, lh, r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
+                    const int lh_after = gobp_simulate_lh_after(csm, lh.bytes(), r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
                     if (lh_after <= lh_before) { continue; }
                     accept = true;
                 }
             } else if (dx_after == dx_before) {
                 if (sat_lost != 0) { continue; }
-                const int lh_after = gobp_simulate_lh_after(csm, lh, r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
+                const int lh_after = gobp_simulate_lh_after(csm, lh.bytes(), r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
                 if (lh_after <= lh_before) { continue; }
                 accept = true;
             } else { // dx worsened
@@ -246,7 +250,7 @@ namespace crsce::decompress::detail {
                 const auto sat_budget_u = static_cast<std::size_t>(lh_sat_loss_budget);
                 const bool within_sat = (sat_lost_u <= sat_budget_u);
                 if (!within_dx || !within_sat) { continue; }
-                const int lh_after = gobp_simulate_lh_after(csm, lh, r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
+                const int lh_after = gobp_simulate_lh_after(csm, lh.bytes(), r0, r1, c0, c1, b00, b11, b01, b10, main, ver);
                 if (lh_after <= lh_before) { continue; }
                 accept = true;
             }

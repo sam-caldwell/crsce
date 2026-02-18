@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint> // NOLINT
 #include <cstdio>
-#include <span>
 #include <print>
 #include <format>
 #include <string>
@@ -20,6 +19,7 @@
 #include "decompress/Phases/BitSplash/BitSplash.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "common/O11y/O11y.h"
+#include "decompress/CrossSum/LateralSumMatrix.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -34,7 +34,7 @@ namespace crsce::decompress::detail {
     bool execute_bitsplash_and_validate(Csm &csm,
                                         ConstraintState &st,
                                         BlockSolveSnapshot &snap,
-                                        const std::span<const std::uint16_t> lsm) {
+                                        const ::crsce::decompress::xsum::LateralSumMatrix &lsm) {
         constexpr std::size_t S = Csm::kS;
         snap.phase = BlockSolveSnapshot::Phase::rowPhase;
         ::crsce::o11y::O11y::instance().event("bitsplash_start");
@@ -58,7 +58,7 @@ namespace crsce::decompress::detail {
             for (std::size_t c = 0; c < S; ++c) {
                 if (csm.get(r, c)) { ++ones; }
             }
-            if (ones != static_cast<std::size_t>(lsm[r])) {
+            if (ones != static_cast<std::size_t>(lsm.targets()[r])) {
                 complete = false;
                 break;
             }
@@ -71,7 +71,7 @@ namespace crsce::decompress::detail {
                 for (std::size_t r = 0; r < S; ++r) {
                     std::size_t ones = 0;
                     for (std::size_t c = 0; c < S; ++c) { if (csm.get(r, c)) { ++ones; } }
-                    if (ones != static_cast<std::size_t>(lsm[r])) {
+                    if (ones != static_cast<std::size_t>(lsm.targets()[r])) {
                         bad.push_back(r);
                         if (bad.size() >= 16) { break; }
                     }
@@ -85,7 +85,7 @@ namespace crsce::decompress::detail {
                     }
                     if (i) { sample += ", "; }
                     sample += std::format("(r={},have={},lsm={})", r, ones,
-                                          static_cast<std::size_t>(lsm[r]));
+                                          static_cast<std::size_t>(lsm.targets()[r]));
                 }
                 std::print(stderr, "bitsplash: failed rows={} sample={} (seed_belief={})\n",
                            static_cast<std::uint64_t>(bad.size()), sample,

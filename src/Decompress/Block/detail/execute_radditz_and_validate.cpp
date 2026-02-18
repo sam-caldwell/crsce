@@ -11,13 +11,14 @@
 #include <cstdio>
 #include <print>
 #include <format>
-#include <span>
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include <string>
 #include <vector>
 #include "decompress/Block/detail/rows_match_lsm.h"
+#include "decompress/CrossSum/LateralSumMatrix.h"
+#include "decompress/CrossSum/VerticalSumMatrix.h"
 #include "decompress/Phases/RadditzSift/RadditzSift.h"
 #include "common/O11y/O11y.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
@@ -36,8 +37,8 @@ namespace crsce::decompress::detail {
     bool execute_radditz_and_validate(Csm &csm,
                                       ConstraintState &st,
                                       BlockSolveSnapshot &snap,
-                                      const std::span<const std::uint16_t> lsm,
-                                      const std::span<const std::uint16_t> vsm) {
+                                      const ::crsce::decompress::xsum::LateralSumMatrix &lsm,
+                                      const ::crsce::decompress::xsum::VerticalSumMatrix &vsm) {
         constexpr std::size_t S = Csm::kS;
         snap.phase = BlockSolveSnapshot::Phase::radditzSift;
         snap.radditz_kind = 1; // VSM-focused Radditz
@@ -57,7 +58,7 @@ namespace crsce::decompress::detail {
         bool ok = true;
         for (std::size_t c = 0; c < S; ++c) {
             const auto have = static_cast<std::size_t>(csm.count_vsm(c));
-            if (have != static_cast<std::size_t>(vsm[c])) { ok = false; break; }
+            if (have != static_cast<std::size_t>(vsm.targets()[c])) { ok = false; break; }
         }
         if (ok && !rows_match_lsm(csm, lsm)) {
             ok = false;
@@ -69,7 +70,7 @@ namespace crsce::decompress::detail {
                 std::vector<std::size_t> bad; bad.reserve(16);
                 for (std::size_t c = 0; c < S; ++c) {
                     const auto have = static_cast<std::size_t>(csm.count_vsm(c));
-                    if (have != static_cast<std::size_t>(vsm[c])) { bad.push_back(c); if (bad.size() >= 16) { break; } }
+                    if (have != static_cast<std::size_t>(vsm.targets()[c])) { bad.push_back(c); if (bad.size() >= 16) { break; } }
                 }
                 std::string sample;
                 for (std::size_t i = 0; i < bad.size(); ++i) {
@@ -77,7 +78,7 @@ namespace crsce::decompress::detail {
                     const auto have = static_cast<std::size_t>(csm.count_vsm(c));
                     if (i) { sample += ", "; }
                     sample += std::format("(c={},have={},vsm={})", c, have,
-                                          static_cast<std::size_t>(vsm[c]));
+                                          static_cast<std::size_t>(vsm.targets()[c]));
                 }
                 std::print(stderr, "radditz: failed cols={} sample={} (seed_belief={})\n",
                            static_cast<std::uint64_t>(bad.size()), sample,

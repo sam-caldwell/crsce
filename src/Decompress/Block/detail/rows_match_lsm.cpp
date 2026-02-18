@@ -6,9 +6,8 @@
  */
 #include "decompress/Block/detail/rows_match_lsm.h"
 #include <cstddef>
-#include <cstdint>
-#include <span>
 #include "decompress/Csm/Csm.h"
+#include "decompress/CrossSum/LateralSumMatrix.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -18,11 +17,11 @@ namespace crsce::decompress::detail {
      * @param lsm Row target counts; size must be ≥ Csm::kS.
      * @return bool True if every row’s 1-count matches; false otherwise.
      */
-    bool rows_match_lsm(const Csm &csm, const std::span<const std::uint16_t> lsm) {
+    bool rows_match_lsm(const Csm &csm, const ::crsce::decompress::xsum::LateralSumMatrix &lsm) {
         const std::size_t S = Csm::kS;
         if (lsm.size() < S) { return false; }
         for (std::size_t r = 0; r < S; ++r) {
-            if (static_cast<std::size_t>(csm.count_lsm(r)) != static_cast<std::size_t>(lsm[r])) { return false; }
+            if (static_cast<std::size_t>(csm.count_lsm(r)) != static_cast<std::size_t>(lsm.targets()[r])) { return false; }
         }
         return true;
     }

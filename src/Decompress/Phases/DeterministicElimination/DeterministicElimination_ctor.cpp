@@ -10,8 +10,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 
 namespace crsce::decompress {
     /**
@@ -28,7 +28,7 @@ namespace crsce::decompress {
         const std::uint64_t kMaxIters,
         Csm &csm, ConstraintState &state,
         BlockSolveSnapshot &snap,
-        const std::span<const uint8_t> &lh) : Solver(csm, state),
+        const ::crsce::decompress::hashes::LateralHashMatrix &lh) : Solver(csm, state),
                                               kMaxIters(kMaxIters),
                                               csm_(csm),
                                               st_(state),

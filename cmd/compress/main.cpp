@@ -6,8 +6,10 @@
  */
 #include "compress/Cli/run.h"
 #include "common/O11y/O11y.h"
+#include "compress/Cli/Heartbeat.h"
 #include "common/ArgParser/ArgParser.h"
-#include "common/Cli/ValidateInOut.h"
+#include "common/exceptions/CliInputMissing.h"
+#include "common/exceptions/CliOutputExists.h"
 #include "common/exceptions/CliHelpRequested.h"
 #include "common/exceptions/CliNoArgs.h"
 #include "common/exceptions/CliParseError.h"
@@ -29,12 +31,13 @@ auto main(const int argc, char *argv[]) -> int {
     const std::span<char *> args{argv, static_cast<std::size_t>(argc)};
 
     try {
-        crsce::common::ArgParser parser("compress", args);
-        if (const int vrc = crsce::common::cli::validate_in_out(parser, args); vrc != 0) {
-            return vrc;
-        }
+        const crsce::common::ArgParser parser("compress", args);
         const auto &[input, output, help] = parser.options();
-        return crsce::compress::cli::run(input, output);
+        crsce::compress::cli::Heartbeat heartbeat;
+        heartbeat.start();
+        const int rc = crsce::compress::cli::run(input, output);
+        heartbeat.wait();
+        return rc;
     } catch (const crsce::common::exceptions::CliNoArgs & /*e*/) {
         // Friendly no-arg behavior: greet and exit successfully.
         std::puts("crsce-compress: ready");
@@ -45,5 +48,11 @@ auto main(const int argc, char *argv[]) -> int {
     } catch (const crsce::common::exceptions::CliParseError &e) {
         std::println(stderr, "usage: {}", e.what());
         return 2;
+    } catch (const crsce::common::exceptions::CliInputMissing &e) {
+        std::println(stderr, "{}", e.what());
+        return 3;
+    } catch (const crsce::common::exceptions::CliOutputExists &e) {
+        std::println(stderr, "{}", e.what());
+        return 3;
     }
 }

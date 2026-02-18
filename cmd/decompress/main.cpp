@@ -12,15 +12,12 @@
 #include "common/exceptions/CliHelpRequested.h"
 #include "common/exceptions/CliNoArgs.h"
 #include "common/exceptions/CliParseError.h"
-#include "decompress/Cli/detail/heartbeat_worker.h"
+#include "decompress/Cli/Heartbeat.h"
 #include <span>
-#include <atomic>
-#include <thread>
-#include <cstdlib>
 #include <string>
 #include <print>
 #include <cstdio>
-#include <cstdint> // NOLINT
+#include <cstdint>
 
 /**
  * @brief Program entry point for decompressor CLI.
@@ -42,43 +39,43 @@ auto main(const int argc, char *argv[]) -> int {
         ::crsce::o11y::O11y::instance().metric("decompress_begin", static_cast<std::int64_t>(1),
                                                {{"in", input}, {"out", output}});
 
-        ::crsce::o11y::O11y::instance().counter("decompress_files_attempted");
-
-        // Heartbeat thread (optional): periodically log snapshot/phase metrics
-        std::atomic<bool> hb_run{true};
-        unsigned hb_ms = 1000U;
-        if (const char *p = std::getenv("CRSCE_HEARTBEAT_MS"); p && *p) { // NOLINT(concurrency-mt-unsafe)
-            const std::int64_t v = std::strtoll(p, nullptr, 10);
-            if (v > 0) { hb_ms = static_cast<unsigned>(v); }
-        }
-
-        auto hb_thr = std::thread(&crsce::decompress::cli::detail::heartbeat_worker, &hb_run, hb_ms);
+        crsce::decompress::cli::Heartbeat heartbeat;
+        heartbeat.start();
 
         const int rc = crsce::decompress::cli::run(input, output);
-
-        if (rc == 0) {
-            ::crsce::o11y::O11y::instance().counter("decompress_files_success");
-        } else {
-            ::crsce::o11y::O11y::instance().event("decompress_error", {{"type", std::string("pipeline_failed")}});
-            ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
-        }
-
         ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
                                                {{"status", (rc == 0 ? std::string("OK") : std::string("FAIL"))}});
-
-        hb_run.store(false, std::memory_order_relaxed);
-        if (hb_thr.joinable()) {
-            hb_thr.join();
-        }
+        heartbeat.wait();
 
         return rc;
     } catch (const crsce::common::exceptions::CliNoArgs & /*e*/) {
+        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
+                                               {
+                                                   {"status", "FAIL"},
+                                                   {"detail", "NO_ARG"}
+                                               });
         return 0;
     } catch (const crsce::common::exceptions::CliHelpRequested &e) {
+        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
+                                               {
+                                                   {"status", "FAIL"},
+                                                   {"detail", "BAD_USAGE"}
+                                               });
         std::println("usage: {}", e.what());
         return 0;
     } catch (const crsce::common::exceptions::CliParseError &e) {
+        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
+                                               {
+                                                   {"status", "FAIL"},
+                                                   {"detail", "PARSE_ERROR"}
+                                               });
         std::println(stderr, "usage: {}", e.what());
         return 2;
+    } catch (...) {
+        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
+                                               {
+                                                   {"status", "FAIL"},
+                                                   {"detail", "UNHANDLED_EXCEPTION"}
+                                               });
     }
 }

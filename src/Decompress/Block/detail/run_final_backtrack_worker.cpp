@@ -23,6 +23,7 @@
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 
 namespace crsce::decompress::detail {
 
@@ -84,8 +85,9 @@ void run_final_backtrack_worker(std::size_t wi, // NOLINT(misc-use-internal-link
         }
         BlockSolveSnapshot dummy_snap{S, st_try, {}, {}, {}, {}, 0ULL};
         const std::span<const std::uint8_t> empty_lh{};
+        const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm{empty_lh};
         static constexpr std::uint64_t bt_iters = 6000ULL;
-        DeterministicElimination det_bt{bt_iters, c_try, st_try, dummy_snap, empty_lh};
+        DeterministicElimination det_bt{bt_iters, c_try, st_try, dummy_snap, empty_lhm};
         for (std::uint64_t it = 0; it < bt_iters; ++it) {
             const std::size_t prog = det_bt.solve_step();
             if (st_try.U_row.at(boundary) == 0 || prog == 0) { break; }

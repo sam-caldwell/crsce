@@ -8,10 +8,12 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <span>
 
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
+#include "decompress/CrossSum/DiagonalSumMatrix.h"
+#include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -30,9 +32,9 @@ namespace crsce::decompress::detail {
      */
     std::size_t gobp_preserve_rowcol_swap(Csm &csm,
                                           ConstraintState &st,
-                                          std::span<const std::uint8_t> lh,
-                                          std::span<const std::uint16_t> dsm,
-                                          std::span<const std::uint16_t> xsm,
+                                          const ::crsce::decompress::hashes::LateralHashMatrix &lh,
+                                          const ::crsce::decompress::xsum::DiagonalSumMatrix &dsm,
+                                          const ::crsce::decompress::xsum::AntiDiagonalSumMatrix &xsm,
                                           unsigned sample_rects,
                                           unsigned accept_limit);
 }

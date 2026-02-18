@@ -12,6 +12,7 @@
 #include "decompress/Csm/Csm.h"
 #include "decompress/Solver/Solver.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 
 namespace crsce::decompress {
     // ConstraintState moved to a dedicated header to satisfy one-definition-per-header.
@@ -37,7 +38,7 @@ namespace crsce::decompress {
             std::uint64_t kMaxIters,
             Csm &csm, ConstraintState &state,
             BlockSolveSnapshot &snap,
-            const std::span<const uint8_t> &lh);
+            const ::crsce::decompress::hashes::LateralHashMatrix &lh);
 
         /**
          * @name run
@@ -93,7 +94,7 @@ namespace crsce::decompress {
          * @name lh_
          * @brief lateral hash array reference
          */
-        const std::span<const uint8_t> &lh_;
+        const ::crsce::decompress::hashes::LateralHashMatrix &lh_;
 
         /**
          * @name S

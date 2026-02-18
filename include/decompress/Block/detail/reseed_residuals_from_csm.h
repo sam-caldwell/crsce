@@ -8,12 +8,14 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <span>
-
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Utils/detail/index_calc_d.h"
 #include "decompress/Utils/detail/index_calc_x.h"
+#include "decompress/CrossSum/LateralSumMatrix.h"
+#include "decompress/CrossSum/VerticalSumMatrix.h"
+#include "decompress/CrossSum/DiagonalSumMatrix.h"
+#include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -30,8 +32,8 @@ namespace crsce::decompress::detail {
      */
     void reseed_residuals_from_csm(const Csm &csm,
                                    ConstraintState &st,
-                                   std::span<const std::uint16_t> lsm,
-                                   std::span<const std::uint16_t> vsm,
-                                   std::span<const std::uint16_t> dsm,
-                                   std::span<const std::uint16_t> xsm);
+                                   const ::crsce::decompress::xsum::LateralSumMatrix &lsm,
+                                   const ::crsce::decompress::xsum::VerticalSumMatrix &vsm,
+                                   const ::crsce::decompress::xsum::DiagonalSumMatrix &dsm,
+                                   const ::crsce::decompress::xsum::AntiDiagonalSumMatrix &xsm);
 }

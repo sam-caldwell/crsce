@@ -10,7 +10,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <span>
+#include "decompress/CrossSum/LateralSumMatrix.h"
+#include "decompress/CrossSum/VerticalSumMatrix.h"
+#include "decompress/CrossSum/DiagonalSumMatrix.h"
+#include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
 
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
@@ -33,10 +36,14 @@ namespace crsce::decompress::detail {
      */
     void reseed_residuals_from_csm(const Csm &csm,
                                    ConstraintState &st,
-                                   std::span<const std::uint16_t> lsm,
-                                   std::span<const std::uint16_t> vsm,
-                                   std::span<const std::uint16_t> dsm,
-                                   std::span<const std::uint16_t> xsm) {
+                                   const ::crsce::decompress::xsum::LateralSumMatrix &lsm_t,
+                                   const ::crsce::decompress::xsum::VerticalSumMatrix &vsm_t,
+                                   const ::crsce::decompress::xsum::DiagonalSumMatrix &dsm_t,
+                                   const ::crsce::decompress::xsum::AntiDiagonalSumMatrix &xsm_t) {
+        const auto lsm = lsm_t.targets();
+        const auto vsm = vsm_t.targets();
+        const auto dsm = dsm_t.targets();
+        const auto xsm = xsm_t.targets();
         constexpr std::size_t S = Csm::kS;
 
         std::array<std::uint16_t, S> ones_row{};

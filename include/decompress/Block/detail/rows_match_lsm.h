@@ -7,8 +7,8 @@
 #pragma once
 
 #include <cstdint>
-#include <span>
 #include "decompress/Csm/Csm.h"
+#include "decompress/CrossSum/LateralSumMatrix.h"
 
 namespace crsce::decompress::detail {
     /**
@@ -18,5 +18,5 @@ namespace crsce::decompress::detail {
      * @param lsm Row target counts; size must be ≥ Csm::kS.
      * @return bool True if all rows match; false otherwise.
      */
-    bool rows_match_lsm(const Csm &csm, std::span<const std::uint16_t> lsm);
+    bool rows_match_lsm(const Csm &csm, const ::crsce::decompress::xsum::LateralSumMatrix &lsm);
 }

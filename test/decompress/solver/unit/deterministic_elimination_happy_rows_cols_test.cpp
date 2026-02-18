@@ -12,6 +12,7 @@
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include <span>
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
@@ -43,7 +44,8 @@ TEST(DeterministicEliminationHappy, ForceRowAllZeros) { // NOLINT
 
     crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh{};
-    DeterministicElimination de{0ULL, csm, st, snap, empty_lh};
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm{empty_lh};
+    DeterministicElimination de{0ULL, csm, st, snap, empty_lhm};
     const auto progress = de.solve_step();
     // Expect one full row assigned
     EXPECT_EQ(progress, Csm::kS);

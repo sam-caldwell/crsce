@@ -13,6 +13,7 @@
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include <span>
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 
 using crsce::decompress::Csm;
 using crsce::decompress::ConstraintState;
@@ -35,7 +36,8 @@ TEST(DeterministicEliminationSad, ConstructorRejectsRGreaterThanU) { // NOLINT
     st.R_row.at(2) = 11; // invalid
     crsce::decompress::BlockSolveSnapshot snap{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh{};
-    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap, empty_lh}), crsce::decompress::ConstraintInvariantViolation);
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm{empty_lh};
+    EXPECT_THROW((DeterministicElimination{0ULL, csm, st, snap, empty_lhm}), crsce::decompress::ConstraintInvariantViolation);
 }
 
 /**
@@ -59,6 +61,7 @@ TEST(DeterministicEliminationSad, ThrowsWhenULineZeroButCellUnlocked) { // NOLIN
 
     crsce::decompress::BlockSolveSnapshot snap2{Csm::kS, st, {}, {}, {}, {}, 0ULL};
     const std::span<const std::uint8_t> empty_lh2{};
-    DeterministicElimination de{0ULL, csm, st, snap2, empty_lh2};
+    const ::crsce::decompress::hashes::LateralHashMatrix empty_lhm2{empty_lh2};
+    DeterministicElimination de{0ULL, csm, st, snap2, empty_lhm2};
     EXPECT_THROW((void)de.solve_step(), crsce::decompress::DeterministicEliminationError);
 }

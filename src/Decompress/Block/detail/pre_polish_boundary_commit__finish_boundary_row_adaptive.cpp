@@ -6,6 +6,7 @@
 #include "decompress/Block/detail/pre_polish_finish_boundary_row_adaptive.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
@@ -108,7 +109,8 @@ namespace crsce::decompress::detail {
                         if (st_try.R_diag.at(d0) > 0) { --st_try.R_diag.at(d0); }
                         if (st_try.R_xdiag.at(x0) > 0) { --st_try.R_xdiag.at(x0); }
                     }
-                    DeterministicElimination det_bt{static_cast<std::uint64_t>(12000), c_try, st_try, snap, lh};
+                    const ::crsce::decompress::hashes::LateralHashMatrix lhm_bt{lh};
+                    DeterministicElimination det_bt{static_cast<std::uint64_t>(12000), c_try, st_try, snap, lhm_bt};
                     for (int it0 = 0; it0 < kBoundaryBtIters; ++it0) {
                         const std::size_t prog0 = det_bt.solve_step();
                         if (st_try.U_row.at(boundary) == 0) { break; }

@@ -20,7 +20,15 @@
 #include "decompress/Block/detail/prelock_padded_tail.h"
 #include "decompress/Block/detail/verify_cross_sums_and_lh.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
-#ifndef CRSCE_USE_GOBP_ONLY
+#include "decompress/CrossSum/LateralSumMatrix.h"
+#include "decompress/CrossSum/VerticalSumMatrix.h"
+#include "decompress/CrossSum/DiagonalSumMatrix.h"
+#include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
+
+#if defined(CRSCE_SOLVER_PRIMARY_GOBP) || defined(CRSCE_USE_GOBP_ONLY)
+#include "decompress/Solvers/SelectedSolver.h"
+// Fallback pipeline headers (guarded by CRSCE_ENABLE_SOLVER_FALLBACK)
+#ifdef CRSCE_ENABLE_SOLVER_FALLBACK
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Block/detail/run_hybrid_sift.h"
 #include "decompress/Block/detail/seed_initial_beliefs.h"
@@ -28,9 +36,7 @@
 #include "decompress/Block/detail/execute_radditz_and_validate.h"
 #include "decompress/Block/detail/reseed_residuals_from_csm.h"
 #endif
-#ifdef CRSCE_USE_GOBP_ONLY
-#include "decompress/Solvers/GobpSolver/GobpSolver.h"
-// Bring in legacy pipeline headers for fallback if Gobp cannot complete.
+#else
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Block/detail/run_hybrid_sift.h"
 #include "decompress/Block/detail/seed_initial_beliefs.h"
@@ -38,6 +44,7 @@
 #include "decompress/Block/detail/execute_radditz_and_validate.h"
 #include "decompress/Block/detail/reseed_residuals_from_csm.h"
 #endif
+#include "decompress/HashMatrix/LateralHashMatrix.h"
 #include "common/O11y/O11y.h"
 
 namespace crsce::decompress {
@@ -75,24 +82,27 @@ namespace crsce::decompress {
                                 std::span<const std::uint16_t>(xsm.begin(), xsm.end()),
                                 0ULL};
         set_block_solve_snapshot(snap);
-#ifdef CRSCE_USE_GOBP_ONLY
+#if defined(CRSCE_SOLVER_PRIMARY_GOBP) || defined(CRSCE_USE_GOBP_ONLY)
         ::crsce::o11y::O11y::instance().event("gobp_driver_begin");
         // Pre-lock any padded tail cells.
         ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
-        // Run GOBP smoothing/assignment until no progress.
-        ::crsce::decompress::solvers::gobp::GobpSolver gobp(csm_out, st, 0.5, 0.995, false);
+        // Run selected primary solver (GOBP adapter by default) until no progress or solved.
+        const auto cfg = ::crsce::decompress::solvers::selected::selected_solver_config_from_env();
+        auto solver = ::crsce::decompress::solvers::selected::make_primary_solver(csm_out, st, cfg);
         for (int it = 0; it < 20000; ++it) {
-            const std::size_t prog = gobp.solve_step();
-            if (prog == 0 || gobp.solved()) { break; }
+            const std::size_t prog = solver->solve_step();
+            if (prog == 0 || solver->solved()) { break; }
         }
         if (::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap)) {
             return true;
         }
+#ifdef CRSCE_ENABLE_SOLVER_FALLBACK
         // Fallback: run legacy deterministic + splash + radditz + sift pipeline.
         ::crsce::o11y::O11y::instance().event("gobp_driver_fallback");
         {
             ::crsce::o11y::O11y::instance().event("block_start_de_phase_fallback");
-            DeterministicElimination det(kMaxDeIters, csm_out, st, snap, lh);
+            const ::crsce::decompress::hashes::LateralHashMatrix lhm{lh};
+            DeterministicElimination det(kMaxDeIters, csm_out, st, snap, lhm);
             if (!det.run()) {
                 return false;
             }
@@ -103,41 +113,37 @@ namespace crsce::decompress {
         // Seed beliefs and proceed with BitSplash and Radditz
         const std::uint64_t belief_seed_fb = ::crsce::decompress::detail::seed_initial_beliefs(csm_out, st);
         snap.rng_seed_belief = belief_seed_fb;
-        if (!::crsce::decompress::detail::execute_bitsplash_and_validate(
-            csm_out, st, snap, std::span<const std::uint16_t>(lsm))) {
+        const ::crsce::decompress::xsum::LateralSumMatrix LSM_fb{std::span<const std::uint16_t>(lsm.begin(), lsm.end())};
+        const ::crsce::decompress::xsum::VerticalSumMatrix VSM_fb{std::span<const std::uint16_t>(vsm.begin(), vsm.end())};
+        const ::crsce::decompress::xsum::DiagonalSumMatrix DSM_fb{std::span<const std::uint16_t>(dsm.begin(), dsm.end())};
+        const ::crsce::decompress::xsum::AntiDiagonalSumMatrix XSM_fb{std::span<const std::uint16_t>(xsm.begin(), xsm.end())};
+        if (!::crsce::decompress::detail::execute_bitsplash_and_validate(csm_out, st, snap, LSM_fb)) {
             return false;
         }
-        if (!::crsce::decompress::detail::execute_radditz_and_validate(
-            csm_out, st, snap,
-            std::span<const std::uint16_t>(lsm),
-            std::span<const std::uint16_t>(vsm))) {
+        if (!::crsce::decompress::detail::execute_radditz_and_validate(csm_out, st, snap, LSM_fb, VSM_fb)) {
             return false;
         }
         // Sync residuals with current CSM before hybrid sift
-        ::crsce::decompress::detail::reseed_residuals_from_csm(
-            csm_out, st,
-            std::span<const std::uint16_t>(lsm.begin(), lsm.end()),
-            std::span<const std::uint16_t>(vsm.begin(), vsm.end()),
-            std::span<const std::uint16_t>(dsm.begin(), dsm.end()),
-            std::span<const std::uint16_t>(xsm.begin(), xsm.end())
-        );
+        ::crsce::decompress::detail::reseed_residuals_from_csm(csm_out, st, LSM_fb, VSM_fb, DSM_fb, XSM_fb);
 
         ::crsce::o11y::O11y::instance().event("hybrid_sift_fallback");
-        (void) ::crsce::decompress::detail::run_hybrid_sift(
-            csm_out, st, snap,
-            std::span<const std::uint8_t>(lh),
-            std::span<const std::uint16_t>(dsm.begin(), dsm.end()),
-            std::span<const std::uint16_t>(xsm.begin(), xsm.end()));
+        const ::crsce::decompress::hashes::LateralHashMatrix LHM_fb{lh};
+        (void) ::crsce::decompress::detail::run_hybrid_sift(csm_out, st, snap, LHM_fb, DSM_fb, XSM_fb);
         set_block_solve_snapshot(snap);
 
         return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
+#else
+        // No fallback configured; fail block solve.
+        return false;
+#endif
 #else
         // Fresh CSM provided by caller; no baseline or resets needed.
         //
         // Deterministic Elimination
         //
         ::crsce::o11y::O11y::instance().event("block_start_de_phase");
-        DeterministicElimination det(kMaxDeIters, csm_out, st, snap, lh);
+        const ::crsce::decompress::hashes::LateralHashMatrix lhm{lh};
+        DeterministicElimination det(kMaxDeIters, csm_out, st, snap, lhm);
         if (!det.run()) {
             return false;
         }
@@ -152,14 +158,14 @@ namespace crsce::decompress {
         snap.rng_seed_belief = belief_seed;
 
         // BitSplash (hard fail on mismatch) and Radditz (non-fatal)
-        if (!::crsce::decompress::detail::execute_bitsplash_and_validate(
-            csm_out, st, snap, std::span<const std::uint16_t>(lsm))) {
+        const ::crsce::decompress::xsum::LateralSumMatrix LSM{std::span<const std::uint16_t>(lsm.begin(), lsm.end())};
+        const ::crsce::decompress::xsum::VerticalSumMatrix VSM{std::span<const std::uint16_t>(vsm.begin(), vsm.end())};
+        const ::crsce::decompress::xsum::DiagonalSumMatrix DSM{std::span<const std::uint16_t>(dsm.begin(), dsm.end())};
+        const ::crsce::decompress::xsum::AntiDiagonalSumMatrix XSM{std::span<const std::uint16_t>(xsm.begin(), xsm.end())};
+        if (!::crsce::decompress::detail::execute_bitsplash_and_validate(csm_out, st, snap, LSM)) {
             return false;
         }
-        if (!::crsce::decompress::detail::execute_radditz_and_validate(
-            csm_out, st, snap,
-            std::span<const std::uint16_t>(lsm),
-            std::span<const std::uint16_t>(vsm))) {
+        if (!::crsce::decompress::detail::execute_radditz_and_validate(csm_out, st, snap, LSM, VSM)) {
             // Enforce VSM (and preserve LSM): fail early if columns not satisfied post‑Radditz
             return false;
         }
@@ -169,20 +175,11 @@ namespace crsce::decompress {
 
 
         // Sync residuals with current CSM so subsequent sifts respect established row/column invariants and DSM/XSM
-        ::crsce::decompress::detail::reseed_residuals_from_csm(
-            csm_out, st,
-            std::span<const std::uint16_t>(lsm.begin(), lsm.end()),
-            std::span<const std::uint16_t>(vsm.begin(), vsm.end()),
-            std::span<const std::uint16_t>(dsm.begin(), dsm.end()),
-            std::span<const std::uint16_t>(xsm.begin(), xsm.end())
-        );
+        ::crsce::decompress::detail::reseed_residuals_from_csm(csm_out, st, LSM, VSM, DSM, XSM);
 
         ::crsce::o11y::O11y::instance().event("hybrid_sift");
-        (void) ::crsce::decompress::detail::run_hybrid_sift(
-            csm_out, st, snap,
-            std::span<const std::uint8_t>(lh),
-            std::span<const std::uint16_t>(dsm.begin(), dsm.end()),
-            std::span<const std::uint16_t>(xsm.begin(), xsm.end()));
+        const ::crsce::decompress::hashes::LateralHashMatrix LHM{lh};
+        (void) ::crsce::decompress::detail::run_hybrid_sift(csm_out, st, snap, LHM, DSM, XSM);
             set_block_solve_snapshot(snap);
 
         // GOBP fallback removed; final verification follows Hybrid Sift.

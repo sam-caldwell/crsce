@@ -5,14 +5,14 @@
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
-#include "decompress/Cli/detail/heartbeat_worker.h"
-
-#include <atomic>
+// Internal heartbeat worker: implementation TU-local; not exposed via public headers.
+// External callers use the Heartbeat class wrapper.
 #include <chrono>
 #include <thread>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <atomic>
 #include <sstream>
 #include <string>
 #include <fstream>
@@ -36,7 +36,7 @@ namespace crsce::decompress::cli::detail {
      * @param interval_ms Interval between heartbeats in milliseconds.
      * @return void
      */
-    void heartbeat_worker(std::atomic<bool> *run_flag, const unsigned interval_ms) {
+    void heartbeat_worker(std::atomic<bool> *run_flag, const unsigned interval_ms) { // NOLINT(misc-use-internal-linkage)
         using namespace std::chrono;
         const char *hb_path = std::getenv("CRSCE_HEARTBEAT_PATH"); // NOLINT(concurrency-mt-unsafe)
         std::ofstream hb_stream;
