@@ -23,8 +23,8 @@ namespace crsce::decompress::cli {
      */
     int run(const std::string &input, const std::string &output) {
         try {
-            crsce::decompress::Decompressor dx(input, output);
-            const bool ok = dx.decompress_file();
+            crsce::decompress::Decompressor decompressor(input, output);
+            const bool ok = decompressor.decompress_file();
             return ok ? 0 : 4;
         } catch (const std::exception &e) {
             ::crsce::o11y::O11y::instance().event("decompress_error", {
@@ -32,14 +32,14 @@ namespace crsce::decompress::cli {
                                                       {"what", std::string(e.what())}
                                                   });
             ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
-            return 100;
+            return 99;
         } catch (...) {
             ::crsce::o11y::O11y::instance().event("decompress_error",
                                                   {
                                                       {"type", std::string("exception_unknown")}
                                                   });
             ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
-            return 99;
+            return 100;
         }
     }
 } // namespace crsce::decompress::cli
