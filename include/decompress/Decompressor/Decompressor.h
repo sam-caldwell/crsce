@@ -132,7 +132,6 @@ namespace crsce::decompress {
          */
         std::string output_path_;
 
-        // Solver selection/config captured at construction
-        ::crsce::decompress::solvers::selected::SelectedSolverConfig solver_cfg_{};
+        // No solver state is stored between blocks; solver constructed per block.
     };
 } // namespace crsce::decompress

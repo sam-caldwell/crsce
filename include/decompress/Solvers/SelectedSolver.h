@@ -6,19 +6,23 @@
 #pragma once
 
 #include <memory>
+#include <span>
 
 #include "decompress/Solvers/GenericSolver.h"
+#include "decompress/CrossSum/CrossSums.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/solver_env_read_env_double.h"
 #include "decompress/Block/detail/solver_env_read_env_int.h"
 
-#ifdef CRSCE_SOLVER_PRIMARY_GOBP
-#include "decompress/Solvers/GobpSolver/GobpSolver.h"
-#define CRSCE_SOLVER_CLASS ::crsce::decompress::solvers::gobp::GobpSolver
+#ifdef CRSCE_SOLVER_PIPELINE
+#include "decompress/Solvers/PipelineSolver/PipelineSolver.h"
+#define CRSCE_SOLVER_CLASS ::crsce::decompress::solvers::pipeline::PipelineSolver
 #else
 // No primary solver selected; build must define a primary.
-#error "No primary solver selected. Define CRSCE_SOLVER_PRIMARY_GOBP."
+// Define CRSCE_SOLVER_CLASS or there will be failures
+#define CRSCE_SOLVER_CLASS
+#error "No primary solver selected. Define CRSCE_SOLVER_PIPELINE."
 #endif
 
 namespace crsce::decompress::solvers::selected {
@@ -74,6 +78,20 @@ namespace crsce::decompress::solvers::selected {
     make_primary_solver(Csm &csm, ConstraintState &st) {
         const auto cfg = selected_solver_config_from_env();
         return make_primary_solver(csm, st, cfg);
+    }
+
+    /**
+     * @name make_primary_solver (pipeline overload)
+     * @brief Construct a pipeline solver with explicit cross-sums and LH payload.
+     */
+    inline std::unique_ptr<GenericSolver>
+    make_primary_solver(Csm &csm,
+                        ConstraintState &st,
+                        const CrossSums &sums,
+                        std::span<const std::uint8_t> lh,
+                        const SelectedSolverConfig & /*cfg*/) {
+        using ::crsce::decompress::solvers::pipeline::PipelineSolver;
+        return std::make_unique<PipelineSolver>(csm, st, sums, lh);
     }
 }
 

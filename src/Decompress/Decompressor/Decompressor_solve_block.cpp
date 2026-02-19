@@ -58,9 +58,9 @@ bool Decompressor::solve_block(std::span<const std::uint8_t> lh,
     ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
     // Construct a fresh primary solver per block using the central
     // SelectedSolver factory. This binds the solver to this block's Csm and
-    // ConstraintState without exposing concrete types here. Construction is
-    // deferred to ensure correct per-block state and to avoid any reuse bugs.
-    if (const auto solver = ::crsce::decompress::solvers::selected::make_primary_solver(csm_out, st, solver_cfg_)) {
+    // ConstraintState and captures the block's LH payload and cross-sum
+    // targets; construction is deferred to ensure per-block state.
+    if (const auto solver = ::crsce::decompress::solvers::selected::make_primary_solver(csm_out, st, sums, lh)) {
         solver->solve();
     }
     return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);

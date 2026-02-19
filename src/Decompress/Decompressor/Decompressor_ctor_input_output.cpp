@@ -20,9 +20,6 @@ namespace crsce::decompress {
      */
     Decompressor::Decompressor(const std::string &input_path, const std::string &output_path)
         : input_path_(input_path, std::ios::binary), output_path_(output_path) {
-        // Capture solver selection/config once at construction (env-driven).
-        // Per-block solver instances are created in solve_block() using this
-        // configuration together with that block's Csm and ConstraintState.
-        solver_cfg_ = ::crsce::decompress::solvers::selected::selected_solver_config_from_env();
+        // No solver state/config captured here; a fresh solver is created per block.
     }
 } // namespace crsce::decompress
