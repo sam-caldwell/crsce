@@ -1,45 +1,48 @@
 /**
  * @file CrossSum.h
- * @brief Aggregate CrossSums type; includes CrossSum and enum family.
+ * @brief Strong type representing a single cross-sum family with helpers.
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 
 #include "decompress/CrossSum/CrossSumFamily.h"
-#include "decompress/CrossSum/CrossSumType.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 
 namespace crsce::decompress {
-    // Aggregate of four families for a block
     /**
-     * @class CrossSums
-     * @brief Aggregates four CrossSum families and exposes convenience helpers.
+     * @class CrossSum
+     * @brief Maintains target vector and helpers for one cross-sum family.
      */
-    class CrossSums {
+    class CrossSum {
     public:
         static constexpr std::size_t kS = Csm::kS;
+        using Vec = std::array<std::uint16_t, kS>;
 
-        static CrossSums from_packed(std::span<const std::uint8_t> packed);
+        CrossSum(CrossSumFamily fam, const Vec &targets);
 
-        CrossSums(const CrossSum &lsm, const CrossSum &vsm, const CrossSum &dsm, const CrossSum &xsm);
+        [[nodiscard]] CrossSumFamily family() const noexcept;
+        [[nodiscard]] const Vec &targets() const noexcept;
 
-        [[nodiscard]] const CrossSum &lsm() const noexcept;
-        [[nodiscard]] const CrossSum &vsm() const noexcept;
-        [[nodiscard]] const CrossSum &dsm() const noexcept;
-        [[nodiscard]] const CrossSum &xsm() const noexcept;
+        // Optional helpers (not required in hot paths today)
+        [[nodiscard]] Vec compute_counts(const Csm &csm) const;
+        [[nodiscard]] Vec compute_deficit(const Csm &csm) const;
+        [[nodiscard]] std::uint16_t error_min(const Csm &csm) const;
+        [[nodiscard]] std::uint16_t error_max(const Csm &csm) const;
+        [[nodiscard]] int satisfied_pct(const Csm &csm) const;
+        [[nodiscard]] Vec extract_unknowns(const ConstraintState &st) const;
 
-        // Emit aggregate metrics for all families using a common prefix
+        // Emit aggregate metrics for this family using o11y
         void emit_metrics(const char *prefix, const Csm &csm, const ConstraintState *st = nullptr) const;
 
     private:
-        CrossSum lsm_;
-        CrossSum vsm_;
-        CrossSum dsm_;
-        CrossSum xsm_;
+        CrossSumFamily fam_;
+        Vec tgt_{};
     };
-} // namespace crsce::decompress
+}

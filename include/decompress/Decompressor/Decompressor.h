@@ -8,7 +8,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <cstdint> // NOLINT
 #include <fstream>
 #include <optional>
 #include <span>
@@ -16,8 +16,9 @@
 #include <vector>
 
 #include "decompress/Decompressor/HeaderV1Fields.h"
-#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/CrossSum/CrossSums.h"
 #include "decompress/Solvers/SelectedSolver.h"
+#include <functional>
 
 namespace crsce::decompress {
     /**
@@ -111,7 +112,7 @@ namespace crsce::decompress {
         bool solve_block(std::span<const std::uint8_t> lh,
                          const CrossSums &sums,
                          Csm &csm_out,
-                         std::uint64_t valid_bits);
+                         std::uint64_t valid_bits) const;
 
     private:
         /**
@@ -134,5 +135,7 @@ namespace crsce::decompress {
 
         // Solver selection/config captured at construction
         ::crsce::decompress::solvers::selected::SelectedSolverConfig solver_cfg_{};
+        using SolverFactory = std::function<std::unique_ptr<::crsce::decompress::solvers::GenericSolver>(Csm&, ConstraintState&)>;
+        SolverFactory solver_factory_;
     };
 } // namespace crsce::decompress

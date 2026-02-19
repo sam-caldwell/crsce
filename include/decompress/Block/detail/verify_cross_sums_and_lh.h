@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <span>
 #include "decompress/Csm/Csm.h"
-#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/CrossSum/CrossSums.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 namespace crsce::decompress::detail {

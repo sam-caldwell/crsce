@@ -19,6 +19,12 @@ file(GLOB_RECURSE DECOMPRESS_SOURCES
 
 target_sources(decompress PRIVATE ${DECOMPRESS_SOURCES})
 
+# Solver selection (single primary).
+#
+# If none is defined, the build fails via SelectedSolver.h.
+# We define only CRSCE_SOLVER_PRIMARY_GOBP here.
+target_compile_definitions(decompress PUBLIC CRSCE_SOLVER_PRIMARY_GOBP)
+
 
 # Stage binary to a unified bin/ directory for convenience
 add_custom_command(TARGET decompress POST_BUILD

@@ -1,7 +1,8 @@
 /**
- * @file solve_block_prelok_padding_test.cpp
- * @brief Validate that solve_block pre-locks padded cells when valid_bits < 511*511.
+ * @file solve_block_prelok_padding_nonzero_lh_test.cpp
+ * @brief Validates padded-tail pre-locking when LH is non-zero (patterned) and sums are zero.
  */
+
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -14,24 +15,23 @@
 #include "decompress/Csm/Csm.h"
 #include "decompress/CrossSum/CrossSums.h"
 
-TEST(SolveBlock, PrelocksPaddedCells) {
+TEST(SolveBlock, PrelocksPaddedCellsWithNonZeroLh) {
     using crsce::decompress::Csm;
     constexpr std::size_t S = Csm::kS;
     const std::uint64_t total_bits = static_cast<std::uint64_t>(S) * static_cast<std::uint64_t>(S);
 
-    // Prepare zero-filled payloads of correct sizes
-    // LH: 511 digests * 32 bytes each
-    std::vector<std::uint8_t> lh(511U * 32U, 0);
-    // Sums: 4 * 575 bytes
-    std::vector<std::uint8_t> sums(4U * 575U, 0);
+    // Prepare LH with a non-zero pattern and zero sums
+    std::vector<std::uint8_t> lh(511U * 32U, 0xAA);
+    std::vector<std::uint8_t> sums(4U * 575U, 0x00);
 
-    // Choose a small number of valid bits (prefix); remaining should be pre-locked as 0
-    const std::uint64_t valid_bits = total_bits > 100 ? (total_bits - 100) : total_bits;
+    // Pre-lock region: a modest padded tail
+    const std::uint64_t pad = 257ULL;
+    const std::uint64_t valid_bits = (total_bits > pad) ? (total_bits - pad) : 0ULL;
+
     Csm csm;
-    // Invoke solver to trigger pre-locks; return value may be false due to LH mismatch with zeroed LH payloads.
     const auto csums = crsce::decompress::CrossSums::from_packed(std::span<const std::uint8_t>(sums.data(), sums.size()));
-    const crsce::decompress::Decompressor dx(std::string(TEST_BINARY_DIR) + "/dummy_in.crsce",
-                                       std::string(TEST_BINARY_DIR) + "/dummy_out.bin");
+    const crsce::decompress::Decompressor dx(std::string(TEST_BINARY_DIR) + "/dx_prelock_nonzero_lh_in.crsce",
+                                       std::string(TEST_BINARY_DIR) + "/dx_prelock_nonzero_lh_out.bin");
     (void)dx.solve_block(lh, csums, csm, valid_bits);
 
     for (std::uint64_t idx = valid_bits; idx < total_bits; ++idx) {

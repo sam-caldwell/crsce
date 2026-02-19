@@ -11,7 +11,7 @@
 #include "decompress/Utils/detail/append_bits_from_csm.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
-#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/CrossSum/CrossSums.h"
 
 #include "common/O11y/O11y.h"
 

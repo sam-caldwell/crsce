@@ -5,7 +5,7 @@
  */
 #include "decompress/Utils/detail/verify_cross_sums.h"
 #include "decompress/Csm/Csm.h"
-#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/CrossSum/CrossSums.h"
 #include <cstddef>
 
 namespace crsce::decompress {

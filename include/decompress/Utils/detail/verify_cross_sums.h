@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "decompress/Csm/Csm.h"
-#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/CrossSum/CrossSums.h"
 
 namespace crsce::decompress {
     /**

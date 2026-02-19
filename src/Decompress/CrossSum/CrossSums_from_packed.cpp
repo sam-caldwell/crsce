@@ -4,8 +4,8 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "decompress/CrossSum/CrossSum.h"        // CrossSums
-#include "decompress/CrossSum/CrossSumType.h"    // CrossSum
+#include "decompress/CrossSum/CrossSums.h"        // CrossSums
+#include "decompress/CrossSum/CrossSum.h"    // CrossSum
 #include "decompress/CrossSum/CrossSumFamily.h"  // CrossSumFamily
 #include "decompress/Csm/Csm.h"
 #include "decompress/Utils/detail/decode9.tcc"

@@ -1,6 +1,7 @@
 /**
  * @file Decompressor_solve_block.cpp
- * @brief Decompressor::solve_block implementation: orchestrates solver selection and phases per block.
+ * @brief Decompressor::solve_block implementation: orchestrates solver
+ *        selection (via factory) and phases per block.
  */
 
 #include "decompress/Decompressor/Decompressor.h"
@@ -10,7 +11,7 @@
 #include <span>
 
 #include "decompress/Csm/Csm.h"
-#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/CrossSum/CrossSums.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "decompress/Block/detail/prelock_padded_tail.h"
@@ -27,15 +28,14 @@
 #include "decompress/CrossSum/VerticalSumMatrix.h"
 #include "decompress/CrossSum/DiagonalSumMatrix.h"
 #include "decompress/CrossSum/AntiDiagonalSumMatrix.h"
-#include "decompress/Solvers/SelectedSolver.h"
 #include "common/O11y/O11y.h"
 
 namespace crsce::decompress {
 
-bool Decompressor::solve_block(const std::span<const std::uint8_t> lh,
+bool Decompressor::solve_block(std::span<const std::uint8_t> lh,
                                const CrossSums &sums,
                                Csm &csm_out,
-                               const std::uint64_t valid_bits) {
+                               const std::uint64_t valid_bits) const {
     constexpr std::size_t S = Csm::kS;
     static constexpr int kMaxDeIters = 60000;
 
@@ -54,19 +54,26 @@ bool Decompressor::solve_block(const std::span<const std::uint8_t> lh,
                             0ULL};
     set_block_solve_snapshot(snap);
 
-#if defined(CRSCE_SOLVER_PRIMARY_GOBP) || defined(CRSCE_USE_GOBP_ONLY)
-    ::crsce::o11y::O11y::instance().event("gobp_driver_begin");
     ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
-    // Construct selected primary solver and run until stall/solved
-    {
-        auto solver = ::crsce::decompress::solvers::selected::make_primary_solver(csm_out, st, solver_cfg_);
-        solver->solve();
+    // Construct a fresh solver per block:
+    //  - The solver binds to this block's Csm and ConstraintState, which are
+    //    created inside this method; we cannot safely construct it earlier.
+    //  - Reusing a solver across blocks would require a reset/rebind API and
+    //    strict state hygiene to avoid stale references or state bleed.
+    //  - The overhead (one std::function call + small solver construction)
+    //    is negligible relative to the solver's work and verification phases.
+    //  - The factory call is intentionally dynamic (type-erased) and won't be
+    //    "optimized away" across calls by the compiler.
+    if (solver_factory_) {
+        if (const auto solver = solver_factory_(csm_out, st)) {
+            solver->solve();
+        }
     }
     if (::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap)) {
         return true;
     }
-#ifdef CRSCE_ENABLE_SOLVER_FALLBACK
-    // Fallback pipeline (DE → BitSplash → Radditz → Hybrid Sift)
+
+    // Fallback pipeline: DE → BitSplash → Radditz → Hybrid Sift
     {
         ::crsce::o11y::O11y::instance().event("block_start_de_phase_fallback");
         const ::crsce::decompress::hashes::LateralHashMatrix lhm{lh};
@@ -90,34 +97,6 @@ bool Decompressor::solve_block(const std::span<const std::uint8_t> lh,
     (void) ::crsce::decompress::detail::run_hybrid_sift(csm_out, st, snap, LHM_fb, DSM_fb, XSM_fb);
     set_block_solve_snapshot(snap);
     return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
-#else
-    return false;
-#endif
-#else
-    // Original pipeline without GOBP-only defines
-    ::crsce::o11y::O11y::instance().event("block_start_de_phase");
-    const ::crsce::decompress::hashes::LateralHashMatrix lhm{lh};
-    DeterministicElimination det(kMaxDeIters, csm_out, st, snap, lhm);
-    if (!det.run()) { return false; }
-    if (det.solved()) {
-        return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
-    }
-    ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
-    const std::uint64_t belief_seed = ::crsce::decompress::detail::seed_initial_beliefs(csm_out, st);
-    snap.rng_seed_belief = belief_seed;
-    const ::crsce::decompress::xsum::LateralSumMatrix LSM{std::span<const std::uint16_t>(lsm.begin(), lsm.end())};
-    const ::crsce::decompress::xsum::VerticalSumMatrix VSM{std::span<const std::uint16_t>(vsm.begin(), vsm.end())};
-    const ::crsce::decompress::xsum::DiagonalSumMatrix DSM{std::span<const std::uint16_t>(dsm.begin(), dsm.end())};
-    const ::crsce::decompress::xsum::AntiDiagonalSumMatrix XSM{std::span<const std::uint16_t>(xsm.begin(), xsm.end())};
-    if (!::crsce::decompress::detail::execute_bitsplash_and_validate(csm_out, st, snap, LSM)) { return false; }
-    if (!::crsce::decompress::detail::execute_radditz_and_validate(csm_out, st, snap, LSM, VSM)) { return false; }
-    ::crsce::decompress::detail::reseed_residuals_from_csm(csm_out, st, LSM, VSM, DSM, XSM);
-    ::crsce::o11y::O11y::instance().event("hybrid_sift");
-    const ::crsce::decompress::hashes::LateralHashMatrix LHM{lh};
-    (void) ::crsce::decompress::detail::run_hybrid_sift(csm_out, st, snap, LHM, DSM, XSM);
-    set_block_solve_snapshot(snap);
-    return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
-#endif
 }
 
 } // namespace crsce::decompress

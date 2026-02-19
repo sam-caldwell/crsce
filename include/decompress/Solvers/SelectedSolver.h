@@ -13,7 +13,7 @@
 #include "decompress/Block/detail/solver_env_read_env_double.h"
 #include "decompress/Block/detail/solver_env_read_env_int.h"
 
-#if defined(CRSCE_SOLVER_PRIMARY_GOBP) || defined(CRSCE_USE_GOBP_ONLY)
+#ifdef CRSCE_SOLVER_PRIMARY_GOBP
 #include "decompress/Solvers/GobpSolver/GobpSolver.h"
 #endif
 #ifdef CRSCE_SOLVER_PRIMARY_ORIGINAL
@@ -63,7 +63,7 @@ namespace crsce::decompress::solvers::selected {
      */
     inline std::unique_ptr<GenericSolver>
     make_primary_solver(Csm &csm, ConstraintState &st, const SelectedSolverConfig &cfg) {
-#if defined(CRSCE_SOLVER_PRIMARY_GOBP) || defined(CRSCE_USE_GOBP_ONLY)
+#ifdef CRSCE_SOLVER_PRIMARY_GOBP
         auto ptr = std::make_unique<::crsce::decompress::solvers::gobp::GobpSolver>(
             csm, st, cfg.damping, cfg.assign_confidence, cfg.scan_flipped);
         return std::unique_ptr<GenericSolver>(std::move(ptr));
