@@ -41,6 +41,14 @@ namespace crsce::decompress::solvers {
         // One step of solver progress (pure virtual)
         virtual std::size_t solve_step() = 0;
 
+        // Default solve(): iterate solve_step() until stall or solved
+        virtual void solve(std::size_t max_iters = 20000) {
+            for (std::size_t it = 0; it < max_iters; ++it) {
+                const std::size_t prog = solve_step();
+                if (prog == 0 || solved()) { break; }
+            }
+        }
+
     protected:
         [[nodiscard]] static std::uint64_t sum_u(const std::array<std::uint16_t, Csm::kS> &v) noexcept {
             std::uint64_t s = 0ULL; for (auto x : v) { s += x; } return s;

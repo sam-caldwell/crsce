@@ -8,8 +8,9 @@
 #include <cstdint>
 #include <vector>
 #include <span>
+#include <string>
 
-#include "decompress/Block/detail/solve_block.h"
+#include "decompress/Decompressor/Decompressor.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/CrossSum/CrossSum.h"
 
@@ -29,7 +30,9 @@ TEST(SolveBlock, PrelocksPaddedCells) {
     Csm csm;
     // Invoke solver to trigger pre-locks; return value may be false due to LH mismatch with zeroed LH payloads.
     const auto csums = crsce::decompress::CrossSums::from_packed(std::span<const std::uint8_t>(sums.data(), sums.size()));
-    (void)crsce::decompress::solve_block(lh, csums, csm, valid_bits);
+    crsce::decompress::Decompressor dx(std::string(TEST_BINARY_DIR) + "/dummy_in.crsce",
+                                       std::string(TEST_BINARY_DIR) + "/dummy_out.bin");
+    (void)dx.solve_block(lh, csums, csm, valid_bits);
 
     for (std::uint64_t idx = valid_bits; idx < total_bits; ++idx) {
         const auto r = static_cast<std::size_t>(idx / S);

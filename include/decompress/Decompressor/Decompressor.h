@@ -16,6 +16,8 @@
 #include <vector>
 
 #include "decompress/Decompressor/HeaderV1Fields.h"
+#include "decompress/CrossSum/CrossSum.h"
+#include "decompress/Solvers/SelectedSolver.h"
 
 namespace crsce::decompress {
     /**
@@ -97,6 +99,20 @@ namespace crsce::decompress {
          */
         bool decompress_file();
 
+        /**
+         * @name Decompressor::solve_block
+         * @brief Reconstruct a block CSM from LH and cross-sum payloads (DE→BitSplash→Radditz→GOBP or fallback).
+         * @param lh Span over LH payload bytes.
+         * @param sums Strongly-typed cross-sum targets.
+         * @param csm_out Output CSM.
+         * @param valid_bits Valid bits in the block (padding beyond treated as zero-locked).
+         * @return true on success; false on failure.
+         */
+        bool solve_block(std::span<const std::uint8_t> lh,
+                         const CrossSums &sums,
+                         Csm &csm_out,
+                         std::uint64_t valid_bits);
+
     private:
         /**
          * @name input_path_
@@ -115,5 +131,8 @@ namespace crsce::decompress {
          * @brief Destination path for decompressed output bytes.
          */
         std::string output_path_;
+
+        // Solver selection/config captured at construction
+        ::crsce::decompress::solvers::selected::SelectedSolverConfig solver_cfg_{};
     };
 } // namespace crsce::decompress
