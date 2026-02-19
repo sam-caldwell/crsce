@@ -19,6 +19,7 @@
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/run_hybrid_sift.h"
+#include "decompress/Solvers/SelectedSolver.h"
 #include "decompress/Block/detail/seed_initial_beliefs.h"
 #include "decompress/Block/detail/execute_bitsplash_and_validate.h"
 #include "decompress/Block/detail/execute_radditz_and_validate.h"
@@ -55,47 +56,13 @@ bool Decompressor::solve_block(std::span<const std::uint8_t> lh,
     set_block_solve_snapshot(snap);
 
     ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
-    // Construct a fresh solver per block:
-    //  - The solver binds to this block's Csm and ConstraintState, which are
-    //    created inside this method; we cannot safely construct it earlier.
-    //  - Reusing a solver across blocks would require a reset/rebind API and
-    //    strict state hygiene to avoid stale references or state bleed.
-    //  - The overhead (one std::function call + small solver construction)
-    //    is negligible relative to the solver's work and verification phases.
-    //  - The factory call is intentionally dynamic (type-erased) and won't be
-    //    "optimized away" across calls by the compiler.
-    if (solver_factory_) {
-        if (const auto solver = solver_factory_(csm_out, st)) {
-            solver->solve();
-        }
+    // Construct a fresh primary solver per block using the central
+    // SelectedSolver factory. This binds the solver to this block's Csm and
+    // ConstraintState without exposing concrete types here. Construction is
+    // deferred to ensure correct per-block state and to avoid any reuse bugs.
+    if (const auto solver = ::crsce::decompress::solvers::selected::make_primary_solver(csm_out, st, solver_cfg_)) {
+        solver->solve();
     }
-    if (::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap)) {
-        return true;
-    }
-
-    // Fallback pipeline: DE → BitSplash → Radditz → Hybrid Sift
-    {
-        ::crsce::o11y::O11y::instance().event("block_start_de_phase_fallback");
-        const ::crsce::decompress::hashes::LateralHashMatrix lhm{lh};
-        DeterministicElimination det(kMaxDeIters, csm_out, st, snap, lhm);
-        if (!det.run()) { return false; }
-        if (det.solved()) {
-            return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
-        }
-    }
-    const std::uint64_t belief_seed_fb = ::crsce::decompress::detail::seed_initial_beliefs(csm_out, st);
-    snap.rng_seed_belief = belief_seed_fb;
-    const ::crsce::decompress::xsum::LateralSumMatrix LSM_fb{std::span<const std::uint16_t>(lsm.begin(), lsm.end())};
-    const ::crsce::decompress::xsum::VerticalSumMatrix VSM_fb{std::span<const std::uint16_t>(vsm.begin(), vsm.end())};
-    const ::crsce::decompress::xsum::DiagonalSumMatrix DSM_fb{std::span<const std::uint16_t>(dsm.begin(), dsm.end())};
-    const ::crsce::decompress::xsum::AntiDiagonalSumMatrix XSM_fb{std::span<const std::uint16_t>(xsm.begin(), xsm.end())};
-    if (!::crsce::decompress::detail::execute_bitsplash_and_validate(csm_out, st, snap, LSM_fb)) { return false; }
-    if (!::crsce::decompress::detail::execute_radditz_and_validate(csm_out, st, snap, LSM_fb, VSM_fb)) { return false; }
-    ::crsce::decompress::detail::reseed_residuals_from_csm(csm_out, st, LSM_fb, VSM_fb, DSM_fb, XSM_fb);
-    ::crsce::o11y::O11y::instance().event("hybrid_sift_fallback");
-    const ::crsce::decompress::hashes::LateralHashMatrix LHM_fb{lh};
-    (void) ::crsce::decompress::detail::run_hybrid_sift(csm_out, st, snap, LHM_fb, DSM_fb, XSM_fb);
-    set_block_solve_snapshot(snap);
     return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
 }
 

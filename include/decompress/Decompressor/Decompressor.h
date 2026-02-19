@@ -18,7 +18,6 @@
 #include "decompress/Decompressor/HeaderV1Fields.h"
 #include "decompress/CrossSum/CrossSums.h"
 #include "decompress/Solvers/SelectedSolver.h"
-#include <functional>
 
 namespace crsce::decompress {
     /**
@@ -135,7 +134,5 @@ namespace crsce::decompress {
 
         // Solver selection/config captured at construction
         ::crsce::decompress::solvers::selected::SelectedSolverConfig solver_cfg_{};
-        using SolverFactory = std::function<std::unique_ptr<::crsce::decompress::solvers::GenericSolver>(Csm&, ConstraintState&)>;
-        SolverFactory solver_factory_;
     };
 } // namespace crsce::decompress

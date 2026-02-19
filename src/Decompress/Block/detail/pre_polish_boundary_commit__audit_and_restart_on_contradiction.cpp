@@ -43,29 +43,33 @@ namespace crsce::decompress::detail {
                                             const int cooldown_ticks,
                                             int &since_last_restart) {
         constexpr std::size_t S = Csm::kS;
-        const RowHashVerifier ver{};
+        constexpr RowHashVerifier ver{};
         // compute last data row index; skip padded-only rows
-        if (valid_bits == 0) { return false; }
+        if (valid_bits == 0) {
+            return false;
+        }
         const auto last_data_row = static_cast<std::size_t>((valid_bits - 1U) / S);
         for (std::size_t r = 0; r < S; ++r) {
-            if (r > last_data_row) { continue; }
-            if (st.U_row.at(r) == 0) {
-                if (!ver.verify_row(csm_out, lh, r)) {
-                    ++snap.verify_row_failures;
-                    if (since_last_restart < cooldown_ticks) { continue; }
-                    // Contradiction: fully locked row fails digest. Revert to baseline and record restart.
-                    csm_out = baseline_csm;
-                    st = baseline_st;
-                    BlockSolveSnapshot::RestartEvent ev{};
-                    ev.restart_index = rs;
-                    ev.prefix_rows = r;
-                    ev.unknown_total = snap.unknown_total;
-                    ev.action = BlockSolveSnapshot::RestartAction::restartContradiction;
-                    snap.restarts.push_back(ev);
-                    ++snap.restart_contradiction_count;
-                    since_last_restart = 0;
-                    return true;
+            if (r > last_data_row) {
+                continue;
+            }
+            if ((st.U_row.at(r) == 0) && (!ver.verify_row(csm_out, lh, r))) {
+                ++snap.verify_row_failures;
+                if (since_last_restart < cooldown_ticks) {
+                    continue;
                 }
+                // Contradiction: fully locked row fails digest. Revert to baseline and record restart.
+                csm_out = baseline_csm;
+                st = baseline_st;
+                BlockSolveSnapshot::RestartEvent ev{};
+                ev.restart_index = rs;
+                ev.prefix_rows = r;
+                ev.unknown_total = snap.unknown_total;
+                ev.action = BlockSolveSnapshot::RestartAction::restartContradiction;
+                snap.restarts.push_back(ev);
+                ++snap.restart_contradiction_count;
+                since_last_restart = 0;
+                return true;
             }
         }
 
@@ -76,7 +80,9 @@ namespace crsce::decompress::detail {
         {
             std::size_t boundary = 0;
             for (; boundary < S && boundary <= last_data_row; ++boundary) {
-                if (st.U_row.at(boundary) > 0) { break; }
+                if (st.U_row.at(boundary) > 0) {
+                    break;
+                }
             }
             if (boundary <= last_data_row && boundary < S) {
                 const std::uint16_t u = st.U_row.at(boundary);
@@ -84,24 +90,24 @@ namespace crsce::decompress::detail {
                 // Tuned upward for this dataset to 12 (env override allowed via CRSCE_NEARLOCK_U)
                 std::uint16_t kNearLockU = 12U;
                 if (const char *e = std::getenv("CRSCE_NEARLOCK_U") /* NOLINT(concurrency-mt-unsafe) */; e && *e) {
-                    const auto v = std::strtoll(e, nullptr, 10); if (v > 0 && v < 64) { kNearLockU = static_cast<std::uint16_t>(v); }
+                    if (const auto v = std::strtoll(e, nullptr, 10); v > 0 && v < 64) {
+                        kNearLockU = static_cast<std::uint16_t>(v);
+                    }
                 }
-                if (u > 0 && u <= kNearLockU) {
-                    if (!ver.verify_row(csm_out, lh, boundary)) {
-                        ++snap.verify_row_failures;
-                        if (since_last_restart >= cooldown_ticks) {
-                            csm_out = baseline_csm;
-                            st = baseline_st;
-                            BlockSolveSnapshot::RestartEvent ev{};
-                            ev.restart_index = rs;
-                            ev.prefix_rows = boundary;
-                            ev.unknown_total = snap.unknown_total;
-                            ev.action = BlockSolveSnapshot::RestartAction::restartContradiction;
-                            snap.restarts.push_back(ev);
-                            ++snap.restart_contradiction_count;
-                            since_last_restart = 0;
-                            return true;
-                        }
+                if ((u > 0 && u <= kNearLockU) && (!ver.verify_row(csm_out, lh, boundary))) {
+                    ++snap.verify_row_failures;
+                    if (since_last_restart >= cooldown_ticks) {
+                        csm_out = baseline_csm;
+                        st = baseline_st;
+                        BlockSolveSnapshot::RestartEvent ev{};
+                        ev.restart_index = rs;
+                        ev.prefix_rows = boundary;
+                        ev.unknown_total = snap.unknown_total;
+                        ev.action = BlockSolveSnapshot::RestartAction::restartContradiction;
+                        snap.restarts.push_back(ev);
+                        ++snap.restart_contradiction_count;
+                        since_last_restart = 0;
+                        return true;
                     }
                 }
             }
