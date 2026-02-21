@@ -15,7 +15,7 @@ target_include_directories(crsce_sources PUBLIC
 )
 target_compile_definitions(crsce_sources PUBLIC
   CRSCE_BIN_DIR="${PROJECT_SOURCE_DIR}/bin"
-  CRSCE_SOLVER_PRIMARY_GOBP
+  CRSCE_SOLVER_PIPELINE
 )
 
 # Also provide a static library for tools/tests to link, which improves coverage attribution
@@ -25,5 +25,5 @@ target_include_directories(crsce_static PUBLIC
 )
 target_compile_definitions(crsce_static PUBLIC
   CRSCE_BIN_DIR="${PROJECT_SOURCE_DIR}/bin"
-  CRSCE_SOLVER_PRIMARY_GOBP
+  CRSCE_SOLVER_PIPELINE
 )

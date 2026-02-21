@@ -1,7 +1,8 @@
 /**
  * @file SelectedSolver.h
- * @brief Factory and config for selecting the primary decompressor solver via build flags.
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
+ * @author Sam Caldwell
+ * @brief Factory for constructing the primary decompressor solver (PipelineSolver).
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #pragma once
 
@@ -12,90 +13,24 @@
 #include "decompress/CrossSum/CrossSums.h"
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
-#include "decompress/Block/detail/solver_env_read_env_double.h"
-#include "decompress/Block/detail/solver_env_read_env_int.h"
-
-#ifdef CRSCE_SOLVER_PIPELINE
 #include "decompress/Solvers/PipelineSolver/PipelineSolver.h"
-#define CRSCE_SOLVER_CLASS ::crsce::decompress::solvers::pipeline::PipelineSolver
-#else
-// No primary solver selected; build must define a primary.
-// Define CRSCE_SOLVER_CLASS or there will be failures
-#define CRSCE_SOLVER_CLASS
-#error "No primary solver selected. Define CRSCE_SOLVER_PIPELINE."
-#endif
 
 namespace crsce::decompress::solvers::selected {
     /**
-     * @struct SelectedSolverConfig
-     * @brief Runtime tunables for primary solver selection (GOBP-oriented for now).
-     */
-    struct SelectedSolverConfig {
-        double damping{0.5};
-        double assign_confidence{0.995};
-        bool scan_flipped{false};
-    };
-
-    /**
-     * @name selected_solver_config_from_env
-     * @brief Read config for the selected solver from environment variables with defaults.
-     *        Currently, recognizes GOBP-related variables:
-     *        - CRSCE_GOBP_DAMPING (double)
-     *        - CRSCE_GOBP_CONFIDENCE (double)
-     *        - CRSCE_GOBP_SCAN_FLIPPED (int 0/1)
-     */
-    inline SelectedSolverConfig selected_solver_config_from_env() {
-        SelectedSolverConfig cfg{};
-        cfg.damping = ::crsce::decompress::detail::read_env_double("CRSCE_GOBP_DAMPING", cfg.damping);
-        cfg.assign_confidence = ::crsce::decompress::detail::read_env_double(
-            "CRSCE_GOBP_CONFIDENCE", cfg.assign_confidence);
-        cfg.scan_flipped = (::crsce::decompress::detail::read_env_int("CRSCE_GOBP_SCAN_FLIPPED", 0) != 0);
-        return cfg;
-    }
-
-    /**
      * @name make_primary_solver
-     * @brief Construct the selected primary solver using compile-time flags and runtime config.
-     * @param csm Target matrix.
-     * @param st Constraint state.
-     * @param cfg Runtime config (interpreted by the selected solver).
-     * @return std::unique_ptr<GenericSolver>
-     */
-    inline std::unique_ptr<GenericSolver>
-    make_primary_solver(Csm &csm, ConstraintState &st, const SelectedSolverConfig &cfg) {
-        return std::make_unique<CRSCE_SOLVER_CLASS>(csm,
-                                                    st,
-                                                    cfg.damping,
-                                                    cfg.assign_confidence,
-                                                    cfg.scan_flipped);
-    }
-
-    /**
-     * @name make_primary_solver
-     * @brief Overload using defaults from environment.
-     */
-    inline std::unique_ptr<GenericSolver>
-    make_primary_solver(Csm &csm, ConstraintState &st) {
-        const auto cfg = selected_solver_config_from_env();
-        return make_primary_solver(csm, st, cfg);
-    }
-
-    /**
-     * @name make_primary_solver (pipeline overload)
-     * @brief Construct a pipeline solver with explicit cross-sums and LH payload.
+     * @brief Construct the primary solver (PipelineSolver) with explicit cross-sums and LH payload.
+     * @param csm Constraint/state matrix for the block.
+     * @param st ConstraintState for the block.
+     * @param sums Cross-sum bundle for the block.
+     * @param lh Little-header payload bytes for the block.
+     * @return std::unique_ptr<GenericSolver> owning a PipelineSolver instance.
      */
     inline std::unique_ptr<GenericSolver>
     make_primary_solver(Csm &csm,
                         ConstraintState &st,
                         const CrossSums &sums,
-                        std::span<const std::uint8_t> lh,
-                        const SelectedSolverConfig & /*cfg*/) {
+                        std::span<const std::uint8_t> lh) {
         using ::crsce::decompress::solvers::pipeline::PipelineSolver;
         return std::make_unique<PipelineSolver>(csm, st, sums, lh);
     }
 }
-
-// Avoid leaking local macro into includers
-#ifdef CRSCE_SOLVER_CLASS
-#undef CRSCE_SOLVER_CLASS
-#endif

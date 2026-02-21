@@ -17,7 +17,8 @@
 namespace crsce::decompress::solvers::pipeline {
     /**
      * @class PipelineSolver
-     * @brief Runs the legacy decompression pipeline inside a GenericSolver wrapper.
+     * @brief Executes the decompression pipeline (DE → BitSplash → Radditz → Hybrid Sift)
+     *        within the GenericSolver interface.
      */
     class PipelineSolver : public ::crsce::decompress::solvers::GenericSolver {
     public:
@@ -27,7 +28,7 @@ namespace crsce::decompress::solvers::pipeline {
                        std::span<const std::uint8_t> lh) noexcept
             : GenericSolver(csm, st), sums_(sums), lh_(lh) {}
 
-        // Not used in pipeline mode; returns 0 progress
+        // Not used: pipeline solves in one composite pass; returns 0 progress
         std::size_t solve_step() override { return 0; }
 
         // Execute the full pipeline once; ignore max_iters
@@ -38,4 +39,3 @@ namespace crsce::decompress::solvers::pipeline {
         std::span<const std::uint8_t> lh_;
     };
 }
-

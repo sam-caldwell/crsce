@@ -101,7 +101,8 @@ namespace crsce::decompress {
 
         /**
          * @name Decompressor::solve_block
-         * @brief Reconstruct a block CSM from LH and cross-sum payloads (DE→BitSplash→Radditz→GOBP or fallback).
+         * @brief Construct a per-block solver and delegate the full pipeline.
+         *        Orchestrates snapshot setup and final verification only.
          * @param lh Span over LH payload bytes.
          * @param sums Strongly-typed cross-sum targets.
          * @param csm_out Output CSM.

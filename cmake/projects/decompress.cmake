@@ -19,11 +19,8 @@ file(GLOB_RECURSE DECOMPRESS_SOURCES
 
 target_sources(decompress PRIVATE ${DECOMPRESS_SOURCES})
 
-# Solver selection (single primary).
-#
-# If none is defined, the build fails via SelectedSolver.h.
-# We define only CRSCE_SOLVER_CLASS here.
-target_compile_definitions(decompress PUBLIC CRSCE_SOLVER_CLASS)
+# Solver selection: force pipeline as the only primary
+target_compile_definitions(decompress PUBLIC CRSCE_SOLVER_PIPELINE)
 
 
 # Stage binary to a unified bin/ directory for convenience

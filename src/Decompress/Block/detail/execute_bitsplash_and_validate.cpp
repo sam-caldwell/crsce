@@ -17,7 +17,7 @@
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 #include "decompress/Phases/BitSplash/BitSplash.h"
-#include "decompress/Block/detail/set_block_solve_snapshot.h"
+#include "decompress/Block/detail/SnapshotGuard.h"
 #include "common/O11y/O11y.h"
 #include "decompress/CrossSum/LateralSumMatrix.h"
 
@@ -39,7 +39,7 @@ namespace crsce::decompress::detail {
         snap.phase = BlockSolveSnapshot::Phase::rowPhase;
         ::crsce::o11y::O11y::instance().event("bitsplash_start");
         snap.bitsplash_status = 1; // started
-        set_block_solve_snapshot(snap);
+        const ::crsce::decompress::detail::SnapshotGuard _pub(snap);
         (void) ::crsce::decompress::phases::bit_splash(csm, st, snap, 0);
         snap.U_row.assign(st.U_row.begin(), st.U_row.end());
         snap.U_col.assign(st.U_col.begin(), st.U_col.end());
@@ -94,10 +94,8 @@ namespace crsce::decompress::detail {
                 /* ignore */
             }
             snap.message = "bitsplash rows not satisfied";
-            set_block_solve_snapshot(snap);
-            return false;
+            return false; // guard publishes
         }
-        set_block_solve_snapshot(snap);
-        return true;
+        return true; // guard publishes
     }
 }

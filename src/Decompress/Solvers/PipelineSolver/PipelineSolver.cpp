@@ -1,16 +1,21 @@
 /**
  * @file PipelineSolver.cpp
+ * @author Sam Caldwell
  * @brief Implementation of PipelineSolver::solve (DE→BitSplash→Radditz→Hybrid Sift).
+ * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 
 #include "decompress/Solvers/PipelineSolver/PipelineSolver.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <span>
 
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
+#include "decompress/Csm/Csm.h"
 #include "decompress/Block/detail/get_block_solve_snapshot.h"
-#include "decompress/Block/detail/set_block_solve_snapshot.h"
 #include "decompress/Block/detail/seed_initial_beliefs.h"
+#include "decompress/Block/detail/SnapshotGuard.h"
 #include "decompress/Block/detail/execute_bitsplash_and_validate.h"
 #include "decompress/Block/detail/execute_radditz_and_validate.h"
 #include "decompress/Block/detail/reseed_residuals_from_csm.h"
@@ -25,7 +30,14 @@
 
 namespace crsce::decompress::solvers::pipeline {
 
-void PipelineSolver::solve(std::size_t) {
+/**
+ * @name PipelineSolver::solve
+ * @brief Execute the DE→BitSplash→Radditz→Hybrid Sift pipeline once.
+ * @param max_iters Ignored; present for interface compatibility.
+ * @return void
+ */
+void PipelineSolver::solve(std::size_t max_iters) {
+    (void)max_iters; // pipeline ignores max iters; runs once
     constexpr std::size_t S = Csm::kS;
     static constexpr int kMaxDeIters = 60000;
 
@@ -35,18 +47,17 @@ void PipelineSolver::solve(std::size_t) {
         return; // cannot publish telemetry; upstream verify will still run
     }
     auto snap = *snap_opt;
+    const ::crsce::decompress::detail::SnapshotGuard pub(snap);
 
     // Deterministic elimination first
     ::crsce::o11y::O11y::instance().event("block_start_de_phase");
     const ::crsce::decompress::hashes::LateralHashMatrix lhm{lh_};
     DeterministicElimination det(kMaxDeIters, csm(), state(), snap, lhm);
     if (!det.run()) {
-        set_block_solve_snapshot(snap);
-        return; // upstream verify will fail
+        return; // upstream verify will fail; guard publishes
     }
     if (det.solved()) {
-        set_block_solve_snapshot(snap);
-        return; // solved by DE; verification occurs upstream
+        return; // solved by DE; guard publishes; verification occurs upstream
     }
 
     // Seed initial beliefs from current CSM topology
@@ -65,14 +76,12 @@ void PipelineSolver::solve(std::size_t) {
 
     // BitSplash to complete rows; bail if mismatch
     if (!::crsce::decompress::detail::execute_bitsplash_and_validate(csm(), state(), snap, LSM)) {
-        set_block_solve_snapshot(snap);
-        return;
+        return; // guard publishes
     }
 
     // Column-focused Radditz; validate columns + row invariant
     if (!::crsce::decompress::detail::execute_radditz_and_validate(csm(), state(), snap, LSM, VSM)) {
-        set_block_solve_snapshot(snap);
-        return;
+        return; // guard publishes
     }
 
     // Refresh residuals using canonical counters from CSM
@@ -83,8 +92,7 @@ void PipelineSolver::solve(std::size_t) {
     const ::crsce::decompress::hashes::LateralHashMatrix LHM_fb{lh_};
     (void) ::crsce::decompress::detail::run_hybrid_sift(csm(), state(), snap, LHM_fb, DSM, XSM);
 
-    // Publish final snapshot state for this block; upstream performs final verification
-    set_block_solve_snapshot(snap);
+    // Guard publishes final snapshot on scope exit; upstream performs final verification
 }
 
 } // namespace crsce::decompress::solvers::pipeline

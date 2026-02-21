@@ -13,7 +13,7 @@
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
 
 #include <chrono>
-#include "decompress/Block/detail/set_block_solve_snapshot.h"
+#include "decompress/Block/detail/SnapshotGuard.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 #include "decompress/Utils/detail/verify_cross_sums.h"
 #include "common/O11y/O11y.h"
@@ -33,6 +33,7 @@ namespace crsce::decompress::detail {
                                   const std::span<const std::uint8_t> lh,
                                   BlockSolveSnapshot &snap) {
         const auto t0cs = std::chrono::steady_clock::now();
+        const ::crsce::decompress::detail::SnapshotGuard _pub(snap);
         const bool okcs = verify_cross_sums(csm, sums);
         const auto t1cs = std::chrono::steady_clock::now();
         snap.time_cross_verify_ms += static_cast<std::size_t>(
@@ -44,8 +45,7 @@ namespace crsce::decompress::detail {
             snap.message = "cross-sum verification failed";
             // Emit aggregate cross-sum metrics for failure diagnostics
             sums.emit_metrics("crosssum", csm, nullptr);
-            set_block_solve_snapshot(snap);
-            return false;
+            return false; // guard publishes
         }
         const RowHashVerifier verifier;
         const auto t0va = std::chrono::steady_clock::now();
