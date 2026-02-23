@@ -68,3 +68,4 @@ default.profraw
 .ccache/
 logs/
 deps/
+!deps/README.md
