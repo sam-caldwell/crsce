@@ -8,6 +8,7 @@
 #include <optional>
 #include <queue>
 #include <ios>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -413,6 +414,30 @@ namespace crsce::o11y {
      * @return void
      */
     void O11y::counter(std::string name, Tags tags) {
+        if (crsce::o11y::detail::flush_enabled()) {
+            // For testing/diagnostics: perform counter update synchronously, emit a direct record, and flush.
+            const auto ts = crsce::o11y::detail::now_ms();
+            this->do_counter(name, tags, ts);
+            // Emit a compact per-counter JSON line so readers do not need to parse the summary structure
+            try {
+                const std::string tagKey = canonicalize_tags(tags);
+                std::uint64_t c = 0;
+                {
+                    const std::scoped_lock lk(mu_);
+                    auto it = counters_.find(name);
+                    if (it != counters_.end()) {
+                        auto jt = it->second.find(tagKey);
+                        if (jt != it->second.end()) { c = jt->second.count; }
+                    }
+                }
+                std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
+                oss << '{' << "\"ts_ms\":" << ts << ",\"name\":\"" << name << "\",\"count\":"
+                    << std::setw(2) << std::setfill('0') << c << '}';
+                detail::write_line_to_path_sync(oss.str(), detail::current_path());
+            } catch (...) { /* ignore in tests */ }
+            try { this->flush_now(); } catch (...) { /* ignore in tests */ }
+            return;
+        }
         ensure_started();
         (void) co_counter(this, std::move(name), std::move(tags));
     }

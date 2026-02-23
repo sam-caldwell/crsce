@@ -19,6 +19,22 @@
 namespace crsce::compress::cli {
     inline int run(std::span<char*> argv) {
         using crsce::common::ArgParser;
+        // Special case: treat missing -in value as insufficient-args (4)
+        if (argv.size() > 1) {
+            for (std::size_t i = 1; i < argv.size(); ++i) {
+                const std::string tok = argv[i];
+                if (tok == "-in") {
+                    bool followed_is_flag = false;
+                    if (i + 1 < argv.size()) {
+                        const char *raw = argv[i + 1];
+                        const std::string next = (raw ? std::string(raw) : std::string());
+                        followed_is_flag = (!next.empty() && next.front() == '-');
+                    }
+                    const bool missing = (i + 1 >= argv.size()) || followed_is_flag;
+                    if (missing) { return 4; }
+                }
+            }
+        }
         try {
             const ArgParser parser("compress", argv);
             const auto &[input, output, help] = parser.options();

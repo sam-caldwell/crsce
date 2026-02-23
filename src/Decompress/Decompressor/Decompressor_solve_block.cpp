@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <algorithm>
 
 #include "decompress/Csm/Csm.h"
 #include "decompress/CrossSum/CrossSums.h"
@@ -55,6 +56,18 @@ namespace crsce::decompress {
     const ::crsce::decompress::detail::SnapshotGuard pub(snap);
 
     ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
+    // Edge-case: if there is no padding and all provided cross-sums are zero,
+    // avoid an aggressive full lock from the pipeline. This preserves the
+    // contract that solve_block does not introduce spurious locks when there
+    // is no padded tail.
+    const bool no_padding = (valid_bits >= (static_cast<std::uint64_t>(S) * static_cast<std::uint64_t>(S)));
+    const bool sums_all_zero = std::ranges::all_of(lsm, [](std::uint16_t v){ return v == 0; }) &&
+                               std::ranges::all_of(vsm, [](std::uint16_t v){ return v == 0; }) &&
+                               std::ranges::all_of(dsm, [](std::uint16_t v){ return v == 0; }) &&
+                               std::ranges::all_of(xsm, [](std::uint16_t v){ return v == 0; });
+    if (no_padding && sums_all_zero) {
+        return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
+    }
     // Construct a fresh primary solver per block using the central
     // SelectedSolver factory. This binds the solver to this block's Csm and
     // ConstraintState and captures the block's LH payload and cross-sum
