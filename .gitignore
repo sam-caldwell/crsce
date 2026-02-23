@@ -67,3 +67,4 @@ default.profraw
 
 .ccache/
 logs/
+deps/
