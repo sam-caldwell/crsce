@@ -8,23 +8,7 @@ include(cmake/pipeline/configure.cmake)
 # --- macOS SDK (Homebrew LLVM) auto-detect to keep toolchain consistent
 include(cmake/pipeline/sdk.cmake)
 
-# --- ccache integration (optional) ---
-option(CRSCE_USE_CCACHE "Use ccache to speed up C/C++ compilation" ON)
-if (CRSCE_USE_CCACHE)
-  find_program(CCACHE_PROGRAM ccache)
-  if (CCACHE_PROGRAM)
-    # Use a repo-local cache so CI and developers share a predictable path
-    set(_CCACHE_DIR "${PROJECT_SOURCE_DIR}/.ccache")
-    file(MAKE_DIRECTORY "${_CCACHE_DIR}")
-    message(STATUS "Using ccache: ${CCACHE_PROGRAM} (CCACHE_DIR=${_CCACHE_DIR})")
-    # Inject CCACHE_DIR via a launcher wrapper so the build tool inherits it reliably
-    set(_CCACHE_LAUNCH ${CMAKE_COMMAND} -E env CCACHE_DIR=${_CCACHE_DIR} CCACHE_BASEDIR=${PROJECT_SOURCE_DIR} ${CCACHE_PROGRAM})
-    set(CMAKE_C_COMPILER_LAUNCHER   ${_CCACHE_LAUNCH})
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${_CCACHE_LAUNCH})
-  else ()
-    message(STATUS "ccache not found; proceeding without compiler launcher")
-  endif ()
-endif ()
+include(cmake/tools/ccache.cmake)
 
 # --- Optimization defaults by configuration ---
 # Ensure optimized builds use -O3 (Release) and -O2 (RelWithDebInfo).
@@ -62,16 +46,19 @@ if(CLANG_TIDY_EXE)
     "${PROJECT_SOURCE_DIR}/test/*.cpp"
   )
   add_custom_target(clang-tidy
-    COMMAND ${CLANG_TIDY_EXE} -p=${CMAKE_BINARY_DIR} "-header-filter=.*" --extra-arg=-w --extra-arg=-fdiagnostics-show-option --extra-arg=-fcolor-diagnostics ${ALL_CXX_SOURCES}
+    COMMAND ${CLANG_TIDY_EXE} -p=${CMAKE_BINARY_DIR} "-header-filter=.*" --extra-arg=-w --extra-arg=-fdiagnostics-show-option --extra-arg=-fcolor-diagnostics --extra-arg=-DCRSCE_CLANG_TIDY=1 ${ALL_CXX_SOURCES}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     VERBATIM
   )
 endif()
 
 
-# --- Testing ---
-include(cmake/pipeline/test.cmake)
-enable_testing()
+# --- Testing (optional) ---
+option(CRSCE_BUILD_TESTS "Configure and build tests (downloads googletest)" OFF)
+if(CRSCE_BUILD_TESTS)
+  include(cmake/pipeline/test.cmake)
+  enable_testing()
+endif()
 
 # Trigger CMake reconfigure when any src/*.cpp changes (recursive)
 file(GLOB_RECURSE PROJECT_SRC_CPP CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/*.cpp")
