@@ -14,6 +14,7 @@
 #include "decompress/CrossSum/CrossSums.h"
 
 #include "common/O11y/O11y.h"
+#include "decompress/Decompressor/detail/RowLog.h"
 
 #include <algorithm>
 #include <exception>
@@ -23,6 +24,7 @@
 #include <vector>
 #include <cstdint> // NOLINT
 #include <ios>
+#include <chrono>
 
 namespace crsce::decompress {
     /**
@@ -32,6 +34,7 @@ namespace crsce::decompress {
      */
     bool Decompressor::decompress_file() {
         HeaderV1Fields hdr{};
+        const auto run_start = std::chrono::system_clock::now();
 
         if (!read_header(hdr)) {
             return false;
@@ -47,16 +50,25 @@ namespace crsce::decompress {
 
         const std::uint64_t total_bits = hdr.original_size_bytes * 8U;
 
-        ::crsce::o11y::O11y::instance().metric("block_count", static_cast<std::int64_t>(hdr.block_count));
+        ::crsce::o11y::O11y::instance().event("decompress_file_start", {
+                                                  {"block_count", std::to_string(hdr.block_count)}
+                                              });
+
+        // Announce row-completion log location up front
+        ::crsce::decompress::RowLog::touch_and_announce_rowlog(output_path_);
 
         for (std::uint64_t block_id = 0; block_id < hdr.block_count; ++block_id) {
-            ::crsce::o11y::O11y::instance().metric("block_open", static_cast<std::int64_t>(block_id));
+            ::crsce::o11y::O11y::instance().event("block_start", {
+                                                      {"block_id", std::to_string(block_id)},
+                                                      {"block_count", std::to_string(hdr.block_count)}
+                                                  });
 
             auto payload = read_block();
             if (!payload.has_value()) {
                 ::crsce::o11y::O11y::instance().event("decompress_error", {
                                                           {"type", std::string("short_read")},
-                                                          {"block", std::to_string(block_id)}
+                                                          {"block", std::to_string(block_id)},
+                                                          {"block_count", std::to_string(hdr.block_count)}
                                                       });
                 return false;
             }
@@ -68,7 +80,8 @@ namespace crsce::decompress {
             if (!split_payload(*payload, lh, sums_packed)) {
                 ::crsce::o11y::O11y::instance().event("decompress_error", {
                                                           {"type", std::string("bad_block_payload")},
-                                                          {"block", std::to_string(block_id)}
+                                                          {"block", std::to_string(block_id)},
+                                                          {"block_count", std::to_string(hdr.block_count)}
                                                       });
                 return false;
             }
@@ -82,19 +95,24 @@ namespace crsce::decompress {
             const std::uint64_t remain = total_bits - bits_done;
             const std::uint64_t to_take = std::min(remain, bits_per_block);
 
-            ::crsce::o11y::O11y::instance().metric("block_pre_solve", static_cast<std::int64_t>(block_id), {
-                                                       {"remain_bits", std::to_string(remain)},
-                                                       {"take_bits", std::to_string(to_take)}
-                                                   });
+
+            ::crsce::o11y::O11y::instance().event("block_pre_solve", {
+                                                      {"remain_bits", std::to_string(remain)},
+                                                      {"take_bits", std::to_string(to_take)},
+                                                      {"block", std::to_string(block_id)},
+                                                      {"block_count", std::to_string(hdr.block_count)}
+                                                  });
 
             Csm csm; // solver target grid
             bool solved_ok = false;
 
             try {
-                ::crsce::o11y::O11y::instance().metric("block_solve_begin", static_cast<std::int64_t>(block_id), {
-                                                           {"valid_bits", std::to_string(to_take)}
-                                                       });
-
+                ::crsce::o11y::O11y::instance().event("block_solve_begin", {
+                                                          {"type", std::string("bad_block_payload")},
+                                                          {"valid_bits", std::to_string(to_take)},
+                                                          {"block", std::to_string(block_id)},
+                                                          {"block_count", std::to_string(hdr.block_count)}
+                                                      });
                 //
                 // Unpack the cross sums from the block payload
                 //
@@ -105,22 +123,26 @@ namespace crsce::decompress {
                 //
                 solved_ok = this->solve_block(lh, sums, csm, to_take);
 
-                ::crsce::o11y::O11y::instance().metric("block_solve_end", static_cast<std::int64_t>(block_id), {
-                                                           {
-                                                               "ok",
-                                                               (solved_ok ? std::string("true") : std::string("false"))
-                                                           }
-                                                       });
+                ::crsce::o11y::O11y::instance().event("block_solve_end", {
+                                                          {
+                                                              "ok",
+                                                              (solved_ok ? std::string("true") : std::string("false"))
+                                                          },
+                                                          {"block", std::to_string(block_id)},
+                                                          {"block_count", std::to_string(hdr.block_count)}
+                                                      });
             } catch (const std::exception &ex) {
                 ::crsce::o11y::O11y::instance().event("decompress_error", {
                                                           {"type", std::string("solve_exception")},
                                                           {"block", std::to_string(block_id)},
+                                                          {"block_count", std::to_string(hdr.block_count)},
                                                           {"what", std::string(ex.what())}
                                                       });
             } catch (...) {
                 ::crsce::o11y::O11y::instance().event("decompress_error", {
                                                           {"type", std::string("solve_exception_unknown")},
-                                                          {"block", std::to_string(block_id)}
+                                                          {"block", std::to_string(block_id)},
+                                                          {"block_count", std::to_string(hdr.block_count)}
                                                       }
                 );
             } // end try...catch...
@@ -128,15 +150,23 @@ namespace crsce::decompress {
             if (!solved_ok) {
                 ::crsce::o11y::O11y::instance().event("decompress_error", {
                                                           {"type", std::string("solve_failed")},
-                                                          {"block", std::to_string(block_id)}
+                                                          {"block", std::to_string(block_id)},
+                                                          {"block_count", std::to_string(hdr.block_count)}
                                                       });
                 if (const auto snap = get_block_solve_snapshot(); snap.has_value()) {
                     ::crsce::o11y::O11y::instance().event("decompress_failure", {
-                                                              {"block_count", std::to_string(hdr.block_count)},
-                                                              {"fail_index", std::to_string(block_id)}
+                                                              {"block", std::to_string(block_id)},
+                                                              {"block_count", std::to_string(hdr.block_count)}
                                                           });
                 }
+                // Emit a detailed failure snapshot for this block
+                ::crsce::decompress::RowLog::write_row_completion_stats_failure(
+                    output_path_, block_id, csm, lh, *payload, run_start);
+                return false; // Do not emit bytes for an unverified block
             }
+            // Only append bytes when the block has fully verified (cross-sums + LH)
+            ::crsce::decompress::RowLog::write_row_completion_stats_success(
+                output_path_, block_id, csm, lh, *payload, run_start);
             append_bits_from_csm(csm, to_take, output_bytes, curr, bit_pos);
             ::crsce::o11y::O11y::instance().counter("blocks_successful");
         }

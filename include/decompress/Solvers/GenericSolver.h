@@ -38,14 +38,16 @@ namespace crsce::decompress::solvers {
                 && (sum_u(st_.U_xdiag) == 0ULL);
         }
 
-        // One step of solver progress (pure virtual)
-        virtual std::size_t solve_step() = 0;
+        // One step of solver progress (default no-op for composite solvers)
+        // Concrete step-wise solvers (e.g., DE, GOBP) may override.
+        virtual std::size_t solve_step() { return 0; }
 
         // Default solve(): iterate solve_step() until stall or solved
-        virtual void solve(std::size_t max_iters = 20000) {
+        virtual void solve(const std::size_t max_iters = 20000) {
             for (std::size_t it = 0; it < max_iters; ++it) {
-                const std::size_t prog = solve_step();
-                if (prog == 0 || solved()) { break; }
+                if (const std::size_t prog = solve_step(); prog == 0 || solved()) {
+                    break;
+                }
             }
         }
 
@@ -54,8 +56,8 @@ namespace crsce::decompress::solvers {
             std::uint64_t s = 0ULL; for (auto x : v) { s += x; } return s;
         }
 
-        [[nodiscard]] Csm &csm() noexcept { return csm_; }
-        [[nodiscard]] ConstraintState &state() noexcept { return st_; }
+        [[nodiscard]] Csm &csm() const noexcept { return csm_; }
+        [[nodiscard]] ConstraintState &state() const noexcept { return st_; }
 
     private:
         Csm &csm_;

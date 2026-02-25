@@ -16,9 +16,16 @@ namespace crsce::o11y::detail {
      * @return std::string Path from `CRSCE_EVENTS_PATH` or default `build/events.jsonl`.
      */
     inline std::string events_path() {
+        // Prefer explicit events path when provided.
         if (const char *p = std::getenv("CRSCE_EVENTS_PATH") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
             return std::string(p);
         }
+        // If a heartbeat path is configured for the decompressor, mirror events there so
+        // users can observe o11y JSON alongside phase heartbeats in real time.
+        if (const char *hb = std::getenv("CRSCE_HEARTBEAT_PATH") /* NOLINT(concurrency-mt-unsafe) */; hb && *hb) {
+            return std::string(hb);
+        }
+        // Fallback to default events file under build/.
         return std::string("build/events.jsonl");
     }
 }

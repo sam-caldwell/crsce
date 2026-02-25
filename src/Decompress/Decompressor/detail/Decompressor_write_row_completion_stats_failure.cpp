@@ -214,7 +214,11 @@ namespace crsce::decompress {
                     os << "]\n"
                        << "  },\n";
                 }
-                os << "  \"rows_committed\":" << s2->rows_committed << ",\n"
+                os << "  \"phase\":" << static_cast<int>(s2->phase) << ",\n"
+                   << "  \"bitsplash_status\":" << s2->bitsplash_status << ",\n"
+                   << "  \"hyb_rect_attempts_total\":" << s2->hyb_rect_attempts_total << ",\n"
+                   << "  \"hyb_rect_accepts_total\":" << s2->hyb_rect_accepts_total << ",\n"
+                   << "  \"rows_committed\":" << s2->rows_committed << ",\n"
                    << "  \"cols_finished\":" << s2->cols_finished << ",\n"
                    << "  \"boundary_finisher_attempts\":" << s2->boundary_finisher_attempts << ",\n"
                    << "  \"boundary_finisher_successes\":" << s2->boundary_finisher_successes << ",\n"

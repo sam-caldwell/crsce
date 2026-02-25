@@ -25,14 +25,8 @@ file(GLOB_RECURSE DECOMPRESS_SOURCES
 
 target_sources(decompress PRIVATE ${DECOMPRESS_SOURCES})
 
-# Solver selection (compile-time)
-# Default to the constraint-based solver for all normal builds unless explicitly overridden.
-option(CRSCE_SOLVER_CONSTRAINT "Build decompressor with constraint solver" ON)
-if(CRSCE_SOLVER_CONSTRAINT)
-  target_compile_definitions(decompress PUBLIC CRSCE_SOLVER_CONSTRAINT)
-else()
-  target_compile_definitions(decompress PUBLIC CRSCE_SOLVER_PIPELINE)
-endif()
+# Solver selection: always constraint-based
+target_compile_definitions(decompress PUBLIC CRSCE_SOLVER_CONSTRAINT)
 
 # Apple Metal acceleration via ObjC++ shim (optional; OFF by default)
 if(APPLE)

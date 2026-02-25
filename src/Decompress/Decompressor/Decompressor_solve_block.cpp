@@ -20,6 +20,7 @@
 #include "decompress/Block/detail/SnapshotGuard.h"
 #include "decompress/Block/detail/prelock_padded_tail.h"
 #include "decompress/Block/detail/verify_cross_sums_and_lh.h"
+#include "decompress/Block/detail/get_block_solve_snapshot.h"
 #include "decompress/Phases/DeterministicElimination/ConstraintState.h"
 #include "decompress/Solvers/SelectedSolver.h"
 
@@ -46,6 +47,7 @@ namespace crsce::decompress {
     const auto &xsm = sums.xsm().targets();
 
     ConstraintState st(S, lsm, vsm, dsm, xsm);
+
     BlockSolveSnapshot snap{S,
                             st,
                             std::span<const std::uint16_t>(lsm.begin(), lsm.end()),
@@ -53,6 +55,7 @@ namespace crsce::decompress {
                             std::span<const std::uint16_t>(dsm.begin(), dsm.end()),
                             std::span<const std::uint16_t>(xsm.begin(), xsm.end()),
                             0ULL};
+
     const ::crsce::decompress::detail::SnapshotGuard pub(snap);
 
     ::crsce::decompress::detail::prelock_padded_tail(csm_out, st, valid_bits);
@@ -74,6 +77,12 @@ namespace crsce::decompress {
     // targets; construction is deferred to ensure per-block state.
     if (const auto solver = ::crsce::decompress::solvers::selected::make_primary_solver(csm_out, st, sums, lh)) {
         solver->solve();
+    }
+    // Sync latest solver-updated snapshot into our guard's copy so the outer
+    // SnapshotGuard destructor republishes the up-to-date state rather than
+    // clobbering it with an older copy.
+    if (const auto latest = ::crsce::decompress::get_block_solve_snapshot(); latest.has_value()) {
+        snap = *latest;
     }
     return ::crsce::decompress::detail::verify_cross_sums_and_lh(csm_out, sums, lh, snap);
 }

@@ -17,11 +17,7 @@ target_compile_definitions(crsce_sources PUBLIC
   CRSCE_BIN_DIR="${PROJECT_SOURCE_DIR}/bin"
 )
 option(CRSCE_SOLVER_CONSTRAINT "Build with constraint solver (sources)" ON)
-if(CRSCE_SOLVER_CONSTRAINT)
-  target_compile_definitions(crsce_sources PUBLIC CRSCE_SOLVER_CONSTRAINT)
-else()
-  target_compile_definitions(crsce_sources PUBLIC CRSCE_SOLVER_PIPELINE)
-endif()
+target_compile_definitions(crsce_sources PUBLIC CRSCE_SOLVER_CONSTRAINT)
 
 # If metal-cpp headers are present at the default path, expose includes for sources target only.
 # ObjC++/Metal enablement is handled per-target (decompress) to avoid global framework deps.
@@ -39,10 +35,6 @@ set_source_files_properties(
 target_compile_definitions(crsce_static PUBLIC
   CRSCE_BIN_DIR="${PROJECT_SOURCE_DIR}/bin"
 )
-if(CRSCE_SOLVER_CONSTRAINT)
-  target_compile_definitions(crsce_static PUBLIC CRSCE_SOLVER_CONSTRAINT)
-else()
-  target_compile_definitions(crsce_static PUBLIC CRSCE_SOLVER_PIPELINE)
-endif()
+target_compile_definitions(crsce_static PUBLIC CRSCE_SOLVER_CONSTRAINT)
 
 # Note: crsce_static does not define CRSCE_HAS_METAL; GPU interop compiles only in targets that enable it explicitly.

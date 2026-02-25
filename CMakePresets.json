@@ -2,78 +2,9 @@
   "version": 3,
   "configurePresets": [
     {
-      "name": "arm64-debug",
-      "displayName": "ARM64 Debug",
-      "description": "Configure for ARM64 with debug information.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/arm64-debug",
-      "architecture": {
-        "value": "arm64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "arm64-release",
-      "displayName": "ARM64 Release",
-      "description": "Configure for ARM64 with optimizations.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/arm64-release",
-      "architecture": {
-        "value": "arm64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "cmake-build-debug",
-      "displayName": "cmake-build-debug",
-      "description": "Debug build under build/cmake-build-debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/cmake-build-debug",
-      "architecture": {
-        "value": "arm64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "cmake-build-release",
-      "displayName": "cmake-build-release",
-      "description": "Release build under build/cmake-build-release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/cmake-build-release",
-      "architecture": {
-        "value": "arm64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    }
-    ,
-    {
       "name": "llvm-debug",
       "displayName": "LLVM (Homebrew) Debug",
-      "description": "Debug with Homebrew clang/llvm and C++23",
+      "description": "Debug with Homebrew clang/llvm and C++23 (Metal optional)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/llvm-debug",
       "cacheVariables": {
@@ -83,14 +14,17 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+        "CMAKE_OBJCXX_COMPILER": "/usr/bin/clang++",
         "CMAKE_OSX_SYSROOT": "$env{SDKROOT}",
-        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=.*;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option"
+        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=^(?!.*metal-cpp).*;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option;--extra-arg=-DCRSCE_CLANG_TIDY=1",
+        "CRSCE_ENABLE_METAL": "ON",
+        "CRSCE_METAL_CPP_INCLUDE": "$env{CRSCE_METAL_CPP_INCLUDE}"
       }
     },
     {
       "name": "llvm-release",
       "displayName": "LLVM (Homebrew) Release",
-      "description": "Release with Homebrew clang/llvm and C++23",
+      "description": "Release with Homebrew clang/llvm and C++23 (Metal optional)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/llvm-release",
       "cacheVariables": {
@@ -100,23 +34,52 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+        "CMAKE_OBJCXX_COMPILER": "/usr/bin/clang++",
         "CMAKE_OSX_SYSROOT": "$env{SDKROOT}",
-        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=.*;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option"
+        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=^(?!.*metal-cpp).*;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option;--extra-arg=-DCRSCE_CLANG_TIDY=1",
+        "CRSCE_ENABLE_METAL": "ON",
+        "CRSCE_METAL_CPP_INCLUDE": "$env{CRSCE_METAL_CPP_INCLUDE}"
       }
-    }
-  ],
-  "buildPresets": [
+    },
     {
-      "name": "arm64-debug-build",
-      "displayName": "Build ARM64 Debug",
-      "configurePreset": "arm64-debug"
-    }
-  ],
-  "testPresets": [
+      "name": "arm64-release",
+      "displayName": "ARM64 Release",
+      "description": "ARM64 Release (Metal optional)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/arm64-release",
+      "architecture": { "value": "arm64", "strategy": "external" },
+      "cacheVariables": {
+        "CMAKE_OBJCXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CRSCE_ENABLE_METAL": "ON",
+        "CRSCE_METAL_CPP_INCLUDE": "$env{CRSCE_METAL_CPP_INCLUDE}"
+      }
+    },
     {
-      "name": "arm64-debug-test",
-      "displayName": "Test ARM64 Debug",
-      "configurePreset": "arm64-debug"
+      "name": "metal",
+      "displayName": "Metal (ObjC++ shim)",
+      "description": "Metal-enabled build in build/metal using AppleClang for ObjC++ shim",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/metal",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OBJCXX_COMPILER": "/usr/bin/clang++",
+        "CRSCE_ENABLE_METAL": "ON"
+      }
+    },
+    {
+      "name": "constraint",
+      "displayName": "Constraint Solver",
+      "description": "Constraint-driven solver build in build/constraint (compile-time select)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/constraint",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CRSCE_SOLVER_CONSTRAINT": "ON"
+      }
     }
   ]
 }

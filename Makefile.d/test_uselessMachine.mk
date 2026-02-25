@@ -16,3 +16,12 @@ test/uselessMachine:
 	TEST_BINARY_DIR="$(BUILD_DIR)/$(PRESET)" \
 	PATH="$(CURDIR)/bin:$$PATH" \
 	"$$USL_EXE"
+
+.PHONY: loop/uselessMachine
+loop/uselessMachine:
+	@echo "--- Starting loop runner (constraint) ---"
+	@mkdir -p build/uselessTest
+	@nohup python3 tools/useless_constraint_loop.py --hours $${HOURS:-8} --watchdog $${WATCHDOG_SECS:-1800} \
+	  > build/uselessTest/loop_runner.out 2>&1 & echo $$! > build/uselessTest/loop_runner.pid; \
+	  echo "pid=$$(cat build/uselessTest/loop_runner.pid)"; \
+	  echo "logs: build/uselessTest/loop_runner.out"

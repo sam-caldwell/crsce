@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include "decompress/Csm/Csm.h"
 #include "decompress/CrossSum/CrossSums.h"
 #include "decompress/Block/detail/BlockSolveSnapshot.h"
@@ -39,6 +40,7 @@ namespace crsce::decompress::detail {
         snap.time_cross_verify_ms += static_cast<std::size_t>(
             std::chrono::duration_cast<std::chrono::milliseconds>(t1cs - t0cs).count());
         if (!okcs) {
+            ::crsce::o11y::O11y::instance().event("verify_crosssum_fail");
             ::crsce::o11y::O11y::instance().event("block_end_verify_fail");
             ::crsce::o11y::O11y::instance().metric("block_end_verify_fail", static_cast<std::int64_t>(1));
             snap.phase = BlockSolveSnapshot::Phase::verify;
@@ -57,7 +59,14 @@ namespace crsce::decompress::detail {
         snap.time_lh_ms += ms;
         // Emit aggregate cross-sum metrics on success as well for observability
         sums.emit_metrics("crosssum", csm, nullptr);
-        ::crsce::o11y::O11y::instance().event(result ? "block_end_ok" : "block_end_verify_fail");
+        if (!result) {
+            // Also publish the longest valid prefix for quick triage
+            const std::size_t pref = verifier.longest_valid_prefix_up_to(csm, lh, Csm::kS);
+            ::crsce::o11y::O11y::instance().event("verify_lh_fail", {{"prefix", std::to_string(pref)}});
+            ::crsce::o11y::O11y::instance().event("block_end_verify_fail");
+        } else {
+            ::crsce::o11y::O11y::instance().event("block_end_ok");
+        }
         return result;
     }
 }

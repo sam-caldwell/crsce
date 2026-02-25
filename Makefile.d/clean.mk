@@ -17,6 +17,15 @@ clean:
 	else \
 	  	echo "    ✅ Directory doesn't exist"; \
 	fi; \
+	# Clean legacy top-level build directories if present (migrated to build/metal and build/constraint)
+	if [ -d "$(CURDIR)/build_metal" ]; then \
+		rm -rf $(CURDIR)/build_metal || true ; \
+		echo "    ✅ Removed legacy build_metal directory." ; \
+	fi; \
+	if [ -d "$(CURDIR)/build_constraint" ]; then \
+		rm -rf $(CURDIR)/build_constraint || true ; \
+		echo "    ✅ Removed legacy build_constraint directory." ; \
+	fi; \
 	mkdir -p $(CURDIR)/build || { \
 	  echo "    ❌ Failed to create directory."; \
 	  exit 1; \

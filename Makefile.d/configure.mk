@@ -5,25 +5,22 @@
 # e.g., make configure PRESET=llvm-release
 PRESET ?= llvm-debug
 
-# Aggregate list used by configure/all
-PRESETS_ALL := cmake-build-debug cmake-build-release arm64-debug arm64-release
-ifeq ($(HAVE_LLVM),yes)
-  PRESETS_ALL += llvm-debug llvm-release
+# On macOS, auto-export metal-cpp includes; presets support Metal optionally.
+UNAME_S := $(shell uname -s 2>/dev/null || echo unknown)
+ifeq ($(UNAME_S),Darwin)
+  export CRSCE_METAL_CPP_INCLUDE ?= $(CURDIR)/deps/metal-cpp
 endif
 
-.PHONY: all build clean configure configure/all help lint ready ready/fix test
+# Aggregate list used by configure/all
+PRESETS_ALL := llvm-debug llvm-release arm64-release
+
+.PHONY: all build clean configure help lint ready ready/fix test
 
 configure:
 	@echo "--- Configuring project with preset: $(PRESET) ---"
-	@cmake --preset=$(PRESET) -S .
+	@echo "    CRSCE_METAL_CPP_INCLUDE=$(CRSCE_METAL_CPP_INCLUDE)"
+	@cmake --preset=$(PRESET) -S . -DCRSCE_SOLVER_CONSTRAINT=ON -DCRSCE_ENABLE_METAL=ON
 	@echo "--- Building tool dependencies (make deps) ---"
 	@$(MAKE) deps
 
-configure/all:
-	@echo "=== Configuring all presets: $(PRESETS_ALL) ==="
-	@set -e; \
-	for p in $(PRESETS_ALL); do \
-	  echo "--- [$$p] configure ---"; \
-	  cmake --preset=$$p -S .; \
-	done; \
-	echo "--- ✅ Configure (all presets) complete ---"
+# Note: legacy per-dir configure targets removed; 'make configure' sets Metal+Constraint globally
