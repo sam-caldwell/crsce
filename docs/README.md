@@ -26,7 +26,6 @@ Start here if you’re new:
 - [Theory of Operation](./theory.md)
 - [File Format](./format.md)
 - [Decompression Notes](decompression.md)
-- [GobpSolver Parameters and Tuning](./GobpSolver/README.md)
 - [Usage Guides](./usage.md)
 - [Build and Test](./build.md)
 - [Security and Robustness](./security.md)
@@ -35,5 +34,5 @@ Start here if you’re new:
 ### Notes
 
 - The “Theory” and “Format” pages capture the acceptance criteria and bit/byte ordering used by the tools.
-- The decompression algorithm notes outline a practical CPU strategy (DE + GOBP/LBP) with LH chain verification.
+- The decompression algorithm notes outline the practical CPU reconstruction strategy with LH chain verification.
 - For contribution, coding style, and PR process details, see [CONTRIBUTING.md](../CONTRIBUTING.md)`.

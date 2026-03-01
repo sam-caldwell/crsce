@@ -13,7 +13,6 @@ and to selectively catch related failures.
 | `crsce::decompress::DeterministicEliminationError`  | Decompress | Deterministic Elimination detected a contradiction while applying a cell.            | Message + cell/line details in text |
 | `crsce::decompress::ConstraintBoundsInvalid`        | Decompress | A `U_*` value exceeds `S` (invalid upper bound).                                     | `family`, `index`, `value`, `S`     |
 | `crsce::decompress::ConstraintInvariantViolation`   | Decompress | Invariant `R ≤ U` violated for a line.                                               | `family`, `index`, `R`, `U`         |
-| `crsce::decompress::GobpResidualUnderflow`          | Decompress | GOBP attempted an invalid assignment (U zero) or would underflow R when assigning 1. | `kind`, `r`, `c`, `d`, `x`          |
 
 Notes
 

@@ -51,16 +51,15 @@
 
 ## Decoder strategy (CPU‑friendly)
 
-A practical reconstruction pipeline for CPU implementations uses deterministic elimination (DE) and iterative message
-passing (e.g., GOBP/LBP), with per‑row LH as a final selection oracle:
+A practical reconstruction pipeline for CPU implementations uses deterministic elimination (DE) with per‑row LH as a
+final selection oracle:
 
-- Factor graph: Represent variables (cells) and factors (cross‑sum constraints) and exchange beliefs on a loopy graph.
 - Deterministic elimination (DE): Maintain residual sums and unassigned counts for each line. If residual is 0, assign
   all remaining variables to 0; if residual equals the unassigned count, assign them to 1. Repeat until a fixed point.
-- Iterative inference: Run damped message passing (GOBP/LBP) to bias ambiguous variables and converge to consistent
-  assignments. Re‑apply DE when new determinations surface.
-- LH selection: Reject any candidate whose recomputed per‑row digests do not match. The scheme gives strong integrity across
-  rows and helps disambiguate multiple cross‑sum‑consistent candidates.
+- Pipeline solver phases: After DE, apply BitSplash (row constraint completion), Radditz Sift (column-focused
+  adoption), and Hybrid Sift (belief-guided 2x2 rectangle swaps for DSM/XSM satisfaction).
+- LH selection: Reject any candidate whose recomputed per‑row digests do not match. The scheme gives strong integrity
+  across rows and helps disambiguate multiple cross‑sum‑consistent candidates.
 
 ## Feasibility and performance
 
@@ -68,4 +67,4 @@ passing (e.g., GOBP/LBP), with per‑row LH as a final selection oracle:
 - Redundant constraints (each cell participates in multiple lines) are favorable to iterative propagation.
 - A conservative time model for s=511 on an 8‑core ~3.5 GHz CPU suggests ≈4.77 ms/block (≈6.8 MB/s) end‑to‑end.
 
-See [Decompression](docs/decoder-algorithm.md) for additional algorithmic notes.
+See [Decompression Notes](decompression.md) for additional algorithmic notes.

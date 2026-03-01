@@ -44,12 +44,6 @@ Per-row LH remains essential for validation during decompression, but it is not 
 - LH serves as a cryptographic oracle only: after reconstructing a CSM that satisfies all cross‑sum
   constraints, recompute the per-row LH and compare. Only exact matches are accepted.
 
-## Iterative inference (GOBP/LBP)
-
-- Run loopy belief propagation (LBP) or a custom “Game of Beliefs Protocol” (GOBP) with damping on messages.
-- Prioritize assignments for variables with strong bias.
-- Re‑enter DE when new exact assignments become implied by updated residuals.
-
 ## LH‑based selection/oracle
 
 - LH is not for search; it is a cryptographic oracle to reject cross‑sum‑consistent but incorrect candidates.
