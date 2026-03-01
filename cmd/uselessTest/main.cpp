@@ -17,11 +17,11 @@
 #include <fstream>
 #include "common/O11y/O11y.h"
 
-#include "testRunnerRandom/detail/sha512.h"
-#include "testRunnerRandom/detail/run_process.h"
+#include "testRunnerRandom/sha512.h"
+#include "testRunnerRandom/run_process.h"
 #include "common/Util/ValidateContainer.h"
-#include "testRunnerRandom/detail/resolve_exe.h"
-#include "common/Util/detail/watchdog.h"
+#include "testRunnerRandom/resolve_exe.h"
+#include "common/Util/watchdog.h"
 
 namespace fs = std::filesystem;
 

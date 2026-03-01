@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "common/Util/detail/crc32_ieee.h"
+#include "common/Util/crc32_ieee.h"
 
 namespace crsce::common::util {
     /**

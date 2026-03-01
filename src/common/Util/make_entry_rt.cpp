@@ -3,8 +3,8 @@
  * @brief Definition for computing one reflected CRC-32 table entry.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt
  */
-#include "common/Util/detail/make_entry_rt.h"
-#include "common/Util/detail/kPoly.h"
+#include "common/Util/make_entry_rt.h"
+#include "common/Util/kPoly.h"
 #include <cstdint>
 
 namespace crsce::common::util::detail {

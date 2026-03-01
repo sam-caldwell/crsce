@@ -4,14 +4,14 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testrunnerZeroes/Cli/detail/run.h"
+#include "testrunnerZeroes/Cli/run.h"
 
-#include "testRunnerRandom/detail/now_ms.h"
-#include "testRunnerRandom/detail/min_bytes_for_n_blocks.h"
-#include "testRunnerRandom/detail/write_zero_file.h"
-#include "testRunnerRandom/Cli/detail/generated_input.h"
-#include "testRunnerRandom/Cli/detail/make_input.h"
-#include "testRunnerRandom/Cli/detail/process_case.h"
+#include "testRunnerRandom/now_ms.h"
+#include "testRunnerRandom/min_bytes_for_n_blocks.h"
+#include "testRunnerRandom/write_zero_file.h"
+#include "testRunnerRandom/Cli/generated_input.h"
+#include "testRunnerRandom/Cli/make_input.h"
+#include "testRunnerRandom/Cli/process_case.h"
 
 #include <cstdint>
 #include <filesystem>

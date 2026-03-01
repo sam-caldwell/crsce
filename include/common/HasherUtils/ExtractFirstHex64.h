@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "common/HasherUtils/detail/extract_first_hex64.h"
+#include "common/HasherUtils/extract_first_hex64.h"
 
 namespace crsce::common::hasher {
     /**

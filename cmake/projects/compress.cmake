@@ -13,7 +13,7 @@ target_include_directories(compress PUBLIC
 set(COMPRESS_CLI_SOURCES
     src/Compress/Cli/run.cpp
     src/Compress/Cli/Heartbeat.cpp
-    src/Compress/Cli/detail/heartbeat_worker.cpp
+    src/Compress/Cli/heartbeat_worker.cpp
 )
 file(GLOB_RECURSE COMPRESS_COMMON_SOURCES CONFIGURE_DEPENDS
     "src/common/*.cpp"

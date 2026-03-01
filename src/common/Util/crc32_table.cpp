@@ -3,8 +3,8 @@
  * @brief Definition for accessing the reflected CRC-32 lookup table.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt
  */
-#include "common/Util/detail/crc32_table.h"
-#include "common/Util/detail/make_entry_rt.h"
+#include "common/Util/crc32_table.h"
+#include "common/Util/make_entry_rt.h"
 #include <array>
 #include <cstdint>
 

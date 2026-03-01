@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "common/HasherUtils/detail/compute_control_sha256.h"
+#include "common/HasherUtils/compute_control_sha256.h"
 
 namespace crsce::common::hasher {
     /**

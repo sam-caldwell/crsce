@@ -7,7 +7,7 @@
 #include "common/O11y/O11y.h"
 
 // Pull in the implementation (self-contained includes + namespace)
-#include "detail/O11y_impl.inc"
+#include "O11y_impl.inc"
 
 namespace crsce::o11y {
 /**

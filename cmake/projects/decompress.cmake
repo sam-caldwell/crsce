@@ -13,7 +13,7 @@ target_include_directories(decompress PUBLIC
 set(DECOMPRESS_CLI_SOURCES
     src/Decompress/Cli/run.cpp
     src/Decompress/Cli/Heartbeat.cpp
-    src/Decompress/Cli/detail/heartbeat_worker.cpp
+    src/Decompress/Cli/heartbeat_worker.cpp
 )
 file(GLOB_RECURSE DECOMPRESS_COMMON_SOURCES CONFIGURE_DEPENDS
     "src/common/*.cpp"

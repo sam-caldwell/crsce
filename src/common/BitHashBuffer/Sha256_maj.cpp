@@ -3,8 +3,8 @@
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  * @brief SHA-256 majority function.
  */
-#include "common/BitHashBuffer/detail/Sha256Types32.h" // u32
-#include "common/BitHashBuffer/detail/sha256/maj.h"
+#include "common/BitHashBuffer/Sha256Types32.h" // u32
+#include "common/BitHashBuffer/sha256/maj.h"
 
 namespace crsce::common::detail::sha256 {
     /**

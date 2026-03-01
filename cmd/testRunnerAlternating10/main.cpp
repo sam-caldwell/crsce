@@ -4,7 +4,7 @@
  * @brief CLI entry for TestRunnerAlternating10; delegates to testrunner_alternating10::cli::run().
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "testrunnerAlternating10/Cli/detail/run.h"
+#include "testrunnerAlternating10/Cli/run.h"
 #include <exception>
 #include <iostream>
 #include <filesystem>
@@ -12,12 +12,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include "common/O11y/O11y.h"
-#include "testRunnerRandom/detail/json_escape.h"
-#include "testRunnerRandom/Cli/detail/extract_exit_code.h"
+#include "testRunnerRandom/json_escape.h"
+#include "testRunnerRandom/Cli/extract_exit_code.h"
 #include "common/O11y/O11y.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
-#include "common/Util/detail/watchdog.h"
+#include "common/Util/watchdog.h"
 
 using crsce::testrunner_random::cli::extract_exit_code;
 

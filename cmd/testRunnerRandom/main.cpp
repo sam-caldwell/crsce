@@ -4,7 +4,7 @@
  * @brief CLI entry for TestRunnerRandom; delegates to testrunner::cli::run().
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for more information.
  */
-#include "testRunnerRandom/Cli/detail/run.h"
+#include "testRunnerRandom/Cli/run.h"
 #include <exception>
 #include <iostream>
 #include <filesystem>
@@ -15,9 +15,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include "common/O11y/O11y.h"
-#include "testRunnerRandom/detail/json_escape.h"
-#include "testRunnerRandom/Cli/detail/extract_exit_code.h"
-#include "common/Util/detail/watchdog.h"
+#include "testRunnerRandom/json_escape.h"
+#include "testRunnerRandom/Cli/extract_exit_code.h"
+#include "common/Util/watchdog.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
 

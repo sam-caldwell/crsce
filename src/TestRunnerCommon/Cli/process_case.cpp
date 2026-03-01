@@ -4,14 +4,14 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testRunnerRandom/Cli/detail/process_case.h"
+#include "testRunnerRandom/Cli/process_case.h"
 
-#include "testRunnerRandom/Cli/detail/generated_input.h"
-#include "testRunnerRandom/Cli/detail/compress_file.h"
-#include "testRunnerRandom/Cli/detail/decompress_file.h"
-#include "testRunnerRandom/Cli/detail/evaluate_hashes.h"
-#include "testRunnerRandom/detail/now_ms.h"
-#include "testRunnerRandom/detail/json_escape.h"
+#include "testRunnerRandom/Cli/generated_input.h"
+#include "testRunnerRandom/Cli/compress_file.h"
+#include "testRunnerRandom/Cli/decompress_file.h"
+#include "testRunnerRandom/Cli/evaluate_hashes.h"
+#include "testRunnerRandom/now_ms.h"
+#include "testRunnerRandom/json_escape.h"
 
 #include <filesystem>
 #include <string>

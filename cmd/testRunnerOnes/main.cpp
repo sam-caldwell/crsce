@@ -4,18 +4,18 @@
  * @brief CLI entry for TestRunnerOnes; delegates to testrunner_ones::cli::run().
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "testrunnerOnes/Cli/detail/run.h"
+#include "testrunnerOnes/Cli/run.h"
 #include <exception>
 #include <iostream>
 #include <filesystem>
 #include <string>
 #include <cstdint>
 #include <cstdlib>
-#include "testRunnerRandom/detail/json_escape.h"
-#include "testRunnerRandom/Cli/detail/extract_exit_code.h"
+#include "testRunnerRandom/json_escape.h"
+#include "testRunnerRandom/Cli/extract_exit_code.h"
 #include "common/O11y/O11y.h"
 #include "common/O11y/O11y.h"
-#include "common/Util/detail/watchdog.h"
+#include "common/Util/watchdog.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
 

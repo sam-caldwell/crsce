@@ -18,7 +18,7 @@
 #include <system_error>
 #include <vector>
 
-#include "common/Util/detail/crc32_ieee.h"
+#include "common/Util/crc32_ieee.h"
 
 // Intentionally avoid depending on Decompressor to keep this utility link-light.
 // We re-implement minimal header parsing and payload sizing here.

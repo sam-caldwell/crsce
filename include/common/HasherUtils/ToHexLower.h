@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "common/HasherUtils/detail/to_hex_lower.h"
+#include "common/HasherUtils/to_hex_lower.h"
 
 namespace crsce::common::hasher {
     /**

@@ -4,7 +4,7 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testRunnerRandom/Cli/detail/evaluate_hashes.h"
+#include "testRunnerRandom/Cli/evaluate_hashes.h"
 
 #include "common/exceptions/PossibleCollisionException.h"
 #include <string>

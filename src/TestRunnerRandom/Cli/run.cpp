@@ -4,11 +4,11 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testRunnerRandom/Cli/detail/run.h"
+#include "testRunnerRandom/Cli/run.h"
 
-#include "testRunnerRandom/Cli/detail/generate_file.h"
-#include "testRunnerRandom/Cli/detail/generated_input.h"
-#include "testRunnerRandom/Cli/detail/process_case.h"
+#include "testRunnerRandom/Cli/generate_file.h"
+#include "testRunnerRandom/Cli/generated_input.h"
+#include "testRunnerRandom/Cli/process_case.h"
 
 #include <filesystem>
 #include <system_error>
