@@ -17,6 +17,8 @@ namespace crsce::compress::cli {
      * @return Process exit code: 0 on success; non-zero on failure.
      */
     int run(const std::string &input, const std::string &output) { // NOLINT(misc-use-internal-linkage)
+        static_cast<void>(input);
+        static_cast<void>(output);
         throw std::runtime_error("compress: not yet implemented");
     }
 } // namespace crsce::compress::cli

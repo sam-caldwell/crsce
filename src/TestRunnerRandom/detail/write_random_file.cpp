@@ -5,8 +5,6 @@
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
 #include "testRunnerRandom/detail/write_random_file.h"
-#include "common/exceptions/InputOpenException.h"
-#include "common/exceptions/FileWriteException.h"
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -16,6 +14,7 @@
 #include <vector>
 #include <cstdint>
 #include <format>
+#include <stdexcept>
 
 namespace fs = std::filesystem;
 
@@ -31,7 +30,7 @@ namespace crsce::testrunner::detail {
     void write_random_file(const fs::path &p, std::uint64_t bytes, std::mt19937_64 &rng) {
         std::ofstream os(p, std::ios::binary);
         if (!os) {
-            throw crsce::common::exceptions::InputOpenException(
+            throw std::runtime_error(
                 std::format("failed to open input file for writing: {}", p.string()));
         }
         std::uniform_int_distribution<int> dist8(0, 255);
@@ -43,7 +42,7 @@ namespace crsce::testrunner::detail {
             for (std::size_t i = 0; i < n; ++i) { buf[i] = static_cast<char>(dist8(rng)); }
             os.write(buf.data(), static_cast<std::streamsize>(n));
             if (!os) {
-                throw crsce::common::exceptions::FileWriteException(
+                throw std::runtime_error(
                     std::format("failed writing random input to: {}", p.string()));
             }
             remaining -= n;

@@ -17,6 +17,8 @@ namespace crsce::decompress::cli {
      * @return Process exit code: 0 on success; non-zero on failure.
      */
     int run(const std::string &input, const std::string &output) {
+        static_cast<void>(input);
+        static_cast<void>(output);
         throw std::runtime_error("decompress: not yet implemented");
     }
 } // namespace crsce::decompress::cli
