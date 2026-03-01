@@ -7,7 +7,6 @@
 #include "testrunnerAlternating01/Cli/detail/preflight.h"
 
 #include "common/FileBitSerializer/FileBitSerializer.h"
-#include "decompress/Csm/Csm.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -17,6 +16,9 @@
 #include <vector>
 
 namespace crsce::testrunner_alternating01::cli {
+
+    constexpr std::size_t kCsmS = 511;
+
     /**
      * @name preflight_check_alternating01
      * @brief Validate that the generated Alternating01 input yields expected CSM bits for the first block.
@@ -27,8 +29,7 @@ namespace crsce::testrunner_alternating01::cli {
      */
     void preflight_check_alternating01(const std::filesystem::path &in_path,
                                        const std::uint64_t bytes) {
-        using crsce::decompress::Csm;
-        constexpr std::size_t S = Csm::kS;
+        constexpr std::size_t S = kCsmS;
         const std::uint64_t bits = bytes * 8ULL;
         if (bits < static_cast<std::uint64_t>(S) * static_cast<std::uint64_t>(S)) {
             return; // skip preflight unless we have at least one full block
