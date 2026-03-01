@@ -51,9 +51,6 @@ bin/
 /lib/
 /share/
 
-# Ignore only the top-level tools directory (not cmake/tools)
-tools/binDumper
-
 # Ninja build files
 .ninja_deps
 .ninja_log

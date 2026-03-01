@@ -16,8 +16,6 @@ endif
 configure:
 	@echo "--- Configuring project with preset: $(PRESET) ---"
 	@cmake --preset=$(PRESET) -S .
-	@echo "--- Building tool dependencies (make deps) ---"
-	@$(MAKE) deps
 
 configure/all:
 	@echo "=== Configuring all presets: $(PRESETS_ALL) ==="

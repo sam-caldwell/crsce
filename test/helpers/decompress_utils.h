@@ -14,7 +14,6 @@
 
 #include "decompress/Csm/Csm.h"
 #include "decompress/Phases/DeterministicElimination/DeterministicElimination.h"
-#include "decompress/Phases/Gobp/GobpSolver.h"
 #include "decompress/RowHashVerifier/RowHashVerifier.h"
 
 namespace crsce::testhelpers {
@@ -93,45 +92,6 @@ inline void append_bits_from_csm(const crsce::decompress::Csm &csm,
             ++emitted;
         }
     }
-}
-
-// Solve a block using deterministic elimination + GOBP and verify sums/LH.
-inline bool solve_block(std::span<const std::uint8_t> lh,
-                        std::span<const std::uint8_t> sums,
-                        crsce::decompress::Csm &csm_out) {
-    using crsce::decompress::Csm;
-    using crsce::decompress::ConstraintState;
-    using crsce::decompress::DeterministicElimination;
-    using crsce::decompress::GobpSolver;
-    using crsce::decompress::RowHashVerifier;
-    constexpr std::size_t S = Csm::kS;
-    constexpr std::size_t vec_bytes = 575U;
-    const auto lsm = decode_9bit_stream<S>(sums.subspan(0 * vec_bytes, vec_bytes));
-    const auto vsm = decode_9bit_stream<S>(sums.subspan(1 * vec_bytes, vec_bytes));
-    const auto dsm = decode_9bit_stream<S>(sums.subspan(2 * vec_bytes, vec_bytes));
-    const auto xsm = decode_9bit_stream<S>(sums.subspan(3 * vec_bytes, vec_bytes));
-
-    ConstraintState st{};
-    st.R_row = lsm; st.R_col = vsm; st.R_diag = dsm; st.R_xdiag = xsm;
-    st.U_row.fill(S); st.U_col.fill(S); st.U_diag.fill(S); st.U_xdiag.fill(S);
-
-    csm_out.reset();
-    // Seed a snapshot for DE; pass decoded targets and a deterministic seed
-    crsce::decompress::BlockSolveSnapshot snap{S, st, lsm, vsm, dsm, xsm, 0ULL};
-    constexpr int kMaxIters = 200;
-    DeterministicElimination det{static_cast<std::uint64_t>(kMaxIters), csm_out, st, snap, lh};
-    GobpSolver gobp{csm_out, st, /*damping*/ 0.25, /*assign_confidence*/ 0.995};
-    for (int iter = 0; iter < kMaxIters; ++iter) {
-        std::size_t progress = 0;
-        progress += det.solve_step();
-        progress += gobp.solve_step();
-        if (det.solved() || gobp.solved()) { break; }
-        if (progress == 0) { (void)gobp.solve_step(); break; }
-    }
-    if (!(det.solved() && gobp.solved())) { return false; }
-    if (!verify_cross_sums(csm_out, lsm, vsm, dsm, xsm)) { return false; }
-    const RowHashVerifier verifier;
-    return verifier.verify_all(csm_out, lh);
 }
 
 } // namespace crsce::testhelpers

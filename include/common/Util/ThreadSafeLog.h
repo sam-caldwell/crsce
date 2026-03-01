@@ -9,7 +9,7 @@
 namespace crsce::common::util {
     /**
      * @name ThreadSafeLogTag
-     * @brief Tag type to satisfy OneDefinitionPerHeader for thread-safe logging utilities.
+     * @brief Tag type for thread-safe logging utilities.
      */
     struct ThreadSafeLogTag { };
 }

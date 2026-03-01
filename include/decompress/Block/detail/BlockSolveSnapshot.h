@@ -139,7 +139,7 @@ namespace crsce::decompress {
         std::size_t time_row_phase_ms{0};       // time in Row Constraint Phase
         std::size_t time_radditz_ms{0};         // time in Radditz Sift Phase
         std::size_t time_hybrid_ms{0};          // time in Hybrid Sift Phase
-        std::size_t time_gobp_ms{0};            // time in GobpSolver::solve_step
+        std::size_t time_gobp_ms{0};            // time in GOBP-related phases
         std::size_t time_lh_ms{0};              // time spent in LH verifications (row/prefix/all)
         std::size_t time_cross_verify_ms{0};    // time verifying cross sums at the end
         std::size_t time_verify_all_ms{0};      // time for final LH verify_all
