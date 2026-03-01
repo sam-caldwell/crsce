@@ -7,17 +7,18 @@ add_executable(compress cmd/compress/main.cpp)
 
 target_include_directories(compress PUBLIC
     "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/common"
-    "${PROJECT_SOURCE_DIR}/src/Compress"
 )
 
-# Add source files from src/Compress and src/common
-file(GLOB_RECURSE COMPRESS_SOURCES
-    "src/Compress/*.cpp"
+# Compress CLI sources + shared common sources
+set(COMPRESS_CLI_SOURCES
+    src/Compress/Cli/run.cpp
+    src/Compress/Cli/Heartbeat.cpp
+    src/Compress/Cli/detail/heartbeat_worker.cpp
+)
+file(GLOB_RECURSE COMPRESS_COMMON_SOURCES CONFIGURE_DEPENDS
     "src/common/*.cpp"
 )
-
-target_sources(compress PRIVATE ${COMPRESS_SOURCES})
+target_sources(compress PRIVATE ${COMPRESS_CLI_SOURCES} ${COMPRESS_COMMON_SOURCES})
 
 # Stage binary to a unified bin/ directory for convenience
 add_custom_command(TARGET compress POST_BUILD

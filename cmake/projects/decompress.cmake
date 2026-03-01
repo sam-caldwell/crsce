@@ -7,21 +7,18 @@ add_executable(decompress cmd/decompress/main.cpp)
 
 target_include_directories(decompress PUBLIC
     "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/common"
-    "${PROJECT_SOURCE_DIR}/src/Decompress"
 )
 
-# Add source files from src/Decompress and src/common
-file(GLOB_RECURSE DECOMPRESS_SOURCES
-    "src/Decompress/*.cpp"
+# Decompress CLI sources + shared common sources
+set(DECOMPRESS_CLI_SOURCES
+    src/Decompress/Cli/run.cpp
+    src/Decompress/Cli/Heartbeat.cpp
+    src/Decompress/Cli/detail/heartbeat_worker.cpp
+)
+file(GLOB_RECURSE DECOMPRESS_COMMON_SOURCES CONFIGURE_DEPENDS
     "src/common/*.cpp"
 )
-
-target_sources(decompress PRIVATE ${DECOMPRESS_SOURCES})
-
-# Solver selection: force pipeline as the only primary
-target_compile_definitions(decompress PUBLIC CRSCE_SOLVER_PIPELINE)
-
+target_sources(decompress PRIVATE ${DECOMPRESS_CLI_SOURCES} ${DECOMPRESS_COMMON_SOURCES})
 
 # Stage binary to a unified bin/ directory for convenience
 add_custom_command(TARGET decompress POST_BUILD

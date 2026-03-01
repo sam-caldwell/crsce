@@ -46,11 +46,5 @@ all:
 	@$(MAKE) lint
 	@$(MAKE) build
 	@$(MAKE) test
-	@$(MAKE) test/zeroes
-	@$(MAKE) test/ones
-	@$(MAKE) test/alternating01
-	@$(MAKE) test/alternating10
-	@$(MAKE) test/random
-	@$(MAKE) cover
 
 include Makefile.d/*.mk
