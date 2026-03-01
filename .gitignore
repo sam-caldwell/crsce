@@ -32,6 +32,7 @@ latex/
 __pycache__/
 *.pyc
 C*D*.md
+!docs/*.md
 
 # Logs and dumps
 *.log
