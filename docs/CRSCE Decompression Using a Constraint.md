@@ -135,6 +135,50 @@ Each anti-diagonal sum is encoded in $\lceil \log_2(\text{len}(x)+1) \rceil$ bit
 Each cell participates in exactly four sum constraints: one row, one column, one straight diagonal, and one straight
 anti-diagonal.
 
+#### 2.2.1 Cross-Sum Partition Axioms
+
+The four projection families defined above are specific instances of a general class of *cross-sum partitions* over the
+matrix $CSM \in \{0,1\}^{s \times s}$. Any valid cross-sum partition $\mathcal{P}$ must satisfy the following three
+axioms.
+
+**Axiom 1 (Conservation).** Every cross-sum vector must sum to the same value: the Hamming weight of the matrix.
+Formally, let $\mathcal{P} = \{L_0, L_1, \ldots, L_{n-1}\}$ be a partition of the $s^2$ cells into $n$ lines, and let
+$\sigma(L_k) = \sum_{(r,c) \in L_k} CSM_{r,c}$ denote the sum along line $L_k$. Then for any two valid cross-sum
+partitions $\mathcal{P}$ and $\mathcal{Q}$:
+
+$$
+    \sum_{L \in \mathcal{P}} \sigma(L) = \sum_{L \in \mathcal{Q}} \sigma(L) = \|CSM\|_1 = \sum_{r=0}^{s-1} \sum_{c=0}^{s-1} CSM_{r,c}.
+$$
+
+This follows directly from the partition property: each partition covers every cell exactly once, so the grand total of
+all line sums equals the total number of ones in the matrix, regardless of partition geometry.
+
+**Axiom 2 (Uniqueness).** No two lines, whether within the same partition or across distinct partitions, may cover the
+identical set of cells. Formally, for any two lines $L_i$ and $L_j$ (from any partitions):
+
+$$
+    L_i \neq L_j \implies L_i \not\equiv L_j \quad \text{(as sets of cell indices)}.
+$$
+
+This ensures that every line contributes an independent constraint. A duplicate line would provide redundant information,
+wasting storage without reducing ambiguity in the reconstruction problem.
+
+**Axiom 3 (Non-repetition).** Each line must reference each cell of $CSM$ at most once. Formally, for every line $L_k$
+in every partition $\mathcal{P}$, $L_k$ is a *set* (not a multiset) of cell indices:
+
+$$
+    \forall (r,c) \in L_k: \quad \bigl|\{i : L_k[i] = (r,c)\}\bigr| = 1.
+$$
+
+This prevents a single line from double-counting a cell, which would distort the sum and violate the semantic
+interpretation of $\sigma(L_k)$ as an exact cardinality constraint over distinct Boolean variables.
+
+Together, these three axioms ensure that every cross-sum partition induces a well-defined system of cardinality
+constraints whose grand totals are mutually consistent, whose individual constraints are non-redundant, and whose
+variable references are exact. The four families defined in Section 2.2 (LSM, VSM, DSM, XSM) each satisfy all three
+axioms, and any future extension of the projection system (e.g., additional geometric partitions to accelerate solver
+convergence) must likewise conform to these requirements.
+
 ### 2.3 Row Hash Constraints (LH)
 
 For each row $r$, define the row bitstring
@@ -424,37 +468,73 @@ solution is $S_0$, the second is $S_1$, etc., assuming the solver is otherwise d
 
 ### 5.4 Pseudocode: Deterministic Enumerator
 
-Below, `Propagate()` applies the feasibility rules to a queue until quiescence; it returns false if any line becomes
-infeasible or any completed row hash mismatches.
+The enumerator is the core algorithmic primitive upon which both compression and decompression depend. Its purpose is to
+produce every feasible reconstruction of $CSM$ in strict lexicographic order, yielding each solution as it is found. The
+algorithm combines depth-first search (DFS) with incremental constraint propagation, and the interaction between these
+two mechanisms is what makes reconstruction tractable in practice despite the enormous search space.
+
+The procedure begins by initializing all $s^2$ cells as unassigned and computing the initial line statistics $(u, a,
+\rho)$ for every row, column, diagonal, and anti-diagonal. Before any branching occurs, the propagator runs to fixpoint
+on the initial state: lines whose residual $\rho$ equals zero force all their unknowns to $0$, and lines whose residual
+equals the unknown count force all their unknowns to $1$. These forced assignments may cascade, since each forced cell
+updates four lines and may trigger further forcing on any of them. If propagation detects infeasibility---a negative
+residual or a residual exceeding the unknown count on any line---the constraint set is inconsistent and no solutions
+exist.
+
+Once the initial propagation stabilizes, the DFS selects the first unassigned cell in row-major order and branches on
+it, trying $0$ before $1$. This branching discipline is what establishes the lexicographic enumeration order: because
+every cell is explored with $0$ first, the first complete assignment found is the lexicographically smallest feasible
+matrix $S_0$, the second is $S_1$, and so on. After each tentative assignment, the propagator again runs to fixpoint,
+forcing any cells that become determined as a consequence. If propagation succeeds, the DFS recurses to the next
+unassigned cell; if it fails, the solver restores the state to the save point prior to the assignment (via an undo
+stack) and tries the alternative value. When both values at a cell lead to infeasibility, the solver backtracks further
+up the tree.
+
+The `Propagate()` subroutine referenced below applies the feasibility rules from Section 5.1 to a queue of affected
+lines until quiescence. It returns false if any line becomes infeasible or if any completed row fails its SHA-256
+digest check (Section 5.2).
 
 ```text
 Algorithm 1: EnumerateSolutionsLex(C)
-Input:  constraints C = (s, LSM, VSM, DSM, XSM, LH)
-Output: stream of feasible matrices CSM in lex order
+    Input:  constraints C = (s, LSM, VSM, DSM, XSM, LH)
+    Output: stream of feasible matrices CSM in lex order
 
-Initialize all CSM[r,c] = UNASSIGNED
-Initialize line stats (u, a, ρ) for all rows, cols, diags, anti-diags
-Q <- all lines
-if not Propagate(Q): return
+    Initialize all CSM[r,c] = UNASSIGNED
+    Initialize line stats (u, a, ρ) for all rows, cols, diags, anti-diags
+    Q <- all lines
+    if not Propagate(Q): return
 
-function DFS(next_cell_index):
-    if all cells assigned:
-        yield CSM
-        return
+    function DFS(next_cell_index):
+        if all cells assigned:
+            yield CSM
+            return
 
-    (r, c) <- first UNASSIGNED cell in row-major order
+        (r, c) <- first UNASSIGNED cell in row-major order
 
-    for v in [0, 1]:          // lex: 0 before 1
-        SaveUndoPoint()
-        Assign(r, c, v)       // updates line stats, pushes affected lines into Q
-        if Propagate(Q):
-            DFS(next_cell_index + 1)
-        UndoToSavePoint()
+        for v in [0, 1]:          // lex: 0 before 1
+            SaveUndoPoint()
+            Assign(r, c, v)       // updates line stats, pushes affected lines into Q
+            if Propagate(Q):
+                DFS(next_cell_index + 1)
+            UndoToSavePoint()
 
-DFS(0)
+    DFS(0)
 ```
 
 ### 5.5 Pseudocode: Decompression with DI
+
+Decompression consumes the full compressed payload $\mathcal{C}' = (\text{LH}, \text{DI}, \text{LSM}, \text{VSM},
+\text{DSM}, \text{XSM})$ and must return exactly one matrix: the $\text{DI}$-th feasible reconstruction in canonical
+lexicographic order. The algorithm achieves this by invoking the enumerator from Section 5.4 and simply counting
+yielded solutions until the counter reaches the stored DI value. The solution at that index is the original $CSM$, and
+the decompressor returns it immediately without examining any subsequent candidates.
+
+In the overwhelmingly common case where the constraint set admits only one feasible matrix (Section 3.3), $\text{DI} =
+0$ and the decompressor returns the very first solution the enumerator produces. The counting loop exists solely to
+handle the rare case of non-unique reconstruction, where the DI disambiguates among multiple valid matrices. If the
+enumerator exhausts all feasible solutions before reaching the DI-th candidate, the compressed payload is malformed and
+the decompressor raises an error. This cannot occur for payloads produced by a correct compressor, but the check
+provides defense-in-depth against data corruption or truncation.
 
 ```text
 Algorithm 2: DecompressWithDI(C')
@@ -470,6 +550,32 @@ error: DI out of range (no such solution)
 ```
 
 ### 5.6 Pseudocode: Compression with Time-Bounded DI Discovery
+
+Compression is the inverse process: given the original matrix $CSM$, produce the compressed payload $\mathcal{C}'$
+including the correct disambiguation index. The compressor first computes the four cross-sum vectors and the per-row
+SHA-256 digests deterministically from the original matrix---this is straightforward arithmetic and hashing. The
+difficult step is discovering the DI, which requires determining the original matrix's position in the canonical
+enumeration of all feasible solutions.
+
+The compressor discovers the DI by running the same enumerator used in decompression and comparing each yielded
+candidate to the known original. When a candidate matches the original, its zero-based index becomes the DI, and the
+compressor emits the complete payload. This design ensures that compression and decompression are compatible by
+construction: both use the identical enumerator, so the $k$-th solution produced during compression is guaranteed to be
+the same as the $k$-th solution produced during decompression.
+
+Because enumeration can be expensive in pathological cases (Section 3.4), the compressor is governed by a single
+tolerance parameter, `max_compression_time`, which caps the wall-clock duration of the entire operation. If the timer
+expires before the enumerator yields a candidate matching the original, the compressor returns FAIL rather than
+producing a potentially incorrect or incomplete payload. This explicit failure mode is a deliberate design choice: the
+caller is expected to fall back to an alternative compression algorithm for blocks that CRSCE cannot handle within the
+time budget. The time bound also implicitly caps the DI value, since the enumerator must produce $\text{DI} + 1$
+complete solutions before succeeding; in practice, any DI large enough to challenge the 8-bit encoding limit (255) would
+almost certainly also exceed a reasonable time bound.
+
+If the enumerator exhausts all feasible solutions without finding the original matrix, the constraints are inconsistent
+with the input---an implementation error, since the cross-sums and hashes were computed directly from $CSM$. The
+compressor returns FAIL in this case as well, providing a safety net against bugs in the constraint computation or
+enumerator logic.
 
 ```text
 Algorithm 3: Compress(CSM, max_compression_time)
@@ -1322,6 +1428,20 @@ The following general rules apply to the entire project (and are enforced by the
 5. The project enforces linting via `make lint` (Markdown, shell, Python, C++ via cppcheck and clang-tidy).
 6. Test coverage is enforced via `make cover` at a 95% minimum threshold.
 
+The following requirements apply to all exception usage in the project:
+
+1. Every exception thrown must be a `CrsceException` subtype; no raw `std::runtime_error`, `std::logic_error`, or other
+   standard library exceptions may be thrown directly.
+2. Each exception class occupies its own header file under `common/exceptions/`, following the one-entity-per-file
+   convention (Section 11.7).
+3. Exception classes follow the Rule of Zero, relying on `std::runtime_error` for copy/move semantics.
+4. Every function or method that throws must document the exception in its Doxygen header using `@throws` (Section
+   11.7).
+5. Exception messages must be descriptive and include contextual information (e.g., the offending file path for
+   `CliInputMissing`).
+6. Avoid recursion unless using tail-call recursion.
+7. Where feasible, asynchronous lambda functions using coroutines should be applied to improve performance.
+
 ### 11.8 Exceptions
 
 The project must not use generic exceptions such as `std::runtime_error()` directly. Instead, the project defines a
@@ -1344,18 +1464,6 @@ std::runtime_error
     ├── DecompressNonZeroExitException Decompress subprocess non-zero exit
     └── PossibleCollisionException     Decompressed output hash mismatch
 ```
-
-The following requirements apply to all exception usage in the project:
-
-1. Every exception thrown must be a `CrsceException` subtype; no raw `std::runtime_error`, `std::logic_error`, or other
-   standard library exceptions may be thrown directly.
-2. Each exception class occupies its own header file under `common/exceptions/`, following the one-entity-per-file
-   convention (Section 11.7).
-3. Exception classes follow the Rule of Zero, relying on `std::runtime_error` for copy/move semantics.
-4. Every function or method that throws must document the exception in its Doxygen header using `@throws` (Section
-   11.7).
-5. Exception messages must be descriptive and include contextual information (e.g., the offending file path for
-   `CliInputMissing`).
 
 ## 12. File Format Specification
 
@@ -1495,41 +1603,6 @@ well-defined interfaces. This architectural requirement supports extensibility, 
 substitution of alternative implementations --- including GPU-accelerated components --- without compromising the
 determinism guarantees on which the DI mechanism depends.
 
-## References
-
-Apple. (n.d.-a). Metal developer documentation.
-
-Apple. (n.d.-b). Performing calculations on a GPU (Metal).
-
-Apple. (n.d.-c). Metal Shading Language Specification (PDF).
-
-Apple. (n.d.-d). Metal Performance Shaders: Overview and tuning hints.
-
-Dang, Q. (2012). Recommendation for applications using approved hash algorithms (NIST Special Publication 800-107
-Revision 1). National Institute of Standards and Technology.
-
-Jerrum, M., Sinclair, A., & Vigoda, E. (2004). A polynomial-time approximation algorithm for the permanent of a matrix
-with nonnegative entries. *Journal of the ACM, 51*(4), 671--697.
-
-Knuth, D. E. (2005). *The Art of Computer Programming, Volume 4, Fascicle 2: Generating All Tuples and Permutations*.
-Addison-Wesley.
-
-Kobler, J., et al. (2025). Disjoint projected enumeration for SAT and SMT without blocking clauses. *Artificial
-Intelligence*.
-
-Kschischang, F. R., Frey, B. J., & Loeliger, H.-A. (2001). Factor graphs and the sum-product algorithm. *IEEE
-Transactions on Information Theory, 47*(2), 498--519.
-
-National Institute of Standards and Technology. (2015). *Secure Hash Standard (SHS) (FIPS PUB 180-4)*.
-
-Valiant, L. G. (1979). The complexity of computing the permanent. *Theoretical Computer Science, 8*(2), 189--201.
-
-Wainwright, M. J., & Jordan, M. I. (2008). Graphical models, exponential families, and variational inference.
-*Foundations and Trends in Machine Learning, 1*(1--2), 1--305.
-
-Yedidia, J. S., Freeman, W. T., & Weiss, Y. (2002). *Understanding belief propagation and its generalizations*
-(Technical Report TR-2001-22). Mitsubishi Electric Research Laboratories.
-
 ## Appendix A. Command-Line Usage
 
 The CRSCE project produces two primary binaries, `compress` and `decompress`, which share a common argument parser and
@@ -1638,3 +1711,525 @@ This idea remains under evaluation. The key open questions are: (a) the optimal 
 given the solver's row-major assignment order, (b) the interaction between prefix hash pruning and
 constraint-propagation-driven forced assignments (which may complete row segments out of left-to-right order), and (c)
 the impact on $C_r$ under various checkpoint/digest-size configurations.
+
+### B.2 Auxiliary Cross-Sum Partitions as Solver Accelerators
+
+The lateral hash vector (LH) provides cryptographic collision resistance at a cost of $256s = 130{,}816$ bits per block.
+While no finite number of additional cross-sum partitions can replicate the nonlinear collision resistance of SHA-256
+(see Section 3.3), auxiliary partitions may nevertheless improve decompression performance by increasing the density of
+constraint-propagation forcing opportunities, potentially reducing solver runtime to meet a sub-second wall-clock
+budget.
+
+**Information-theoretic limitations.** A cross-sum partition of $s$ groups of $s$ cells contributes at most
+$s \lceil \log_2(s+1) \rceil = 4{,}599$ bits of constraint information. The LH budget of 130,816 bits accommodates at
+most $\lfloor 130{,}816 / 4{,}599 \rfloor = 28$ such partitions. Even 28 partitions yield a total signature of
+approximately 30,167 bits --- far short of the $s^2 = 261{,}121$ bits needed to uniquely determine the matrix. The
+expected collision class size with all 28 partitions (and no LH) remains $2^{230{,}954}$, making sum-only
+reconstruction without hashes infeasible. To quantify the collision probability precisely: the signature space of all
+cross-sum partitions combined (the four original families plus 28 auxiliary) has at most $2^{30{,}167}$ distinct values,
+while the matrix space has $2^{261{,}121}$ elements. By the pigeonhole principle, the probability that a uniformly
+random matrix is the unique preimage of its signature is at most $2^{30{,}167} / 2^{261{,}121} = 2^{-230{,}954}$, so
+
+$$
+    P(\text{collision} \mid 28 \text{ auxiliary partitions, no LH}) \geq 1 - 2^{-230{,}954}
+    \approx 1 - 10^{-69{,}541} = 0.\underbrace{99\ldots9}_{69{,}541 \text{ nines}}.
+$$
+
+Collision is a virtual certainty with this limited view.  See the caveat, below. The actual collision probability
+is almost certainly lower due to the construction of cross sum vectors. Nonetheless, for comparison, the current
+design with four partitions and LH achieves
+$P(\text{collision}) \leq 2^{-256s} = 2^{-130{,}816} \approx 10^{-39{,}380}$
+under the SHA-256 random-oracle model (Section 3.3). The gap between the two regimes is qualitative, not merely
+quantitative: cross-sum constraints are linear functionals over $\mathbb{Z}$, so the set of indistinguishable
+matrices forms a coset of a lattice in
+$\mathbb{Z}^{s^2}$ with kernel dimension at least $s^2 - (7s - 6) \approx 257{,}550$ even after all partitions are
+included. SHA-256, by contrast, is a nonlinear pseudorandom function with no exploitable algebraic kernel. No number
+of additional linear sum partitions can close this gap.
+
+The following table summarizes the collision probability under three configurations:
+
+| Configuration               | Information (bits) | Collision class size | $P(\text{collision})$            |
+|-----------------------------|--------------------|----------------------|----------------------------------|
+| 4 partitions only           | 25,568             | $2^{235{,}553}$      | $1 - 10^{-70{,}926}$             |
+| 4 partitions + 28 auxiliary | 30,167             | $2^{230{,}954}$      | $1 - 10^{-69{,}541}$             |
+| 4 partitions + LH (current) | 156,384            | $\leq 2^{-256}$ (cryptographic) | $\leq 10^{-39{,}380}$ |
+
+**Interlocking geometry and minimum swap size.** The pigeonhole and rank-nullity bounds above are *loose upper bounds*
+that treat each partition's sums as independent information channels. In practice, interlocking partitions create tight
+dependencies between sums: a single cell participates in one line from each of the 6 (or 32) partitions, so flipping
+that cell perturbs 6 (or 32) sums simultaneously. For a swap pattern to be invisible to the entire partition system, it
+must produce zero net change on *every* line it touches. This constraint increases the minimum number of cells involved
+in any valid swap, which in turn reduces the number of achievable collisions.
+
+**Minimum swap size with linear partitions.** With only LSM and VSM, the minimal invisible swap is a 4-cell rectangle:
+cells at $(r_1, c_1)$, $(r_1, c_2)$, $(r_2, c_1)$, $(r_2, c_2)$ with alternating $+1/-1$ flips. Each row sees one
+$+1$ and one $-1$; each column likewise. However, adding DSM and XSM imposes further constraints: the four cells of a
+generic rectangle fall on four *distinct* diagonals and four distinct anti-diagonals, each seeing a single unbalanced
+$\pm 1$ flip. For the rectangle to also balance DSM, cells must pair on shared diagonals, requiring
+$c_1 - r_1 = c_2 - r_2$ and $c_2 - r_1 = c_1 - r_2$, which forces $c_1 = c_2$ --- a degenerate rectangle. The
+minimum invisible swap under all four linear partitions is therefore *already larger than 4 cells* for generic
+configurations. Balanced swaps require coordinated multi-cell patterns where each of the $4k$ (line, cell) interactions
+sums to zero simultaneously.
+
+**Effect of adding PSM and NSM.** Space-filling curve partitions make the balance condition strictly harder. Each of the
+$k$ cells in a candidate swap falls on one PSM segment and one NSM segment, in addition to its row, column, diagonal,
+and anti-diagonal. For the swap to be invisible to PSM, every PSM segment touching a swap cell must contain an even
+number of affected cells with equal $+1/-1$ split. A segment containing a single affected cell detects the swap
+immediately. Because Hilbert curve segments are spatially compact and geometrically nonlinear, the probability that $k$
+cells pair up within PSM segments *and* within NSM segments *and* balance across all four original families
+simultaneously is extremely small.
+
+**Collision probability as a function of minimum swap size.** Let $k_{\min}$ denote the minimum number of cells in an
+invisible swap for a 6-partition system. The expected number of collision partners for a uniformly random matrix $M$ is
+bounded by:
+
+$$
+    E[\text{collisions}] \leq \sum_{k=k_{\min}}^{s^2} \binom{s^2}{k} \cdot 2^{-k} \cdot g_6(k)
+$$
+
+where $2^{-k}$ accounts for binary feasibility (each flipped cell must have the correct current value in $M$ to remain
+in $\{0,1\}$) and $g_6(k)$ is the probability that a random $k$-cell subset admits a valid balanced swap across all 6
+partitions. The factor $g_6(k)$ incorporates two conditions: (a) no line may contain exactly one affected cell (the
+"no-singletons" condition), and (b) for each line with $m \geq 2$ affected cells, the $\pm 1$ assignment must sum to
+zero.
+
+For condition (a) alone, modeling cell-to-line assignments as Poisson with rate $\lambda = k/s$, the probability that a
+single partition has no singleton lines is approximately $\exp(-k \, e^{-k/s})$. For 6 partitions:
+
+$$
+    P(\text{no singletons on all 6}) \approx \exp(-6k \, e^{-k/s}).
+$$
+
+For condition (b), each line with exactly 2 affected cells must have opposite signs, contributing an additional factor
+of approximately $(1/2)$ per such line. The number of 2-cell lines per partition is approximately
+$s \cdot \lambda^2 e^{-\lambda}/2 = k^2 / (2s)$ under the Poisson model, giving a per-partition balance factor of
+$(1/2)^{k^2/(2s)}$. Across 6 partitions:
+
+$$
+    P(\text{pairwise balance}) \approx 2^{-3k^2/s}.
+$$
+
+Combining all factors and using $\binom{s^2}{k} \approx (e \, s^2 / k)^k$:
+
+$$
+    E[\text{collisions}] \lessapprox \left(\frac{e \, s^2}{2k}\right)^k \cdot \exp(-6k \, e^{-k/s}) \cdot 2^{-3k^2/s}.
+$$
+
+The following table evaluates this bound for $s = 511$ (so $s^2 = 261{,}121$) across several values of $k_{\min}$:
+
+| $k_{\min}$ | $\binom{s^2}{k} \cdot 2^{-k}$ | $P(\text{no singletons})$ | $P(\text{balance})$ | $E[\text{collisions}]$ |
+|---|---|---|---|---|
+| 8     | $\approx 10^{38}$  | $\approx 10^{-20}$  | $\approx 10^{-1}$   | $\approx 10^{17}$             |
+| 20    | $\approx 10^{79}$  | $\approx 10^{-50}$  | $\approx 10^{-7}$   | $\approx 10^{22}$             |
+| 50    | $\approx 10^{168}$ | $\approx 10^{-118}$ | $\approx 10^{-44}$  | $\approx 10^{6}$              |
+| 80    | $\approx 10^{247}$ | $\approx 10^{-182}$ | $\approx 10^{-112}$ | $\approx 10^{-47}$            |
+| 100   | $\approx 10^{296}$ | $\approx 10^{-222}$ | $\approx 10^{-175}$ | $\approx 10^{-101}$           |
+| 150   | $\approx 10^{408}$ | $\approx 10^{-314}$ | $\approx 10^{-395}$ | $\approx 10^{-301}$           |
+
+The critical observation is that for $k_{\min} \gtrsim 80$, the expected number of collision partners drops below 1,
+meaning the probability of collision becomes small. At $k_{\min} \geq 100$ the probability is negligible by any
+engineering standard, and at $k_{\min} \geq 150$ it approaches the cryptographic regime ($10^{-301}$ is comparable to
+$2^{-1{,}000}$).
+
+Whether Hilbert-curve-based PSM/NSM partitions push $k_{\min}$ into this range is an open empirical question. The
+nonlinear, spatially compact geometry of Hilbert segments makes it difficult for small cell sets to pair up
+simultaneously on all 6 partition families, suggesting $k_{\min}$ may be substantially larger than the linear-only
+case. Empirical enumeration at small matrix sizes ($s = 15$ or $s = 31$) would provide direct measurements of
+$k_{\min}$ for specific curve geometries, and extrapolation to $s = 511$ would indicate whether sum-only collision
+resistance is sufficient in practice or whether LH remains necessary.
+
+**Propagation benefit.** Each additional partition increases the number of constraint lines per cell. With the four
+existing families, each cell participates in 4 lines. Adding $k$ partitions raises this to $4 + k$. The propagator's
+forcing rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones) trigger independently on each line, so the probability
+that a cell remains free after propagation drops from $(1-f)^4$ to $(1-f)^{4+k}$, where $f$ is the per-line forcing
+probability. Even $k = 2$ reduces the expected free-cell count by approximately 36\%, which can shrink the DFS
+backtracking tree exponentially.
+
+**Proposed geometry: space-filling curve slicing.** A Hilbert curve (or similar space-filling curve) traverses all
+$s^2$ cells in a spatially coherent order. Cutting the curve into $s$ consecutive segments of $s$ cells each produces
+a partition satisfying all three cross-sum axioms (Section 2.2.1). The orthogonal partner is obtained by applying the
+same procedure to a 90°-rotated (transposed) traversal of the matrix. This yields two new cross-sum families:
+
+- **PSM** (P-curve sums): $s = 511$ segments from the Hilbert curve in the natural orientation.
+- **NSM** (N-curve sums): $s = 511$ segments from the Hilbert curve over the transposed matrix.
+
+Each segment meanders through a compact spatial region, crossing many rows, columns, diagonals, and anti-diagonals at
+non-degenerate angles. Because the Hilbert curve is self-similar and nonlinear, the resulting partitions are
+geometrically independent from the four existing linear families, maximizing the incremental constraint information per
+added bit.
+
+**Implementation via static lookup tables.** Rather than computing curve coordinates at runtime, the partition
+assignments are precomputed at build time by a code-generation script. The script generates two C++ headers, each
+containing a `constexpr std::array<uint16_t, 261121>` that maps the flat cell index $(r \times s + c)$ to the
+partition line index $k \in \{0, \ldots, 510\}$. At runtime, the constraint store resolves PSM and NSM line membership
+via a single array lookup per cell --- identical in cost to the existing row/column index computations and free of
+modular arithmetic overhead. The combined table size is approximately 510 KB of static read-only memory, loaded once at
+program startup.
+
+**Hilbert curve adaptation for non-power-of-two grids.** The standard Hilbert curve is defined on $2^n \times 2^n$
+grids. For $s = 511$, two adaptation strategies exist. First, generate the curve on a $512 \times 512$ grid and
+discard the 1,023 cells falling outside the $511 \times 511$ matrix, adjusting the two affected segment lengths
+accordingly (these segments would encode their sums using fewer bits, analogous to the variable-length treatment of DSM
+and XSM). Second, use a generalized Hilbert curve construction for non-power-of-two dimensions (Hamilton \&
+Rau-Chaplin, 2008). The former is simpler to implement; the latter produces a cleaner partition at the cost of a more
+complex generator.
+
+**Storage cost and compression ratio impact.** Two additional partitions add $2 \times 4{,}599 = 9{,}198$ bits per
+block, increasing the block payload from 156,392 to 165,590 bits. The revised compression ratio becomes:
+
+$$
+    C_r = 1 - \frac{165{,}590}{261{,}121} \approx 0.3658
+$$
+
+This reduces space savings from 40.1\% to 36.6\% --- a 3.5 percentage-point penalty. Whether this tradeoff is
+justified depends on the empirical decompression speedup, which can only be measured once the solver is implemented and
+profiled against worst-case inputs (random-looking matrices with sums clustered near $s/2$, where forcing rules trigger
+least frequently).
+
+**Open questions.** (a) What is the minimum number of auxiliary partitions needed to bring worst-case decompression
+under 1 second on Apple Silicon? (b) Does the Hilbert curve's spatial coherence outperform algebraic constructions
+(e.g., toroidal modular-slope lines) in propagation cascade depth, or is crossing density the dominant factor
+regardless of geometry? (c) Can auxiliary partitions be combined with the segmented prefix hashes of Section B.1 to
+simultaneously accelerate propagation and enable early hash pruning, and if so, what is the optimal allocation of the
+LH bit budget between the two mechanisms?
+
+### B.3 Variable-Length Curve Partitions as LH Replacement
+
+Sections B.1 and B.2 explore modifications that *complement* LH. This section considers a more aggressive alternative:
+replacing LH entirely with $n$ variable-length partitions structured identically to DSM and XSM --- each consisting of
+$2s - 1$ lines with lengths $1, 2, \ldots, s, \ldots, 2, 1$ --- but using space-filling curves rather than straight
+lines as the underlying geometry. The motivation is twofold: the short lines at the periphery of each partition provide
+deterministic "anchor" cells that seed constraint propagation, and the variable-length structure concentrates collision
+resistance where it is strongest (short lines) while providing broad constraint coverage where it is weakest (long
+lines).
+
+#### B.3.1 Partition Structure
+
+Each variable-length curve partition $\mathcal{V}$ consists of $2s - 1 = 1{,}021$ lines whose lengths follow the
+triangular sequence $\text{len}(k) = \min(k+1,\; s,\; 2s-1-k)$ for $k \in \{0, \ldots, 2s-2\}$. The total cell count
+is:
+
+$$
+    \sum_{k=0}^{2s-2} \text{len}(k) = 2 \sum_{l=1}^{s-1} l + s = s^2 = 261{,}121
+$$
+
+confirming that each partition covers every cell exactly once (Axiom 1, Section 2.2.1). The partition is generated by
+traversing a space-filling curve (e.g., Hilbert curve adapted for the $511 \times 511$ grid) and cutting the traversal
+into consecutive segments of lengths $1, 2, 3, \ldots, 511, \ldots, 3, 2, 1$. Different partitions use different curve
+orientations or distinct space-filling curve families (e.g., Hilbert, Z-order, Peano) to maximize geometric diversity.
+As with PSM/NSM (Section B.2), the cell-to-line mapping for each partition is precomputed at build time and stored as a
+static lookup table.
+
+#### B.3.2 Anchor Cells and Deterministic Seeding
+
+The distinguishing feature of variable-length partitions is that their shortest lines provide deterministic or
+near-deterministic cell values before any branching occurs:
+
+**Length-1 lines (2 per partition).** The sum $\sigma \in \{0, 1\}$ uniquely determines the cell's value. These are
+unconditionally solved --- no search, no ambiguity.
+
+**Length-2 lines (2 per partition).** If $\sigma = 0$ or $\sigma = 2$, both cells are determined. If $\sigma = 1$,
+$\binom{2}{1} = 2$ configurations remain. Under the uniform random model, $P(\sigma \in \{0, 2\}) = 2/4 = 0.5$, so
+each length-2 line solves both cells with probability $1/2$.
+
+**Length-$l$ lines in general.** The number of feasible configurations is $\binom{l}{\sigma}$, which equals 1 when
+$\sigma \in \{0, l\}$ and grows toward $\binom{l}{\lfloor l/2 \rfloor}$ as $\sigma$ approaches $l/2$. For a uniformly
+random row of length $l$, the expected sum is $l/2$, so the ambiguity per line grows rapidly with length.
+
+With $n$ variable-length partitions, the solver receives $2n$ unconditionally solved cells (from length-1 lines) plus
+an expected $\sim n$ additional solved cells from length-2 lines, for a total of approximately $3n$ deterministic seeds
+before any branching. Each seed cell participates in $4 + n$ constraint lines (the four original families plus the $n$
+new partitions), and each updated line may trigger further forcing via the propagator's $\rho = 0$ and $\rho = u$
+rules. The resulting cascade can solve substantially more than $3n$ cells before the first branch point.
+
+For small line lengths $l$, the probability that the line is fully determined (i.e., $\sigma \in \{0, l\}$) under the
+uniform random model is $2/2^l$, and the probability that at most 2 configurations remain (i.e.,
+$\sigma \in \{0, 1, l-1, l\}$) is $2(l+1)/2^l$. The following table summarizes the deterministic yield for the
+shortest lines of each partition:
+
+| Length $l$ | Lines per partition | $P(\text{fully determined})$ | $P(\leq 2 \text{ configs})$ | Ambiguity at $\sigma = \lfloor l/2 \rfloor$ |
+|---|---|---|---|---|
+| 1  | 2 | 1.000 | 1.000 | 1 |
+| 2  | 2 | 0.500 | 1.000 | 2 |
+| 3  | 2 | 0.250 | 0.750 | 3 |
+| 4  | 2 | 0.125 | 0.625 | 6 |
+| 5  | 2 | 0.063 | 0.375 | 10 |
+| 10 | 2 | 0.002 | 0.022 | 252 |
+| 50 | 2 | $\approx 10^{-15}$ | $\approx 10^{-13}$ | $\approx 10^{14}$ |
+
+Beyond approximately $l = 10$, the lines behave similarly to the uniform-length lines of Section B.2 --- they provide
+constraint information but little deterministic solving power. The value of the variable-length structure is
+concentrated in the first $\sim 10$ line-length tiers (20 lines per partition), which together cover
+$2(1 + 2 + \cdots + 10) = 110$ cells per partition.
+
+#### B.3.3 Collision Risk Reduction
+
+The anchor cells from length-1 lines cannot participate in any swap: their values are unconditionally determined by a
+single sum constraint. This removes $2n$ cells from the swappable pool entirely. More significantly, anchor cells that
+propagate through other partitions fix additional cells, creating a cascade of determined values that further constrains
+the space of valid swap patterns.
+
+The collision resistance of a variable-length partition can be decomposed by line length. For a single partition, the
+total number of configurations consistent with a given set of sums is:
+
+$$
+    N_{\mathcal{V}} = \prod_{k=0}^{2s-2} \binom{\text{len}(k)}{\sigma(k)}.
+$$
+
+Under the uniform random model ($\sigma(k) \approx \text{len}(k)/2$), the dominant contributions come from the longest
+lines. The short lines ($l \leq 10$) contribute a factor of at most $\prod_{l=1}^{10} (\binom{l}{\lfloor l/2
+\rfloor})^2 = (1 \cdot 2 \cdot 3 \cdot 6 \cdot 10 \cdot 20 \cdot 35 \cdot 70 \cdot 126 \cdot 252)^2 \approx
+1.3 \times 10^{21}$, while the center line ($l = 511$) alone contributes $\binom{511}{255} \approx 10^{153}$. The
+collision resistance is therefore dominated by the long lines, and the short lines' contribution is to provide
+*deterministic anchors* rather than probabilistic collision barriers.
+
+However, the anchors interact with other partitions through the interlocking structure. A cell solved by a length-1
+line in partition $\mathcal{V}_1$ constrains lines in all other partitions passing through that cell. If partition
+$\mathcal{V}_2$ has a length-3 line containing an anchored cell, the effective ambiguity of that length-3 line drops
+from $\binom{3}{\sigma}$ to $\binom{2}{\sigma - v}$ where $v$ is the anchor's value --- a reduction by factor
+$\sim 3/2$. With $n$ partitions providing $2n$ anchors scattered across the matrix, the cross-partition reduction
+compounds multiplicatively.
+
+The net effect on collision probability depends on the spatial distribution of anchor cells relative to the short lines
+of other partitions. If partition geometries are chosen so that each partition's anchor cells fall on short lines of
+other partitions (maximizing cross-partition constraint tightening), the compounding effect is strongest. This is a
+design criterion for the space-filling curve selection: curves should be oriented so that their length-1 endpoints are
+spatially dispersed across regions covered by other curves' short segments.
+
+#### B.3.4 Decompression Performance
+
+The variable-length structure provides a qualitatively different propagation dynamic compared to uniform-length
+partitions. With uniform partitions (Section B.2), all lines have length $s = 511$, and forcing rules trigger only
+when a line's residual reaches 0 or equals its unknown count --- unlikely for a fresh line with 511 unknowns. With
+variable-length partitions, the short lines begin with small unknown counts and are far more likely to trigger forcing
+immediately.
+
+Consider the propagation sequence on initial state. The $2n$ length-1 lines solve their cells unconditionally. Each
+solved cell updates its row, column, diagonal, anti-diagonal, and the lines it belongs to in all $n$ new partitions.
+These updates decrease $u(L)$ on each affected line by 1 and (if the solved value is 1) increase $a(L)$ and decrease
+$\rho(L)$ by 1. For a length-2 line that already had $\sigma \in \{0, 2\}$, the single update is sufficient to force
+the remaining cell. For a length-3 line, the update may push it into a forcing state. The cascade propagates inward
+from the short lines toward the long lines, with each wave of solved cells enabling the next tier.
+
+This "warm start" effect is unique to variable-length partitions. Uniform-length partitions offer no free solutions at
+initialization --- the solver must wait for branching and propagation to create forcing conditions. Variable-length
+partitions front-load the easy constraints, reducing the effective matrix size before the first branch point. If the
+cascade solves a sufficient fraction of cells (even 5--10\% of the matrix), the remaining search tree is dramatically
+smaller.
+
+#### B.3.5 Storage Budget and Partition Count
+
+Each variable-length partition requires $B_d(s) = 8{,}185$ bits (identical to DSM and XSM), compared to $4{,}599$ bits
+for a uniform-length partition. Because the existing partitions are organized as orthogonal pairs (LSM--VSM,
+DSM--XSM), any new partitions must likewise come in pairs to maintain the interlocking pair structure. This gives
+$n = 16$ partitions (8 orthogonal pairs), costing $16 \times 8{,}185 = 130{,}960$ bits --- exceeding the LH budget of
+$130{,}816$ bits by only 144 bits (0.11\%), a negligible overrun that can be absorbed by a trivial format adjustment.
+
+These 16 partitions provide 32 unconditional anchor cells (from length-1 lines), approximately 16 additional anchor
+cells from length-2 lines (in expectation), and 110 cells per partition in the "high-information" short-line tiers
+($l \leq 10$), totaling $16 \times 110 = 1{,}760$ cells with strong deterministic or near-deterministic constraints.
+The revised block payload is:
+
+$$
+    B_{\text{block}} = \underbrace{9{,}198}_{\text{LSM+VSM}} + \underbrace{16{,}370}_{\text{DSM+XSM}}
+    + \underbrace{8}_{\text{DI}} + \underbrace{16 \times 8{,}185}_{\text{16 partitions}} = 156{,}536 \text{ bits}.
+$$
+
+$$
+    C_r = 1 - \frac{156{,}536}{261{,}121} \approx 0.4005
+$$
+
+At 40.1\% space savings, the 16-partition design is compression-neutral relative to the current LH design while
+providing 32 anchor cells, 1,760 high-information cells, and 16 additional constraint lines per cell for propagation
+acceleration.
+
+#### B.3.6 Comparison of Approaches
+
+| Property | LH (current) | B.2: 2 uniform curves | B.3: 16 var-length (8 pairs) |
+|---|---|---|---|
+| Storage (bits) | 130,816 | 9,198 (+ LH) | 130,960 |
+| Space savings | 40.1% | 36.6% (with LH) | 40.1% |
+| Anchor cells | 0 | 0 | 32 + ~16 probable |
+| Collision resistance | Cryptographic ($2^{-256}$/row) | Linear only | Anchor + interlocking |
+| Propagation seeds | 0 (hash is post-hoc) | 0 | 32+ free cells |
+| Lines per cell | 4 + 0 | 4 + 2 | 4 + 16 |
+| Solver warm start | No | No | Yes |
+
+#### B.3.7 Existence and Selection of Eight Orthogonal Curve Pairs
+
+The B.3 proposal requires 16 variable-length partitions organized as 8 orthogonal pairs. This subsection examines
+whether 8 such pairs can be constructed from space-filling curves and, if so, what construction strategies are
+available. The analysis draws on the combinatorial theory of space-filling curves, the classical theory of mutually
+orthogonal Latin squares (MOLS), and the computational geometry of locality-preserving mappings.
+
+**Defining orthogonality for curve-based partitions.** For linear partitions, orthogonality has a precise algebraic
+definition: two families of parallel lines with slopes $m$ and $-1/m$ satisfy the *maximum crossing property* --- every
+line from one family intersects every line from the other in exactly one cell (Colbourn & Dinitz, 2007). For
+curve-based partitions, lines are not straight, so the algebraic definition does not apply directly. The appropriate
+generalization is *dense distributed crossing*: partitions $\mathcal{P}$ and $\mathcal{Q}$ form an orthogonal pair if
+(a) every line in $\mathcal{P}$ of length $l_p$ intersects every line in $\mathcal{Q}$ of length $l_q$ in at most
+$\lceil l_p l_q / s^2 \rceil + O(1)$ cells, and (b) the intersection pattern exhibits no systematic alignment that
+would permit small balanced swap patterns to remain invisible to both partitions simultaneously. Property (a) ensures
+that constraint information propagates uniformly between the two partitions; property (b) ensures that the interlocking
+effect discussed in Section B.2 is maximized. For linear partitions, both properties follow from the slope
+relationship. For curve partitions, both must be verified empirically or established through the structural properties
+of the curve family.
+
+**Natural pairing via transposition.** The simplest orthogonal pairing mirrors the LSM--VSM relationship: given a
+space-filling curve $C$ that traverses the $s \times s$ matrix, define $C^T$ as the curve obtained by transposing the
+matrix (swapping row and column indices). If $C$ visits cell $(r, c)$ at step $t$, then $C^T$ visits $(c, r)$ at step
+$t$. Partitions derived from $C$ and $C^T$ using the same segment schedule are geometrically perpendicular in the
+following sense: where $C$ traverses a region predominantly horizontally, $C^T$ traverses the transposed region
+predominantly vertically. Sagan (1994) established that the Hilbert curve and its variants exhibit strong directional
+coherence within each recursive quadrant, so transposition produces traversals with complementary directional
+structure. This gives one orthogonal pair per base curve.
+
+**Counting distinct space-filling curves.** To obtain 8 orthogonal pairs, 8 geometrically distinct base curves are
+needed. The space of Hilbert-class curves is far richer than the single canonical Hilbert curve suggests. Haverkort
+(2017) enumerated the structurally distinct face-continuous space-filling curves based on Hilbert-type recursion in two
+dimensions and found 1,536 distinct curve variants (up to symmetry) for the standard $2^n \times 2^n$ grid. Each
+variant differs in the orientation and reflection of recursive sub-quadrants at each level of the recursion. For the
+$512 \times 512$ grid (9 levels of recursion), the combinatorial freedom at each level produces a vast family of
+traversals that all visit every cell exactly once but in different orders.
+
+Beyond Hilbert-type curves, other space-filling curve families offer structurally independent traversals. The Z-order
+(Morton) curve follows a bit-interleaving pattern that produces a fundamentally different spatial clustering than the
+Hilbert curve's recursive U-shaped traversal (Mokbel & Aref, 2001). The Peano curve uses a $3 \times 3$ recursive
+subdivision rather than $2 \times 2$, producing a traversal with different locality properties (Sagan, 1994). Selecting
+base curves from different families maximizes the geometric diversity between partitions, which in turn maximizes the
+crossing density between orthogonal pairs.
+
+**A concrete construction for 8 base curves.** The following strategy produces 8 geometrically distinct base curves for
+the $511 \times 511$ matrix (adapted from $512 \times 512$ by discarding out-of-bounds cells per Section B.2):
+
+(1--2) The canonical Hilbert curve and a Hilbert variant with reversed sub-quadrant orientations at the first recursion
+level. These differ in which quadrant is visited first and the direction of traversal between quadrants, producing
+traversals with complementary spatial coherence at the coarsest scale.
+
+(3--4) The Z-order (Morton) curve and a reflected Z-order curve (horizontal reflection of the bit-interleaving
+pattern). Z-order curves have weaker locality than Hilbert curves --- Niedermeier et al. (2002) showed that the Hilbert
+curve is optimal among all $2 \times 2$ recursion-based curves for locality, while the Z-order curve trades locality
+for computational simplicity --- which means Z-order partitions cross Hilbert partitions at different spatial scales,
+providing complementary constraint structure.
+
+(5--6) Two Hilbert curve variants with distinct recursion patterns at the second level of subdivision. At each level,
+the Hilbert curve recursion offers four orientation choices per sub-quadrant; varying these at level 2 (the $128
+\times 128$ sub-grid scale) produces traversals that agree at the coarsest level but diverge within each quadrant.
+
+(7--8) A Peano-type curve adapted to $512 \times 512$ (via nested $3 \times 3$ subdivisions with padding) and a
+rotated variant. The $3 \times 3$ recursion base produces a traversal structure incommensurable with the $2 \times 2$
+Hilbert and Z-order families, maximizing geometric independence (Bader, 2013).
+
+Each base curve $C_i$ paired with its transpose $C_i^T$ yields one orthogonal pair, giving 8 pairs and 16 partitions
+total. The variable-length segment schedule ($1, 2, \ldots, s, \ldots, 2, 1$) is applied identically to each curve.
+
+**Axiom verification.** Axiom 1 (Conservation) holds by construction: each curve visits all $s^2$ cells, and the
+segment schedule sums to $s^2$. Axiom 3 (Non-repetition) holds because each curve is a Hamiltonian path, so no cell is
+visited twice. Axiom 2 (Uniqueness) requires that no two lines across any pair of the 20 total partitions (4 original
+
+- 16 new) cover the identical set of cells. For lines derived from geometrically distinct curves, cell-set identity
+would require two different traversals to visit exactly the same cells in the same contiguous block of the segment
+schedule --- a combinatorial coincidence with probability vanishing in $s$. A build-time verification step (the code
+generator checks all $\binom{20 \times 1021}{2}$ pairs of lines for set equality) provides a hard guarantee at zero
+runtime cost. Hamilton and Rau-Chaplin (2008) demonstrated that compact Hilbert index computations for non-square
+grids are efficient and deterministic, confirming that the adaptation from $512 \times 512$ to $511 \times 511$ is
+computationally tractable for the code generator.
+
+**Limitations of the curve-based orthogonality guarantee.** Unlike linear partitions, where the maximum crossing
+property is a mathematical theorem, the dense distributed crossing property for curve-based partitions is a structural
+expectation rather than a proof. The recursive self-similarity of Hilbert-type curves provides strong heuristic grounds
+--- Bader (2013) showed that Hilbert curves achieve near-optimal locality in the sense that spatially nearby cells
+are visited close together in the traversal, which implies that segments cover compact regions and cross other
+partitions' segments broadly --- but a formal proof that all 8 pairs satisfy property (b) for all possible matrices
+does not yet exist. The build-time verification described above addresses property (a) computationally; property (b)
+can be assessed empirically by computing the intersection matrices for the chosen curves and checking for degenerate
+alignment patterns.
+
+**Connection to Latin square theory.** For uniform-length partitions ($s$ groups of $s$ cells), the existence of
+mutually orthogonal families is governed by the theory of MOLS. Colbourn and Dinitz (2007) established that for any
+prime power $q$, exactly $q - 1$ MOLS of order $q$ exist, and for composite orders, lower bounds on the number of MOLS
+are given by the MacNeish--Mann theorem: $N(n) \geq \min(q_i - 1)$ where $n = \prod q_i^{a_i}$. For $s = 511 = 7
+\times 73$, this gives $N(511) \geq 6$, guaranteeing at least 6 mutually orthogonal uniform partitions --- more than
+enough for 8 pairs if uniform partitions were used. However, the variable-length structure required by B.3 does not
+correspond to a Latin square, so the MOLS bound does not directly apply. The MOLS result does confirm that the
+underlying combinatorial space of the $511 \times 511$ grid is rich enough to support many mutually orthogonal
+decompositions, lending plausibility to the curve-based construction even absent a formal equivalence theorem.
+
+#### B.3.8 Open Questions
+
+(a) What is the empirically measured $k_{\min}$ (minimum invisible swap size) for a 6-partition system comprising LSM,
+VSM, DSM, XSM, and two variable-length curve partitions at small matrix sizes ($s = 15$, $s = 31$)? How does
+$k_{\min}$ scale as $n$ increases from 2 to 16?
+
+(b) For 16 variable-length curve partitions (8 orthogonal pairs) with well-chosen geometries, does the
+cascade from anchor cells and short lines solve a sufficient fraction of the matrix that the remaining search tree fits
+within a 1-second wall-clock budget on Apple Silicon?
+
+(c) Is the collision resistance from interlocking variable-length partitions sufficient to eliminate LH entirely, or
+should a hybrid approach retain a reduced LH (e.g., truncated 32-bit hashes, costing $32 \times 511 = 16{,}352$ bits)
+alongside a smaller number of auxiliary partitions?
+
+(d) What is the optimal space-filling curve family and orientation strategy for maximizing cross-partition anchor
+dispersion --- i.e., ensuring that each partition's length-1 endpoints fall on short lines of other partitions?
+
+(e) Can the variable-length segment schedule be optimized beyond the triangular sequence $1, 2, \ldots, s, \ldots, 2,
+1$? For example, a schedule with more short segments (e.g., repeating the $1, 2, 3$ prefix) would provide more anchors
+at the cost of fewer long segments, changing the collision/propagation tradeoff.
+
+(f) Can the dense distributed crossing property (Section B.3.7) be formally proved for any specific family of 8 curve
+pairs, or must it remain an empirically verified property? Is there a combinatorial framework analogous to MOLS theory
+that governs the existence of mutually orthogonal variable-length partitions on finite grids?
+
+## References
+
+Apple. (n.d.-a). Metal developer documentation.
+
+Apple. (n.d.-b). Performing calculations on a GPU (Metal).
+
+Apple. (n.d.-c). Metal Shading Language Specification (PDF).
+
+Apple. (n.d.-d). Metal Performance Shaders: Overview and tuning hints.
+
+Bader, M. (2013). *Space-filling curves: An introduction with applications in scientific computing*. Springer.
+
+Colbourn, C. J., & Dinitz, J. H. (Eds.). (2007). *Handbook of combinatorial designs* (2nd ed.). Chapman & Hall/CRC.
+
+Dang, Q. (2012). Recommendation for applications using approved hash algorithms (NIST Special Publication 800-107
+Revision 1). National Institute of Standards and Technology.
+
+Haverkort, H. J. (2017). How many three-dimensional Hilbert curves are there? *Journal of Computational Geometry,
+8*(1), 206--281.
+
+Hamilton, C. H., & Rau-Chaplin, A. (2008). Compact Hilbert indices: Space-filling curves for domains with unequal side
+lengths. *Information Processing Letters, 105*(5), 155--163.
+
+Jerrum, M., Sinclair, A., & Vigoda, E. (2004). A polynomial-time approximation algorithm for the permanent of a matrix
+with nonnegative entries. *Journal of the ACM, 51*(4), 671--697.
+
+Knuth, D. E. (2005). *The Art of Computer Programming, Volume 4, Fascicle 2: Generating All Tuples and Permutations*.
+Addison-Wesley.
+
+Kobler, J., et al. (2025). Disjoint projected enumeration for SAT and SMT without blocking clauses. *Artificial
+Intelligence*.
+
+Kschischang, F. R., Frey, B. J., & Loeliger, H.-A. (2001). Factor graphs and the sum-product algorithm. *IEEE
+Transactions on Information Theory, 47*(2), 498--519.
+
+Mokbel, M. F., & Aref, W. G. (2001). Irregularity in multi-dimensional space-filling curves with applications in
+multimedia databases. In *Proceedings of the Tenth International Conference on Information and Knowledge Management*
+(pp. 512--519). ACM.
+
+National Institute of Standards and Technology. (2015). *Secure Hash Standard (SHS) (FIPS PUB 180-4)*.
+
+Niedermeier, R., Reinhardt, K., & Sanders, P. (2002). Towards optimal locality in mesh-indexings. *Discrete Applied
+Mathematics, 117*(1--3), 211--237.
+
+Sagan, H. (1994). *Space-filling curves*. Springer.
+
+Valiant, L. G. (1979). The complexity of computing the permanent. *Theoretical Computer Science, 8*(2), 189--201.
+
+Wainwright, M. J., & Jordan, M. I. (2008). Graphical models, exponential families, and variational inference.
+*Foundations and Trends in Machine Learning, 1*(1--2), 1--305.
+
+Yedidia, J. S., Freeman, W. T., & Weiss, Y. (2002). *Understanding belief propagation and its generalizations*
+(Technical Report TR-2001-22). Mitsubishi Electric Research Laboratories.
