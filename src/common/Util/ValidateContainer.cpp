@@ -10,18 +10,15 @@
 #include <array>
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <span>
 #include <string>
 #include <system_error>
 #include <vector>
 
 #include "common/Util/crc32_ieee.h"
-
-// Intentionally avoid depending on Decompressor to keep this utility link-light.
-// We re-implement minimal header parsing and payload sizing here.
 
 namespace crsce::common::util {
 
@@ -49,8 +46,11 @@ bool validate_container(const std::filesystem::path &cx_path, std::string &err) 
     is.read(reinterpret_cast<char*>(hdr.data()), static_cast<std::streamsize>(hdr.size())); // NOLINT
     if (is.gcount() != static_cast<std::streamsize>(hdr.size())) { err = "short read on header"; return false; }
 
-    // magic
-    if (hdr[0] != 'C' || hdr[1] != 'R' || hdr[2] != 'S' || hdr[3] != 'C') { // NOLINT(readability-simplify-boolean-expr)
+    // magic — compare as little-endian uint32 ("CRSC" = 0x43525343)
+    static constexpr std::uint32_t kMagic = 0x43525343;
+    std::uint32_t magic = 0;
+    std::memcpy(&magic, hdr.data(), 4);
+    if (magic != kMagic) {
         err = "invalid header: magic mismatch";
         return false;
     }
@@ -92,9 +92,7 @@ bool validate_container(const std::filesystem::path &cx_path, std::string &err) 
     }
 
     // File size must match header + blocks * block_bytes
-    constexpr std::size_t kLhBytes = 511 * 32; // 16,352
-    constexpr std::size_t kSumsBytes = 4 * 575; // 2,300
-    constexpr std::size_t kBlockBytes = kLhBytes + kSumsBytes; // 18,652
+    static constexpr std::size_t kBlockBytes = 19549; // CompressedPayload::kBlockPayloadBytes
     const std::uint64_t expect_size = static_cast<std::uint64_t>(kHeaderSize)
                                       + (block_count * static_cast<std::uint64_t>(kBlockBytes));
     if (fsz != static_cast<std::uintmax_t>(expect_size)) {
@@ -102,29 +100,12 @@ bool validate_container(const std::filesystem::path &cx_path, std::string &err) 
         return false;
     }
 
-    // Validate payload structure per block
+    // Validate that every block is readable
     for (std::uint64_t i = 0; i < block_count; ++i) {
         std::vector<std::uint8_t> block(kBlockBytes);
         is.read(reinterpret_cast<char*>(block.data()), static_cast<std::streamsize>(block.size())); // NOLINT
         if (is.gcount() != static_cast<std::streamsize>(block.size())) {
             err = "short read in block payload";
-            return false;
-        }
-        const std::size_t lh_bytes = kLhBytes;
-        const std::size_t sums_bytes = kSumsBytes;
-        if (block.size() != (lh_bytes + sums_bytes)) {
-            err = "invalid block payload size";
-            return false;
-        }
-        const std::span<const std::uint8_t> block_span(block.data(), block.size());
-        const std::span<const std::uint8_t> lh = block_span.first(lh_bytes);
-        const std::span<const std::uint8_t> sums = block_span.subspan(lh_bytes, sums_bytes);
-        if (lh.size_bytes() != kLhBytes) {
-            err = "LH size mismatch";
-            return false;
-        }
-        if (sums.size_bytes() != kSumsBytes) {
-            err = "Cross-sums size mismatch";
             return false;
         }
     }

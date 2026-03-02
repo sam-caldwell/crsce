@@ -5,6 +5,18 @@ cmake_minimum_required(VERSION 4.2)
 
 project(crsce VERSION 1.0.0 LANGUAGES CXX)
 
+# --- Metal GPU acceleration (Apple Silicon) ---
+if(APPLE)
+    option(CRSCE_ENABLE_METAL "Enable Metal GPU acceleration for solver" ON)
+else()
+    option(CRSCE_ENABLE_METAL "Enable Metal GPU acceleration for solver" OFF)
+endif()
+if(CRSCE_ENABLE_METAL)
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 23)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

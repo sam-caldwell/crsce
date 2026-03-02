@@ -34,55 +34,54 @@ auto main(const int argc, char *argv[]) -> int {
         const crsce::common::ArgParser parser("decompress", args);
         const auto &[input, output, help] = parser.options();
 
-        ::crsce::o11y::O11y::instance().metric("decompress_begin", static_cast<std::int64_t>(1),
-                                               {{"in", input}, {"out", output}});
+        ::crsce::o11y::O11y::instance().event("decompress_begin", {{"in", input}, {"out", output}});
 
         crsce::decompress::cli::Heartbeat heartbeat;
         heartbeat.start();
         const int rc = crsce::decompress::cli::run(input, output);
-        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
-                                               {{"status", (rc == 0 ? std::string("OK") : std::string("FAIL"))}});
+        ::crsce::o11y::O11y::instance().event("decompress_end",
+                                              {{"status", (rc == 0 ? std::string("OK") : std::string("FAIL"))}});
         heartbeat.wait();
 
         return rc;
     } catch (const crsce::common::exceptions::CliNoArgs & /*e*/) {
-        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
-                                               {
-                                                   {"status", "FAIL"},
-                                                   {"detail", "NO_ARG"}
-                                               });
+        ::crsce::o11y::O11y::instance().event("decompress_end",
+                                              {
+                                                  {"status", "FAIL"},
+                                                  {"detail", "NO_ARG"}
+                                              });
         return 0;
     } catch (const crsce::common::exceptions::CliHelpRequested &e) {
-        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
-                                               {
-                                                   {"status", "FAIL"},
-                                                   {"detail", "BAD_USAGE"}
-                                               });
+        ::crsce::o11y::O11y::instance().event("decompress_end",
+                                              {
+                                                  {"status", "FAIL"},
+                                                  {"detail", "BAD_USAGE"}
+                                              });
         std::println("usage: {}", e.what());
         return 0;
     } catch (const crsce::common::exceptions::CliParseError &e) {
-        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
-                                               {
-                                                   {"status", "FAIL"},
-                                                   {"detail", "PARSE_ERROR"}
-                                               });
+        ::crsce::o11y::O11y::instance().event("decompress_end",
+                                              {
+                                                  {"status", "FAIL"},
+                                                  {"detail", "PARSE_ERROR"}
+                                              });
         std::println(stderr, "usage: {}", e.what());
         return 2;
     } catch (const crsce::common::exceptions::CliInputMissing &e) {
-        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
-                                               {{"status", "FAIL"}, {"detail", "INPUT_MISSING"}});
+        ::crsce::o11y::O11y::instance().event("decompress_end",
+                                              {{"status", "FAIL"}, {"detail", "INPUT_MISSING"}});
         std::println(stderr, "{}", e.what());
         return 3;
     } catch (const crsce::common::exceptions::CliOutputExists &e) {
-        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
-                                               {{"status", "FAIL"}, {"detail", "OUTPUT_EXISTS"}});
+        ::crsce::o11y::O11y::instance().event("decompress_end",
+                                              {{"status", "FAIL"}, {"detail", "OUTPUT_EXISTS"}});
         std::println(stderr, "{}", e.what());
         return 3;
     } catch (...) {
-        ::crsce::o11y::O11y::instance().metric("decompress_end", static_cast<std::int64_t>(1),
-                                               {
-                                                   {"status", "FAIL"},
-                                                   {"detail", "UNHANDLED_EXCEPTION"}
-                                               });
+        ::crsce::o11y::O11y::instance().event("decompress_end",
+                                              {
+                                                  {"status", "FAIL"},
+                                                  {"detail", "UNHANDLED_EXCEPTION"}
+                                              });
     }
 }

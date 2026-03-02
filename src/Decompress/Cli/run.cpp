@@ -1,12 +1,15 @@
 /**
  * @file run.cpp
- * @brief Stub decompressor CLI runner (not yet implemented).
+ * @brief Decompressor CLI runner.
  * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
 #include "decompress/Cli/run.h"
 
-#include <stdexcept>
+#include <iostream>
+#include <exception>
 #include <string>
+
+#include "decompress/Decompressor/Decompressor.h"
 
 namespace crsce::decompress::cli {
     /**
@@ -17,8 +20,13 @@ namespace crsce::decompress::cli {
      * @return Process exit code: 0 on success; non-zero on failure.
      */
     int run(const std::string &input, const std::string &output) {
-        static_cast<void>(input);
-        static_cast<void>(output);
-        throw std::runtime_error("decompress: not yet implemented");
+        try {
+            Decompressor decompressor;
+            decompressor.decompress(input, output);
+            return 0;
+        } catch (const std::exception &e) {
+            std::cerr << "decompress error: " << e.what() << '\n';
+            return 1;
+        }
     }
 } // namespace crsce::decompress::cli

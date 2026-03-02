@@ -1,6 +1,6 @@
 /**
  * @file O11y.h
- * @brief Unified observability store for counters, metrics, and events with tag support.
+ * @brief Unified observability store for events with tag support.
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
@@ -14,7 +14,6 @@
 #include <optional>
 #include <queue>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -23,30 +22,13 @@
 namespace crsce::o11y {
     /**
      * @class O11y
-     * @brief Central store for counters, metrics, and events. Supports upsert semantics and key/value tags.
+     * @brief Central store for events. Supports upsert semantics and key/value tags.
      */
     class O11y {
     public:
         using Tags = std::vector<std::pair<std::string, std::string>>;
 
-        enum class MetricType : std::uint8_t { I64, U64, U32, U16, F64, BOOL };
-        struct MetricValue {
-            MetricType t{MetricType::I64};
-            std::int64_t i64{0};
-            std::uint64_t u64{0};
-            std::uint32_t u32{0};
-            std::uint16_t u16{0};
-            double f64{0.0};
-            bool b{false};
-            std::uint64_t ts_ms{0};
-        };
-
         struct EventData {
-            std::uint64_t count{0};
-            std::uint64_t last_ts_ms{0};
-        };
-
-        struct CounterData {
             std::uint64_t count{0};
             std::uint64_t last_ts_ms{0};
         };
@@ -54,29 +36,14 @@ namespace crsce::o11y {
         // Access singleton instance
         static O11y &instance();
 
-        // Async APIs (fire-and-forget): all methods are asynchronous
-        void counter(std::string name, Tags tags = {});
-
-        // Metrics (overloads)
-        void metric(std::string name, std::int64_t v, Tags tags = {});
-        void metric(std::string name, int v, Tags tags = {});
-        void metric(std::string name, std::uint64_t v, Tags tags = {});
-        void metric(std::string name, std::uint32_t v, Tags tags = {});
-        void metric(std::string name, std::uint16_t v, Tags tags = {});
-        void metric(std::string name, double v, Tags tags = {});
-        void metric(std::string name, float v, Tags tags = {});
-        void metric(std::string name, bool v, Tags tags = {});
-
-        // Events
+        // Events (fire-and-forget, asynchronous)
         void event(std::string name, Tags tags = {});
         void event(std::string name, std::string message, std::optional<std::pair<std::string,std::string>> tag = std::nullopt);
 
         // Explicitly start the background worker (optional; async ops auto-start)
         void start() { ensure_started(); }
 
-        // Optional getters (not used in hot path; helpful for tests/tools)
-        std::optional<std::uint64_t> get_counter(const std::string &name, const Tags &tags = {}) const;
-        std::optional<MetricValue> get_metric(const std::string &name, const Tags &tags = {}) const;
+        // Optional getter (not used in hot path; helpful for tests/tools)
         std::optional<EventData> get_event(const std::string &name, const Tags &tags = {}) const;
 
         O11y(const O11y&) = delete;
@@ -93,13 +60,15 @@ namespace crsce::o11y {
         // Shared store protection
         mutable std::mutex mu_;
         // name -> tagKey -> value
-        std::unordered_map<std::string, std::unordered_map<std::string, CounterData>> counters_;
-        std::unordered_map<std::string, std::unordered_map<std::string, MetricValue>> metrics_;
         std::unordered_map<std::string, std::unordered_map<std::string, EventData>> events_;
 
         // Event queue (purged on flush)
         struct QueuedEvent { std::string name; Tags tags; std::uint64_t ts_ms{0}; std::string message; };
         std::vector<QueuedEvent> events_queue_;
+
+        // Per-process identity (set once in constructor)
+        std::string run_id_;
+        std::uint64_t pid_{0};
 
         // Background coroutine scheduler
         std::mutex sched_mu_;
@@ -107,12 +76,12 @@ namespace crsce::o11y {
         std::queue<std::coroutine_handle<>> jobs_;
         std::jthread worker_;
         std::atomic<bool> started_{false};
-        std::uint64_t flush_ms_{250};
+        std::uint64_t event_flush_ms_{1000};
 
     public:
         void ensure_started();
         void worker_loop(const std::stop_token &st);
-        void flush_now();
+        void flush_events();
         /**
          * @brief Return whether the scheduler queue is non-empty.
          * Caller must hold `sched_mu_` when invoking.
@@ -120,9 +89,7 @@ namespace crsce::o11y {
          */
         bool has_jobs() const { return !jobs_.empty(); }
 
-        // Internal sync operations (scheduled on background thread)
-        void do_counter(const std::string &name, const Tags &tags, std::uint64_t ts_ms);
-        void do_metric(const std::string &name, const MetricValue &mv, const Tags &tags);
+        // Internal sync operation (scheduled on background thread)
         void do_event(const std::string &name, const Tags &tags, std::uint64_t ts_ms, const std::string &message);
 
         // Internal coroutine utilities (exposed for TU access only)

@@ -55,7 +55,7 @@ In scope (non‑exhaustive):
 - Header and payload parsing validation errors (e.g., accepting malformed
   headers, incorrect CRC handling, out‑of‑bounds indices)
 - Acceptance‑criteria bypass where decompression outputs bytes that do not
-  satisfy CRSCE cross‑sum vectors or the LH chain
+  satisfy CRSCE cross‑sum vectors or per‑row LH hashes
 
 Out of scope (non‑exhaustive):
 
@@ -102,7 +102,7 @@ We support good‑faith security research:
 
 ## Notes on CRSCE
 
-- CRSCE provides integrity via the LH chain (SHA‑256) and structural
+- CRSCE provides integrity via per‑row LH hashes (SHA‑256) and structural
   redundancy via cross‑sums. It does not provide confidentiality. Do not treat
   CRSCE output as encrypted.
 

@@ -57,8 +57,17 @@ int main() try {
         // Do not remove decompress.stdout.txt / decompress.stderr.txt; append-only per requirements.
     }
 
+    // O11y output paths inside the output directory for real-time monitoring
+    const fs::path events_path  = out_dir / "events.jsonl";
+    const fs::path cx_hb_path   = out_dir / "compress.heartbeat.log";
+    const fs::path dx_hb_path   = out_dir / "decompress.heartbeat.log";
+
     // Always announce useful locations up-front for debugging
     std::cout << "USL_LOG_DIR=" << out_dir.string() << "\n";
+    std::cout << "USL_EVENTS=" << events_path.string() << "\n";
+    std::cout << "USL_COMPRESS_HEARTBEAT=" << cx_hb_path.string() << "\n";
+    std::cout << "USL_DECOMPRESS_HEARTBEAT=" << dx_hb_path.string() << "\n";
+    std::cout << "  (monitor with: tail -f " << events_path.string() << ")\n";
 
     // Determine binary locations: prefer TEST_BINARY_DIR (wrappers), then repo bin
     const std::string cx_exe = crsce::testrunner::detail::resolve_exe("compress");
@@ -79,13 +88,7 @@ int main() try {
     // Compute input hash for logging and comparison
     const std::string input_hash = crsce::testrunner::detail::compute_sha512(src_path);
 
-    // Helper for writing small log files
-    auto write_text = [](const fs::path &p, const std::string &text) {
-        std::ofstream os(p, std::ios::binary);
-        if (!os.good()) { return false; }
-        os.write(text.data(), static_cast<std::streamsize>(text.size()));
-        return os.good();
-    };
+    // Helper for appending log text
     auto append_text = [](const fs::path &p, const std::string &text) {
         std::ofstream os(p, std::ios::binary | std::ios::app);
         if (!os.good()) { return false; }
@@ -96,7 +99,13 @@ int main() try {
     // Compress
     {
         std::cout << "Starting compress phase...\n";
-        const std::vector<std::string> argv = { cx_exe, "-in", src_path.string(), "-out", cx_path.string() };
+        const std::vector<std::string> argv = {
+            "env",
+            std::string("CRSCE_EVENTS_PATH=") + events_path.string(),
+            "CRSCE_METRICS_FLUSH=1",
+            std::string("CRSCE_HEARTBEAT_PATH=") + cx_hb_path.string(),
+            cx_exe, "-in", src_path.string(), "-out", cx_path.string()
+        };
         const auto res = crsce::testrunner::detail::run_process(argv, std::nullopt);
         if (res.exit_code != 0) {
             std::ostringstream cmd;
@@ -140,11 +149,11 @@ int main() try {
     std::string recon_hash;
     {
         std::cout << "Starting decompress phase...\n";
-        // Route decompressor heartbeat directly to a live file so users can tail progress.
-        const std::string hb_path = (out_dir / "decompress.stdout.txt").string();
         const std::vector<std::string> argv = {
             "env",
-            std::string("CRSCE_HEARTBEAT_PATH=") + hb_path,
+            std::string("CRSCE_EVENTS_PATH=") + events_path.string(),
+            "CRSCE_METRICS_FLUSH=1",
+            std::string("CRSCE_HEARTBEAT_PATH=") + dx_hb_path.string(),
             dx_exe,
             "-in", cx_path.string(),
             "-out", dx_path.string()

@@ -53,22 +53,18 @@ int main(const int argc, char *argv[]) try {
     }
 
     max_bytes = std::max(max_bytes, min_bytes);
-    ::crsce::o11y::O11y::instance().metric("testrunner_begin", static_cast<std::int64_t>(1), {{"runner", std::string("testRunnerRandom")}});
-    ::crsce::o11y::O11y::instance().counter("testrunner_runs_attempted");
+    ::crsce::o11y::O11y::instance().event("testrunner_begin", {{"runner", std::string("testRunnerRandom")}});
     const int rc = crsce::testrunner_random::cli::run(out_dir, min_bytes, max_bytes);
-    if (rc == 0) { ::crsce::o11y::O11y::instance().counter("testrunner_runs_success"); }
-    else {
+    if (rc != 0) {
         ::crsce::o11y::O11y::instance().event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("nonzero_rc")}});
-        ::crsce::o11y::O11y::instance().counter("testrunner_runs_failed");
     }
-    ::crsce::o11y::O11y::instance().metric("testrunner_end", static_cast<std::int64_t>(1), {{"runner", std::string("testRunnerRandom")}, {"status", (rc==0?std::string("OK"):std::string("FAIL"))}});
+    ::crsce::o11y::O11y::instance().event("testrunner_end", {{"runner", std::string("testRunnerRandom")}, {"status", (rc==0?std::string("OK"):std::string("FAIL"))}});
     return rc;
 
 } catch (const crsce::common::exceptions::DecompressNonZeroExitException &e) {
     const int code = extract_exit_code(e.what(), 4);
     ::crsce::o11y::O11y::instance().event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("decompress_exception")}});
-    ::crsce::o11y::O11y::instance().counter("testrunner_runs_failed");
-    ::crsce::o11y::O11y::instance().metric("testrunner_end", static_cast<std::int64_t>(1), {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
+    ::crsce::o11y::O11y::instance().event("testrunner_end", {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
     std::cout << "{\n"
               << "  \"step\":\"error\",\n"
               << "  \"runner\":\"testRunnerRandom\",\n"
@@ -80,8 +76,7 @@ int main(const int argc, char *argv[]) try {
 } catch (const crsce::common::exceptions::CompressNonZeroExitException &e) {
     const int code = extract_exit_code(e.what(), 3);
     ::crsce::o11y::O11y::instance().event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("compress_exception")}});
-    ::crsce::o11y::O11y::instance().counter("testrunner_runs_failed");
-    ::crsce::o11y::O11y::instance().metric("testrunner_end", static_cast<std::int64_t>(1), {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
+    ::crsce::o11y::O11y::instance().event("testrunner_end", {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
     std::cout << "{\n"
               << "  \"step\":\"error\",\n"
               << "  \"runner\":\"testRunnerRandom\",\n"
@@ -92,8 +87,7 @@ int main(const int argc, char *argv[]) try {
     return code;
 } catch (const std::exception &e) {
     ::crsce::o11y::O11y::instance().event("testrunner_error", {{"runner", std::string("testRunnerRandom")}, {"type", std::string("unknown_exception")}});
-    ::crsce::o11y::O11y::instance().counter("testrunner_runs_failed");
-    ::crsce::o11y::O11y::instance().metric("testrunner_end", static_cast<std::int64_t>(1), {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
+    ::crsce::o11y::O11y::instance().event("testrunner_end", {{"runner", std::string("testRunnerRandom")}, {"status", std::string("FAIL")}});
     std::cout << "{\n"
               << "  \"step\":\"error\",\n"
               << "  \"runner\":\"testRunnerRandom\",\n"

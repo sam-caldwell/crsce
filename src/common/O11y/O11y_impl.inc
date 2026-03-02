@@ -7,6 +7,7 @@
 #include <functional>
 #include <optional>
 #include <queue>
+#include <random>
 #include <ios>
 #include <iomanip>
 #include <sstream>
@@ -18,30 +19,73 @@
 #include <vector>
 #include <cstdlib>
 #include <atomic>
+#if defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
 
 #include "common/O11y/escape_json.h"
 #include "common/O11y/events_path.h"
 #include "common/O11y/now_ms.h"
-#include "common/O11y/write_line_sync.h"
 #include "common/O11y/flush_enabled.h"
 #include "common/O11y/write_line_to_path_sync.h"
 
 namespace crsce::o11y {
 
+    namespace {
+        /**
+         * @name generate_uuid_v4
+         * @brief Generate a random UUID v4 string (xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx).
+         * @return std::string UUID string.
+         */
+        inline std::string generate_uuid_v4() {
+            std::random_device rd;
+            std::mt19937_64 gen(rd());
+            std::uniform_int_distribution<std::uint64_t> dist;
+            const std::uint64_t a = dist(gen);
+            const std::uint64_t b = dist(gen);
+            // Format as UUID v4: set version nibble to 4, variant bits to 10xx
+            const auto hi = (a & 0xFFFFFFFFFFFF0FFFULL) | 0x0000000000004000ULL;
+            const auto lo = (b & 0x3FFFFFFFFFFFFFFFULL) | 0x8000000000000000ULL;
+            std::ostringstream oss;
+            oss << std::hex << std::setfill('0');
+            oss << std::setw(8) << static_cast<unsigned>((hi >> 32U) & 0xFFFFFFFFU) << '-';
+            oss << std::setw(4) << static_cast<unsigned>((hi >> 16U) & 0xFFFFU) << '-';
+            oss << std::setw(4) << static_cast<unsigned>(hi & 0xFFFFU) << '-';
+            oss << std::setw(4) << static_cast<unsigned>((lo >> 48U) & 0xFFFFU) << '-';
+            oss << std::setw(12) << (lo & 0x0000FFFFFFFFFFFFULL);
+            return oss.str();
+        }
+    } // namespace
+
+    namespace {
+        /**
+         * @name get_pid
+         * @brief Return the current process ID as uint64.
+         * @return std::uint64_t Process ID.
+         */
+        inline std::uint64_t get_pid() {
+#if defined(__unix__) || defined(__APPLE__)
+            return static_cast<std::uint64_t>(::getpid());
+#else
+            return 0;
+#endif
+        }
+    } // namespace
+
     /**
      * @name O11y
-     * @brief Construct O11y; read flush interval from env.
+     * @brief Construct O11y; generate run_id, capture PID, read flush interval from env.
      */
-    O11y::O11y() {
-        if (const char *p = std::getenv("CRSCE_O11Y_FLUSH_MS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
+    O11y::O11y() : run_id_(generate_uuid_v4()), pid_(get_pid()) {
+        if (const char *p = std::getenv("CRSCE_O11Y_EVENT_FLUSH_MS") /* NOLINT(concurrency-mt-unsafe) */; p && *p) {
             const auto v = static_cast<std::uint64_t>(std::strtoull(p, nullptr, 10));
-            if (v >= 10 && v <= 60000) { flush_ms_ = v; }
+            if (v >= 10 && v <= 60000) { event_flush_ms_ = v; }
         }
     }
 
     /**
      * @name ~O11y
-     * @brief Stop worker and flush pending events/metrics.
+     * @brief Stop worker and flush pending events.
      */
     O11y::~O11y() {
         if (started_.load(std::memory_order_acquire)) {
@@ -52,7 +96,7 @@ namespace crsce::o11y {
             sched_cv_.notify_all();
             if (worker_.joinable()) { worker_.join(); }
         }
-        try { flush_now(); } catch (...) { /* ignore */ }
+        try { flush_events(); } catch (...) { /* ignore */ }
     }
 
     /**
@@ -85,37 +129,6 @@ namespace crsce::o11y {
             oss << p.first << '=' << p.second;
         }
         return oss.str();
-    }
-
-    /**
-     * @name do_counter
-     * @brief Increment counter in protected store and update timestamp.
-     * @param name Counter name.
-     * @param tags Canonical tag vector.
-     * @param ts_ms Event time in milliseconds.
-     * @return void
-     */
-    void O11y::do_counter(const std::string &name, const Tags &tags, const std::uint64_t ts_ms) {
-        const std::string key = canonicalize_tags(tags);
-        const std::scoped_lock lk(mu_);
-        auto &byTag = counters_[name];
-        CounterData &c = byTag[key];
-        ++c.count;
-        c.last_ts_ms = ts_ms;
-    }
-
-    /**
-     * @name do_metric
-     * @brief Upsert metric value in protected store.
-     * @param name Metric name.
-     * @param mv Typed metric payload (with timestamp).
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::do_metric(const std::string &name, const MetricValue &mv, const Tags &tags) {
-        const std::string key = canonicalize_tags(tags);
-        const std::scoped_lock lk(mu_);
-        metrics_[name][key] = mv;
     }
 
     /**
@@ -193,12 +206,14 @@ namespace crsce::o11y {
 
     void O11y::worker_loop(const std::stop_token &st) {
         using namespace std::chrono;
-        auto next_flush = steady_clock::now() + milliseconds(flush_ms_);
+        const auto now0 = steady_clock::now();
+        auto next_event_flush = now0 + milliseconds(event_flush_ms_);
         while (!st.stop_requested()) {
+            const auto wake_at = next_event_flush;
             std::unique_lock lk(sched_mu_);
             if (jobs_.empty()) {
                 auto pred = [this, &st]() { return should_wake(this, st); };
-                sched_cv_.wait_until(lk, next_flush, pred);
+                sched_cv_.wait_until(lk, wake_at, pred);
             }
             std::queue<std::coroutine_handle<>> local;
             std::swap(local, jobs_);
@@ -208,187 +223,55 @@ namespace crsce::o11y {
                 if (h) { h.resume(); }
             }
             const auto now = steady_clock::now();
-            if (now >= next_flush) {
-                try { flush_now(); } catch (...) { /* ignore */ }
-                next_flush = now + milliseconds(flush_ms_);
+            if (now >= next_event_flush) {
+                try { flush_events(); } catch (...) { /* ignore */ }
+                next_event_flush = now + milliseconds(event_flush_ms_);
             }
         }
-        try { flush_now(); } catch (...) { /* ignore */ }
+        try { flush_events(); } catch (...) { /* ignore */ }
     }
 
     /**
-     * @name flush_now
-     * @brief Emit queued events to events path and write summary metrics snapshot.
+     * @name flush_events
+     * @brief Emit queued events to events path.
      * @return void
      */
-    void O11y::flush_now() {
-        const auto ts = static_cast<std::uint64_t>(detail::now_ms());
-        // 1) Flush queued events to events path
+    void O11y::flush_events() {
+        const std::string path = detail::events_path();
+
         std::vector<QueuedEvent> ev;
         {
             const std::scoped_lock lk(mu_);
             ev.swap(events_queue_);
         }
-        if (!ev.empty()) {
-            for (const auto &e : ev) {
-                std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
-                oss << '{';
-                oss << "\"ts_ms\":" << e.ts_ms << ',';
-                oss << "\"name\":\"" << detail::escape_json(e.name) << "\"";
-                if (!e.message.empty()) {
-                    oss << ",\"message\":\"" << detail::escape_json(e.message) << "\"";
-                }
-                if (!e.tags.empty()) {
-                    oss << ",\"tags\":{";
-                    bool first = true;
-                    for (const auto &kv : e.tags) {
-                        if (!first) { oss << ','; }
-                        first = false;
-                        oss << "\"" << detail::escape_json(kv.first) << "\":\"" << detail::escape_json(kv.second) << "\"";
-                    }
-                    oss << '}';
+        for (const auto &e : ev) {
+            std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
+            oss << '{';
+            oss << "\"ts_ms\":" << e.ts_ms;
+            oss << ",\"run_id\":\"" << run_id_ << "\"";
+            oss << ",\"pid\":" << pid_;
+            oss << ",\"name\":\"" << detail::escape_json(e.name) << "\"";
+            if (!e.message.empty()) {
+                oss << ",\"message\":\"" << detail::escape_json(e.message) << "\"";
+            }
+            if (!e.tags.empty()) {
+                oss << ",\"tags\":{";
+                bool first = true;
+                for (const auto &kv : e.tags) {
+                    if (!first) { oss << ','; }
+                    first = false;
+                    oss << "\"" << detail::escape_json(kv.first) << "\":\"" << detail::escape_json(kv.second) << "\"";
                 }
                 oss << '}';
-                detail::write_line_to_path_sync(oss.str(), detail::events_path());
             }
+            oss << '}';
+            detail::write_line_to_path_sync(oss.str(), path);
         }
-        // 2) Emit summary snapshot to metrics path
-        std::unordered_map<std::string, std::unordered_map<std::string, CounterData>> counters;
-        std::unordered_map<std::string, std::unordered_map<std::string, MetricValue>> metrics;
-        {
-            const std::scoped_lock lk(mu_);
-            counters = counters_;
-            metrics = metrics_;
-        }
-        std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
-        oss << '{';
-        oss << "\"ts_ms\":" << ts << ',';
-        oss << "\"name\":\"summary\",";
-        // Counters
-        oss << "\"counters\":[";
-        bool first = true;
-        for (const auto &byName : counters) {
-            for (const auto &byTag : byName.second) {
-                if (!first) { oss << ','; }
-                first = false;
-                oss << '{'
-                    << "\"name\":\"" << detail::escape_json(byName.first) << "\",";
-                oss << "\"tags\":\"" << detail::escape_json(byTag.first) << "\",";
-                oss << "\"count\":" << byTag.second.count << ",\"ts_ms\":" << byTag.second.last_ts_ms;
-                oss << '}';
-            }
-        }
-        oss << "],";
-        // Metrics
-        oss << "\"metrics\":[";
-        first = true;
-        for (const auto &byName : metrics) {
-            for (const auto &byTag : byName.second) {
-                if (!first) { oss << ','; }
-                first = false;
-                const MetricValue &mv = byTag.second;
-                oss << '{'
-                    << "\"name\":\"" << detail::escape_json(byName.first) << "\",";
-                oss << "\"tags\":\"" << detail::escape_json(byTag.first) << "\",";
-                oss << "\"t\":\"";
-                switch (mv.t) {
-                    case MetricType::I64: oss << "i64\"," << "\"value\":" << mv.i64; break;
-                    case MetricType::U64: oss << "u64\"," << "\"value\":" << mv.u64; break;
-                    case MetricType::U32: oss << "u32\"," << "\"value\":" << mv.u32; break;
-                    case MetricType::U16: oss << "u16\"," << "\"value\":" << mv.u16; break;
-                    case MetricType::F64: oss << "f64\"," << "\"value\":" << mv.f64; break;
-                    case MetricType::BOOL: oss << "bool\"," << "\"value\":" << (mv.b ? "true" : "false"); break;
-                }
-                oss << ",\"ts_ms\":" << mv.ts_ms;
-                oss << '}';
-            }
-        }
-        oss << "]";
-        oss << '}';
-        detail::write_line_sync(oss.str());
     }
 
     // Local helpers to avoid capturing 'this' in coroutine lambdas
     namespace {
         using crsce::o11y::O11y;
-        /**
-         * @name co_counter
-         * @brief Coroutine that updates counter and optionally flushes.
-         * @param self O11y instance pointer.
-         * @param n Counter name.
-         * @param t Tags.
-         * @return O11y::Task
-         */
-        O11y::Task co_counter(O11y *self, std::string n, O11y::Tags t) {
-            co_await self->background();
-            self->do_counter(n, t, crsce::o11y::detail::now_ms());
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
-        }
-        /**
-         * @name co_metric_i64
-         * @brief Coroutine that records i64 metric and optionally flushes.
-         * @param self O11y instance pointer.
-         * @param n Metric name.
-         * @param v Value.
-         * @param t Tags.
-         * @return O11y::Task
-         */
-        O11y::Task co_metric_i64(O11y *self, std::string n, std::int64_t v, O11y::Tags t) {
-            co_await self->background();
-            O11y::MetricValue mv; mv.t = O11y::MetricType::I64; mv.i64 = v; mv.ts_ms = crsce::o11y::detail::now_ms();
-            self->do_metric(n, mv, t);
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
-        }
-        /**
-         * @name co_metric_u64
-         * @brief Coroutine that records u64 metric and optionally flushes.
-         */
-        O11y::Task co_metric_u64(O11y *self, std::string n, std::uint64_t v, O11y::Tags t) {
-            co_await self->background();
-            O11y::MetricValue mv; mv.t = O11y::MetricType::U64; mv.u64 = v; mv.ts_ms = crsce::o11y::detail::now_ms();
-            self->do_metric(n, mv, t);
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
-        }
-        /**
-         * @name co_metric_u32
-         * @brief Coroutine that records u32 metric and optionally flushes.
-         */
-        O11y::Task co_metric_u32(O11y *self, std::string n, std::uint32_t v, O11y::Tags t) {
-            co_await self->background();
-            O11y::MetricValue mv; mv.t = O11y::MetricType::U32; mv.u32 = v; mv.ts_ms = crsce::o11y::detail::now_ms();
-            self->do_metric(n, mv, t);
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
-        }
-        /**
-         * @name co_metric_u16
-         * @brief Coroutine that records u16 metric and optionally flushes.
-         */
-        O11y::Task co_metric_u16(O11y *self, std::string n, std::uint16_t v, O11y::Tags t) {
-            co_await self->background();
-            O11y::MetricValue mv; mv.t = O11y::MetricType::U16; mv.u16 = v; mv.ts_ms = crsce::o11y::detail::now_ms();
-            self->do_metric(n, mv, t);
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
-        }
-        /**
-         * @name co_metric_f64
-         * @brief Coroutine that records f64 metric and optionally flushes.
-         */
-        O11y::Task co_metric_f64(O11y *self, std::string n, double v, O11y::Tags t) {
-            co_await self->background();
-            O11y::MetricValue mv; mv.t = O11y::MetricType::F64; mv.f64 = v; mv.ts_ms = crsce::o11y::detail::now_ms();
-            self->do_metric(n, mv, t);
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
-        }
-        /**
-         * @name co_metric_bool
-         * @brief Coroutine that records boolean metric and optionally flushes.
-         */
-        O11y::Task co_metric_bool(O11y *self, std::string n, bool v, O11y::Tags t) {
-            co_await self->background();
-            O11y::MetricValue mv; mv.t = O11y::MetricType::BOOL; mv.b = v; mv.ts_ms = crsce::o11y::detail::now_ms();
-            self->do_metric(n, mv, t);
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
-        }
         /**
          * @name co_event
          * @brief Coroutine that records event and optionally flushes.
@@ -401,151 +284,13 @@ namespace crsce::o11y {
         O11y::Task co_event(O11y *self, std::string n, O11y::Tags t, std::string message) {
             co_await self->background();
             self->do_event(n, t, crsce::o11y::detail::now_ms(), message);
-            if (crsce::o11y::detail::flush_enabled()) { try { self->flush_now(); } catch (...) { } }
+            if (crsce::o11y::detail::flush_enabled()) {
+                try { self->flush_events(); } catch (...) { }
+            }
         }
     }
 
     // Public async API
-    /**
-     * @name counter
-     * @brief Increment a named counter with optional tags (async).
-     * @param name Counter name.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::counter(std::string name, Tags tags) {
-        if (crsce::o11y::detail::flush_enabled()) {
-            // For testing/diagnostics: perform counter update synchronously, emit a direct record, and flush.
-            const auto ts = crsce::o11y::detail::now_ms();
-            this->do_counter(name, tags, ts);
-            // Emit a compact per-counter JSON line so readers do not need to parse the summary structure
-            try {
-                const std::string tagKey = canonicalize_tags(tags);
-                std::uint64_t c = 0;
-                {
-                    const std::scoped_lock lk(mu_);
-                    auto it = counters_.find(name);
-                    if (it != counters_.end()) {
-                        auto jt = it->second.find(tagKey);
-                        if (jt != it->second.end()) { c = jt->second.count; }
-                    }
-                }
-                std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
-                oss << '{' << "\"ts_ms\":" << ts << ",\"name\":\"" << name << "\",\"count\":"
-                    << std::setw(2) << std::setfill('0') << c << '}';
-                detail::write_line_to_path_sync(oss.str(), detail::current_path());
-            } catch (...) { /* ignore in tests */ }
-            try { this->flush_now(); } catch (...) { /* ignore in tests */ }
-            return;
-        }
-        ensure_started();
-        (void) co_counter(this, std::move(name), std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record 64-bit signed metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, std::int64_t v, Tags tags) {
-        ensure_started();
-        (void) co_metric_i64(this, std::move(name), v, std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record int metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, int v, Tags tags) {
-        ensure_started();
-        (void) co_metric_i64(this, std::move(name), static_cast<std::int64_t>(v), std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record 64-bit unsigned metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, std::uint64_t v, Tags tags) {
-        ensure_started();
-        (void) co_metric_u64(this, std::move(name), v, std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record 32-bit unsigned metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, std::uint32_t v, Tags tags) {
-        ensure_started();
-        (void) co_metric_u32(this, std::move(name), v, std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record 16-bit unsigned metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, std::uint16_t v, Tags tags) {
-        ensure_started();
-        (void) co_metric_u16(this, std::move(name), v, std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record double metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, double v, Tags tags) {
-        ensure_started();
-        (void) co_metric_f64(this, std::move(name), v, std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record float metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, float v, Tags tags) {
-        ensure_started();
-        (void) co_metric_f64(this, std::move(name), static_cast<double>(v), std::move(tags));
-    }
-
-    /**
-     * @name metric
-     * @brief Record boolean metric with optional tags (async).
-     * @param name Metric name.
-     * @param v Value.
-     * @param tags Tag vector.
-     * @return void
-     */
-    void O11y::metric(std::string name, bool v, Tags tags) {
-        ensure_started();
-        (void) co_metric_bool(this, std::move(name), v, std::move(tags));
-    }
-
     /**
      * @name event
      * @brief Emit a tag-only event (async).
@@ -571,40 +316,6 @@ namespace crsce::o11y {
         Tags t;
         if (tag.has_value()) { t.emplace_back(tag->first, tag->second); }
         (void) co_event(this, std::move(name), std::move(t), std::move(message));
-    }
-
-    /**
-     * @name get_counter
-     * @brief Return current count for a tag combination if present.
-     * @param name Counter name.
-     * @param tags Tag vector.
-     * @return std::optional<std::uint64_t> Count if present; nullopt otherwise.
-     */
-    std::optional<std::uint64_t> O11y::get_counter(const std::string &name, const Tags &tags) const {
-        const std::string key = canonicalize_tags(tags);
-        const std::scoped_lock lk(mu_);
-        const auto it = counters_.find(name);
-        if (it == counters_.end()) { return std::nullopt; }
-        const auto jt = it->second.find(key);
-        if (jt == it->second.end()) { return std::nullopt; }
-        return jt->second.count;
-    }
-
-    /**
-     * @name get_metric
-     * @brief Return the last recorded metric value for tags if present.
-     * @param name Metric name.
-     * @param tags Tag vector.
-     * @return std::optional<O11y::MetricValue> Metric if present; nullopt otherwise.
-     */
-    std::optional<O11y::MetricValue> O11y::get_metric(const std::string &name, const Tags &tags) const {
-        const std::string key = canonicalize_tags(tags);
-        const std::scoped_lock lk(mu_);
-        const auto it = metrics_.find(name);
-        if (it == metrics_.end()) { return std::nullopt; }
-        const auto jt = it->second.find(key);
-        if (jt == it->second.end()) { return std::nullopt; }
-        return jt->second;
     }
 
     /**
