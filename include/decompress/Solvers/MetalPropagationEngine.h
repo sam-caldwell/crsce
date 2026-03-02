@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <bitset>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -85,6 +87,23 @@ namespace crsce::decompress::solvers {
          */
         bool gpuAvailable_{false};
 
+        /**
+         * @name kMetalPropTotalLines
+         * @brief Total number of constraint lines: 6s - 2 = 3064.
+         */
+        static constexpr std::size_t kMetalPropTotalLines = (6 * kS) - 2;
+
+        /**
+         * @name work_
+         * @brief Reusable work queue for propagation (avoids per-call heap allocation).
+         */
+        std::vector<LineID> work_;
+
+        /**
+         * @name queued_
+         * @brief Reusable dedup bitset for the propagation work queue.
+         */
+        std::bitset<kMetalPropTotalLines> queued_;
 
         /**
          * @name dispatchGpuAudit

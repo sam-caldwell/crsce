@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "common/Csm/Csm.h"
+#include "decompress/Solvers/AsyncHashPipeline.h"
 #include "decompress/Solvers/BranchingController.h"
 #include "decompress/Solvers/IConstraintStore.h"
 #include "decompress/Solvers/IEnumerationController.h"
@@ -91,5 +92,11 @@ namespace crsce::decompress::solvers {
          * @brief The hash verifier.
          */
         std::unique_ptr<IHashVerifier> hasher_;
+
+        /**
+         * @name pipeline_
+         * @brief Async hash verification pipeline (created per enumeration call).
+         */
+        std::unique_ptr<AsyncHashPipeline> pipeline_;
     };
 } // namespace crsce::decompress::solvers

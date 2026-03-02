@@ -29,22 +29,28 @@ namespace crsce::decompress::solvers {
             rowBits_[r][word] |= (static_cast<std::uint64_t>(1) << bit); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
-        // Update row stats
-        rowStats_[r].unknown--;
-        if (v != 0) { rowStats_[r].assigned++; }
+        // Compute flat indices for the 4 affected lines
+        const auto ri = static_cast<std::uint32_t>(r);
+        const auto ci = static_cast<std::uint32_t>(kS) + c;
+        const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
+        const auto xi = (2U * kS) + kNumDiags + static_cast<std::uint32_t>(r + c);
 
-        // Update column stats
-        colStats_[c].unknown--;
-        if (v != 0) { colStats_[c].assigned++; }
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 
-        // Update diagonal stats: d = c - r + (kS - 1)
-        const auto d = static_cast<std::uint16_t>(c - r + (kS - 1));
-        diagStats_[d].unknown--;
-        if (v != 0) { diagStats_[d].assigned++; }
+        // Decrement unknown counts
+        stats_[ri].unknown--;
+        stats_[ci].unknown--;
+        stats_[di].unknown--;
+        stats_[xi].unknown--;
 
-        // Update anti-diagonal stats: x = r + c
-        const auto x = static_cast<std::uint16_t>(r + c);
-        antiDiagStats_[x].unknown--;
-        if (v != 0) { antiDiagStats_[x].assigned++; }
+        // Increment assigned counts if value is 1
+        if (v != 0) {
+            stats_[ri].assigned++;
+            stats_[ci].assigned++;
+            stats_[di].assigned++;
+            stats_[xi].assigned++;
+        }
+
+        // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 } // namespace crsce::decompress::solvers

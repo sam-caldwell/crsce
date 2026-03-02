@@ -11,9 +11,9 @@ LLVMBIN := /opt/homebrew/opt/llvm/bin
 # Choose a sensible default preset: prefer Homebrew LLVM if present, otherwise use a portable debug preset
 HAVE_LLVM := $(shell [ -x "$(LLVMBIN)/clang++" ] && echo yes || echo no)
 ifeq ($(HAVE_LLVM),yes)
-  PRESET ?= llvm-debug
+  PRESET ?= llvm-release
 else
-  PRESET ?= cmake-build-debug
+  PRESET ?= arm64-release
 endif
 export PRESET
 

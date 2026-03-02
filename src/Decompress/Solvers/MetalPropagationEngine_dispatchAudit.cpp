@@ -36,7 +36,7 @@ namespace crsce::decompress::solvers {
             knownBits[r].fill(0);
 
             // Get the row bits from the store (8 x uint64, MSB-first)
-            const auto rowData = store_.getRow(r);
+            const auto &rowData = store_.getRow(r);
 
             // Convert 8 x uint64 (MSB-first) to 16 x uint32 (MSB-first) for GPU
             for (std::uint32_t w = 0; w < 8; ++w) {

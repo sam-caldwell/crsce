@@ -16,6 +16,6 @@ namespace crsce::decompress::solvers {
      * @throws None
      */
     auto ConstraintStore::getRowUnknownCount(const std::uint16_t r) const -> std::uint16_t {
-        return rowStats_[r].unknown;
+        return stats_[r].unknown; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 } // namespace crsce::decompress::solvers

@@ -55,6 +55,32 @@ namespace crsce::decompress::solvers {
         static constexpr std::uint16_t kNumAntiDiags = (2 * kS) - 1;
 
         /**
+         * @name kTotalLines
+         * @brief Total number of constraint lines: 6s - 2 = 3064.
+         */
+        static constexpr std::uint32_t kTotalLines = kNumRows + kNumCols + kNumDiags + kNumAntiDiags;
+
+        /**
+         * @name lineIndex
+         * @brief Map a LineID to a flat index in [0, kTotalLines).
+         *
+         * Layout: rows [0, kS), cols [kS, 2*kS), diags [2*kS, 2*kS + kNumDiags),
+         * anti-diags [2*kS + kNumDiags, kTotalLines).
+         *
+         * @param line The line identifier.
+         * @return Flat index into the unified stats array.
+         */
+        [[nodiscard]] static constexpr std::uint32_t lineIndex(const LineID line) {
+            switch (line.type) {
+                case LineType::Row:          return line.index;
+                case LineType::Column:       return kS + line.index;
+                case LineType::Diagonal:     return (2U * kS) + line.index;
+                case LineType::AntiDiagonal: return (2U * kS) + kNumDiags + line.index;
+            }
+            return 0; // unreachable
+        }
+
+        /**
          * @name ConstraintStore
          * @brief Construct a constraint store with the given target sums.
          * @param rowSums Target row sums (LSM), size s.
@@ -77,7 +103,7 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] CellState getCellState(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint8_t getCellValue(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint16_t getRowUnknownCount(std::uint16_t r) const override;
-        [[nodiscard]] std::array<std::uint64_t, 8> getRow(std::uint16_t r) const override;
+        [[nodiscard]] const std::array<std::uint64_t, 8> &getRow(std::uint16_t r) const override;
 
     private:
         /**
@@ -121,28 +147,13 @@ namespace crsce::decompress::solvers {
         std::vector<CellState> cells_;
 
         /**
-         * @name rowStats_
-         * @brief Per-row line statistics.
+         * @name stats_
+         * @brief Unified per-line statistics for all 6s-2 lines.
+         *
+         * Layout: rows [0,kS), cols [kS,2*kS), diags [2*kS, 2*kS+kNumDiags),
+         * anti-diags [2*kS+kNumDiags, kTotalLines).
          */
-        std::vector<LineStat> rowStats_;
-
-        /**
-         * @name colStats_
-         * @brief Per-column line statistics.
-         */
-        std::vector<LineStat> colStats_;
-
-        /**
-         * @name diagStats_
-         * @brief Per-diagonal line statistics.
-         */
-        std::vector<LineStat> diagStats_;
-
-        /**
-         * @name antiDiagStats_
-         * @brief Per-anti-diagonal line statistics.
-         */
-        std::vector<LineStat> antiDiagStats_;
+        std::array<LineStat, kTotalLines> stats_{};
 
         /**
          * @name rowBits_

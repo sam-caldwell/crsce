@@ -18,12 +18,6 @@ namespace crsce::decompress::solvers {
      * @throws None
      */
     auto ConstraintStore::getUnknownCount(const LineID line) const -> std::uint16_t {
-        switch (line.type) {
-            case LineType::Row:         return rowStats_[line.index].unknown;
-            case LineType::Column:      return colStats_[line.index].unknown;
-            case LineType::Diagonal:    return diagStats_[line.index].unknown;
-            case LineType::AntiDiagonal: return antiDiagStats_[line.index].unknown;
-        }
-        return 0;
+        return stats_[lineIndex(line)].unknown; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 } // namespace crsce::decompress::solvers

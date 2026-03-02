@@ -3,7 +3,7 @@
 #
 # Default preset can be overridden from the command line
 # e.g., make test PRESET=llvm-release
-PRESET ?= llvm-debug
+PRESET ?= llvm-release
 JOBS := $(shell cmake -P cmake/tools/print_num_cpus.cmake | tail -n1 | sed 's/[^0-9].*//')
 
 .PHONY: all build clean configure help lint ready ready/fix test

@@ -13,10 +13,10 @@ namespace crsce::decompress::solvers {
      * @name getRow
      * @brief Extract the current row as 8 uint64 words for hash verification.
      * @param r Row index.
-     * @return The row data as 8 uint64 words with MSB-first bit ordering.
+     * @return Const reference to the row data as 8 uint64 words with MSB-first bit ordering.
      * @throws None
      */
-    auto ConstraintStore::getRow(const std::uint16_t r) const -> std::array<std::uint64_t, 8> {
+    auto ConstraintStore::getRow(const std::uint16_t r) const -> const std::array<std::uint64_t, 8> & {
         return rowBits_[r];
     }
 } // namespace crsce::decompress::solvers

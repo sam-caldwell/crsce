@@ -28,42 +28,44 @@ namespace crsce::decompress::solvers {
                                      const std::vector<std::uint16_t> &diagSums,
                                      const std::vector<std::uint16_t> &antiDiagSums)
         : cells_(static_cast<std::size_t>(kS) * kS, CellState::Unassigned),
-          rowStats_(kS),
-          colStats_(kS),
-          diagStats_(kNumDiags),
-          antiDiagStats_(kNumAntiDiags),
           rowBits_(kS, std::array<std::uint64_t, 8>{}) {
 
-        // Initialize row stats
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
+
+        // Initialize row stats: stats_[0..kS)
         for (std::uint16_t r = 0; r < kS; ++r) {
-            rowStats_[r].target = rowSums[r];
-            rowStats_[r].unknown = kS;
-            rowStats_[r].assigned = 0;
+            stats_[r].target = rowSums[r];
+            stats_[r].unknown = kS;
+            stats_[r].assigned = 0;
         }
 
-        // Initialize column stats
+        // Initialize column stats: stats_[kS..2*kS)
         for (std::uint16_t c = 0; c < kS; ++c) {
-            colStats_[c].target = colSums[c];
-            colStats_[c].unknown = kS;
-            colStats_[c].assigned = 0;
+            stats_[kS + c].target = colSums[c];
+            stats_[kS + c].unknown = kS;
+            stats_[kS + c].assigned = 0;
         }
 
-        // Initialize diagonal stats
+        // Initialize diagonal stats: stats_[2*kS..2*kS+kNumDiags)
         for (std::uint16_t d = 0; d < kNumDiags; ++d) {
-            diagStats_[d].target = diagSums[d];
+            const auto idx = (2U * kS) + d;
+            stats_[idx].target = diagSums[d];
             const auto len = static_cast<std::uint16_t>(
                 std::min({static_cast<int>(d + 1), static_cast<int>(kS), static_cast<int>(kNumDiags - d)}));
-            diagStats_[d].unknown = len;
-            diagStats_[d].assigned = 0;
+            stats_[idx].unknown = len;
+            stats_[idx].assigned = 0;
         }
 
-        // Initialize anti-diagonal stats
+        // Initialize anti-diagonal stats: stats_[2*kS+kNumDiags..kTotalLines)
         for (std::uint16_t x = 0; x < kNumAntiDiags; ++x) {
-            antiDiagStats_[x].target = antiDiagSums[x];
+            const auto idx = (2U * kS) + kNumDiags + x;
+            stats_[idx].target = antiDiagSums[x];
             const auto len = static_cast<std::uint16_t>(
                 std::min({static_cast<int>(x + 1), static_cast<int>(kS), static_cast<int>(kNumAntiDiags - x)}));
-            antiDiagStats_[x].unknown = len;
-            antiDiagStats_[x].assigned = 0;
+            stats_[idx].unknown = len;
+            stats_[idx].assigned = 0;
         }
+
+        // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 } // namespace crsce::decompress::solvers

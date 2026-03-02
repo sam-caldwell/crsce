@@ -5,6 +5,7 @@
  */
 #include "decompress/Solvers/EnumerationController.h"
 
+#include <cassert>
 #include <memory>
 #include <utility>
 
@@ -12,6 +13,10 @@
 #include "decompress/Solvers/IConstraintStore.h"
 #include "decompress/Solvers/IHashVerifier.h"
 #include "decompress/Solvers/IPropagationEngine.h"
+#ifndef NDEBUG
+#include "decompress/Solvers/ConstraintStore.h"
+#include "decompress/Solvers/Sha256HashVerifier.h"
+#endif
 
 namespace crsce::decompress::solvers {
     /**
@@ -30,5 +35,10 @@ namespace crsce::decompress::solvers {
         : store_(std::move(store)),
           propagator_(std::move(propagator)),
           brancher_(std::move(brancher)),
-          hasher_(std::move(hasher)) {}
+          hasher_(std::move(hasher)) {
+#ifndef NDEBUG
+        assert(dynamic_cast<ConstraintStore *>(store_.get()));
+        assert(dynamic_cast<Sha256HashVerifier *>(hasher_.get()));
+#endif
+    }
 } // namespace crsce::decompress::solvers

@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <bitset>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -45,6 +47,12 @@ namespace crsce::decompress::solvers {
 
     private:
         /**
+         * @name kPropTotalLines
+         * @brief Total number of constraint lines: 6s - 2 = 3064.
+         */
+        static constexpr std::size_t kPropTotalLines = (6 * kS) - 2;
+
+        /**
          * @name store_
          * @brief Reference to the constraint store.
          */
@@ -55,6 +63,18 @@ namespace crsce::decompress::solvers {
          * @brief Assignments forced during the last propagation.
          */
         std::vector<Assignment> forced_;
+
+        /**
+         * @name work_
+         * @brief Reusable work queue for propagation (avoids per-call heap allocation).
+         */
+        std::vector<LineID> work_;
+
+        /**
+         * @name queued_
+         * @brief Reusable dedup bitset for the propagation work queue.
+         */
+        std::bitset<kPropTotalLines> queued_;
 
     };
 } // namespace crsce::decompress::solvers

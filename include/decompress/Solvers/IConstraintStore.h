@@ -126,7 +126,7 @@ namespace crsce::decompress::solvers {
          * @return The row data as 8 uint64 words with MSB-first bit ordering.
          * @throws None
          */
-        [[nodiscard]] virtual std::array<std::uint64_t, 8> getRow(std::uint16_t r) const = 0;
+        [[nodiscard]] virtual const std::array<std::uint64_t, 8> &getRow(std::uint16_t r) const = 0;
 
     protected:
         IConstraintStore() = default;

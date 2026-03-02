@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "common/Csm/Csm.h"
+#include "decompress/Solvers/ConstraintStore.h"
 
 namespace crsce::decompress::solvers {
     /**
@@ -17,10 +18,13 @@ namespace crsce::decompress::solvers {
      * @throws None
      */
     auto EnumerationController::buildCsm() const -> crsce::common::Csm {
+        // Devirtualize: store_ is guaranteed to be ConstraintStore (final class)
+        const auto &cs = static_cast<const ConstraintStore &>(*store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
+
         crsce::common::Csm csm;
         for (std::uint16_t r = 0; r < kS; ++r) {
             for (std::uint16_t c = 0; c < kS; ++c) {
-                csm.set(r, c, store_->getCellValue(r, c));
+                csm.set(r, c, cs.getCellValue(r, c));
             }
         }
         return csm;

@@ -26,6 +26,13 @@ file(GLOB_RECURSE COMPRESS_SOLVER_SOURCES CONFIGURE_DEPENDS
     "src/Decompress/Solvers/*.cpp"
 )
 
+# Discover ARM64 assembly sources (.S files) when building for ARM64
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+    file(GLOB_RECURSE COMPRESS_ASM_SOURCES CONFIGURE_DEPENDS
+        "src/common/*.S"
+    )
+endif()
+
 # Discover Objective-C++ solver sources when Metal is enabled
 if(CRSCE_ENABLE_METAL)
     file(GLOB_RECURSE COMPRESS_SOLVER_OBJCXX_SOURCES CONFIGURE_DEPENDS
@@ -38,6 +45,7 @@ target_sources(compress PRIVATE
     ${COMPRESS_COMPRESSOR_SOURCES}
     ${COMPRESS_COMMON_SOURCES}
     ${COMPRESS_SOLVER_SOURCES}
+    ${COMPRESS_ASM_SOURCES}
     ${COMPRESS_SOLVER_OBJCXX_SOURCES}
 )
 

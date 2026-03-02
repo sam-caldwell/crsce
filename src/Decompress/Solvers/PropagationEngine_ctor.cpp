@@ -14,5 +14,8 @@ namespace crsce::decompress::solvers {
      * @param store Reference to the constraint store.
      * @throws None
      */
-    PropagationEngine::PropagationEngine(IConstraintStore &store) : store_(store) {}
+    PropagationEngine::PropagationEngine(IConstraintStore &store) : store_(store) {
+        forced_.reserve(256);
+        work_.reserve(512);
+    }
 } // namespace crsce::decompress::solvers

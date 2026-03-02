@@ -2,26 +2,9 @@
   "version": 3,
   "configurePresets": [
     {
-      "name": "arm64-debug",
-      "displayName": "ARM64 Debug",
-      "description": "Configure for ARM64 with debug information.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/arm64-debug",
-      "architecture": {
-        "value": "arm64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
       "name": "arm64-release",
       "displayName": "ARM64 Release",
-      "description": "Configure for ARM64 with optimizations.",
+      "description": "Configure for ARM64 with optimizations and SHA-2 extensions.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/arm64-release",
       "architecture": {
@@ -32,65 +15,16 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_STANDARD": "23",
         "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "cmake-build-debug",
-      "displayName": "cmake-build-debug",
-      "description": "Debug build under build/cmake-build-debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/cmake-build-debug",
-      "architecture": {
-        "value": "arm64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "cmake-build-release",
-      "displayName": "cmake-build-release",
-      "description": "Release build under build/cmake-build-release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/cmake-build-release",
-      "architecture": {
-        "value": "arm64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    }
-    ,
-    {
-      "name": "llvm-debug",
-      "displayName": "LLVM (Homebrew) Debug",
-      "description": "Debug with Homebrew clang/llvm and C++23",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/llvm-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_CXX_EXTENSIONS": "OFF",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
-        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
-        "CMAKE_OSX_SYSROOT": "$env{SDKROOT}",
-        "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=.*;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option"
+        "CMAKE_CXX_FLAGS": "-O3 -march=armv8.2-a+sha2 -mtune=apple-m1",
+        "CMAKE_C_FLAGS": "-O3 -march=armv8.2-a+sha2 -mtune=apple-m1",
+        "CMAKE_ASM_FLAGS": "-march=armv8.2-a+sha2 -mtune=apple-m1"
       }
     },
     {
       "name": "llvm-release",
       "displayName": "LLVM (Homebrew) Release",
-      "description": "Release with Homebrew clang/llvm and C++23",
+      "description": "Release with Homebrew clang/llvm, C++23, and -O3",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/llvm-release",
       "cacheVariables": {
@@ -101,22 +35,10 @@
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
         "CMAKE_OSX_SYSROOT": "$env{SDKROOT}",
+        "CMAKE_CXX_FLAGS": "-O3",
+        "CMAKE_C_FLAGS": "-O3",
         "CMAKE_CXX_CLANG_TIDY": "/opt/homebrew/opt/llvm/bin/clang-tidy;-warnings-as-errors=*;--header-filter=.*;--extra-arg=-w;--extra-arg=-fdiagnostics-show-option"
       }
-    }
-  ],
-  "buildPresets": [
-    {
-      "name": "arm64-debug-build",
-      "displayName": "Build ARM64 Debug",
-      "configurePreset": "arm64-debug"
-    }
-  ],
-  "testPresets": [
-    {
-      "name": "arm64-debug-test",
-      "displayName": "Test ARM64 Debug",
-      "configurePreset": "arm64-debug"
     }
   ]
 }

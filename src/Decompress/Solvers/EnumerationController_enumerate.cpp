@@ -6,8 +6,10 @@
 #include "decompress/Solvers/EnumerationController.h"
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
+#include "decompress/Solvers/AsyncHashPipeline.h"
 #include "decompress/Solvers/IPropagationEngine.h"
 #include "decompress/Solvers/LineID.h"
 
@@ -19,6 +21,9 @@ namespace crsce::decompress::solvers {
      * @throws None
      */
     void EnumerationController::enumerate(const SolutionCallback &callback) {
+        // Create async hash pipeline for this enumeration run
+        pipeline_ = std::make_unique<AsyncHashPipeline>(*hasher_, 8);
+
         // Initial propagation: queue all lines
         std::vector<LineID> allLines;
         allLines.reserve(kS + kS + ((2 * kS) - 1) + ((2 * kS) - 1));
@@ -37,6 +42,8 @@ namespace crsce::decompress::solvers {
 
         (*propagator_).reset();
         if (!propagator_->propagate(allLines)) {
+            pipeline_->shutdown();
+            pipeline_.reset();
             return; // initial state is infeasible
         }
 
@@ -48,5 +55,6 @@ namespace crsce::decompress::solvers {
 
         bool stop = false;
         dfs(callback, stop);
+        pipeline_.reset();
     }
 } // namespace crsce::decompress::solvers

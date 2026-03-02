@@ -7,14 +7,13 @@
 
 #include <algorithm>
 #include <array>
-#include <bitset>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <utility>
-#include <vector>
 
 #include "decompress/Solvers/CellState.h"
+#include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/LineID.h"
 
 namespace crsce::decompress::solvers {
@@ -68,27 +67,6 @@ namespace crsce::decompress::solvers {
                 }
             }
         }
-
-        /**
-         * @name metalLineIdToIndex
-         * @brief Map a LineID to a flat index in [0, 6s-2) for dedup bitset.
-         * @param line The line identifier.
-         * @param kS Matrix dimension.
-         * @return Flat index.
-         */
-        std::uint16_t metalLineIdToIndex(const LineID line, const std::uint16_t kS) {
-            const auto numDiags = static_cast<std::uint16_t>((2 * kS) - 1);
-            switch (line.type) {
-                case LineType::Row: return line.index;
-                case LineType::Column: return static_cast<std::uint16_t>(kS + line.index);
-                case LineType::Diagonal: return static_cast<std::uint16_t>((2 * kS) + line.index);
-                case LineType::AntiDiagonal: return static_cast<std::uint16_t>((2 * kS) + numDiags + line.index);
-            }
-            return 0; // unreachable
-        }
-
-        /// Total number of lines: s + s + (2s-1) + (2s-1) = 6s - 2
-        constexpr std::size_t kMetalPropTotalLines = (6 * 511) - 2;
     } // anonymous namespace
 
     /**
@@ -104,26 +82,31 @@ namespace crsce::decompress::solvers {
      * @return True if all constraints remain feasible; false if a contradiction was found.
      */
     auto MetalPropagationEngine::propagate(std::span<const LineID> queue) -> bool {
-        std::vector<LineID> work(queue.begin(), queue.end());
+        // Devirtualize: store_ is guaranteed to be ConstraintStore (final class)
+        auto &cs = static_cast<ConstraintStore &>(store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
+
+        // Reuse member work queue and dedup bitset
+        work_.clear();
+        work_.insert(work_.end(), queue.begin(), queue.end());
         std::size_t front = 0;
-        std::bitset<kMetalPropTotalLines> queued;
-        for (const auto &line : work) {
-            queued.set(metalLineIdToIndex(line, kS));
+        queued_.reset();
+        for (const auto &line : work_) {
+            queued_.set(ConstraintStore::lineIndex(line));
         }
 
-        while (front < work.size()) {
+        while (front < work_.size()) {
             // --- CPU phase: run until quiescence or infeasibility ---
             bool cpuMadeProgress = true;
             while (cpuMadeProgress) {
                 cpuMadeProgress = false;
                 std::uint32_t cpuSteps = 0;
 
-                while (front < work.size() && cpuSteps < kMaxIncrementalSteps) {
-                    const auto line = work[front++];
-                    queued.reset(metalLineIdToIndex(line, kS));
+                while (front < work_.size() && cpuSteps < kMaxIncrementalSteps) {
+                    const auto line = work_[front++];
+                    queued_.reset(ConstraintStore::lineIndex(line));
 
-                    const auto rho = store_.getResidual(line);
-                    const auto u = store_.getUnknownCount(line);
+                    const auto rho = cs.getResidual(line);
+                    const auto u = cs.getUnknownCount(line);
 
                     if (rho < 0 || std::cmp_greater(rho, u)) {
                         return false;
@@ -149,10 +132,10 @@ namespace crsce::decompress::solvers {
                     // Forcing found: apply it and mark progress
                     cpuMadeProgress = true;
                     forEachCellOnLine(line, kS, [&](const std::uint16_t r, const std::uint16_t c) {
-                        if (store_.getCellState(r, c) != CellState::Unassigned) {
+                        if (cs.getCellState(r, c) != CellState::Unassigned) {
                             return;
                         }
-                        store_.assign(r, c, forceValue);
+                        cs.assign(r, c, forceValue);
                         forced_.push_back({.r = r, .c = c, .value = forceValue});
 
                         const auto d = static_cast<std::uint16_t>(c - r + (kS - 1));
@@ -164,10 +147,10 @@ namespace crsce::decompress::solvers {
                             {.type = LineType::AntiDiagonal, .index = x},
                         }};
                         for (const auto &affLine : affected) {
-                            const auto idx = metalLineIdToIndex(affLine, kS);
-                            if (!queued.test(idx)) {
-                                queued.set(idx);
-                                work.push_back(affLine);
+                            const auto idx = ConstraintStore::lineIndex(affLine);
+                            if (!queued_.test(idx)) {
+                                queued_.set(idx);
+                                work_.push_back(affLine);
                             }
                         }
                     });
@@ -175,7 +158,7 @@ namespace crsce::decompress::solvers {
                 }
 
                 // If work is empty, CPU reached quiescence
-                if (front >= work.size()) {
+                if (front >= work_.size()) {
                     return true;
                 }
             }
@@ -183,9 +166,9 @@ namespace crsce::decompress::solvers {
             // CPU exhausted its step budget without forcing anything.
             // Dispatch GPU audit to find forced assignments across all lines.
             if (gpuAvailable_) {
-                work.clear();
+                work_.clear();
                 front = 0;
-                queued.reset();
+                queued_.reset();
                 const auto forcedBefore = forced_.size();
 
                 if (!dispatchGpuAudit()) {
@@ -205,10 +188,10 @@ namespace crsce::decompress::solvers {
                             {.type = LineType::AntiDiagonal, .index = x},
                         }};
                         for (const auto &affLine : affected) {
-                            const auto li = metalLineIdToIndex(affLine, kS);
-                            if (!queued.test(li)) {
-                                queued.set(li);
-                                work.push_back(affLine);
+                            const auto li = ConstraintStore::lineIndex(affLine);
+                            if (!queued_.test(li)) {
+                                queued_.set(li);
+                                work_.push_back(affLine);
                             }
                         }
                     }

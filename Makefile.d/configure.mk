@@ -3,12 +3,12 @@
 #
 # Default preset can be overridden from the command line
 # e.g., make configure PRESET=llvm-release
-PRESET ?= llvm-debug
+PRESET ?= llvm-release
 
 # Aggregate list used by configure/all
-PRESETS_ALL := cmake-build-debug cmake-build-release arm64-debug arm64-release
+PRESETS_ALL := arm64-release
 ifeq ($(HAVE_LLVM),yes)
-  PRESETS_ALL += llvm-debug llvm-release
+  PRESETS_ALL += llvm-release
 endif
 
 .PHONY: all build clean configure configure/all help lint ready ready/fix test

@@ -32,6 +32,9 @@ namespace crsce::decompress::solvers {
         : store_(store), ctx_(std::make_unique<MetalContext>()),
           gpuAvailable_(ctx_->isAvailable()) {
 
+        forced_.reserve(256);
+        work_.reserve(512);
+
         if (gpuAvailable_) {
             // Build flat target array in line order: rows, cols, diags, anti-diags
             std::vector<std::uint16_t> targets;

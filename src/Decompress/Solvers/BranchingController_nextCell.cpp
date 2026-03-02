@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "decompress/Solvers/CellState.h"
+#include "decompress/Solvers/ConstraintStore.h"
 
 namespace crsce::decompress::solvers {
     /**
@@ -20,13 +21,16 @@ namespace crsce::decompress::solvers {
      */
     auto BranchingController::nextCell() const
         -> std::optional<std::pair<std::uint16_t, std::uint16_t>> {
+        // Devirtualize: store_ is guaranteed to be ConstraintStore (final class)
+        const auto &cs = static_cast<const ConstraintStore &>(store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
+
         for (std::uint16_t r = minUnassignedRow_; r < kS; ++r) {
             // Skip rows with no unknowns
-            if (store_.getRowUnknownCount(r) == 0) {
+            if (cs.getRowUnknownCount(r) == 0) {
                 continue;
             }
             for (std::uint16_t c = 0; c < kS; ++c) {
-                if (store_.getCellState(r, c) == CellState::Unassigned) {
+                if (cs.getCellState(r, c) == CellState::Unassigned) {
                     minUnassignedRow_ = r;
                     return std::pair{r, c};
                 }

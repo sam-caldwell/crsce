@@ -9,6 +9,14 @@ file(GLOB_RECURSE CRSCE_PROJECT_SOURCES CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/src/*.cpp"
 )
 
+# Discover ARM64 assembly sources (.S files) when building for ARM64
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+  file(GLOB_RECURSE CRSCE_ASM_SOURCES CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/src/*.S"
+  )
+  list(APPEND CRSCE_PROJECT_SOURCES ${CRSCE_ASM_SOURCES})
+endif()
+
 # Discover Objective-C++ sources when Metal is enabled
 if(CRSCE_ENABLE_METAL)
   file(GLOB_RECURSE CRSCE_OBJCXX_SOURCES CONFIGURE_DEPENDS
