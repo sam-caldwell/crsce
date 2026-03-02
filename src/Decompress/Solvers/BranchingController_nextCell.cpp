@@ -9,7 +9,6 @@
 #include <optional>
 #include <utility>
 
-#include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
 
 namespace crsce::decompress::solvers {
@@ -24,18 +23,11 @@ namespace crsce::decompress::solvers {
         // Devirtualize: store_ is guaranteed to be ConstraintStore (final class)
         const auto &cs = static_cast<const ConstraintStore &>(store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
 
-        for (std::uint16_t r = minUnassignedRow_; r < kS; ++r) {
-            // Skip rows with no unknowns
-            if (cs.getRowUnknownCount(r) == 0) {
-                continue;
-            }
-            for (std::uint16_t c = 0; c < kS; ++c) {
-                if (cs.getCellState(r, c) == CellState::Unassigned) {
-                    minUnassignedRow_ = r;
-                    return std::pair{r, c};
-                }
-            }
+        // Delegate to bitset-based scan (O(1) per word via ctzll)
+        auto result = cs.getFirstUnassigned(minUnassignedRow_);
+        if (result.has_value()) {
+            minUnassignedRow_ = result->first;
         }
-        return std::nullopt;
+        return result;
     }
 } // namespace crsce::decompress::solvers

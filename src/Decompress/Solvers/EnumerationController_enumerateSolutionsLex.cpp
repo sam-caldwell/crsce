@@ -20,6 +20,7 @@
 #include "decompress/Solvers/IBranchingController.h"
 #include "decompress/Solvers/IPropagationEngine.h"
 #include "decompress/Solvers/LineID.h"
+#include "decompress/Solvers/PropagationEngine.h"
 
 namespace crsce::decompress::solvers {
 
@@ -43,10 +44,11 @@ namespace crsce::decompress::solvers {
      * @name enumerateSolutionsLex
      * @brief Coroutine-based generator yielding feasible CSM solutions in lex order.
      *
-     * Performs Algorithm 1 (EnumerateSolutionsLex) using only cross-sum constraints
-     * in the DFS hot loop. Hash verification is offloaded to a background thread
-     * via AsyncHashPipeline. Verified solutions are yielded to the consumer as they
-     * become available, allowing early termination (e.g., for decompression).
+     * Performs Algorithm 1 (EnumerateSolutionsLex) with inline per-row SHA-256
+     * hash verification during DFS. When a row becomes fully assigned (u(row)=0),
+     * its hash is immediately compared to the expected lateral hash (LH[r]).
+     * A mismatch prunes the entire subtree, enabling deep search into random data.
+     * Final full-matrix verification is offloaded to AsyncHashPipeline.
      *
      * @return A Generator<Csm> that yields solutions one at a time.
      * @throws None
@@ -55,6 +57,9 @@ namespace crsce::decompress::solvers {
     auto EnumerationController::enumerateSolutionsLex() -> crsce::common::Generator<crsce::common::Csm> {
         // Devirtualize: cast to concrete final type for all hot-path calls
         auto &cs = static_cast<ConstraintStore &>(*store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
+
+        // One-time devirtualization: use concrete PropagationEngine* in hot loop
+        auto *cpuProp = dynamic_cast<PropagationEngine *>(propagator_.get());
 
         // Create async hash pipeline for this enumeration run
         pipeline_ = std::make_unique<AsyncHashPipeline>(*hasher_, 8);
@@ -108,9 +113,11 @@ namespace crsce::decompress::solvers {
         const std::array<std::uint8_t, 2> order = brancher_->branchOrder();
 
         std::vector<CoFrame> stack;
+        stack.reserve(261121);
         stack.push_back({firstR, firstC, 0, 0});
         std::uint64_t dfsIterations = 0;
         std::uint64_t failedNotFeasible = 0;
+        std::uint64_t failedHashMismatch = 0;
         std::uint64_t candidatesSubmitted = 0;
 
         const auto dfsStart = std::chrono::steady_clock::now();
@@ -119,12 +126,12 @@ namespace crsce::decompress::solvers {
         while (!stack.empty()) {
             auto &frame = stack.back();
 
-            // Emit DFS progress every 1000 iterations with rate measurement
-            if (++dfsIterations % 1000 == 0) {
+            // Emit DFS progress every 10000 iterations with rate measurement
+            if (++dfsIterations % 1000000 == 0) {
                 const auto now = std::chrono::steady_clock::now();
                 const auto windowUs = std::chrono::duration_cast<std::chrono::microseconds>(now - windowStart).count();
                 const auto totalUs = std::chrono::duration_cast<std::chrono::microseconds>(now - dfsStart).count();
-                const double windowRate = windowUs > 0 ? 1000.0 * 1e6 / static_cast<double>(windowUs) : 0.0;
+                const double windowRate = windowUs > 0 ? 1000000.0 * 1e6 / static_cast<double>(windowUs) : 0.0;
                 const double avgRate = totalUs > 0 ? static_cast<double>(dfsIterations) * 1e6 / static_cast<double>(totalUs) : 0.0;
                 windowStart = now;
                 ::crsce::o11y::O11y::instance().event("solver_dfs_iterations",
@@ -133,6 +140,7 @@ namespace crsce::decompress::solvers {
                      {"iter_per_sec", std::to_string(static_cast<std::uint64_t>(windowRate))},
                      {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
                      {"failed_not_feasible", std::to_string(failedNotFeasible)},
+                     {"failed_hash_mismatch", std::to_string(failedHashMismatch)},
                      {"candidates_submitted", std::to_string(candidatesSubmitted)}});
             }
 
@@ -147,7 +155,7 @@ namespace crsce::decompress::solvers {
                 continue;
             }
 
-            const std::uint8_t v = order.at(frame.nextValue++); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            const std::uint8_t v = order[frame.nextValue++]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             frame.token = brancher_->saveUndoPoint();
 
             // Assign the cell and record it on the undo stack
@@ -155,9 +163,16 @@ namespace crsce::decompress::solvers {
             brancher_->recordAssignment(frame.r, frame.c);
 
             // Propagate constraints from affected lines
-            const auto lines = cs.getLinesForCell(frame.r, frame.c);
-            (*propagator_).reset();
-            const bool feasible = propagator_->propagate(lines);
+            bool feasible = false;
+            if (cpuProp != nullptr) {
+                // Fast path: inline feasibility check, skip queue machinery for no-forcing case
+                feasible = cpuProp->tryPropagateCell(frame.r, frame.c);
+            } else {
+                // MetalPropagationEngine fallback: original virtual dispatch
+                const auto lines = cs.getLinesForCell(frame.r, frame.c);
+                (*propagator_).reset();
+                feasible = propagator_->propagate(lines);
+            }
 
             if (!feasible) {
                 ++failedNotFeasible;
@@ -165,15 +180,43 @@ namespace crsce::decompress::solvers {
             }
 
             // Record forced assignments on the undo stack
-            const auto &forced = propagator_->getForcedAssignments();
+            const auto &forced = (cpuProp != nullptr)
+                ? cpuProp->getForcedAssignments()
+                : propagator_->getForcedAssignments();
             for (const auto &a : forced) {
                 brancher_->recordAssignment(a.r, a.c);
             }
 
-            // Find the next unassigned cell (no hash checks -- offloaded to pipeline)
+            // Inline row-hash verification: when a row becomes fully assigned,
+            // immediately check its SHA-256 against the expected lateral hash.
+            // This is the primary pruning mechanism for random data -- a hash
+            // mismatch prunes the entire subtree instantly.
+            bool hashFailed = false;
+            if (cs.getStatDirect(frame.r).unknown == 0) {
+                if (!hasher_->verifyRow(frame.r, cs.getRow(frame.r))) {
+                    hashFailed = true;
+                }
+            }
+            if (!hashFailed) {
+                for (const auto &a : forced) {
+                    if (a.r != frame.r && cs.getStatDirect(a.r).unknown == 0) {
+                        if (!hasher_->verifyRow(a.r, cs.getRow(a.r))) {
+                            hashFailed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (hashFailed) {
+                ++failedHashMismatch;
+                continue;
+            }
+
+            // Find the next unassigned cell
             const auto nextCell = brancher_->nextCell();
             if (!nextCell.has_value()) {
-                // All cells assigned -- cross-sum-valid candidate, submit for hash verification
+                // All cells assigned and all row hashes verified inline --
+                // submit for final full-matrix hash verification via pipeline
                 ++candidatesSubmitted;
                 pipeline_->submit(buildCsm());
 
@@ -185,8 +228,6 @@ namespace crsce::decompress::solvers {
             }
 
             const auto [nr, nc] = nextCell.value();
-
-            // Push child frame (no row-hash check -- offloaded to pipeline)
             stack.push_back({nr, nc, 0, 0});
         }
 
@@ -207,6 +248,7 @@ namespace crsce::decompress::solvers {
                  {"elapsed_ms", std::to_string(totalUs / 1000)},
                  {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
                  {"failed_not_feasible", std::to_string(failedNotFeasible)},
+                 {"failed_hash_mismatch", std::to_string(failedHashMismatch)},
                  {"candidates_submitted", std::to_string(candidatesSubmitted)}});
         }
 

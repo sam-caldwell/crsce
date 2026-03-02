@@ -84,14 +84,14 @@ namespace crsce::decompress::solvers {
         work_.clear();
         work_.insert(work_.end(), queue.begin(), queue.end());
         std::size_t front = 0;
-        queued_.reset();
+        resetQueued();
         for (const auto &line : work_) {
-            queued_.set(ConstraintStore::lineIndex(line));
+            markQueued(ConstraintStore::lineIndex(line));
         }
 
         while (front < work_.size()) {
             const auto line = work_[front++];
-            queued_.reset(ConstraintStore::lineIndex(line));
+            clearQueued(ConstraintStore::lineIndex(line));
 
             const auto rho = cs.getResidual(line);
             const auto u = cs.getUnknownCount(line);
@@ -137,8 +137,8 @@ namespace crsce::decompress::solvers {
                 }};
                 for (const auto &affLine : affected) {
                     const auto idx = ConstraintStore::lineIndex(affLine);
-                    if (!queued_.test(idx)) {
-                        queued_.set(idx);
+                    if (!isQueued(idx)) {
+                        markQueued(idx);
                         work_.push_back(affLine);
                     }
                 }

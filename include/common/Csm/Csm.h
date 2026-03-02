@@ -96,6 +96,15 @@ namespace crsce::common {
          */
         [[nodiscard]] auto popcount(std::uint16_t r) const -> std::uint16_t;
 
+        /**
+         * @name setRow
+         * @brief Copy an 8-word bitset directly into row r.
+         * @param r Row index in [0, kS).
+         * @param data The 8 x uint64_t words to set as the row.
+         * @throws None
+         */
+        void setRow(std::uint16_t r, const std::array<std::uint64_t, kWordsPerRow> &data);
+
     private:
         /**
          * @name rows_

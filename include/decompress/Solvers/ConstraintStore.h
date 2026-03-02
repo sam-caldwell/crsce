@@ -7,6 +7,8 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "decompress/Solvers/CellState.h"
@@ -105,7 +107,15 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] std::uint16_t getRowUnknownCount(std::uint16_t r) const override;
         [[nodiscard]] const std::array<std::uint64_t, 8> &getRow(std::uint16_t r) const override;
 
-    private:
+        /**
+         * @name getFirstUnassigned
+         * @brief Find the first unassigned cell at or after startRow using bitwise scanning.
+         * @param startRow Row index to begin scanning from.
+         * @return Pair (r, c) of the first unassigned cell, or nullopt if all assigned.
+         */
+        [[nodiscard]] std::optional<std::pair<std::uint16_t, std::uint16_t>>
+            getFirstUnassigned(std::uint16_t startRow) const;
+
         /**
          * @struct LineStat
          * @name LineStat
@@ -130,6 +140,18 @@ namespace crsce::decompress::solvers {
              */
             std::uint16_t assigned{0};
         };
+
+        /**
+         * @name getStatDirect
+         * @brief Direct access to per-line statistics by flat index (no virtual dispatch).
+         * @param idx Flat index in [0, kTotalLines).
+         * @return Const reference to the LineStat at the given index.
+         */
+        [[nodiscard]] const LineStat &getStatDirect(std::uint32_t idx) const {
+            return stats_[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+
+    private:
 
         /**
          * @name lineLen
@@ -160,5 +182,16 @@ namespace crsce::decompress::solvers {
          * @brief Row bit storage for hash verification (8 x uint64 per row, MSB-first).
          */
         std::vector<std::array<std::uint64_t, 8>> rowBits_;
+
+        /**
+         * @name assigned_
+         * @brief Compact bitset tracking assigned cells (1 = assigned, 0 = unassigned).
+         *
+         * Same 511 x 8 x uint64 layout as rowBits_. Bit c in row r is at:
+         *   assigned_[r][c / 64] & (1ULL << (c % 64))
+         * Note: uses LSB-first bit addressing (unlike MSB-first rowBits_) for
+         * efficient ctzll scanning in getFirstUnassigned().
+         */
+        std::array<std::array<std::uint64_t, 8>, kS> assigned_{};
     };
 } // namespace crsce::decompress::solvers

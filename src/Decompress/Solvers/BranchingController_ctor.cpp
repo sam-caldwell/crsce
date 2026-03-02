@@ -17,5 +17,7 @@ namespace crsce::decompress::solvers {
      * @throws None
      */
     BranchingController::BranchingController(IConstraintStore &store, IPropagationEngine &propagator)
-        : store_(store), propagator_(propagator) {}
+        : store_(store), propagator_(propagator) {
+        undoStack_.reserve(261121);
+    }
 } // namespace crsce::decompress::solvers

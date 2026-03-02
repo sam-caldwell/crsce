@@ -29,6 +29,9 @@ namespace crsce::decompress::solvers {
             rowBits_[r][word] &= ~(static_cast<std::uint64_t>(1) << bit); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
+        // Clear assigned bitset (LSB-first for ctzll scanning)
+        assigned_[r][c / 64] &= ~(std::uint64_t{1} << (c % 64)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+
         // Compute flat indices for the 4 affected lines
         const auto ri = static_cast<std::uint32_t>(r);
         const auto ci = static_cast<std::uint32_t>(kS) + c;

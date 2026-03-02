@@ -12,6 +12,7 @@
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/IBranchingController.h"
 #include "decompress/Solvers/IPropagationEngine.h"
+#include "decompress/Solvers/PropagationEngine.h"
 
 namespace crsce::decompress::solvers {
 
@@ -38,7 +39,8 @@ namespace crsce::decompress::solvers {
      *
      * Uses an explicit heap-allocated stack instead of call-stack recursion to
      * avoid stack overflow on deep search trees (up to 261,121 cells).
-     * Hash verification is offloaded to a background thread via AsyncHashPipeline.
+     * Inline per-row SHA-256 verification prunes the search at every row boundary.
+     * Final full-matrix verification is offloaded to AsyncHashPipeline.
      *
      * @param callback Called for each verified solution found.
      * @param stop Set to true when callback returns false to halt enumeration.
@@ -47,6 +49,9 @@ namespace crsce::decompress::solvers {
     void EnumerationController::dfs(const SolutionCallback &callback, bool &stop) {
         // Devirtualize: cast to concrete final type for all hot-path calls
         auto &cs = static_cast<ConstraintStore &>(*store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
+
+        // One-time devirtualization: use concrete PropagationEngine* in hot loop
+        auto *cpuProp = dynamic_cast<PropagationEngine *>(propagator_.get());
 
         // Find the first unassigned cell
         const auto firstCell = brancher_->nextCell();
@@ -64,6 +69,7 @@ namespace crsce::decompress::solvers {
         const std::array<std::uint8_t, 2> order = brancher_->branchOrder();
 
         std::vector<DfsFrame> stack;
+        stack.reserve(261121);
         stack.push_back({firstR, firstC, 0, 0});
 
         while (!stack.empty() && !stop) {
@@ -80,7 +86,7 @@ namespace crsce::decompress::solvers {
                 continue;
             }
 
-            const std::uint8_t v = order.at(frame.nextValue++); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            const std::uint8_t v = order[frame.nextValue++]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             frame.token = brancher_->saveUndoPoint();
 
             // Assign the cell and record it on the undo stack
@@ -88,24 +94,56 @@ namespace crsce::decompress::solvers {
             brancher_->recordAssignment(frame.r, frame.c);
 
             // Propagate constraints from affected lines
-            const auto lines = cs.getLinesForCell(frame.r, frame.c);
-            (*propagator_).reset();
-            const bool feasible = propagator_->propagate(lines);
+            bool feasible = false;
+            if (cpuProp != nullptr) {
+                // Fast path: inline feasibility check, skip queue machinery for no-forcing case
+                feasible = cpuProp->tryPropagateCell(frame.r, frame.c);
+            } else {
+                // MetalPropagationEngine fallback: original virtual dispatch
+                const auto lines = cs.getLinesForCell(frame.r, frame.c);
+                (*propagator_).reset();
+                feasible = propagator_->propagate(lines);
+            }
 
             if (!feasible) {
                 continue;
             }
 
             // Record forced assignments on the undo stack
-            const auto &forced = propagator_->getForcedAssignments();
+            const auto &forced = (cpuProp != nullptr)
+                ? cpuProp->getForcedAssignments()
+                : propagator_->getForcedAssignments();
             for (const auto &a : forced) {
                 brancher_->recordAssignment(a.r, a.c);
             }
 
-            // Find the next unassigned cell (no hash checks -- offloaded to pipeline)
+            // Inline row-hash verification: when a row becomes fully assigned,
+            // immediately check its SHA-256 against the expected lateral hash.
+            bool hashFailed = false;
+            if (cs.getStatDirect(frame.r).unknown == 0) {
+                if (!hasher_->verifyRow(frame.r, cs.getRow(frame.r))) {
+                    hashFailed = true;
+                }
+            }
+            if (!hashFailed) {
+                for (const auto &a : forced) {
+                    if (a.r != frame.r && cs.getStatDirect(a.r).unknown == 0) {
+                        if (!hasher_->verifyRow(a.r, cs.getRow(a.r))) {
+                            hashFailed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (hashFailed) {
+                continue;
+            }
+
+            // Find the next unassigned cell
             const auto nextCell = brancher_->nextCell();
             if (!nextCell.has_value()) {
-                // All cells assigned -- cross-sum-valid candidate, submit for hash verification
+                // All cells assigned and all row hashes verified inline --
+                // submit for final full-matrix hash verification via pipeline
                 pipeline_->submit(buildCsm());
 
                 // Deliver any verified solutions that are ready (non-blocking)
@@ -119,8 +157,6 @@ namespace crsce::decompress::solvers {
             }
 
             const auto [nr, nc] = nextCell.value();
-
-            // Push child frame (no row-hash check -- offloaded to pipeline)
             stack.push_back({nr, nc, 0, 0});
         }
 

@@ -2180,6 +2180,214 @@ at the cost of fewer long segments, changing the collision/propagation tradeoff.
 pairs, or must it remain an empirically verified property? Is there a combinatorial framework analogous to MOLS theory
 that governs the existence of mutually orthogonal variable-length partitions on finite grids?
 
+### B.4 Diagonal-Primary Corner-Inward Solver Reorientation
+
+The current solver (Section 5) assigns cells in row-major order, treating LSM and VSM as the primary constraint axes
+and DSM and XSM as secondary propagation aids. This section proposes inverting the priority: treat the diagonal (DSM)
+and anti-diagonal (XSM) families as the primary axes and reorder cell assignment to follow the natural constraint
+gradient from corners inward. This reorientation requires no changes to the compressed file format, no additional
+storage, and no new partitions --- it is purely an algorithmic change that exploits structure already present in every
+CRSCE block.
+
+#### B.4.1 The Rotated Coordinate System
+
+Define diagonal coordinate $d = c - r + (s - 1)$ and anti-diagonal coordinate $x = r + c$, consistent with the
+indexing in Section 2.2. In this rotated frame, DSM and XSM become the "row sums" and "column sums" of a
+diamond-shaped grid, while LSM and VSM become "diagonal sums" of the rotated system. The critical asymmetry between
+the two coordinate systems is that DSM and XSM lines have variable lengths ranging from 1 to $s$, while LSM and VSM
+lines are uniformly length $s = 511$. This variable-length structure creates a constraint gradient that the row-major
+solver does not exploit: cells near the matrix corners sit on the shortest DSM/XSM lines and are the most tightly
+constrained, while cells near the center sit on the longest lines and are the least constrained.
+
+#### B.4.2 Corner-Inward Traversal Order
+
+Define the *ring index* of cell $(r, c)$ as the Chebyshev distance from the nearest corner:
+
+$$
+    \text{ring}(r, c) = \min(r,\; c,\; s{-}1{-}r,\; s{-}1{-}c).
+$$
+
+The corner-inward traversal assigns cells in order of increasing ring index, with ties broken by a deterministic
+rule (e.g., clockwise traversal within each ring starting from the top-left corner). This processes the matrix in
+concentric rectangular rings:
+
+Ring 0 (perimeter): $4(s - 1) = 2{,}040$ cells. Contains all 4 cells on length-1 DSM lines and all 4 cells on
+length-1 XSM lines (these overlap at the 4 matrix corners, yielding 4 unconditionally determined cells). The remaining
+perimeter cells sit on DSM/XSM lines of lengths 2 through $\lceil s/2 \rceil$.
+
+Ring 1: $4(s - 3) = 2{,}032$ cells. DSM/XSM line lengths are at least 2 greater than Ring 0's equivalents.
+
+Ring $\lfloor (s-1)/2 \rfloor = 255$ (center): 1 cell at $(255, 255)$, on the longest diagonal and anti-diagonal (both
+length $s = 511$). The least constrained cell in the matrix.
+
+The total ring count is $\lceil s/2 \rceil = 256$, and the constraint tightness decreases monotonically from Ring 0 to
+Ring 255.
+
+#### B.4.3 Precomputed Address Lookup Tables
+
+The coordinate conversions $d = c - r + (s-1)$ and $x = r + c$ are each a single addition and subtraction, but in
+the inner loop of the constraint propagator these operations execute billions of times per block. Two precomputed
+static lookup tables eliminate this arithmetic entirely:
+
+**Diagonal index table:** A `constexpr std::array<uint16_t, 261121>` mapping the flat cell index
+$(r \times s + c)$ to the DSM line index $d$. At build time, the generator computes $d = c - r + (s-1)$ for each
+$(r, c)$ pair. At runtime, the constraint store resolves any cell's diagonal membership via a single array lookup.
+
+**Anti-diagonal index table:** An identical `constexpr std::array<uint16_t, 261121>` mapping the flat cell index to
+the XSM line index $x = r + c$.
+
+Each table occupies $261{,}121 \times 2 = 522{,}242$ bytes ($\approx 510$ KB), for a combined footprint of
+$\approx 1$ MB of static read-only memory. The tables are generated once at build time, loaded at program startup,
+and shared across all block operations. The per-lookup cost is a single indexed memory access --- typically a
+cache-line hit after the first few accesses warm the L1/L2 cache --- replacing two integer arithmetic operations per
+cell per propagation step.
+
+For the corner-inward traversal itself, a third table maps traversal step index to flat cell index:
+
+**Traversal order table:** A `constexpr std::array<uint32_t, 261121>` containing the flat cell indices in
+corner-inward ring order. The solver iterates through this table sequentially, selecting the next unassigned cell by
+advancing the traversal pointer rather than scanning for the first unassigned cell in row-major order. This reduces
+next-cell selection from $O(s^2)$ scan (in the worst case) to $O(1)$ indexed lookup.
+
+The combined memory cost of all three tables is approximately 1.5 MB --- negligible relative to the L2 cache budget
+on Apple Silicon (M-series chips provide 16--48 MB of shared L2 cache per performance cluster) and small relative to
+the constraint store itself (which maintains per-line statistics for $3{,}064$ lines).
+
+#### B.4.4 Constraint Cascade from Corners
+
+The 4 matrix corners are each determined unconditionally by length-1 DSM and XSM lines before any search begins. Each
+solved corner cell updates its row (LSM), column (VSM), and one additional line each in DSM and XSM (the
+length-1 lines are already consumed). The row and column updates reduce the unknown count $u$ and adjust the
+residual $\rho$ on those lines, potentially triggering forcing on other cells within those rows or columns.
+
+The cells adjacent to corners sit on length-2 DSM and XSM lines. A length-2 line with sum $\sigma \in \{0, 2\}$
+determines both cells immediately; with $\sigma = 1$, only 2 configurations remain, and the LSM/VSM/opposite-family
+constraint through each cell may resolve the ambiguity. Under the uniform random model, $P(\sigma \in \{0, 2\}) = 0.5$,
+so approximately half of the length-2 lines solve both cells outright. Each newly solved cell cascades further through
+all 4 partition families.
+
+The cascade propagates inward ring by ring. At each ring, the newly determined cells from the previous ring's
+propagation have updated the row, column, diagonal, and anti-diagonal statistics for the current ring's cells. The
+cumulative effect is that the solver encounters progressively more constrained cells as it moves inward, because:
+
+(a) Each cell's row and column have fewer unknowns remaining (prior rings have assigned cells at the row/column
+endpoints).
+
+(b) Each cell's diagonal and anti-diagonal are longer than the previous ring's (more unknowns), but the row/column
+forcing from (a) may have already determined some cells on these longer diagonals.
+
+(c) The propagator's forcing rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones) trigger more readily as $u$
+decreases on any of the 4 lines through each cell.
+
+#### B.4.5 Interaction with LH
+
+The lateral hash check (Section 5.2) requires $u(\text{row}) = 0$ to fire. With corner-inward traversal, rows are
+not completed sequentially --- cells from both ends of each row are assigned in early rings, with center cells
+assigned in later rings. This delays hash verification compared to row-major order, where each row completes after
+exactly $s$ assignments.
+
+However, the delay may be shorter than expected. As corner cells propagate through column constraints, interior cells
+on the same columns may be forced by column residuals reaching 0 or $u$, completing rows from the middle outward.
+The rows nearest the top and bottom edges (rows 0, 1, $s{-}2$, $s{-}1$) have the most cells on short diagonals and
+are likely to complete first. The center row (row 255) is completed last, as its cells sit on the longest diagonals.
+
+The hash check remains fully effective once a row completes: a mismatch triggers immediate backtracking regardless of
+the order in which the row's cells were assigned. The practical question is whether the reduced branching factor from
+the corner-inward cascade compensates for the delayed hash pruning.
+
+A hybrid strategy mitigates this tension: the solver primarily follows the corner-inward ring order but
+*opportunistically* assigns remaining cells in a nearly-complete row (e.g., $u(\text{row}) \leq 3$) to trigger the
+hash check early, then resumes the ring traversal. This requires maintaining a priority queue of rows sorted by
+unknown count, checked periodically during propagation. The overhead is minimal --- a scan of $s = 511$ row
+statistics --- and the payoff is earlier hash-based pruning.
+
+#### B.4.6 DI Semantics Under Corner-Inward Order
+
+The canonical ordering (Section 4.1) must be redefined from row-major lexicographic to corner-inward ring-major
+lexicographic. The solution $S_0$ is the lex-first feasible matrix under the corner-inward cell ordering (with 0
+before 1 at each branch point). The compressor discovers DI by running the decompressor with the same corner-inward
+enumeration, so the DI mechanism is preserved identically.
+
+The only format-level implication is that the specification must document the traversal order unambiguously. The
+precomputed traversal order table (Section B.4.3) serves as the definitive reference: both compressor and decompressor
+use the identical table, guaranteeing identical enumeration order and deterministic DI semantics.
+
+#### B.4.7 Computational Complexity Comparison
+
+The per-node cost is identical to the current solver --- each assignment updates 4 lines, and propagation processes the
+same forcing rules. The lookup tables replace two arithmetic operations per cell with one memory access per cell,
+yielding a small constant-factor speedup in the propagator's inner loop. The dominant complexity difference is in the
+search tree size:
+
+**Row-major (current):** The solver encounters cells in an order uncorrelated with constraint tightness. Short-diagonal
+cells (corners) and long-diagonal cells (center) are interleaved within each row. The effective branching factor is
+uniform across the traversal --- the solver has no opportunity to concentrate its effort where constraints are tightest.
+The search tree depth is the total number of cells not forced by propagation, and the branching factor reflects the
+average per-cell ambiguity across all diagonal lengths.
+
+**Corner-inward:** The solver encounters cells in order of decreasing constraint tightness. Early rings have low
+branching factors (many cells forced by short diagonals), and the cumulative propagation from solved outer cells
+reduces the branching factor for inner rings. The search tree is *front-loaded* with easy decisions and
+*back-loaded* with hard ones --- but the hard ones are maximally constrained by the time they are reached.
+
+The net effect is a reduction in the effective tree size without any increase in per-node cost. The reduction is
+difficult to quantify analytically because it depends on the cascade dynamics between the four partition families, but
+the qualitative argument is unambiguous: presenting the most constrained cells first to a backtracking solver with
+propagation is a well-established heuristic in constraint satisfaction (known as the *fail-first* or *most
+constrained variable* principle) and is empirically superior to arbitrary variable ordering in virtually all studied
+CSP domains (Haralick & Elliott, 1980; Bessière, 2006).
+
+#### B.4.8 Diagonal-First Pruning versus Row-First Hash Verification
+
+The corner-inward traversal creates a fundamental tension between two competing objectives: evaluating DSM/XSM
+constraints early to disqualify infeasible subtrees quickly, and completing rows early to trigger LH verification.
+Row-major order resolves this tension trivially in favor of rows --- each row completes after exactly $s$ assignments,
+enabling an LH check every 511 cells --- but at the cost of underexploiting DSM/XSM's variable-length constraint
+gradient until late in the search. Corner-inward order inverts the tradeoff: short diagonals and anti-diagonals
+complete in the first few rings, delivering aggressive early pruning, but rows complete unpredictably as cells arrive
+from both ends.
+
+Neither extreme is optimal. A *diagonal-biased row-aware* traversal strategy can reconcile the two objectives. The
+branching controller maintains both the ring-order traversal pointer and a row-completion watchlist tracking
+$u(\text{row})$ for all 511 rows. At each branching decision, the controller selects whichever unassigned cell
+offers the highest expected pruning value according to two competing signals: (a) cells on short or nearly-complete
+diagonal/anti-diagonal lines, which are likely to trigger propagation cascades or infeasibility detection, and
+(b) cells on nearly-complete rows (e.g., $u(\text{row}) \leq t$ for a tunable threshold $t$), which are close to
+enabling an LH verification that can prune entire subtrees with cryptographic certainty.
+
+The threshold $t$ governs the balance. At $t = 0$, the solver never interrupts the ring traversal for hash
+verification --- equivalent to pure corner-inward order with opportunistic LH checks only when rows happen to
+complete. At $t = s$, the solver always prioritizes rows --- equivalent to row-major order. Intermediate values
+(empirically, $t \in [3, 8]$ is a plausible starting range) allow the solver to "finish off" rows that are within
+a few cells of completion without abandoning the diagonal-first traversal for rows that are far from done.
+
+This hybrid strategy can be implemented without modifying the propagation engine. The branching controller's cell
+selection logic changes from a single traversal pointer to a priority function over unassigned cells, but the
+precomputed lookup tables (Section B.4.3) provide the necessary information: each cell's ring index, diagonal
+lengths, and row membership are all available in $O(1)$. The row-completion watchlist is maintained incrementally
+--- each assignment decrements $u(\text{row})$ for the affected row, and rows crossing the threshold $t$ are added
+to the watchlist. The per-decision overhead is bounded by the watchlist size, which is at most $s = 511$ entries.
+
+The net effect is a solver that exploits DSM/XSM's constraint gradient for the majority of the search (where
+diagonal pruning has the highest leverage) while opportunistically completing rows for LH verification whenever
+doing so is cheap (a few remaining cells) and high-value (cryptographic pruning of an entire subtree).
+
+#### B.4.9 Open Questions
+
+(a) What is the empirical speedup of corner-inward traversal over row-major traversal for the existing 4-partition +
+LH design, measured on random, all-zeros, all-ones, and adversarial inputs at $s = 511$?
+
+(b) Does the hybrid diagonal-biased row-aware strategy (Section B.4.8) recover the hash pruning efficiency lost by
+non-sequential row completion, and if so, what is the optimal threshold $t$ for $u(\text{row})$ at which to interrupt
+the ring traversal for hash verification?
+
+(c) Is the Chebyshev ring order optimal, or does the anti-diagonal wavefront order ($x = r + c$, processing cells in
+order of increasing $x$) provide better cascade dynamics by completing entire anti-diagonals sequentially and enabling
+XSM-based verification at anti-diagonal boundaries?
+
+(d) For the diagonal-biased row-aware strategy, is a static threshold $t$ sufficient, or should $t$ adapt dynamically
+based on search depth, propagation success rate, or the number of backtracks observed so far?
+
 ## References
 
 Apple. (n.d.-a). Metal developer documentation.
@@ -2192,16 +2400,21 @@ Apple. (n.d.-d). Metal Performance Shaders: Overview and tuning hints.
 
 Bader, M. (2013). *Space-filling curves: An introduction with applications in scientific computing*. Springer.
 
+Bessière, C. (2006). Constraint propagation. In F. Rossi, P. van Beek, & T. Walsh (Eds.), *Handbook of constraint programming* (pp. 29--83). Elsevier.
+
 Colbourn, C. J., & Dinitz, J. H. (Eds.). (2007). *Handbook of combinatorial designs* (2nd ed.). Chapman & Hall/CRC.
 
 Dang, Q. (2012). Recommendation for applications using approved hash algorithms (NIST Special Publication 800-107
 Revision 1). National Institute of Standards and Technology.
 
-Haverkort, H. J. (2017). How many three-dimensional Hilbert curves are there? *Journal of Computational Geometry,
-8*(1), 206--281.
-
 Hamilton, C. H., & Rau-Chaplin, A. (2008). Compact Hilbert indices: Space-filling curves for domains with unequal side
 lengths. *Information Processing Letters, 105*(5), 155--163.
+
+Haralick, R. M., & Elliott, G. L. (1980). Increasing tree search efficiency for constraint satisfaction problems.
+*Artificial Intelligence, 14*(3), 263--313.
+
+Haverkort, H. J. (2017). How many three-dimensional Hilbert curves are there? *Journal of Computational Geometry,
+8*(1), 206--281.
 
 Jerrum, M., Sinclair, A., & Vigoda, E. (2004). A polynomial-time approximation algorithm for the permanent of a matrix
 with nonnegative entries. *Journal of the ACM, 51*(4), 671--697.

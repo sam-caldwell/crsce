@@ -23,9 +23,7 @@ namespace crsce::decompress::solvers {
 
         crsce::common::Csm csm;
         for (std::uint16_t r = 0; r < kS; ++r) {
-            for (std::uint16_t c = 0; c < kS; ++c) {
-                csm.set(r, c, cs.getCellValue(r, c));
-            }
+            csm.setRow(r, cs.getRow(r));
         }
         return csm;
     }

@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include <bitset>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -45,6 +45,20 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] const std::vector<Assignment> &getForcedAssignments() const override;
         void reset() override;
 
+        /**
+         * @name tryPropagateCell
+         * @brief Fast-path propagation for a single-cell assignment.
+         *
+         * Checks the 4 lines affected by cell (r, c) directly via flat stat indices.
+         * Returns immediately if no forcing is needed (the common case ~80% of iterations).
+         * Falls back to full propagate() only when forcing is required.
+         *
+         * @param r Row index.
+         * @param c Column index.
+         * @return True if feasible; false if a contradiction was found.
+         */
+        bool tryPropagateCell(std::uint16_t r, std::uint16_t c);
+
     private:
         /**
          * @name kPropTotalLines
@@ -71,10 +85,77 @@ namespace crsce::decompress::solvers {
         std::vector<LineID> work_;
 
         /**
-         * @name queued_
-         * @brief Reusable dedup bitset for the propagation work queue.
+         * @name kQueuedWords
+         * @brief Number of 64-bit words needed for the queued bitset: ceil(3064/64) = 48.
          */
-        std::bitset<kPropTotalLines> queued_;
+        static constexpr std::size_t kQueuedWords = (kPropTotalLines + 63) / 64;
+
+        /**
+         * @name queued_
+         * @brief Reusable dedup bitset for the propagation work queue (manual dirty tracking).
+         */
+        std::array<std::uint64_t, kQueuedWords> queued_{};
+
+        /**
+         * @name dirtyWords_
+         * @brief Indices of non-zero words in queued_, for fast selective clearing.
+         */
+        std::array<std::uint8_t, kQueuedWords> dirtyWords_{};
+
+        /**
+         * @name dirtyCount_
+         * @brief Number of entries in dirtyWords_.
+         */
+        std::uint8_t dirtyCount_{0};
+
+        /**
+         * @name markQueued
+         * @brief Set a bit in the queued bitset, tracking the dirty word.
+         * @param idx Line index to mark.
+         */
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
+        void markQueued(const std::size_t idx) {
+            const auto word = idx / 64;
+            const auto bit = idx % 64;
+            const auto mask = std::uint64_t{1} << bit;
+            if ((queued_[word] & mask) == 0) {
+                if (queued_[word] == 0) {
+                    dirtyWords_[dirtyCount_++] = static_cast<std::uint8_t>(word);
+                }
+                queued_[word] |= mask;
+            }
+        }
+
+        /**
+         * @name isQueued
+         * @brief Test whether a line index is marked in the queued bitset.
+         * @param idx Line index to test.
+         * @return True if the bit is set.
+         */
+        [[nodiscard]] auto isQueued(const std::size_t idx) const -> bool {
+            return (queued_[idx / 64] & (std::uint64_t{1} << (idx % 64))) != 0;
+        }
+
+        /**
+         * @name clearQueued
+         * @brief Clear a single bit in the queued bitset.
+         * @param idx Line index to clear.
+         */
+        void clearQueued(const std::size_t idx) {
+            queued_[idx / 64] &= ~(std::uint64_t{1} << (idx % 64));
+        }
+
+        /**
+         * @name resetQueued
+         * @brief Zero only the dirty words in the queued bitset.
+         */
+        void resetQueued() {
+            for (std::uint8_t i = 0; i < dirtyCount_; ++i) {
+                queued_[dirtyWords_[i]] = 0;
+            }
+            dirtyCount_ = 0;
+        }
+        // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
 
     };
 } // namespace crsce::decompress::solvers
