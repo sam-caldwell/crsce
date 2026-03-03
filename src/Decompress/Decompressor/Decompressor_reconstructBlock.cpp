@@ -20,6 +20,7 @@
 #include "decompress/Solvers/EnumerationController.h"
 #include "decompress/Solvers/IPropagationEngine.h"
 #include "decompress/Solvers/PropagationEngine.h"
+#include "decompress/Solvers/RowDecomposedController.h"
 #include "decompress/Solvers/Sha256HashVerifier.h"
 #ifdef CRSCE_ENABLE_METAL
 #include <cstdlib>
@@ -81,24 +82,37 @@ namespace crsce::decompress {
             hasher->setExpected(r, payload.getLH(r));
         }
 
-        // Create the enumeration controller, transferring ownership of all components.
-        solvers::EnumerationController enumerator(
-            std::move(store), std::move(propagator), std::move(brancher), std::move(hasher));
-
-        // Enumerate solutions using the coroutine-based generator until we reach the DI-th one (0-based).
+        // Enumerate solutions until we reach the DI-th one (0-based).
         ::crsce::o11y::O11y::instance().event("reconstruct_start",
-            {{"di_target", std::to_string(di)}});
+            {{"di_target", std::to_string(di)},
+             {"solver", di == 0 ? "row_decomposed" : "lex_enumeration"}});
         std::uint32_t count = 0;
 
-        for (const auto &csm : enumerator.enumerateSolutionsLex()) {
-            if (count == di) {
+        if (di == 0) {
+            // DI=0: use the row-decomposed solver for faster single-solution reconstruction.
+            solvers::RowDecomposedController solver(
+                std::move(store), std::move(propagator), std::move(brancher), std::move(hasher));
+
+            for (const auto &csm : solver.enumerateSolutionsLex()) {
                 ::crsce::o11y::O11y::instance().event("reconstruct_done",
-                    {{"di_target", std::to_string(di)}, {"solutions_examined", std::to_string(count + 1)}});
+                    {{"di_target", "0"}, {"solutions_examined", "1"}});
                 return csm;
             }
-            ::crsce::o11y::O11y::instance().event("reconstruct_di_candidate",
-                {{"candidate", std::to_string(count)}, {"target", std::to_string(di)}});
-            ++count;
+        } else {
+            // DI>0: use lex-order enumeration to skip to the DI-th solution.
+            solvers::EnumerationController enumerator(
+                std::move(store), std::move(propagator), std::move(brancher), std::move(hasher));
+
+            for (const auto &csm : enumerator.enumerateSolutionsLex()) {
+                if (count == di) {
+                    ::crsce::o11y::O11y::instance().event("reconstruct_done",
+                        {{"di_target", std::to_string(di)}, {"solutions_examined", std::to_string(count + 1)}});
+                    return csm;
+                }
+                ::crsce::o11y::O11y::instance().event("reconstruct_di_candidate",
+                    {{"candidate", std::to_string(count)}, {"target", std::to_string(di)}});
+                ++count;
+            }
         }
 
         throw common::exceptions::DecompressDIOutOfRange(
