@@ -2388,6 +2388,336 @@ XSM-based verification at anti-diagonal boundaries?
 (d) For the diagonal-biased row-aware strategy, is a static threshold $t$ sufficient, or should $t$ adapt dynamically
 based on search depth, propagation success rate, or the number of backtracks observed so far?
 
+### B.5 Hash Alternatives to Improve Search Depth
+
+The current CRSCE format stores 511 independent SHA-256 row digests as the lateral hash vector LH, consuming
+$511 \times 256 = 130{,}816$ bits per block --- 83.6% of the 156,392-bit block payload. This section examines an
+alternative hashing scheme that substantially reduces LH's storage cost while preserving or strengthening collision
+resistance, and reinvests the saved bits into auxiliary cross-sum partitions that accelerate constraint propagation.
+The proposal has two components: (a) replace the per-row SHA-256 digests with per-row SHA-1 digests plus a single
+whole-block SHA-256 digest (BH), and (b) use the freed bit budget to add four toroidal-slope partitions
+(two orthogonal pairs) that provide per-assignment constraint feedback.
+
+#### B.5.1 Updated Hash Scheme
+
+Replace LH with two components:
+
+(a) **Lateral hashes (LH):** 511 SHA-1 digests, one per row. Each digest is computed over the row's 512-bit message
+(511 data bits + 1 trailing zero bit), identical to the current LH computation but using SHA-1 (NIST, 2015).
+Storage: $511 \times 160 = 81{,}760$ bits.
+
+(b) **Block hash (BH):** One SHA-256 digest computed over the entire $s \times s$ CSM, serialized in row-major
+order as a contiguous 261,121-bit message. Storage: 256 bits.
+
+Hash storage: $81{,}760 + 256 = 82{,}016$ bits. Savings from hash changes alone: $130{,}816 - 82{,}016 = 48{,}800$
+bits per block. This freed budget is partially reinvested in toroidal-slope partitions (Section B.5.5).
+
+#### B.5.2 Compression Ratio Impact
+
+The hash changes alone save 48,800 bits per block. Reinvesting part of that budget into four toroidal-slope
+partitions (two orthogonal pairs, Section B.5.5) costs $4 \times 511 \times 9 = 18{,}396$ bits, yielding a net savings of
+$48{,}800 - 18{,}396 = 30{,}404$ bits. The block payload drops from 156,392 to 125,988 bits, and the compressed
+size falls to $125{,}988 / 261{,}121 = 48.2\%$ of the original --- a compression ratio of 51.8%, an improvement
+of 11.7 percentage points over the current 40.1%.
+
+| Component           | Current (SHA-256)        | Proposed (SHA-1 + BH + slopes)       |
+|---------------------|--------------------------|--------------------------------------|
+| LH (row hashes)     | 130,816 bits (511 x 256) | 81,760 bits (511 x 160)              |
+| BH (block hash)     | ---                      | 256 bits (1 x 256)                   |
+| Slope partitions    | ---                      | 18,396 bits (4 x 511 x 9)            |
+| Total hash + slopes | 130,816 bits             | 100,412 bits                         |
+| Block payload       | 156,392 bits             | 125,988 bits                         |
+| Compression ratio   | 40.1%                    | 51.8%                                |
+
+The 48,800-bit budget admits up to $\lfloor 48{,}800 / 4{,}599 \rfloor = 10$ slope partitions (5 orthogonal pairs)
+at a total cost of 45,990 bits, which would bring the compression ratio to 41.2% --- nearly identical to the
+current format. This section adopts the conservative choice of 4 partitions (2 pairs) to demonstrate that a
+meaningful compression improvement and a meaningful propagation improvement can be achieved simultaneously.
+Scaling to more pairs is a straightforward budget tradeoff; the toroidal-slope construction trivially extends to
+additional pairs by selecting new slopes coprime to $s$.
+
+#### B.5.3 Collision Probability
+
+A *collision* is an alternative matrix $CSM' \neq CSM$ that satisfies all eight cross-sum partitions (4 original
++ 4 slope) and all hash checks. Any such $CSM'$ must evade four independent defense layers: cross-sum feasibility
+across 8 partitions, slope-partition feasibility, per-row SHA-1 verification, and whole-block SHA-256 verification.
+
+**Cross-sum feasibility.** The difference $\Delta = CSM' - CSM$ must preserve every line sum across all 8
+partitions simultaneously. With 4 original partitions, the minimum swap requires $k_{\min} \geq 6$ cells
+(Section B.2). Each additional slope partition imposes further balance constraints: the swap must also preserve
+every line sum that overlaps the affected cells. With 4 interlocking slope partitions, each cell participates
+in 8 constraint lines instead of 4, and any valid swap must satisfy balance conditions on all 8. This raises
+$k_{\min}$ beyond 6; the exact value depends on the crossing density between slope partitions and the original
+four families. Because the toroidal-slope construction achieves perfect 1-cell crossing density against all
+existing partitions (Section B.5.8), $k_{\min} \geq 10$ is a conservative estimate.
+
+**Per-row SHA-1.** Each of the $m$ affected rows must independently produce the same SHA-1 digest as the
+original row despite containing different bits. SHA-1 produces 160-bit digests; treating the compression function
+as a random oracle on distinct 512-bit inputs, the per-row false-positive probability is $2^{-160}$. The joint
+probability for $m$ independently modified rows is $2^{-160m}$.
+
+**Whole-block SHA-256.** The entire modified matrix $CSM'$ must produce the same SHA-256 digest as $CSM$.
+Since $CSM' \neq CSM$, this is a second-preimage event at probability $2^{-256}$, independent of swap geometry.
+
+The per-row hashes and the block hash operate on different inputs (individual 512-bit rows versus the full
+261,121-bit matrix), making their false-positive events independent. The joint probability for a specific swap
+affecting $m$ rows is:
+
+$$P(m) = 2^{-160m} \times 2^{-256} = 2^{-(160m + 256)}$$
+
+The expected number of collisions, summing over all valid swap configurations:
+
+$$E[\text{collisions}] = \sum_{k=k_{\min}}^{s^2} N_k \times 2^{-(160 \cdot m_k + 256)}$$
+
+where $N_k$ is the count of valid swap configurations of size $k$ across all 8 partitions and
+$m_k \geq \max(2, \lceil k/2 \rceil)$ is the minimum number of affected rows. With $k_{\min} \geq 10$ and
+$m \geq 3$, the dominant term becomes:
+
+$$E[\text{collisions}] \lessapprox N_{10} \times 2^{-(160 \times 3 + 256)} = N_{10} \times 2^{-736}$$
+
+Using $N_{10} \leq s^{16} \approx 2^{144}$ as a loose upper bound for ten-cell swaps balanced across 8 partitions:
+
+$$E[\text{collisions}] \lessapprox 2^{144} \times 2^{-736} = 2^{-592}$$
+
+This is stronger than both the current scheme's $2^{-440}$ (at $m = 2$, 4 partitions) and the hash-only B.5
+variant's $2^{-504}$ (at $m = 2$, 4 partitions). The improvement comes from two sources: the slope partitions
+raise $k_{\min}$ (forcing larger, rarer swaps), and the block hash contributes a flat $2^{-256}$ floor.
+
+The kernel of the 8-partition constraint system has dimension at most $s^2 - (8s - 7) = 257{,}033$ (assuming
+the 4 slope partitions add $4s - 4 = 2{,}040$ independent constraints to the original $4s - 3 = 2{,}041$).
+The total constraint information is $82{,}016$ hash bits plus $18{,}396$ slope-sum bits $= 100{,}412$ bits.
+The full-space collision estimate scales proportionally:
+
+$$P(\text{collision}) \approx 10^{-30{,}000}$$
+
+reflecting the ratio $100{,}412 / 130{,}816 \approx 0.768$ applied to the current scheme's $10^{-40{,}000}$.
+
+For comparison:
+
+| Scheme | Partitions | Hash + slope bits | $P$ dominant term | Full-space estimate |
+|---|---|---|---|---|
+| Current (SHA-256 LH) | 4 | 130,816 | $2^{-440}$ ($k = 6, m = 2$) | $\approx 10^{-40{,}000}$ |
+| B.5 hashes only | 4 | 82,016 | $2^{-504}$ ($k = 6, m = 2$) | $\approx 10^{-25{,}000}$ |
+| B.5 hashes + 4 slopes | 8 | 100,412 | $2^{-592}$ ($k = 10, m = 3$) | $\approx 10^{-30{,}000}$ |
+
+#### B.5.4 SHA-1 Security Considerations
+
+SHA-1's collision resistance is broken: the SHAttered attack demonstrated a practical collision at $\sim 2^{63}$
+work (Stevens et al., 2017), and chosen-prefix collisions have been demonstrated at $\sim 2^{68}$ work
+(Leurent & Peyrin, 2020). However, CRSCE's decompression correctness depends on *second-preimage* resistance,
+not collision resistance. No practical second-preimage attack on SHA-1 exists; the best theoretical result is
+$2^{106}$ for messages exceeding $2^{60}$ blocks (Kelsey & Schneier, 2005), far longer than CRSCE's single-block
+512-bit row messages. For single-block messages, SHA-1's second-preimage resistance remains at the full
+$2^{160}$ security level.
+
+The adversarial concern is not decompression but *compression*: an attacker controlling the input could craft
+a file whose rows form a SHA-1 collision pair, producing a valid CRSCE payload where two distinct inputs
+decompress to the same output. The whole-block SHA-256 digest neutralizes this attack. Constructing two
+matrices that (a) collide on all 511 SHA-1 row hashes AND (b) collide on the whole-block SHA-256 requires at
+minimum $2^{128}$ work (the birthday bound on SHA-256), which dominates the $2^{63}$ cost of SHA-1 collision
+construction. The block hash thus restores adversarial robustness to the SHA-256 birthday bound regardless of
+SHA-1's collision weakness.
+
+#### B.5.5 Auxiliary Toroidal-Slope Partitions
+
+The 48,800-bit savings from SHA-1 row hashes enables the addition of auxiliary cross-sum partitions computed
+along toroidal modular-slope lines on the $s \times s$ grid. Each partition consists of $s = 511$ lines of
+exactly $s = 511$ cells each. The sum of each line is stored as a 9-bit value, identical in format to LSM
+and VSM.
+
+This section proposes four slope-line partitions organized as two orthogonal pairs: HSM1/SFC1 and HSM2/SFC2.
+The numeral identifies the pair: HSM1 and SFC1 are orthogonal partners, as are HSM2 and SFC2. Each pair
+consists of two families of toroidal lines whose slopes are negations of each other, producing *perfect*
+crossing density: any line from HSM1 intersects any line from SFC1 in exactly 1 cell, matching the ideal
+1-cell crossing density of the LSM-VSM pair (rows versus columns). This represents an analytically optimal
+construction --- no partition can achieve a smaller-than-1-cell intersection on a grid of coprime dimension.
+
+**Toroidal modular-slope construction.** A toroidal line of slope $p/q$ on the $s \times s$ grid is defined
+as a set of $s$ cells that wrap around the grid boundaries using modular arithmetic. Formally, for slope $p$
+with denominator $q = 1$ (i.e., integer slope), line $k$ ($0 \le k < s$) is the set
+$L_k = \{(t,\ (k + p \cdot t) \bmod s) : t = 0, 1, \ldots, s-1\}$. When $\gcd(|p|, s) = 1$, each line
+visits every row exactly once (period $s$), producing exactly $s$ disjoint lines that tile the grid. For
+rational slope $p/q$ with $\gcd(q, s) = 1$, the line is equivalently parameterized as
+$L_k = \{(t,\ (k + p \cdot q^{-1} \cdot t) \bmod s) : t = 0, \ldots, s-1\}$ where $q^{-1}$ is the modular
+inverse of $q$ modulo $s$. Since $s = 511$ is prime, every nonzero integer has an inverse modulo $s$, and
+$\gcd(q, s) = 1$ for all $q \not\equiv 0 \pmod{511}$.
+
+**Axiom compliance.** Each toroidal-slope partition satisfies the cross-sum partition axioms (Section 2.2.1)
+by construction. Conservation (Axiom 1): the $s$ lines partition all $s^2$ cells (each line contains $s$ cells,
+there are $s$ lines, and $\gcd(|p|, s) = 1$ ensures no cell is visited twice within a line or across lines),
+so their sums total $\|CSM\|_1$. Non-repetition (Axiom 3): each line visits row $t$ exactly once for
+$t = 0, \ldots, s-1$, so no cell appears twice in any line. Uniqueness (Axiom 2): lines within a partition
+are disjoint by construction (distinct $k$ values produce disjoint cell sets), and lines across different
+partitions cover different cell sets because distinct slopes produce geometrically distinct trajectories on
+the torus.
+
+**Perfect orthogonality.** Two toroidal-slope families with slopes $p_1$ and $p_2$ produce lines that
+intersect in exactly $\gcd(|p_1 - p_2|, s)$ cells. When $|p_1 - p_2|$ is coprime to $s$, every pair of
+lines (one from each family) intersects in exactly 1 cell --- the analytically optimal crossing density.
+For a pair using slopes $p$ and $-p$, the difference is $|p - (-p)| = 2|p|$, and $\gcd(2|p|, 511) = 1$
+whenever $|p| \not\equiv 0 \pmod{511}$ and $|p|$ is not a multiple of $511$ (which holds for all slopes
+considered here since $511$ is prime and $|p| < 511$).
+
+**Segment-to-line mapping.** Each toroidal-slope partition stores $s = 511$ sums. The $k$-th sum is the
+popcount of line $L_k$. At runtime, the solver maps $(r, c) \to k = (c - p \cdot r) \bmod s$ to determine
+which line a cell belongs to --- a single multiply-and-modulus operation requiring no lookup table.
+
+**Storage cost.** Each partition stores 511 sums of 9 bits: $511 \times 9 = 4{,}599$ bits. Four partitions
+cost $4 \times 4{,}599 = 18{,}396$ bits, consuming 37.7% of the 48,800-bit savings from SHA-1.
+
+#### B.5.6 Propagation Impact
+
+The four toroidal-slope partitions double the number of constraint lines per cell from 4 to 8. Each cell
+assignment now updates 8 lines' $(u, a, \rho)$ statistics instead of 4, and the propagation engine's forcing
+rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones) have twice as many opportunities to trigger per
+assignment.
+
+**Perfect crossing density advantage.** The toroidal-slope construction achieves 1-cell intersection between
+every pair of lines from different partitions (B.5.8). By contrast, space-filling curve segments (e.g.,
+Hilbert, Z-order) typically intersect in $\approx \sqrt{s} \approx 23$ cells. The 1-cell crossing density
+means that a constraint violation on any single line propagates maximally: changing a cell's value perturbs
+exactly one line in each of the 8 partitions, and each of those 8 lines shares exactly 1 cell with every line
+in every other partition. This eliminates the "shared-segment dilution" that weakens propagation with
+spatially compact curve segments, where multiple cells of a violated segment may fall within a single segment
+of a partner partition.
+
+**Forcing probability.** Let $f$ denote the per-line probability that a forcing rule triggers on a given
+propagation pass. The probability that a cell remains free (no line forces it) drops from $(1-f)^4$ to
+$(1-f)^8$. For $f \approx 0.03$ (worst-case sums near $s/2$), this is $0.885$ versus $0.784$ --- the fraction
+of cells requiring explicit branching drops by 11.4 percentage points. For more favorable inputs ($f \approx
+0.10$), the improvement is from $0.656$ to $0.430$ --- a 22.6 percentage-point reduction in branching cells.
+
+**Early pruning depth.** LH's pruning is delayed: a wrong assignment is not detected until the affected row
+completes, potentially 510 assignments later. Toroidal-slope partitions provide per-assignment feedback. When
+the solver assigns $CSM_{r,c} \leftarrow v$, it updates one line for each of the 4 slope partitions. If any
+line's residual becomes infeasible ($\rho < 0$ or $\rho > u$), the solver backtracks immediately --- at depth
+1 from the erroneous assignment, not depth 510. The average depth of a doomed branch before detection drops
+from $\sim 1/f_4$ to $\sim 1/f_8$, where $f_n$ is the per-assignment infeasibility detection probability with
+$n$ partitions. For $f \approx 0.03$: from $\sim 1/0.115 \approx 9$ assignments to $\sim 1/0.216 \approx 5$.
+
+**Complementarity with LH.** The slope partitions and LH serve structurally different roles. Slope lines
+provide shallow, fast, probabilistic pruning --- catching most wrong branches within a few assignments via
+feasibility checks that cost only integer comparisons. LH provides deep, certain pruning --- catching the rare
+branches that evade all 8 partition constraints but fail the cryptographic row hash. The slope partitions reduce
+the number of nodes the solver visits per second of wall time; LH reduces the number of candidate solutions
+the solver must enumerate. Together they attack both the width and depth of the search tree.
+
+#### B.5.7 Wire Format
+
+The proposed scheme modifies the block payload structure as follows:
+
+| Field | Elements | Bits/Element   | Total Bits | Encoding                           |
+|-------|----------|----------------|------------|------------------------------------|
+| LH    | 511      | 160            | 81,760     | 20 bytes per digest, sequential    |
+| BH    | 1        | 256            | 256        | 32 bytes, SHA-256 of row-major CSM |
+| DI    | 1        | 8              | 8          | uint8                              |
+| LSM   | 511      | 9              | 4,599      | MSB-first packed bitstream         |
+| VSM   | 511      | 9              | 4,599      | MSB-first packed bitstream         |
+| DSM   | 1,021    | var            | 8,185      | MSB-first, ceil(log2(len(d)+1))    |
+| XSM   | 1,021    | var            | 8,185      | MSB-first, ceil(log2(len(d)+1))    |
+| HSM1  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
+| SFC1  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
+| HSM2  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
+| SFC2  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
+| Total |          |                | 125,988    |                                    |
+
+Per-block size changes from 19,549 bytes to $\lceil 125{,}988 / 8 \rceil = 15{,}749$ bytes, reducing total file
+size by 3,800 bytes per block.
+
+#### B.5.8 Proposed Toroidal-Slope Partitions
+
+This section selects four specific toroidal modular-slope partitions for HSM1/SFC1 and HSM2/SFC2. Each
+partition consists of 511 lines of 511 cells on the $511 \times 511$ grid, defined by toroidal wrapping with
+a fixed rational slope. The construction exploits the primality of $s = 511$ to guarantee perfect orthogonality
+within each pair and strong crossing properties against all existing partitions (LSM, VSM, DSM, XSM).
+
+**Pair 1: HSM1 (slope $\frac{1}{2}$) and SFC1 (slope $-\frac{1}{2}$).**
+
+*HSM1* uses slope $\frac{1}{2}$, which is equivalent to integer slope $p = 256$ since the modular inverse
+of $2$ modulo $511$ is $256$ (i.e., $2 \times 256 = 512 \equiv 1 \pmod{511}$). Line $k$ ($0 \le k < 511$)
+is the set $L_k = \{(t,\ (k + 256t) \bmod 511) : t = 0, 1, \ldots, 510\}$. Each line visits every row
+exactly once (since $\gcd(256, 511) = 1$, the sequence $\{256t \bmod 511\}$ has period 511), producing
+511 disjoint lines that tile the grid. The solver maps $(r, c) \to k = (c - 256r) \bmod 511$.
+
+*SFC1* uses slope $-\frac{1}{2}$, equivalent to integer slope $p = 255$ since $-256 \equiv 255 \pmod{511}$.
+Line $k$ is $L_k = \{(t,\ (k + 255t) \bmod 511) : t = 0, 1, \ldots, 510\}$. The solver maps
+$(r, c) \to k = (c - 255r) \bmod 511$.
+
+*Within-pair orthogonality.* The slope difference is $|256 - 255| = 1$, and $\gcd(1, 511) = 1$, so every
+HSM1 line intersects every SFC1 line in exactly 1 cell. More precisely, the system $(k_1 + 256t) \equiv c$,
+$(k_2 + 255t) \equiv c \pmod{511}$ reduces to $t \equiv (k_2 - k_1) \pmod{511}$, which has a unique solution
+for every $(k_1, k_2)$ pair. This is the same perfect 1-cell crossing density as LSM-VSM (rows versus columns).
+
+**Pair 2: HSM2 (slope 2) and SFC2 (slope $-2$).**
+
+*HSM2* uses integer slope $p = 2$. Line $k$ is $L_k = \{(t,\ (k + 2t) \bmod 511) : t = 0, 1, \ldots, 510\}$.
+Since $\gcd(2, 511) = 1$, each line visits every row exactly once. The solver maps $(r, c) \to k = (c - 2r)
+\bmod 511$.
+
+*SFC2* uses integer slope $p = 509$ (since $-2 \equiv 509 \pmod{511}$). Line $k$ is
+$L_k = \{(t,\ (k + 509t) \bmod 511) : t = 0, 1, \ldots, 510\}$. The solver maps
+$(r, c) \to k = (c - 509r) \bmod 511$.
+
+*Within-pair orthogonality.* The slope difference is $|2 - 509| = |2 - (-2)| = 4$, and $\gcd(4, 511) = 1$,
+so every HSM2 line intersects every SFC2 line in exactly 1 cell.
+
+**Relationship between pairs.** Pair 2 is the transpose of Pair 1: swapping the roles of rows and columns
+in the slope-$\frac{1}{2}$ construction yields slope $2$, and swapping in slope-$(-\frac{1}{2})$ yields slope
+$-2$. This transposition relationship mirrors the LSM-VSM duality (rows versus columns) and ensures geometric
+diversity between the two pairs.
+
+**Cross-pair crossing density.** The slope differences between lines of different pairs are:
+
+- HSM1 vs HSM2: $|256 - 2| = 254$, $\gcd(254, 511) = \gcd(254, 511) = 1$ $\Rightarrow$ 1 cell.
+- HSM1 vs SFC2: $|256 - 509| = 253$, $\gcd(253, 511) = \gcd(253, 511) = 1$ $\Rightarrow$ 1 cell.
+- SFC1 vs HSM2: $|255 - 2| = 253$, $\gcd(253, 511) = 1$ $\Rightarrow$ 1 cell.
+- SFC1 vs SFC2: $|255 - 509| = 254$, $\gcd(254, 511) = 1$ $\Rightarrow$ 1 cell.
+
+Every cross-pair line intersection is also exactly 1 cell. The construction achieves perfect orthogonality
+not only within pairs but across all four slope families and with the existing axis-aligned partitions:
+
+- vs LSM (rows): each slope line visits every row exactly once $\Rightarrow$ 1 cell per (line, row) pair.
+- vs VSM (columns): each slope line visits every column exactly once $\Rightarrow$ 1 cell per (line, column)
+  pair (since $\gcd(p, 511) = 1$ for all four slopes, the column visitation sequence is also a complete
+  residue system).
+- vs DSM (diagonals $d = c - r + 510$): each slope-$p$ line visits $511$ of $1{,}021$ diagonals, with at
+  most 1 cell per diagonal. The number of distinct diagonals visited depends on $\gcd(p - 1, 511)$: for
+  $p \in \{2, 255, 256, 509\}$, the values $p - 1 \in \{1, 254, 255, 508\}$ are all coprime to 511, so
+  each line visits 511 *distinct* diagonals --- hitting each at most once.
+- vs XSM (anti-diagonals $x = r + c$): similarly, the relevant quantity is $\gcd(p + 1, 511)$: for
+  $p \in \{2, 255, 256, 509\}$, the values $p + 1 \in \{3, 256, 257, 510\}$ are all coprime to 511, so
+  each line visits 511 distinct anti-diagonals.
+
+**Global uniqueness.** The six uniform partitions (LSM, VSM, HSM1, SFC1, HSM2, SFC2) produce
+$6 \times 511 = 3{,}066$ line sets. No two line sets across any pair of partitions cover the same cells,
+because any two lines from different partitions intersect in exactly 1 cell (proven above), while lines
+within the same partition are disjoint. Since every pair of lines from different partitions has intersection
+size 1, and lines within a partition have intersection size 511 (the entire line), no identification is
+possible across partitions. Uniqueness (Axiom 2) holds globally.
+
+**Runtime cost.** Unlike space-filling curves, which require precomputed lookup tables ($\sim$327 KB per
+curve), toroidal-slope partitions compute the line index directly: $k = (c - p \cdot r) \bmod 511$. This is
+a single integer multiplication and modular reduction, which on modern hardware executes in 1--2 clock cycles.
+No lookup tables are required, eliminating 1.3 MB of compiled constant data and improving cache utilization
+during constraint propagation.
+
+#### B.5.9 Open Questions
+
+(a) What is the empirical decompression throughput difference between SHA-1 and SHA-256 row hashing on Apple
+Silicon M-series processors, measured as hash evaluations per second during constraint solving with frequent
+backtracking?
+
+(b) Is the 4-partition (2-pair) allocation optimal, or does scaling to 10 partitions (5 pairs) at
+compression-neutral cost (41.2% versus 40.1%) yield a sufficiently larger propagation benefit to justify the
+reduced compression improvement? The toroidal-slope construction trivially extends to additional pairs by
+selecting new slopes $p$ with $\gcd(p, 511) = 1$ and $\gcd(|p_i - p_j|, 511) = 1$ for all existing slopes
+$p_j$, which is achievable for any number of pairs up to $(511 - 1)/2 = 255$.
+
+(c) Are there slope values other than $\{2, 255, 256, 509\}$ (i.e., slopes $\{\frac{1}{2}, -\frac{1}{2}, 2,
+-2\}$) that provide superior propagation interaction with DSM and XSM? The current slopes visit 511 of 1,021
+diagonals and anti-diagonals per line; alternative slopes may distribute diagonal visits differently, though
+the 1-cell intersection guarantee with all axis-aligned partitions holds for any slope coprime to 511.
+
 ## References
 
 Apple. (n.d.-a). Metal developer documentation.
@@ -2419,6 +2749,9 @@ Haverkort, H. J. (2017). How many three-dimensional Hilbert curves are there? *J
 Jerrum, M., Sinclair, A., & Vigoda, E. (2004). A polynomial-time approximation algorithm for the permanent of a matrix
 with nonnegative entries. *Journal of the ACM, 51*(4), 671--697.
 
+Kelsey, J., & Schneier, B. (2005). Second preimages on $n$-bit hash functions for much less than $2^n$ work. In
+R. Cramer (Ed.), *Advances in Cryptology --- EUROCRYPT 2005* (LNCS 3494, pp. 474--490). Springer.
+
 Knuth, D. E. (2005). *The Art of Computer Programming, Volume 4, Fascicle 2: Generating All Tuples and Permutations*.
 Addison-Wesley.
 
@@ -2427,6 +2760,9 @@ Intelligence*.
 
 Kschischang, F. R., Frey, B. J., & Loeliger, H.-A. (2001). Factor graphs and the sum-product algorithm. *IEEE
 Transactions on Information Theory, 47*(2), 498--519.
+
+Leurent, G., & Peyrin, T. (2020). SHA-1 is a shambles: First chosen-prefix collision on SHA-1 and application to
+the PGP web of trust. In *Proceedings of the 29th USENIX Security Symposium* (pp. 1839--1856). USENIX Association.
 
 Mokbel, M. F., & Aref, W. G. (2001). Irregularity in multi-dimensional space-filling curves with applications in
 multimedia databases. In *Proceedings of the Tenth International Conference on Information and Knowledge Management*
@@ -2438,6 +2774,9 @@ Niedermeier, R., Reinhardt, K., & Sanders, P. (2002). Towards optimal locality i
 Mathematics, 117*(1--3), 211--237.
 
 Sagan, H. (1994). *Space-filling curves*. Springer.
+
+Stevens, M., Bursztein, E., Karpman, P., Albertini, A., & Markov, Y. (2017). The first collision for full SHA-1.
+In J. Katz & H. Shacham (Eds.), *Advances in Cryptology --- CRYPTO 2017* (LNCS 10401, pp. 570--596). Springer.
 
 Valiant, L. G. (1979). The complexity of computing the permanent. *Theoretical Computer Science, 8*(2), 189--201.
 
