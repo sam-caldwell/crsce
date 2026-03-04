@@ -1761,12 +1761,235 @@ reduces I/O overhead during high-throughput solver phases.
 
 ## Appendix B. Ideas Under Consideration
 
-### B.1 Segmented Prefix Hashes for Early Solver Pruning
+### B.1 Conflict-Driven Learning from Hash Failures
 
-*This appendix is obsolete.* The segmented prefix hash approach has been superseded by the dynamic row-completion
-priority queue (B.4), which achieves earlier LH verification by steering the solver toward nearly-complete rows
-rather than adding sub-row hash checkpoints. The priority queue approach requires no additional storage, no format
-changes, and no increase in per-block payload size.
+When a SHA-1 lateral hash mismatch kills a subtree at depth ~87K, the solver currently backtracks one level ---
+undoing the most recent branching assignment and trying the alternate value. If both values fail, it backtracks
+another level, and so on up the stack. This is chronological backtracking: the solver retries assignments in
+reverse order of when they were made, regardless of which assignments actually *caused* the conflict. It learns
+nothing from the failure. If the root cause was an assignment made 500 levels earlier, the solver will exhaust an
+exponential number of intermediate configurations before reaching that level.
+
+This appendix proposes adapting conflict-driven clause learning (CDCL) --- the dominant technique in modern SAT
+solvers (Marques-Silva & Sakallah, 1999; Moskewicz et al., 2001) --- to exploit hash failures as a source of
+conflict information. The key insight is that an LH mismatch on row $r$ constitutes a *proof* that the current
+partial assignment to the $s$ cells in row $r$ is infeasible. The solver can analyze this proof to identify a
+small subset of earlier assignments that are jointly responsible for the conflict, record that combination as a
+*nogood clause*, and backjump directly to the deepest responsible assignment rather than unwinding the stack one
+frame at a time.
+
+#### B.1.1 Background: CDCL in SAT Solvers
+
+In a CDCL SAT solver, when unit propagation derives a conflict (an empty clause), the solver performs *conflict
+analysis* by tracing the implication graph backward from the conflicting clause. The analysis identifies a *unique
+implication point* (UIP) --- the most recent decision variable that, together with propagated literals, implies the
+conflict. The solver learns a new clause encoding the negation of the responsible assignments, adds it to the clause
+database, and backjumps to the decision level of the second-most-recent literal in the learned clause. The learned
+clause immediately forces the UIP variable to its opposite value at the backjump level, avoiding the need to
+re-explore the intervening search space (Marques-Silva & Sakallah, 1999).
+
+The power of CDCL comes from two properties: *non-chronological backtracking* (backjumping past irrelevant decision
+levels) and *clause learning* (preventing the solver from ever entering the same conflicting configuration again).
+Together, these properties transform an exponential-time DFS into a procedure that can prune large regions of the
+search space based on information extracted from each conflict.
+
+#### B.1.2 Hash Failures as Conflict Sources
+
+In the CRSCE solver, conflicts arise from two sources: *cardinality infeasibility* (a constraint line's residual
+$\rho$ falls outside $[0, u]$) and *hash mismatch* (an SHA-1 lateral hash check fails on a completed row). The
+cardinality conflicts are detected immediately during propagation and trigger standard backtracking. The hash
+conflicts are detected only when a row is fully assigned ($u(\text{row}) = 0$) and the computed SHA-1 digest
+disagrees with the stored LH value.
+
+A hash mismatch on row $r$ means that the 511-bit assignment to row $r$ does not match the unique preimage expected
+by the stored hash. However, some of those 511 bits were determined by branching decisions (either directly or via
+propagation from decisions in other rows), while others were forced by cardinality constraints with no branching
+alternative. The forced bits are *consequences* of earlier decisions; the branching decisions are the *causes*.
+Conflict analysis must distinguish between the two.
+
+The implication structure in the CRSCE solver is implicit rather than explicit. When the propagation engine forces
+cell $(r, c)$ to value $v$ because $\rho(\text{line}) = 0$ or $\rho(\text{line}) = u(\text{line})$, that forcing
+event depends on every prior assignment to cells on that line. In principle, the solver could maintain an implication
+graph recording, for each forced assignment, which line triggered the forcing and which prior assignments reduced that
+line's residual to a forcing state. In practice, the implication graph for 87K assignments would be large, and
+maintaining it would add overhead to every propagation step.
+
+#### B.1.3 Conflict Analysis for LH Mismatches
+
+When row $r$ fails its LH check, the solver knows that the current assignment to row $r$'s 511 cells is wrong, but
+not *which* cells are wrong. The conflict clause, in the SAT sense, is the conjunction of all 511 cell assignments in
+the row --- negating it says "do not assign row $r$ to exactly this 511-bit pattern." This is a *very long clause*
+(511 literals), and long clauses provide weak pruning: the clause is only violated when all 511 assignments recur in
+exactly the same configuration, which is astronomically unlikely given the size of the search space.
+
+To derive a shorter, more useful clause, the solver needs to identify which of the 511 assignments were *decisions*
+(branching choices) versus *propagated* (forced consequences). A typical row in the plateau region has ~400 cells
+forced by propagation and ~111 cells assigned by branching. The conflict clause can be reduced to the ~111 decision
+literals, since the propagated literals are implied by the decisions and the constraint system. This is still a long
+clause by SAT-solver standards, but it is a 78% reduction from the naive 511-literal clause.
+
+Further reduction requires tracing the implication graph backward from the row-$r$ assignments to identify the
+*first UIP* --- the most recent decision variable whose reversal, together with all prior decisions, would have
+prevented the conflict. If the solver maintains an implication graph (or can reconstruct one from the undo stack),
+standard 1-UIP analysis (Zhang et al., 2001) produces a learned clause whose length is bounded by the number of
+decision levels involved in the conflict, which may be significantly smaller than 111.
+
+#### B.1.4 Non-Chronological Backjumping
+
+The learned clause identifies a set of decision variables responsible for the conflict. The deepest decision level
+among the clause's literals is the *conflict level*; the second-deepest is the *backjump level*. The solver can
+undo all assignments from the conflict level back to the backjump level in a single operation, skipping all
+intermediate levels whose decisions are irrelevant to the conflict.
+
+In the CRSCE solver, the current `undoToSavePoint` mechanism supports bulk undo to any prior save point, so the
+mechanical infrastructure for backjumping exists. The missing component is the analysis that determines *where* to
+jump. Without clause learning, the solver must unwind one frame at a time; with clause learning, it can skip
+directly to the responsible level.
+
+The potential savings are substantial. If a hash failure on row 170 was caused by a bad decision on row 50 (because
+that decision propagated through column and slope constraints into row 170), chronological backtracking must exhaust
+all $2^{111}$ configurations of the 111 branching cells between rows 50 and 170 before reaching row 50. Backjumping
+skips directly to row 50 after a single conflict analysis, saving an exponential amount of work.
+
+#### B.1.5 DI Determinism
+
+CDCL introduces a fundamental tension with CRSCE's disambiguation index (DI) semantics. The DI is defined as the
+ordinal position of the correct solution in the lexicographic enumeration of all feasible solutions. Lexicographic
+order requires the enumerator to explore solutions in a canonical sequence: cell $(0,0)$ before $(0,1)$, value 0
+before value 1, and so on. Clause learning and non-chronological backjumping can alter the *order* in which the
+solver visits partial assignments, which changes the enumeration sequence and therefore the DI.
+
+For CDCL to be compatible with DI semantics, one of two conditions must hold:
+
+*Condition 1: Learned clauses are redundant.* If every learned clause is logically implied by the original constraint
+system (cross-sums + hashes), then the clause merely prunes infeasible regions of the search space without excluding
+any feasible solution. The enumeration order is preserved because the solver still visits all feasible solutions in
+the same sequence --- it just skips infeasible subtrees faster. This condition holds for standard CDCL, where learned
+clauses are derived by resolution from the original clauses and are therefore logically redundant.
+
+*Condition 2: The solver enumerates in a modified order but compensates the DI.* If learned clauses alter the
+enumeration order, the compressor and decompressor must use the same clause database to produce the same order. Since
+the clause database depends on the solver's conflict history (which depends on the input), the compressor would need
+to either (a) transmit the clause database as part of the payload, or (b) guarantee that both sides encounter the
+same conflicts in the same order. Option (b) holds automatically if the solver is deterministic and the initial
+state is identical, which it is: both sides start from the same constraint system derived from the payload.
+
+Condition 1 is the safer path. If learned clauses are derived strictly from the constraint system (cross-sum
+cardinality bounds and hash values), they are logically redundant and the lexicographic enumeration order is
+preserved. The solver visits the same feasible solutions in the same order; it merely skips infeasible subtrees
+without entering them. Condition 2 also holds in practice (deterministic solver, identical initial state), providing
+a belt-and-suspenders guarantee.
+
+#### B.1.6 Implementation Complexity
+
+CDCL adaptation for CRSCE is substantially more complex than any other proposal in this appendix. The implementation
+requires:
+
+*Implication graph maintenance.* Every propagated assignment must record which constraint line triggered the forcing
+and the set of prior assignments on that line. At 87K assignments with 8+ lines per cell, the graph is large. A
+compact representation (storing only the triggering line index and the save-point token, not the full antecedent set)
+can reduce memory overhead, but conflict analysis must still traverse the graph backward from the conflict.
+
+*Conflict analysis procedure.* The 1-UIP algorithm (Zhang et al., 2001) traverses the implication graph in reverse
+topological order, resolving antecedent clauses until a single literal from the current decision level remains. This
+is well-understood but must be adapted for the CRSCE propagation model, where antecedents are cardinality forcing
+events (not Boolean unit propagation) and the "clause" structure is implicit.
+
+*Clause database.* Learned clauses must be stored and checked during propagation. In SAT solvers, the clause database
+can grow to millions of clauses, managed by periodic garbage collection (removing low-activity clauses). For CRSCE,
+the clause database would likely be smaller (hash conflicts are relatively rare compared to SAT conflicts), but the
+watched-literal data structure used for efficient clause checking in SAT solvers would need adaptation.
+
+*Backjump integration.* The existing `undoToSavePoint` mechanism must be extended to support jumping to an arbitrary
+prior save point, not just the most recent one. The undo stack must correctly restore the constraint store, the
+propagation queue, and the implication graph to the backjump state.
+
+The engineering effort is significant, and the benefit depends on how often hash failures have *distant* root causes
+(decisions many levels earlier). If most hash failures are caused by recent decisions (within the last 10--20
+levels), backjumping provides modest savings and the overhead of implication-graph maintenance may not be justified.
+
+#### B.1.7 Lightweight Alternative: Backjump Distance Estimation
+
+A pragmatic alternative to full CDCL is *backjump distance estimation* without clause learning. When a hash failure
+occurs on row $r$, the solver identifies the earliest row among the branching cells in row $r$ that has an unforced
+assignment. This is a coarse approximation to conflict analysis: it assumes the root cause is in the earliest row
+contributing a branching decision to the failed row, and backjumps there directly.
+
+This heuristic requires no implication graph and no clause database. It only needs to scan the undo stack to find
+which cells in row $r$ were branching decisions (not propagated) and determine the earliest row among them. The
+backjump skips all intermediate levels whose decisions are in rows unrelated to row $r$. It does not learn a clause,
+so it cannot prevent the solver from re-entering the same conflicting configuration via a different path, but it
+avoids the worst case of chronological backtracking (exhausting exponentially many irrelevant configurations).
+
+The DI determinism argument for this heuristic is straightforward: the backjump target is a deterministic function
+of the undo stack and the failed row, both of which are identical in compressor and decompressor. No enumeration
+order is changed; the solver merely skips subtrees that are provably empty (they contain no feasible completion of
+the current partial assignment to row $r$, because the hash check already failed).
+
+#### B.1.8 Open Questions
+
+(a) How often do LH failures have distant root causes? If the typical hash failure is caused by a decision within
+the last 5--10 levels, backjumping provides little benefit over chronological backtracking. If root causes are
+frequently 50--500 levels deep, the savings are exponential. Instrumenting the current solver to log the distance
+between hash failures and their causal decisions would answer this question without implementing CDCL.
+
+(b) Can the implication graph be maintained cheaply enough to justify full CDCL? The overhead is per-propagation-step
+(recording the triggering line for each forced assignment). If the propagation engine's fast path
+(`tryPropagateCell`, ~80% of iterations) can record antecedents with minimal branch overhead, the cost may be
+acceptable. If antecedent recording requires non-trivial bookkeeping on every forcing event, the per-iteration
+slowdown could offset the backjumping savings.
+
+(c) Is the lightweight backjump estimator (B.1.7) sufficient in practice? If coarse row-level backjumping captures
+most of the benefit of full CDCL at a fraction of the implementation cost, it may be the preferred approach. The
+estimator can be implemented and measured before committing to the full CDCL infrastructure.
+
+(d) How does CDCL interact with the adaptive lookahead (B.8)? Lookahead probes at depth $k$ generate additional
+conflicts that could feed the clause-learning machinery. A $k = 2$ probe that discovers a hash failure two levels
+ahead could produce a learned clause that prunes the current level, combining the benefits of lookahead (deeper
+probing) and CDCL (permanent learning). The interaction is potentially powerful but adds implementation complexity.
+
+(e) What clause-management strategy is appropriate for CRSCE? SAT solvers use aggressive clause deletion to control
+database growth. CRSCE's conflict rate is much lower (hash failures are infrequent compared to SAT conflicts), so the
+clause database may remain small enough that no deletion is needed. Alternatively, clauses could be scoped to the
+current block and discarded between blocks.
+
+#### B.1.9 Prioritization Based on B.8 Telemetry (Implemented)
+
+B.8 (adaptive lookahead via stall detection, $k = 1\ldots4$) was implemented and profiled at 16M+ iterations on a
+representative input block. Telemetry showed:
+
+- DFS depth plateau at $\approx 87{,}500$ regardless of probe depth $k = 1 \ldots 4$.
+- $37\%$ hash mismatch rate ($6.1$M mismatches / $16.7$M iterations).
+- `min_nz_row_unknown = 1` throughout --- rows frequently reach completion and fail SHA-1 verification immediately.
+- $k = 4$ added $\approx 15\%$ per-iteration overhead with zero improvement in depth.
+
+This establishes that the bottleneck is **search guidance, not constraint density or lookahead reach**. The
+infeasible subtrees span many more than 4 levels of assignment; deeper probing cannot detect them. The solver reaches
+row completion constantly, fails hash checks constantly, backtracks one level, and retries --- learning nothing from
+each failure.
+
+The primary value of B.1 is **non-chronological backjumping** (B.1.4), not clause learning (B.1.3). At $\approx 111$
+decision literals per hash-failure clause, clause reuse provides negligible propagation power: a 111-literal clause
+only fires when all 111 assignments recur in exactly the same configuration. The backjump target alone --- jumping
+directly to the earliest responsible decision --- provides exponential savings without any clause infrastructure.
+
+**Implementation sequence adopted:**
+
+1. B.1.7 (lightweight backjump estimation) implemented first. When a hash failure occurs on row $r$, the solver scans
+   the DFS stack bottom-up for the shallowest frame whose branching cell lies in row $r$, undoes all assignments back
+   to that frame's save point, truncates the stack, and lets the loop try that frame's alternate value. No implication
+   graph, no clause database, no new data structures. DI determinism holds trivially: the backjump target is a
+   deterministic function of `stack[i].row` values and `failedRow`, both identical in compressor and decompressor
+   from the same payload.
+
+2. B.1.8(a) instrumentation implemented simultaneously. The metrics `backjumps`, `backjump_dist_max`,
+   `backjump_dist_avg`, and `non_backjumpable` are emitted every $\approx 1$M iterations. These answer the key
+   empirical question: are root causes shallow ($\leq 5$ levels, minimal benefit) or deep ($\geq 50$ levels,
+   exponential savings)?
+
+3. Full CDCL deferred. Implement only if `non_backjumpable` is high (most hash failures have no direct branch in the
+   failed row, indicating the coarse stack scan is insufficient) or `backjump_dist_avg` remains low after B.1.7 is
+   confirmed not to break the plateau.
 
 ### B.2 Auxiliary Cross-Sum Partitions as Solver Accelerators (Implemented)
 
@@ -2215,7 +2438,11 @@ at the cost of fewer long segments, changing the collision/propagation tradeoff.
 pairs, or must it remain an empirically verified property? Is there a combinatorial framework analogous to MOLS theory
 that governs the existence of mutually orthogonal variable-length partitions on finite grids?
 
-### B.4 Dynamic Row-Completion Priority in Cell Selection
+### B.4 Dynamic Row-Completion Priority in Cell Selection (Implemented; Subsumed by B.10)
+
+*The row-completion priority queue described in this appendix has been implemented. B.10 generalizes this design into
+a multi-line tightness-driven ordering; B.4's implementation is the first stage of the B.10 strategy, corresponding
+to the degenerate case where only row weights are non-zero.*
 
 The `RowDecomposedController` (Section 10.4) computes a global cell ordering via
 `ProbabilityEstimator::computeGlobalCellScores()` once before the DFS begins, then walks that static ordering for the
@@ -2718,7 +2945,6 @@ alternate value (as in the existing `probeAlternate`)? Probing only the alternat
 tree size at each depth, effectively doubling the affordable $k$. However, probing the canonical value
 as well can detect doomed states earlier, reducing backtrack depth.
 
-
 ### B.9 Non-Linear Lookup-Table Partitions
 
 All eight implemented constraint families are *linear*: each defines its cell-to-line mapping via an arithmetic
@@ -2728,11 +2954,13 @@ in B.2.2 possible --- swap-invisible patterns exist because the constraint syste
 $\mathbb{Z}$, and the null space of any finite set of linear functionals over a 261,121-dimensional binary vector
 space is necessarily large.
 
-This appendix proposes *non-linear partitions* defined by a precomputed pseudorandom lookup table rather than an
-algebraic formula. The partition uses $s$ uniform-length lines of $s$ cells each, encoded at $b$ bits per element ---
-the same structure and per-partition storage cost as LSM, VSM, or any toroidal-slope family. The mapping from cell to
-line is determined entirely by a deterministic PRNG, ensuring that the partition has no exploitable algebraic
-structure while remaining identical in compressor and decompressor.
+This appendix proposes *non-linear partitions* defined by an optimized lookup table rather than an algebraic formula.
+The partition uses $s$ uniform-length lines of $s$ cells each, encoded at $b$ bits per element --- the same structure
+and per-partition storage cost as LSM, VSM, or any toroidal-slope family. The table is constructed offline,
+optimized against simulated DFS trajectories on random inputs to maximize constraint tightening in the plateau
+region (rows ~100--300), then hardcoded into the source as an immutable literal. Because the mapping has no
+exploitable algebraic structure and is tuned for the solver's empirical bottleneck, it offers a qualitatively
+different kind of constraint compared to any additional slope pair.
 
 #### B.9.1 Construction
 
@@ -2747,44 +2975,75 @@ $$
 where $x_{r,c} \in \{0, 1\}$ is the CSM cell value. Each $\Sigma_k \in \{0, 1, \ldots, s\}$, requiring $b =
 \lceil \log_2(s + 1) \rceil = 9$ bits to encode --- identical to the LSM, VSM, and toroidal-slope families.
 
-The table is constructed offline using a deterministic PRNG seeded with a fixed constant (e.g., the first 32 bytes
-of SHA-256("CRSCE-LTP-v1")). Construction proceeds as follows: create a list of all $s^2 = 261{,}121$ cell indices
-$(r, c)$ in row-major order, shuffle the list using a Fisher--Yates shuffle driven by the PRNG, then assign the
-first $s$ cells to line 0, the next $s$ cells to line 1, and so on through line $s - 1$. The result is a partition
-where each line's $s$ members are scattered pseudorandomly across the matrix, crossing rows, columns, diagonals, and
-slopes with no spatial structure.
+Construction is a two-phase offline process. The first phase generates a *baseline table* from a deterministic PRNG
+seeded with a fixed constant (e.g., the first 32 bytes of SHA-256("CRSCE-LTP-v1")). A Fisher--Yates shuffle of all
+$s^2$ cell indices produces a random assignment of $s$ cells per line, satisfying the uniform-length constraint.
+This baseline serves as the starting point for the second phase.
+
+The second phase *optimizes* the baseline against simulated DFS trajectories. The procedure generates a test suite
+of $N$ random $511 \times 511$ binary matrices, runs the full decompression solver on each (using the current 8
+linear partitions plus the candidate LTP pair), and records the total backtrack count in the plateau band (rows
+100--300). The optimizer applies a local-search heuristic --- swapping the line assignments of two randomly chosen
+cells, accepting the swap if it reduces the mean backtrack count across the test suite, rejecting it otherwise. This
+hill-climbing loop iterates until convergence. The swap preserves the uniform-length invariant (both lines still
+have $s$ cells after the exchange), so the storage cost remains $sb = 4{,}599$ bits throughout.
 
 The resulting table is hardcoded into the source code as a `constexpr std::array<uint16_t, 261121>` literal. The
-table is part of the committed source, not a build-time artifact --- there is no code-generation step, no PRNG
-invocation at compile time, and no possibility of variation between builds or platforms. The PRNG is used only once,
-offline, to produce the literal values that are then checked into the repository. This guarantees bit-identical
+table is part of the committed source, not a build-time artifact --- there is no code-generation step, no optimizer
+invocation at compile time, and no possibility of variation between builds or platforms. This guarantees bit-identical
 tables in compressor and decompressor unconditionally. At runtime, cell-to-line resolution is a single indexed
 memory access. The table occupies $s^2 \times 2 = 522{,}242$ bytes ($\approx 510$ KB) of static read-only memory
 per partition.
 
-#### B.9.2 Why Non-Linearity Matters
+#### B.9.2 Optimization Objective
+
+The solver's plateau at depth ~87K (row ~170) occurs because all 8 existing constraint lines through any given cell
+have length $s = 511$. At the plateau entry point, each line has roughly 170 of its 511 cells assigned, leaving
+$u \approx 341$ unknowns and a residual $\rho$ in the range 80--170. The forcing conditions ($\rho = 0$ or
+$\rho = u$) are far from triggering. The solver branches on nearly every cell because no line is tight enough to
+force anything.
+
+A uniform pseudorandom LTP has the same problem: its lines scatter cells uniformly across all rows, so at any given
+DFS depth, all LTP lines progress at roughly the same rate and none reaches the forcing threshold before the others.
+The optimization phase addresses this by biasing line composition so that *some* lines become tight early while
+others stay loose.
+
+The ideal optimized table has the following property: a substantial fraction of LTP lines (say 50--100) have a
+majority of their $s$ cells concentrated in rows 0--170 (the region already solved when the DFS enters the plateau).
+By row 170, these lines have $u \lesssim 170$ --- nearly half their cells are still unknown, but the residual is
+correspondingly reduced. More importantly, the cells that remain unknown on these lines are scattered through the
+plateau band (rows 100--300), so when the DFS assigns one of them, the line's residual drops toward a forcing
+threshold faster than any length-511 linear line can achieve at the same depth. The remaining ~400 LTP lines absorb
+the peripheral cells and stay loose, but those cells are already well-served by DSM/XSM (short lines at the corners)
+and cardinality forcing on rows and columns.
+
+The optimization objective is therefore: **minimize the mean backtrack count in the plateau band across a
+representative suite of random inputs.** This objective is agnostic to the mechanism by which the table achieves its
+benefit --- it rewards any line-composition pattern that helps the solver, whether through early tightening, improved
+crossing density with existing partitions, or some emergent structural property that the hill-climbing discovers.
+
+#### B.9.3 Why Non-Linearity Matters
 
 With linear partitions, the set of matrices indistinguishable from a given matrix $M$ under the constraint system
 forms a coset of a lattice in $\mathbb{Z}^{s^2}$. The lattice kernel has dimension at least $s^2 - (ns - c)$ for $n$
-partitions with $c$ dependent constraints. This structure means that swap-invisible patterns can be constructed
-algebraically --- one solves a system of linear equations to find the null space, then enumerates binary-feasible
-vectors within it.
+partitions with $c$ dependent constraints. Swap-invisible patterns can be constructed algebraically by solving a
+system of linear equations to find the null space, then enumerating binary-feasible vectors within it.
 
-A pseudorandom LTP breaks this structure. The cell-to-line mapping $T[r][c]$ has no algebraic relationship to
+An optimized LTP breaks this structure. The cell-to-line mapping $T[r][c]$ has no algebraic relationship to
 $(r, c)$, so the constraint $\Sigma_k = \text{target}$ is not a linear functional over the cell coordinates in any
 useful sense. Formally, the constraint is still linear in the cell *values* (it is a sum), but the set of cells
-participating in each constraint is defined by a pseudorandom lookup rather than an arithmetic predicate. The
-"which cells share a line" structure cannot be analyzed via rank-nullity over $\mathbb{Z}$ --- the partition's
-geometry is opaque to linear-algebraic attack.
+participating in each constraint is defined by an optimized lookup rather than an arithmetic predicate. The "which
+cells share a line" structure cannot be analyzed via rank-nullity over $\mathbb{Z}$ --- the partition's geometry is
+opaque to linear-algebraic attack.
 
-For swap-invisible patterns, a $k$-cell swap must simultaneously balance across all linear partitions (rows, columns,
-diagonals, anti-diagonals, slopes) *and* all non-linear partitions. The linear partitions constrain the swap to lie
-in a lattice coset; the non-linear partitions impose additional combinatorial conditions that do not align with the
-lattice structure. A swap pattern that balances on a toroidal-slope line (because the cells lie on a modular
-arithmetic progression) has no reason to also balance on a pseudorandom line whose membership was determined by a
-PRNG. The two constraint classes are structurally independent.
+A 5th toroidal-slope pair, by contrast, is still a linear functional mod $s$. Its null-space contribution partially
+overlaps with the existing 4 slope pairs, because all slope constraints live in the same algebraic family. An LTP
+line's membership has zero algebraic correlation with any linear family, so the information it contributes is
+maximally independent in the combinatorial sense. For swap-invisible patterns, a $k$-cell swap must simultaneously
+balance across all linear partitions *and* the non-linear LTP --- a strictly harder condition than balancing across
+linear partitions alone.
 
-#### B.9.3 Storage Cost
+#### B.9.4 Storage Cost
 
 An LTP with $s$ uniform-length lines encodes identically to LSM, VSM, or any toroidal-slope family. Each line's
 cross-sum requires $b = 9$ bits. The per-partition storage cost is:
@@ -2793,8 +3052,7 @@ $$
     B_u(s) = s \times b = 511 \times 9 = 4{,}599 \text{ bits}
 $$
 
-This is the same cost as one toroidal-slope partition. Adding one LTP pair (two partitions) costs $2 \times 4{,}599
-= 9{,}198$ bits per block --- identical to a toroidal-slope pair. The compression ratio impact:
+Adding one LTP pair costs $2 \times 4{,}599 = 9{,}198$ bits per block --- identical to a toroidal-slope pair:
 
 | Configuration                     | Block bits | $C_r$  |
 |-----------------------------------|-----------|--------|
@@ -2802,104 +3060,759 @@ This is the same cost as one toroidal-slope partition. Adding one LTP pair (two 
 | + 1 LTP pair (10 partitions)     | 135,186   | 0.4823 |
 | + 2 LTP pairs (12 partitions)    | 144,384   | 0.4471 |
 
-Each LTP pair costs 3.5 percentage points of compression ratio, the same as a toroidal-slope pair. The decision
-between an additional slope pair and an LTP pair therefore reduces entirely to propagation effectiveness: does the
-non-linear structure provide more constraint tightening per stored bit than a 5th algebraic slope?
+The storage cost is identical to a slope pair. The decision between an LTP pair and a 5th slope pair therefore
+reduces to propagation effectiveness per stored bit: does the optimized non-linear structure break the plateau more
+effectively than a 5th algebraic slope?
 
-#### B.9.4 Propagation Characteristics
+#### B.9.5 Propagation Characteristics
 
-Non-linear partitions propagate differently from linear ones. A linear partition's lines have spatial coherence ---
-a row contains spatially adjacent cells, a diagonal contains cells along a geometric line, and a toroidal slope
-visits cells at regular modular intervals. This coherence means that forcing one cell on a line often forces nearby
-cells (because nearby cells share other linear constraints). Non-linear lines lack this property: the $s$ cells on a
-single LTP line are scattered pseudorandomly across the matrix, sharing no rows, columns, diagonals, or slopes in
-any systematic way.
+The optimized LTP produces two classes of lines with distinct propagation behavior.
 
-This scattering has both advantages and disadvantages for propagation.
+*Early-tightening lines* have a majority of their cells in rows 0--170. By the time the DFS reaches the plateau,
+these lines have small $u$ and small $\rho$, approaching forcing thresholds. When the solver assigns a plateau-band
+cell that belongs to one of these lines, the residual update may trigger $\rho = 0$ (forcing all remaining unknowns
+to 0) or $\rho = u$ (forcing all remaining unknowns to 1). These forcing events propagate through the cell's 8
+linear lines, potentially cascading into further assignments. The early-tightening lines thus inject forcing events
+into the plateau band --- exactly where the linear partitions provide none.
 
-*Advantage: long-range information transfer.* When a cell on an LTP line is forced, the residual update propagates
-to all $s - 1$ other cells on that line, which may be in distant rows. This creates constraint feedback across
-regions of the matrix that no linear partition connects directly. In the mid-solve "silent zone" (rows 100--300),
-where linear partitions have large residuals and provide little forcing, an LTP line passing through that region
-may have a smaller residual (because some of its cells are in already-solved early rows), enabling forcing in rows
-that would otherwise receive no feedback.
+*Late-tightening lines* have most of their cells in the plateau band and beyond. These lines remain loose during the
+plateau but gradually tighten as the DFS progresses past row 300. They provide little forcing during the critical
+phase but contribute long-range information transfer: a cell assigned in row 150 updates a late-tightening line
+whose other cells span rows 200--400, carrying residual information forward into rows the solver has not yet reached.
 
-*Disadvantage: sparse cascade potential.* Linear partitions create dense local cascades: forcing a cell on a row
-updates the row residual, which may force an adjacent cell, which updates a column, which forces a cell in another
-row, and so on. The spatial locality ensures that each cascade step touches cells that share multiple constraints.
-LTP lines connect spatially distant cells, so a forcing event on an LTP line is unlikely to trigger a cascade on
-another LTP line (the forced cell's other LTP line contains a different random scatter of cells). The cascade
-potential is primarily through the cell's 8 linear lines, not through the LTP lines.
+Linear partitions, by contrast, have uniform line composition: every row line has 511 cells spanning one row, every
+column line has 511 cells spanning one column, and every slope line visits cells at regular modular intervals across
+the entire matrix. No linear line becomes tighter than any other at a given DFS depth. The LTP's heterogeneous line
+composition is a qualitative difference that uniform-length linear partitions cannot replicate.
 
-The net effect is that LTPs provide *breadth* (information spread across the matrix) rather than *depth* (cascading
-local forcing). This makes them complementary to the existing linear partitions, which provide depth but limited
-breadth in the mid-solve.
+#### B.9.6 Runtime Cost
 
-#### B.9.5 Runtime Cost
+Each LTP partition adds $s = 511$ lines to the `ConstraintStore` --- the same count as a toroidal-slope partition.
+At 8 bytes per line statistic (target, assigned, unknown), one LTP partition adds $511 \times 8 = 4{,}088$ bytes,
+identical to a slope partition. The per-assignment cost increases by 2 line-stat updates per LTP pair (one lookup per
+partition, one stat update each). The lookup is a single array access into the precomputed table --- $O(1)$, typically
+an L1 cache hit after the first few accesses. The `PropagationEngine` fast path (`tryPropagateCell`) checks 2
+additional lines per LTP pair, extending the current 8-line check to 10 --- a 25% increase in per-iteration cost,
+partially offset by the additional forcing events that reduce the total iteration count.
 
-The `ConstraintStore` would require a second set of line statistics for each LTP partition. Each LTP partition adds
-$s = 511$ lines to the store --- the same count as a toroidal-slope partition. At 8 bytes per line statistic
-(target, assigned, unknown), one LTP partition adds $511 \times 8 = 4{,}088$ bytes, identical to a slope partition.
+The runtime footprint is identical to adding a 5th toroidal-slope pair, with the sole difference being the 510 KB
+lookup table in static read-only memory (versus a computed index formula for slopes).
 
-The per-assignment cost increases by 2 line-stat updates per LTP pair (one lookup per partition, one stat update
-each). The lookup is a single array access into the precomputed table --- $O(1)$, typically an L1 cache hit after
-the first few accesses. The `PropagationEngine` fast path (`tryPropagateCell`) would check 2 additional lines per
-LTP pair, extending the current 8-line check to 10. This is a 25% increase in per-iteration propagation cost,
-partially offset by the additional forcing opportunities that reduce the total number of iterations.
-
-The runtime footprint is therefore identical to adding a 5th toroidal-slope pair, with the sole difference being
-the 510 KB lookup table in static memory (versus a computed index formula for slopes).
-
-#### B.9.6 Crossing Density and Orthogonality
+#### B.9.7 Crossing Density and Orthogonality
 
 Toroidal-slope partitions enjoy perfect 1-cell orthogonality with rows and columns: because $\gcd(p, s) = 1$ for
 the implemented slopes ($s = 511$ is prime), every (slope-line, row) pair and every (slope-line, column) pair
-intersects in exactly one cell. A pseudorandom LTP does not guarantee this property. By the birthday-problem
-heuristic, a random assignment of $s$ cells to each of $s$ lines produces approximately uniform crossing density ---
-each (LTP-line, row) pair contains roughly 1 cell in expectation --- but some pairs will contain 0 and others 2 or
-more. The variance is small ($\approx 1/e$ pairs empty for a Poisson approximation), and the overall constraint
-tightening is similar, but the lack of a guaranteed 1-cell intersection means that the orthogonality argument from
-B.2.4 does not extend cleanly to LTPs.
+intersects in exactly one cell. An optimized LTP does not guarantee this property. A random baseline produces
+approximately uniform crossing density --- each (LTP-line, row) pair contains roughly 1 cell in expectation --- but
+the optimization phase may skew this distribution to favor early-tightening lines at the expense of crossing
+uniformity. The lack of a guaranteed 1-cell intersection means that the orthogonality argument from B.2.4 does not
+extend to LTPs.
 
-However, the pseudorandom assignment guarantees statistical independence from all 8 linear families simultaneously,
-which is stronger than any single algebraic slope can claim. A 5th slope is algebraically related to the existing 4
-slopes (all are linear functionals mod $s$), and its null-space contribution partially overlaps with theirs. An LTP
-line's membership has zero algebraic correlation with any linear family, so the information it contributes is
-maximally independent in the combinatorial sense even if the intersection counts are not perfectly uniform.
+However, the optimization process can incorporate crossing density as a secondary constraint. The hill-climbing
+loop could reject swaps that cause any (LTP-line, row) pair to exceed 2 cells, maintaining approximate orthogonality
+while still optimizing for plateau performance. Whether this constraint materially limits the optimization's
+ability to find effective tables is an empirical question.
 
-#### B.9.7 Interaction with Adaptive Lookahead (B.8)
+More fundamentally, the LTP's value does not depend on orthogonality with the existing partitions. It depends on
+injecting forcing events into the plateau band, which is a function of line composition (how many solved cells each
+line contains at the plateau entry depth), not of crossing geometry. The LTP and the slope pair attack the plateau
+through different mechanisms --- the slope pair through uniform constraint density, the LTP through targeted early
+tightening --- and their benefits may be additive.
 
-If LTP lines provide long-range information transfer, a $k$-level lookahead probe (B.8) on a cell that sits on a
-low-residual LTP line may detect contradictions in distant rows --- exactly the kind of "silent zone" breakthrough
-that lookahead alone struggles to achieve. When the solver probes a cell assignment at depth $k$, the propagation
-cascade now traverses 10 lines (8 linear + 2 LTP) per forced cell, and the LTP lines carry residual updates to
-cells far from the probe site. This broadens the "reach" of each probe step, potentially allowing $k = 2$ with LTPs
-to achieve pruning comparable to $k = 3$ without them. The combination may be synergistic, and empirical measurement
-is needed to quantify the effect.
+#### B.9.8 Interaction with Adaptive Lookahead (B.8)
 
-#### B.9.8 Open Questions
+The LTP's early-tightening lines amplify the effectiveness of adaptive lookahead. When the solver probes a cell
+assignment at depth $k$ (B.8), the propagation cascade traverses 10 lines (8 linear + 2 LTP) per forced cell. If
+the probed cell sits on an early-tightening LTP line with small $u$, the probe's propagation is more likely to
+reach a forcing threshold on that line, triggering a cascade that the probe at $k - 1$ would have missed. This
+broadens the "reach" of each probe step, potentially allowing $k = 2$ with an optimized LTP to achieve pruning
+comparable to $k = 3$ without it.
 
-(a) Does a pseudorandom LTP pair provide measurable propagation benefit beyond a 5th toroidal-slope pair, given
-identical storage costs (9,198 bits per pair)? The LTP's advantage is non-linearity and long-range information
-transfer; the slope pair's advantage is guaranteed 1-cell orthogonality and zero runtime memory overhead (computed
-index vs. 510 KB table). Empirical comparison on representative inputs is needed.
+The synergy is strongest in the plateau band, where lookahead probes are most frequent (because stall detection
+escalates $k$) and LTP early-tightening lines are closest to their forcing thresholds. In the early rows (where
+$k = 0$) and the late rows (where constraints tighten naturally), the LTP contributes less because the solver is
+not probing deeply and the linear partitions are already effective.
 
-(b) Is there an optimal PRNG seed that maximizes propagation effectiveness? While any deterministic seed produces a
-valid partition, different seeds yield different crossing-density profiles with the existing 8 partitions. An offline
-search over seeds --- evaluating propagation depth on a test suite of random matrices --- could identify a seed that
-maximizes constraint tightening. Because the seed is used only once to produce the hardcoded table, this search has
-zero runtime cost; it merely determines which literal array is committed to the source.
+#### B.9.9 Open Questions
 
-(c) Should the LTP use more than $s$ lines? An LTP with $2s - 1 = 1{,}021$ variable-length lines (the DSM/XSM
-distribution) would provide short anchor lines that fix cells unconditionally, at the cost of higher per-partition
-storage ($B_d(s) = 8{,}185$ bits versus $sb = 4{,}599$ bits). The tradeoff between anchor-cell pruning and storage
-efficiency is an empirical question, though the uniform-length design is preferred for its storage parity with
-existing families.
+(a) Does an optimized LTP pair provide measurable propagation benefit beyond a 5th toroidal-slope pair, given
+identical storage costs (9,198 bits per pair)? The LTP's advantage is non-linearity, targeted early tightening, and
+long-range information transfer; the slope pair's advantage is guaranteed 1-cell orthogonality and zero runtime
+memory overhead (computed index vs. 510 KB table). Empirical comparison on representative inputs is needed.
 
-(d) Can multiple LTP partitions (each from a different PRNG seed) be stacked? Two independent pseudorandom
-partitions would impose two structurally independent non-linear constraint sets, further shrinking the space of
-swap-invisible patterns. The cost is linear (9,198 bits per additional pair, 510 KB per additional table), and the
-diminishing-returns curve is unknown.
+(b) How large must the optimization test suite be to produce a table that generalizes to unseen inputs? The
+table is optimized against $N$ random matrices, but the hardcoded result must work well on all inputs. Overfitting
+to the test suite would produce a table that exploits statistical quirks of the $N$ matrices rather than the
+structural properties of the plateau. Cross-validation (optimizing on $N/2$ matrices, evaluating on the other half)
+can detect overfitting, but the required $N$ is unknown.
+
+(c) What local-search heuristic converges most efficiently? The hill-climbing approach described in B.9.1 evaluates
+$N$ full DFS trajectories per candidate swap, which is expensive. Approximations --- such as evaluating only the
+first 100K DFS nodes per matrix, or using the plateau-band backtrack count as a proxy for full-solve cost --- could
+accelerate the search by orders of magnitude. Simulated annealing, genetic algorithms, or gradient-free optimization
+(e.g., CMA-ES over a parameterized shuffle-bias function) are alternatives to pure hill-climbing.
+
+(d) Can multiple LTP partitions (each optimized from a different seed) be stacked? Two independently optimized
+tables would impose two structurally independent non-linear constraint sets. The cost is linear (9,198 bits per
+additional pair, 510 KB per additional table), and the diminishing-returns curve is unknown.
+
+(e) Should the optimization objective incorporate the adaptive lookahead (B.8) or optimize against the base solver
+($k = 0$) only? Optimizing with lookahead enabled would tune the table for the combined system, but makes the
+optimization loop significantly more expensive (each DFS trajectory is slower with probing). Optimizing against
+$k = 0$ and then deploying with lookahead may yield most of the benefit at a fraction of the optimization cost.
+
+### B.10 Constraint-Tightness-Driven Cell Ordering
+
+The probability-guided cell ordering computed by `ProbabilityEstimator::computeGlobalCellScores` is static: it is
+calculated once before DFS begins and never updated. B.4 partially addressed this by introducing a dynamic
+row-completion priority queue that overrides the static order for cells in nearly-complete rows
+($u(\text{row}) \leq \tau$). The priority queue is effective at steering the solver toward LH checkpoints, but it
+considers only the row dimension --- it ignores constraint tightness on columns, diagonals, slopes, and LTP lines.
+
+This appendix generalizes B.4 into a fully dynamic, multi-line tightness-driven cell ordering. The row-completion
+priority queue (B.4) is a special case of this proposal with all non-row weights set to zero. B.4 should be
+considered subsumed by this appendix; the implementation described in B.4 is the first stage of the ordering
+strategy proposed here.
+
+#### B.10.1 Limitations of Row-Only Priority
+
+The row-completion priority queue activates when $u(\text{row}) \leq \tau$ and selects the cell in the row with the
+smallest $u$. Among cells that qualify, it makes no distinction based on non-row constraint tightness.
+
+Consider two cells, both in rows with $u = 3$. Cell $A$ sits on a column with $u = 200$ and a diagonal with
+$u = 150$. Cell $B$ sits on a column with $u = 2$ and a diagonal with $u = 1$. The row-completion queue treats
+them as equivalent (same row $u$), but assigning cell $B$ is far more valuable: it may trigger forcing on the column
+(if $\rho = 0$ or $\rho = u - 1$) and will almost certainly force the diagonal's last unknown cell, producing a
+cascade that propagates information into other rows. Cell $A$ provides no such secondary benefit.
+
+#### B.10.2 Multi-Line Tightness Score
+
+Define the *tightness score* $\theta(r, c)$ for an unassigned cell $(r, c)$ as a weighted sum of the proximity of
+each constraint line through $(r, c)$ to its forcing threshold:
+
+$$
+    \theta(r, c) = \sum_{L \in \text{lines}(r,c)} w_L \cdot g(u(L))
+$$
+
+where $\text{lines}(r, c)$ is the set of all constraint lines containing cell $(r, c)$ (currently 8 linear lines,
+potentially 10 with an LTP pair), $w_L$ is a per-line-type weight, and $g(u)$ is a monotonically decreasing function
+of the line's unknown count that rewards lines close to forcing. A natural choice is $g(u) = 1 / u$, which gives
+infinite weight to lines with $u = 1$ (one assignment away from completion) and diminishing weight to lines with
+large $u$.
+
+The weights $w_L$ encode the relative value of forcing on different line types. Row lines receive the highest weight
+because completing a row enables an LH check --- the strongest pruning event in the solver. Column and slope lines
+receive lower but non-trivial weight because forcing on these lines triggers propagation cascades into other rows.
+Diagonal and anti-diagonal lines in the mid-rows have large $u$ and contribute little during the plateau, so their
+weight can be reduced. A reasonable starting point is $w_{\text{row}} = 10$, $w_{\text{col}} = 3$,
+$w_{\text{slope}} = 2$, $w_{\text{diag}} = 1$.
+
+The row-completion priority queue (B.4) is the degenerate case $w_{\text{row}} = 1$,
+$w_{\text{col}} = w_{\text{slope}} = w_{\text{diag}} = 0$, $g(u) = -u$ (min-heap on $u(\text{row})$). The
+multi-line score generalizes this by adding sensitivity to non-row constraint tightness.
+
+#### B.10.3 Incremental Maintenance
+
+A full recomputation of $\theta$ for all unassigned cells after every assignment is prohibitively expensive
+($O(s^2)$ per step). Instead, the solver maintains $\theta$ incrementally: when cell $(r, c)$ is assigned, update
+$\theta$ for each unassigned cell on each of the 8--10 affected lines. This is $O(\sum_L u(L))$ per assignment ---
+roughly $8 \times 341 \approx 2{,}700$ updates at the plateau midpoint.
+
+At each DFS node, the solver selects the unassigned cell with the highest $\theta$. A max-heap keyed on $\theta$
+supports this in $O(\log n)$ per extraction. The heap replaces B.4's min-heap on $u(\text{row})$, generalizing the
+same priority-queue infrastructure to the multi-line score. When cells' $\theta$ values change due to neighboring
+assignments, the heap must be updated --- either via decrease/increase-key operations ($O(\log n)$ each) or via lazy
+deletion (mark stale entries and re-insert, with periodic rebuilds).
+
+A cheaper approximation is to recompute $\theta$ only for cells in the priority queue (those with
+$u(\text{row}) \leq \tau$). This limits the update set to cells in nearly-complete rows, which is a small fraction
+of the total. Outside the queue, the static ordering remains in effect.
+
+#### B.10.4 Cost Analysis
+
+The incremental $\theta$ maintenance adds ~2,700 score updates per assignment in the plateau. Each update is a
+subtract-and-add on a floating-point accumulator (remove the old $g(u)$ contribution, add the new one). At ~2 ns per
+update, this is ~5.4 $\mu$s per assignment --- roughly 2.5$\times$ the current per-iteration cost of ~2 $\mu$s. The
+total cost is significant but may be justified if the improved ordering reduces the backtrack count by more than
+2.5$\times$.
+
+The queue-only approximation reduces the cost to $O(\tau \times s)$ per assignment in the worst case, but typically
+much less because most assignments do not change any row's $u$ below $\tau$. This approximation preserves B.4's
+cost profile while adding non-row tightness sensitivity for the cells that matter most.
+
+#### B.10.5 DI Determinism
+
+The tightness score $\theta$ is a deterministic function of the constraint store state: it depends only on $u(L)$
+and $\rho(L)$ for each line, which are identical in compressor and decompressor at every DFS node. The cell-selection
+rule "choose the cell with the highest $\theta$, breaking ties by row-major order" is therefore deterministic and
+produces the same DFS trajectory in both. DI semantics are preserved, exactly as they are for B.4's row-completion
+queue.
+
+#### B.10.6 Relationship to B.8 (Adaptive Lookahead)
+
+Better cell ordering reduces the number of DFS nodes that require lookahead probing (because the solver makes better
+branching decisions upfront), while lookahead handles the residual cases where no ordering heuristic can predict the
+correct branch. The two techniques operate on different timescales --- ordering is per-node, lookahead is per-stall
+--- and their benefits should be additive.
+
+#### B.10.7 Open Questions
+
+(a) What are the optimal line-type weights $w_L$? The values proposed in B.10.2 are heuristic starting points. An
+offline parameter sweep --- evaluating decompression speed on random inputs across a grid of weight vectors --- could
+identify the weight combination that minimizes mean backtrack count.
+
+(b) Is the incremental $\theta$ maintenance cost justified by the ordering improvement? If most of the benefit comes
+from row-completion priority (the B.4 special case) and the non-row tightness contributions are marginal, the
+2.5$\times$ overhead is wasted. A staged experiment --- measuring B.4 alone, then B.10 with non-row weights, and
+comparing backtrack counts --- would quantify the marginal value.
+
+(c) Should $\theta$ incorporate the `ProbabilityEstimator` confidence score as an additional term? The confidence
+score captures information about residual *balance* (whether a cell's lines favor 0 or 1), which is orthogonal to
+tightness (how close lines are to forcing). A combined score $\alpha \cdot \theta + (1 - \alpha) \cdot
+\text{confidence}$ could outperform either metric alone.
+
+(d) Can the tightness score predict hash failures before row completion? If $\theta$ for a row's remaining cells
+is low (no lines through those cells are tight), the row is unlikely to benefit from prioritization. The solver
+could deprioritize such rows and focus on rows where $\theta$ is high, concentrating effort where constraint
+feedback is strongest.
+
+### B.11 Randomized Restarts with Heavy-Tail Mitigation
+
+Gomes, Selman, and Kautz (2000) demonstrated that backtracking search times on hard CSP instances follow *heavy-
+tailed distributions*: there is a non-negligible probability of catastrophically long runs caused by early bad
+decisions that trap the solver deep in a barren subtree. The standard remedy is *randomized restarts* --- the solver
+periodically abandons its current search, randomizes its decision heuristic (e.g., by shuffling variable ordering
+or perturbing value selection), and begins a fresh search from the root. Luby, Sinclair, and Zuckerman (1993) proved
+that the optimal universal restart schedule is geometric: restart after $1, 1, 2, 1, 1, 2, 4, 1, 1, 2, \ldots$
+units of work, guaranteeing at most a logarithmic-factor overhead relative to the optimal fixed cutoff.
+
+The CRSCE solver's plateau at row ~170 has the hallmarks of a heavy-tailed stall. The solver commits to assignments
+in rows 0--100 during a fast initial phase, but some of those early decisions propagate into the mid-rows via column,
+diagonal, and slope constraints, creating an infeasible partial assignment that is only discovered much later when
+hash checks begin failing. Chronological backtracking unwinds these bad decisions one level at a time, exploring an
+exponential number of intermediate configurations before reaching the root cause. A restart strategy would abandon
+the current trajectory, perturb the ordering heuristic, and re-enter the search with a different sequence of early
+decisions --- potentially avoiding the bad branch entirely.
+
+#### B.11.1 The Determinism Constraint
+
+**Restarts are fundamentally incompatible with CRSCE's disambiguation index (DI) semantics unless the restart
+policy is fully deterministic.** The DI is defined as the ordinal position of the correct solution in the
+lexicographic enumeration of all feasible solutions. Both compressor and decompressor must enumerate solutions in
+the identical order to agree on which solution corresponds to DI = $k$. If the restart policy involves any
+randomness (a random seed, a wall-clock timer, or a non-deterministic perturbation), the compressor and
+decompressor will follow different search trajectories and assign different ordinal positions to the same solution.
+
+This constraint rules out classical randomized restarts as described by Gomes et al. (2000), where the solver
+uses a fresh random seed after each restart to diversify its variable ordering. It also rules out timer-based
+restarts, where the solver restarts after $t$ seconds of wall-clock time (because wall-clock time varies between
+machines and runs).
+
+What remains permissible is *deterministic restarts*: restart policies where the decision to restart, and the
+post-restart heuristic state, are pure functions of the solver's search history --- the sequence of assignments,
+backtracks, and constraint-store states encountered so far. Because the constraint system is identical in compressor
+and decompressor (both derive it from the same payload), and the initial state is identical, a deterministic restart
+policy produces the identical search trajectory in both. The DI is preserved.
+
+#### B.11.2 Deterministic Restart Triggers
+
+A deterministic restart policy requires a trigger condition and a post-restart heuristic modification, both defined
+solely in terms of the solver's internal state. Three candidate triggers are:
+
+*Backtrack-count threshold.* Restart when the solver has performed $B$ backtracks since the last restart (or since
+the start of search). The threshold $B$ can follow the Luby sequence: $B_1, B_1, 2B_1, B_1, B_1, 2B_1, 4B_1,
+\ldots$ for a base unit $B_1$. This is deterministic because the backtrack count is a function of the search
+trajectory, which is identical in both compressor and decompressor.
+
+*Depth stagnation.* Restart when the solver's maximum achieved depth has not increased for $W$ consecutive
+backtracks. This detects the plateau directly: the solver is stuck at depth ~87K, repeatedly entering and exiting
+subtrees without making forward progress. This trigger is a generalization of B.8's stall-detection metric
+($\sigma$) applied at a coarser granularity --- B.8 escalates lookahead depth, B.11 restarts the search.
+
+*Row-failure rate.* Restart when the rate of LH failures on a specific row exceeds a threshold. If the solver
+has attempted row $r$ more than $F$ times without finding a valid assignment, the current partial assignment to
+rows 0 through $r - 1$ is likely the root cause. A restart abandons this partial assignment and re-enters with a
+modified ordering that assigns rows 0 through $r - 1$ differently.
+
+All three triggers are deterministic: they depend only on counters and states that are identical in compressor and
+decompressor.
+
+#### B.11.3 Post-Restart Heuristic Modification
+
+After a restart, the solver must change its behavior to avoid re-entering the same barren subtree. In classical
+randomized restarts, a new random seed provides diversification. In the deterministic setting, diversification must
+come from the solver's *accumulated search history*.
+
+*Constraint-store-guided reordering.* After a restart, recompute the cell ordering using the tightness score
+$\theta$ from B.10, incorporating information from the failed search. Specifically, if row $r$ was the deepest row
+reached before stagnation, increase the weight $w_{\text{row}}$ for rows near $r$ in the tightness score, biasing
+the solver toward completing those rows earlier in the next attempt. This deterministic perturbation causes
+different cells to be assigned first, producing a different trajectory through the search space.
+
+*Phase saving.* Borrow the *phase saving* technique from CDCL SAT solvers (Pipatsrisawat & Darwiche, 2007): record
+the most recent value (0 or 1) assigned to each cell before the restart. On the next attempt, when the solver
+branches on a cell, try the saved phase first instead of the canonical 0-before-1 order. This biases the solver
+toward the partial assignment from the previous attempt but allows constraint propagation to steer it away from the
+infeasible region. Phase saving is deterministic because the saved phases are a function of the prior search
+trajectory.
+
+*Nogood-guided avoidance.* If the solver records nogoods from hash failures (see B.1), the post-restart search
+avoids assignments that violate recorded nogoods. Each restart builds on the information from all prior restarts,
+progressively narrowing the search space. This combines the restart mechanism with lightweight clause learning
+(without the full CDCL machinery) and is fully deterministic.
+
+#### B.11.4 Interaction with Lexicographic Enumeration
+
+Restarts change the order in which the solver explores the search tree, but they must not change which solutions are
+*feasible*. The enumeration must still visit all feasible solutions in lexicographic order. This requires that the
+restart mechanism satisfies two properties:
+
+*Completeness.* After any finite number of restarts, the solver must eventually enumerate all feasible solutions.
+If restarts permanently abandon regions of the search space, some solutions may be skipped, corrupting the DI.
+Completeness is guaranteed if the restart policy is *fair*: every branch is eventually explored, even if the ordering
+changes between restarts. The Luby restart schedule is fair by construction.
+
+*Order preservation.* The solver must visit feasible solutions in the same lexicographic order regardless of the
+restart history. This is the harder condition. If the post-restart heuristic changes the cell ordering, the DFS
+may discover solution $S_j$ before $S_i$ even though $i < j$ lexicographically. To preserve order, the solver must
+either (a) use restarts only to prune infeasible subtrees (never skipping feasible solutions), or (b) buffer
+discovered solutions and emit them in sorted order.
+
+Option (a) is achievable if the post-restart heuristic modifies only the *value* ordering (which value to try first
+at each branch) and the *cell* ordering (which cell to branch on next), without changing the *feasibility* of any
+partial assignment. Constraint propagation and hash verification are unchanged by the restart, so the set of feasible
+solutions is identical across restarts. The solver explores the same tree, just in a different traversal order. For
+DI enumeration, the solver must still count solutions in lexicographic order, which requires that the enumeration
+logic track the canonical position of each discovered solution.
+
+Option (b) is simpler but requires memory proportional to the number of solutions discovered between restarts. For
+CRSCE, the DI is typically small (0--255), so the buffer is at most 256 solutions --- negligible memory.
+
+The safest approach is a *partial restart*: instead of restarting from the root, the solver backtracks to a
+*checkpoint depth* (e.g., the beginning of the plateau band at row 100) and re-enters with a modified heuristic for
+the subproblem below the checkpoint. The partial assignment above the checkpoint is preserved, so the lexicographic
+prefix is unchanged and order preservation is automatic. The solver is effectively restarting only the hard subproblem
+(the plateau), not the easy prefix (rows 0--100).
+
+#### B.11.5 Expected Benefit
+
+The heavy-tail argument predicts that a small fraction of search attempts will be catastrophically long, while most
+will be fast. If the solver's plateau stalls follow a heavy-tailed distribution (which is plausible given the
+combinatorial phase-transition structure of the mid-rows), then restarts with the Luby schedule truncate the long
+tail at the cost of occasionally re-doing fast prefixes. The expected solve time is:
+
+$$
+    E[T_{\text{restart}}] = O(E[T_{\text{optimal}}] \cdot \log E[T_{\text{optimal}}])
+$$
+
+where $E[T_{\text{optimal}}]$ is the expected time with the optimal fixed cutoff (Luby et al., 1993). If the
+current solver's mean solve time is dominated by the heavy tail (a few very long stalls accounting for most of the
+total time), restarts could reduce the mean by an order of magnitude.
+
+The benefit compounds with other techniques. Restarts provide diversification (trying different early decisions),
+while B.8 (adaptive lookahead) provides intensification (probing more deeply at stall points). B.1 (CDCL/backjumping)
+provides learning across the search (avoiding known-bad configurations). The three techniques are complementary:
+restarts escape bad regions, lookahead navigates within a region, and learning prevents re-entry into known-bad
+regions.
+
+#### B.11.6 Open Questions
+
+(a) Does the CRSCE solver's plateau stall time follow a heavy-tailed distribution? Instrumenting the solver to
+log per-block solve times across many random inputs would answer this. If the distribution is heavy-tailed, restarts
+provide significant benefit; if it is concentrated (low variance), restarts provide little.
+
+(b) What is the optimal Luby base unit $B_1$? Too small and the solver restarts before making meaningful progress;
+too large and it spends too long in barren subtrees before restarting. The optimal $B_1$ depends on the typical
+depth of the plateau stall, which is an empirical quantity.
+
+(c) Is partial restart (from a checkpoint at row ~100) sufficient, or does the solver sometimes need full restarts
+from the root? If the root cause of most stalls is in rows 0--100, partial restarts cannot fix them. If the root
+cause is in the plateau region itself (rows 100--300), partial restarts are sufficient and avoid re-doing the
+fast prefix.
+
+(d) How does phase saving interact with DI determinism? Phase saving changes the value ordering at each branch
+point, which changes the traversal order within the search tree. For DI enumeration, the solver must still count
+solutions in lexicographic order. If the solver uses option (b) from B.11.4 (buffering solutions and emitting in
+sorted order), phase saving is compatible with DI semantics. The buffer size is bounded by the DI value (at most
+255 solutions).
+
+(e) Can the restart policy be combined with B.8's stall detection? B.8 escalates lookahead depth when stagnation
+is detected; B.11 restarts when stagnation persists. A natural hierarchy is: first escalate lookahead ($k = 0
+\to 1 \to 2 \to 4$), then restart if lookahead at $k = 4$ still stalls. This uses restarts as the last resort
+after intensification has failed, minimizing unnecessary restarts.
+
+### B.12 Survey Propagation and Belief-Propagation-Guided Decimation
+
+The CRSCE solver's `ProbabilityEstimator` computes a static approximation of marginal beliefs: for each cell, it
+multiplies residual ratios across 7 non-row constraint lines to estimate the probability that the cell should be 1
+versus 0. This computation runs once before DFS begins and is never updated. The result is a crude proxy for the
+true marginal probability, because it treats the 7 lines as independent (they are not) and ignores the global
+constraint structure (how assignments to distant cells propagate through shared lines).
+
+Survey propagation (SP) and belief propagation (BP) are message-passing algorithms that compute far more accurate
+marginal estimates by iterating messages between variables (cells) and constraints (lines) on the factor graph until
+convergence (Mézard, Parisi, & Zecchina, 2002; Braunstein, Mézard, & Zecchina, 2005). BP computes approximate
+marginal probabilities for each variable given the constraint structure. SP goes further: it estimates the probability
+that each variable is *forced* to a specific value in the space of satisfying assignments, capturing the "backbone"
+structure that BP misses. Marino, Parisi, and Ricci-Tersenghi (2016) demonstrated that backtracking survey
+propagation (BSP) --- which uses SP-guided decimation with backtracking fallback --- solves random K-SAT instances
+in practically linear time up to the SAT-UNSAT threshold, a region unreachable by CDCL solvers.
+
+#### B.12.1 Application to CRSCE
+
+The CRSCE constraint system is a factor graph with $s^2 = 261{,}121$ binary variable nodes (CSM cells) and
+$10s - 2 = 5{,}108$ factor nodes (constraint lines), plus $s = 511$ hash-verification factors (LH). Each variable
+participates in 8 factors (or 10 with an LTP pair). The graph is sparse: each factor connects to $s$ or fewer
+variables, and the total edge count is $\sum_L \text{len}(L) \approx 2{,}000{,}000$.
+
+A single BP iteration passes messages along all edges: each factor sends a message to each of its variables
+summarizing the constraint's belief about that variable given messages received from all other variables. One
+iteration costs $O(\text{edges}) \approx 2 \times 10^6$ multiply-add operations. Convergence typically requires
+10--50 iterations for sparse factor graphs, so a full BP computation costs $20$--$100 \times 10^6$ operations
+($\approx 20$--100 ms on Apple Silicon at $\sim 10^9$ operations/second).
+
+This is far too expensive to run at every DFS node (the solver processes $\sim 500{,}000$ nodes/second in the fast
+regime). However, BP can be used as a *periodic reordering oracle*: at checkpoint rows (e.g., every 50 rows, or at
+the plateau entry point), the solver pauses the DFS, runs BP to convergence on the residual subproblem (unassigned
+cells with their current constraint bounds), and recomputes the cell ordering based on BP's marginal estimates.
+The BP-informed ordering replaces the static `ProbabilityEstimator` scores for the next segment of the search.
+
+#### B.12.2 BP-Guided Decimation
+
+An alternative to using BP purely for ordering is *decimation*: use BP to identify the most-biased variable (the
+cell with the strongest marginal preference for 0 or 1), fix that cell to its preferred value, propagate, and repeat.
+This converts the DFS into a greedy assignment sequence guided by global marginal information. When a conflict is
+detected (infeasibility or hash mismatch), the solver falls back to backtracking search from the last decimation
+point.
+
+The decimation approach has two advantages over pure ordering. First, it exploits BP's global view to make
+assignments that are unlikely to cause conflicts, reducing the backtrack count. Second, it naturally concentrates
+assignments on cells with strong beliefs (near-forced cells), which tends to trigger propagation cascades earlier
+than a tightness-driven ordering would.
+
+The disadvantage is computational cost. Each decimation step requires a full BP computation ($\sim 50$ ms), and the
+solver makes ~261K assignments per block. Running BP at every step would take ~3.6 hours per block --- far slower
+than the current solver. The practical approach is *batch decimation*: run BP, decimate the top $D$ most-biased
+cells (e.g., $D = 1{,}000$), propagate, and repeat. This amortizes the BP cost across $D$ assignments, reducing
+the overhead to $\sim 50$ ms per 1,000 assignments ($\sim 50$ $\mu$s/assignment) --- roughly 25$\times$ the current
+per-assignment cost, but potentially offset by a dramatic reduction in backtracking.
+
+#### B.12.3 Survey Propagation for Backbone Detection
+
+SP extends BP by introducing a third message type: the probability that a variable is *frozen* (forced to a specific
+value in all satisfying assignments). In the CRSCE context, a frozen variable is a cell whose value is determined
+by the constraint system regardless of how other cells are assigned. SP identifies these frozen cells without
+exhaustive enumeration.
+
+Frozen cells discovered by SP can be assigned immediately without branching, effectively shrinking the search space.
+If SP identifies 10,000 frozen cells in the plateau region, the DFS has 10,000 fewer branching decisions to make ---
+a potentially exponential reduction in tree size. The cost is one SP computation ($\sim 100$--500 ms, as SP
+converges more slowly than BP), amortized across thousands of forced assignments.
+
+The caveat is convergence. SP was designed for random CSP instances near the phase transition, where the factor graph
+has tree-like local structure. The CRSCE factor graph is not random --- it has regular structure (every row line has
+exactly $s$ cells, every slope line visits cells at modular intervals). SP may fail to converge on structured graphs,
+or may converge to inaccurate estimates. Empirical testing on the CRSCE factor graph is needed to determine whether
+SP's backbone detection is reliable.
+
+#### B.12.4 DI Determinism
+
+BP and SP are deterministic algorithms: given the same factor graph and the same initial messages, they produce the
+same marginal estimates. The factor graph is derived from the constraint system (which is identical in compressor and
+decompressor), and the initial messages can be fixed (e.g., uniform beliefs). Therefore, BP/SP-guided decimation and
+reordering produce identical search trajectories in both compressor and decompressor. DI semantics are preserved.
+
+The only subtlety is convergence tolerance. BP iterates until messages stabilize within a threshold $\epsilon$. If
+floating-point rounding differs between machines, the convergence point may differ by one iteration, producing
+slightly different marginal estimates. This can be avoided by using fixed-point arithmetic or by rounding messages
+to a fixed precision after each iteration. Alternatively, the solver can run a fixed number of BP iterations (e.g.,
+50) rather than iterating to convergence, eliminating the convergence-tolerance issue entirely.
+
+#### B.12.5 Interaction with Other Proposals
+
+BP-guided reordering is complementary to B.10 (constraint-tightness ordering): B.10 provides a fast, local ordering
+heuristic used at every DFS node, while BP provides a slow, global reordering used at periodic checkpoints. The
+solver uses B.10 between checkpoints and BP at checkpoints, combining local responsiveness with global accuracy.
+
+BP-guided decimation interacts with B.8 (adaptive lookahead): decimation reduces the number of branching decisions,
+which reduces the number of stall points where lookahead is needed. The two techniques are complementary ---
+decimation handles the "easy" cells (strong beliefs), and lookahead handles the "hard" cells (ambiguous beliefs).
+
+SP's backbone detection interacts with B.1 (CDCL): frozen cells identified by SP are logically implied by the
+constraint system, so assigning them does not generate nogoods or conflict clauses. SP pre-solves the easy part
+of the problem, leaving CDCL to handle the hard part.
+
+#### B.12.6 Open Questions
+
+(a) Does BP converge reliably on the CRSCE factor graph? The graph's regular structure (uniform line lengths,
+modular slope patterns) may cause BP to oscillate rather than converge. Damped BP or tree-reweighted BP (Wainwright
+& Jordan, 2008) may be needed to ensure convergence.
+
+(b) What is the optimal checkpoint interval for BP-guided reordering? Too frequent and the BP overhead dominates;
+too infrequent and the ordering becomes stale. The interval should be tuned to the plateau structure: more frequent
+checkpoints in the plateau band (rows 100--300), less frequent in the easy prefix and suffix.
+
+(c) Can SP identify a meaningful number of frozen cells in the CRSCE instance? If SP finds that most cells are
+unfrozen (as expected for a problem with DI > 0, meaning multiple solutions exist), its backbone-detection benefit
+is limited. SP may still provide useful ordering information even if few cells are frozen.
+
+(d) Is batch decimation ($D = 1{,}000$) sufficient to amortize the BP cost, or does the solver need a larger batch?
+The optimal $D$ depends on how quickly BP's marginal estimates become stale after $D$ assignments. If propagation
+cascades from the $D$ assignments significantly change the constraint landscape, BP must be rerun sooner.
+
+(e) Can BP be accelerated on Apple Silicon using the Metal GPU? The message-passing computation is highly parallel
+(messages on different edges are independent within one iteration). A GPU implementation could reduce the per-BP
+cost from $\sim 50$ ms to $\sim 5$ ms, making BP-guided decimation at every ~100 assignments feasible.
+
+### B.13 Portfolio and Parallel Solving with Diversification
+
+Modern SAT and CSP solvers achieve their best performance through *portfolio* strategies: running multiple solver
+instances in parallel, each using a different heuristic configuration, and accepting the result from whichever
+instance finishes first (Xu, Hutter, Hoos, & Leyton-Brown, 2008). Hamadi, Jabbour, and Sais (2009) showed that
+diversification --- instantiating solvers with different decision strategies, learning schemes, and random seeds ---
+is the key to portfolio effectiveness, because different heuristics excel on different problem structures. A portfolio
+hedges against the worst case of any single heuristic.
+
+The CRSCE solver runs a single DFS with a fixed heuristic configuration (static ordering + row-completion queue +
+optional lookahead). If the chosen heuristic happens to make a bad early decision, the solver pays the full
+exponential cost of unwinding it. A portfolio approach would run $P$ solver instances concurrently, each with a
+different cell-ordering heuristic, and accept the first to reach solution $S_{\text{DI}}$.
+
+#### B.13.1 Diversification Strategies
+
+The solver's behavior is determined by a small number of heuristic parameters: the cell-ordering weights $w_L$ (B.10),
+the row-completion threshold $\tau$ (B.4), the lookahead escalation thresholds $\sigma^-$ and $\sigma^+$ (B.8), and
+the branch-value heuristic (0-first vs. belief-guided). A portfolio instantiates $P$ copies of the solver with
+different parameter vectors:
+
+*Weight diversification.* Each instance uses a different weight vector $w_L$ for the tightness score $\theta$.
+Instance 1 might use $w_{\text{row}} = 10, w_{\text{col}} = 3$; instance 2 might use $w_{\text{row}} = 5,
+w_{\text{col}} = 5$; instance 3 might use $w_{\text{row}} = 1, w_{\text{col}} = 1$ (effectively uniform tightness).
+Different weight vectors excel in different plateau regimes.
+
+*Lookahead diversification.* Each instance uses a different lookahead policy. Instance 1 starts at $k = 0$ with
+adaptive escalation (B.8); instance 2 starts at $k = 2$ throughout; instance 3 uses no lookahead but aggressive
+row-completion priority. This hedges against the case where adaptive escalation wastes time on escalation/
+de-escalation overhead.
+
+*Value ordering diversification.* Each instance uses a different branch-value heuristic. Instance 1 always tries
+0 first (canonical); instance 2 tries the value preferred by the `ProbabilityEstimator`; instance 3 alternates
+based on parity. Different value orderings produce different DFS trajectories, and the optimal ordering is
+input-dependent.
+
+#### B.13.2 DI Determinism
+
+**All portfolio instances must enumerate solutions in the same lexicographic order.** The DI is defined as the
+ordinal position of the correct solution in this order. If different instances use different cell orderings, they
+traverse the search tree in different orders and may discover solutions in different sequences. To preserve DI
+semantics, the portfolio must satisfy one of two conditions:
+
+*Condition 1: Identical enumeration order.* All instances use the same canonical enumeration order (row-major, 0
+before 1) but differ in how they *prune* the search tree (via different lookahead policies, propagation strategies,
+or constraint-tightening heuristics). The set of feasible solutions and their lexicographic ordering is identical
+across instances; only the traversal speed differs. The first instance to reach $S_{\text{DI}}$ reports the correct
+answer.
+
+*Condition 2: Solution buffering.* Each instance emits solutions as discovered (potentially out of lexicographic
+order) into a shared buffer. A coordinator thread merges the streams and identifies $S_{\text{DI}}$ by its
+lexicographic position. This requires that at least one instance eventually enumerates all solutions up to
+$S_{\text{DI}}$ in order --- the other instances provide "hints" that accelerate the search but are not trusted
+for ordering.
+
+Condition 1 is simpler and sufficient for CRSCE. The cell ordering affects which subtrees are explored first, but
+constraint propagation and hash verification are ordering-independent: the same partial assignments are feasible or
+infeasible regardless of the order in which they are explored. Different orderings prune different infeasible
+subtrees at different speeds, but all instances agree on which solutions are feasible and in what lexicographic
+order.
+
+More precisely: the *value* ordering (which value to try first at each branch) and the *lookahead* policy change
+only the speed at which the solver traverses the canonical tree. They do not change the tree's structure. The *cell*
+ordering, however, changes the tree structure --- different cell orderings produce different DFS trees with different
+branching sequences. For DI determinism under cell-ordering diversification, the solver must either (a) restrict
+diversification to value ordering and pruning strategies only (preserving the canonical DFS tree), or (b) use
+Condition 2 (solution buffering with a canonical-order verifier).
+
+#### B.13.3 Hardware Mapping
+
+Apple Silicon M-series chips provide a natural platform for portfolio solving. The M3 Pro has 6 performance cores
+and 6 efficiency cores; the M3 Max has 12 performance cores and 4 efficiency cores. A portfolio of $P = 4$--6
+solver instances, each pinned to a performance core, provides meaningful diversification without contending for
+shared resources (each instance has its own constraint store and DFS stack in L2 cache).
+
+The Metal GPU is less suitable for portfolio solving because the solver's DFS is inherently sequential (each
+assignment depends on the propagation result of the previous one). The GPU is better used for bulk propagation
+within a single instance (the existing `MetalPropagationEngine`) rather than for running independent solver
+instances.
+
+Shared-nothing parallelism (each instance is fully independent) is the simplest implementation. No clause sharing,
+no work stealing, no inter-instance communication. The first instance to find $S_{\text{DI}}$ signals completion
+and all others are terminated. This avoids the complexity of parallel CDCL clause sharing (which requires careful
+synchronization and is a major source of bugs in parallel SAT solvers).
+
+#### B.13.4 Expected Benefit
+
+If the solver's per-block solve time has high variance (as predicted by the heavy-tail hypothesis in B.11), a
+portfolio of $P$ independent instances reduces the expected solve time to:
+
+$$
+    E[T_{\text{portfolio}}] = E[\min(T_1, T_2, \ldots, T_P)]
+$$
+
+For heavy-tailed distributions, the minimum of $P$ independent samples is dramatically smaller than the mean of a
+single sample. Even if one instance makes a catastrophically bad early decision, the other $P - 1$ instances
+proceed on different trajectories and are likely to avoid the same trap. Empirical studies in SAT solving show
+speedups of 3--10$\times$ for $P = 4$--8 on hard instances (Hamadi et al., 2009).
+
+The portfolio approach is also *embarrassingly parallel*: no algorithmic changes to the solver are needed. Each
+instance runs the existing solver code with different parameter settings. The only new infrastructure is a
+launcher that spawns $P$ instances and a signal mechanism for early termination.
+
+#### B.13.5 Open Questions
+
+(a) What is the optimal portfolio size $P$ for CRSCE on Apple Silicon? Too few instances limit diversification;
+too many contend for cache and memory bandwidth, slowing each instance. The sweet spot depends on the chip's core
+count and the solver's memory footprint per instance ($\sim 500$ KB for the constraint store + DFS stack).
+
+(b) Which heuristic parameters provide the most diversification benefit? If the solver's performance is most
+sensitive to the row-completion threshold $\tau$, diversifying $\tau$ across instances is more valuable than
+diversifying lookahead depth. A sensitivity analysis on the heuristic parameters would guide portfolio design.
+
+(c) Should instances share learned information? Clause sharing (from B.1) between portfolio instances could
+accelerate all instances by propagating nogoods discovered by one instance to the others. However, clause sharing
+adds synchronization overhead and complexity. For CRSCE, where conflicts are rare (hash failures, not unit-
+propagation conflicts), the sharing benefit may be small.
+
+(d) Can the portfolio approach be combined with B.11 (restarts)? Each instance could use a different restart policy
+(different Luby base units, different checkpoint depths), providing restart diversification in addition to heuristic
+diversification. This combines two orthogonal diversification axes.
+
+### B.14 Lightweight Nogood Recording
+
+B.1 proposes full CDCL adaptation for CRSCE, including implication-graph maintenance, 1-UIP conflict analysis,
+learned-clause databases, and non-chronological backjumping. The implementation complexity is substantial (B.1.6).
+This appendix proposes a *lightweight alternative*: record hash-failure nogoods without maintaining an implication
+graph or performing conflict analysis. The approach captures a significant fraction of CDCL's benefit at a fraction
+of the implementation cost.
+
+#### B.14.1 Row-Level Nogoods
+
+When an SHA-1 lateral hash check fails on row $r$, the solver knows that the current 511-bit assignment to row $r$
+is wrong. Record this assignment as a *row-level nogood*: a 511-bit vector $\bar{x}_r$ such that any future
+partial assignment that matches $\bar{x}_r$ on all 511 cells of row $r$ can be pruned without recomputing the hash.
+
+The nogood is stored as a pair $(\text{row}, \text{bitvector})$ in a per-row hash table. When the solver completes
+row $r$ in a future DFS branch, it checks the hash table before computing SHA-1. If the assignment matches a
+recorded nogood, the solver backtracks immediately --- saving the ~200 ns SHA-1 computation and, more importantly,
+any propagation work that would have followed a (doomed) hash match.
+
+The per-nogood storage is 64 bytes (511 bits rounded to 512 bits = 64 bytes). The hash-table lookup is a single
+64-byte comparison --- cheaper than SHA-1. The hash table is keyed on a fast hash of the bitvector (e.g., the first
+8 bytes XORed with the last 8 bytes) to avoid linear scanning.
+
+#### B.14.2 Partial Row Nogoods
+
+A full 511-bit row nogood is maximally specific: it matches only the exact same assignment to all 511 cells. This is
+useful only if the solver re-enters the exact same row configuration, which is rare in a 261K-cell search space. A
+more powerful variant records *partial row nogoods*: the subset of cells in row $r$ that were assigned by branching
+decisions (not forced by propagation).
+
+At the point of hash failure, some cells in row $r$ were determined by the solver's branching decisions (directly or
+via propagation from decisions in other rows), while others were forced by cardinality constraints. The forced cells
+are consequences of the current constraint state; only the decision cells represent genuine choices. A partial row
+nogood records only the decision cells and their values: "if cells $(r, c_1), (r, c_2), \ldots, (r, c_k)$ are
+assigned values $v_1, v_2, \ldots, v_k$, then row $r$ will fail its LH check regardless of how the forced cells
+are assigned."
+
+This partial nogood is shorter ($k$ cells instead of 511) and therefore matches more broadly: it prunes any future
+branch that makes the same $k$ decisions, even if the forced cells take different values (due to different
+constraint states from other rows). The pruning power is proportional to $2^{511 - k}$ --- the number of full-row
+assignments that the partial nogood eliminates.
+
+Identifying which cells are decisions versus forced requires inspecting the undo stack at the point of failure. Each
+entry on the stack records whether the assignment was a branch or a propagation. Scanning the stack for row $r$'s
+cells is $O(s)$ --- negligible compared to the cost of the DFS that produced the failure.
+
+#### B.14.3 Nogood Checking Efficiency
+
+Partial row nogoods must be checked during the search. The naive approach checks all recorded nogoods for row $r$
+whenever a new cell in row $r$ is assigned. This is expensive if many nogoods accumulate.
+
+A more efficient approach checks nogoods only at row completion ($u(\text{row}) = 0$), immediately before the SHA-1
+computation. The check is: for each nogood recorded for row $r$, verify whether the current assignment matches the
+nogood's decision cells. If any nogood matches, skip SHA-1 and backtrack. The cost is proportional to the number of
+nogoods recorded for row $r$ times the number of decision cells per nogood. If the solver records at most $N$
+nogoods per row and each nogood has $k \approx 100$ decision cells, the check costs $\sim 100N$ byte comparisons
+--- negligible for $N < 1{,}000$.
+
+An even cheaper approach uses *watched literals*, borrowing from SAT solver clause management. Each partial nogood
+"watches" two of its decision cells. The nogood is only examined when both watched cells are assigned to their
+nogood values. This amortizes the checking cost across assignments, activating the full check only when the nogood
+is close to being triggered.
+
+#### B.14.4 Interaction with B.1 (CDCL)
+
+Lightweight nogood recording is a strict subset of the CDCL machinery proposed in B.1. The key differences:
+
+*No implication graph.* B.14 does not track which constraint triggered each propagation. It simply inspects the
+undo stack at the point of failure to identify decision cells. This saves the per-propagation overhead of recording
+antecedents.
+
+*No conflict analysis.* B.14 does not perform 1-UIP resolution to derive a minimal conflict clause. The partial
+row nogood is a conservative approximation: it includes all decision cells in the failed row, not just the
+causally relevant ones. A full CDCL clause would typically be shorter (identifying only the decisions that caused
+the conflict), providing stronger pruning per clause.
+
+*No backjumping.* B.14 uses chronological backtracking. The recorded nogoods prevent re-entering known-bad
+configurations but do not enable jumping past irrelevant decision levels. B.1's backjumping provides complementary
+benefit by reducing the number of backtracks needed to reach the root cause.
+
+*Incremental upgrade path.* B.14 can be implemented first as a low-risk, low-effort improvement. If empirical
+results show that nogoods from hash failures are valuable, the solver can be incrementally upgraded to B.1 by
+adding implication-graph tracking, conflict analysis, and backjumping.
+
+#### B.14.5 DI Determinism
+
+Nogood recording is deterministic: the nogoods recorded are a function of the search trajectory (which failures
+occurred and which cells were decisions), and the search trajectory is identical in compressor and decompressor.
+The nogood database evolves identically in both, and pruning decisions based on nogoods are therefore identical.
+DI semantics are preserved.
+
+Partial row nogoods prune infeasible subtrees (configurations that are known to fail the LH check) but never prune
+feasible solutions (a correct row assignment will not match any nogood, because the nogood records a *failed*
+assignment). The enumeration order is unchanged: the solver visits the same feasible solutions in the same
+lexicographic order, but skips known-infeasible configurations faster.
+
+#### B.14.6 Storage and Lifecycle
+
+The nogood database grows as the solver encounters hash failures. Each partial row nogood occupies ~$k/8$ bytes
+(the decision cells' bitvector, compressed). At $k \approx 100$ decision cells per nogood, each entry is ~13 bytes
+plus overhead. If the solver records 10,000 nogoods across all rows during a block solve, the database occupies
+~130 KB --- negligible relative to the constraint store.
+
+Nogoods are scoped to the current block and discarded between blocks. Within a block, nogoods from early failures
+remain valid throughout the solve because the constraint system does not change (the same cross-sums and hashes
+apply throughout). There is no need for clause deletion or garbage collection.
+
+#### B.14.7 Open Questions
+
+(a) How many hash failures does the solver encounter per block, and how many of those failures recur (same row with
+the same decision-cell assignments)? If failures rarely recur, nogoods provide little pruning benefit. Instrumenting
+the solver to log failure patterns would quantify the potential.
+
+(b) Are partial row nogoods (B.14.2) significantly more powerful than full row nogoods (B.14.1)? The answer depends
+on how much of the row is determined by decisions versus forcing. If ~400 of 511 cells are forced (leaving ~111
+decision cells), partial nogoods are $2^{400}$ times more general than full nogoods --- a dramatic increase in
+pruning power. But the value depends on how often the same ~111 decisions recur, which is an empirical question.
+
+(c) What is the optimal checking strategy? Row-completion checking (B.14.3) is simple but delays nogood pruning
+until all cells are assigned. Watched-literal checking activates earlier but adds per-assignment overhead. The
+tradeoff depends on the ratio of nogood-checking cost to SHA-1 cost and on how many assignments the solver makes
+in a row before completing it.
+
+(d) Should nogoods be shared across portfolio instances (B.13)? If instance $A$ discovers a nogood for row $r$,
+instance $B$ could benefit from the same nogood if it encounters the same row configuration. Sharing nogoods
+requires inter-instance communication but could provide the clause-sharing benefit of parallel CDCL without the
+full CDCL machinery.
 
 ## References
 
@@ -2915,6 +3828,9 @@ Bader, M. (2013). *Space-filling curves: An introduction with applications in sc
 
 Bessière, C. (2006). Constraint propagation. In F. Rossi, P. van Beek, & T. Walsh (Eds.), *Handbook of constraint programming* (pp. 29--83). Elsevier.
 
+Braunstein, A., Mézard, M., & Zecchina, R. (2005). Survey propagation: An algorithm for satisfiability. *Random
+Structures & Algorithms, 27*(2), 201--226.
+
 Colbourn, C. J., & Dinitz, J. H. (Eds.). (2007). *Handbook of combinatorial designs* (2nd ed.). Chapman & Hall/CRC.
 
 Dang, Q. (2012). Recommendation for applications using approved hash algorithms (NIST Special Publication 800-107
@@ -2923,6 +3839,12 @@ Revision 1). National Institute of Standards and Technology.
 Debruyne, R., & Bessière, C. (1997). Some practicable filtering techniques for the constraint satisfaction problem.
 In *Proceedings of the 15th International Joint Conference on Artificial Intelligence (IJCAI-97)* (pp. 412--417).
 Morgan Kaufmann.
+
+Gomes, C. P., Selman, B., Crato, N., & Kautz, H. (2000). Heavy-tailed phenomena in satisfiability and constraint
+satisfaction problems. *Journal of Automated Reasoning, 24*(1--2), 67--100.
+
+Hamadi, Y., Jabbour, S., & Sais, L. (2009). ManySAT: A parallel SAT solver. *Journal on Satisfiability, Boolean
+Modeling and Computation, 6*(4), 245--262.
 
 Hamilton, C. H., & Rau-Chaplin, A. (2008). Compact Hilbert indices: Space-filling curves for domains with unequal side
 lengths. *Information Processing Letters, 105*(5), 155--163.
@@ -2951,14 +3873,33 @@ Transactions on Information Theory, 47*(2), 498--519.
 Leurent, G., & Peyrin, T. (2020). SHA-1 is a shambles: First chosen-prefix collision on SHA-1 and application to
 the PGP web of trust. In *Proceedings of the 29th USENIX Security Symposium* (pp. 1839--1856). USENIX Association.
 
+Luby, M., Sinclair, A., & Zuckerman, D. (1993). Optimal speedup of Las Vegas algorithms. *Information Processing
+Letters, 47*(4), 173--180.
+
 Mokbel, M. F., & Aref, W. G. (2001). Irregularity in multi-dimensional space-filling curves with applications in
 multimedia databases. In *Proceedings of the Tenth International Conference on Information and Knowledge Management*
 (pp. 512--519). ACM.
+
+Marino, R., Parisi, G., & Ricci-Tersenghi, F. (2016). The backtracking survey propagation algorithm for solving
+random K-SAT problems. *Nature Communications, 7*, 12996.
+
+Marques-Silva, J. P., & Sakallah, K. A. (1999). GRASP: A search algorithm for propositional satisfiability. *IEEE
+Transactions on Computers, 48*(5), 506--521.
+
+Moskewicz, M. W., Madigan, C. F., Zhao, Y., Zhang, L., & Malik, S. (2001). Chaff: Engineering an efficient SAT
+solver. In *Proceedings of the 38th Design Automation Conference* (pp. 530--535). ACM.
+
+Mézard, M., Parisi, G., & Zecchina, R. (2002). Analytic and algorithmic solution of random satisfiability problems.
+*Science, 297*(5582), 812--815.
 
 National Institute of Standards and Technology. (2015). *Secure Hash Standard (SHS) (FIPS PUB 180-4)*.
 
 Niedermeier, R., Reinhardt, K., & Sanders, P. (2002). Towards optimal locality in mesh-indexings. *Discrete Applied
 Mathematics, 117*(1--3), 211--237.
+
+Pipatsrisawat, K., & Darwiche, A. (2007). A lightweight component caching scheme for satisfiability solvers. In
+J. Marques-Silva & K. A. Sakallah (Eds.), *Theory and Applications of Satisfiability Testing --- SAT 2007* (LNCS
+4501, pp. 294--299). Springer.
 
 Sagan, H. (1994). *Space-filling curves*. Springer.
 
@@ -2970,5 +3911,12 @@ Valiant, L. G. (1979). The complexity of computing the permanent. *Theoretical C
 Wainwright, M. J., & Jordan, M. I. (2008). Graphical models, exponential families, and variational inference.
 *Foundations and Trends in Machine Learning, 1*(1--2), 1--305.
 
+Xu, L., Hutter, F., Hoos, H. H., & Leyton-Brown, K. (2008). SATzilla: Portfolio-based algorithm selection for SAT.
+*Journal of Artificial Intelligence Research, 32*, 565--606.
+
 Yedidia, J. S., Freeman, W. T., & Weiss, Y. (2002). *Understanding belief propagation and its generalizations*
 (Technical Report TR-2001-22). Mitsubishi Electric Research Laboratories.
+
+Zhang, L., Madigan, C. F., Moskewicz, M. W., & Malik, S. (2001). Efficient conflict driven learning in a Boolean
+satisfiability solver. In *Proceedings of the 2001 IEEE/ACM International Conference on Computer-Aided Design*
+(pp. 279--285). IEEE.

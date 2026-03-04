@@ -5,7 +5,9 @@
  */
 #include "decompress/Solvers/RowDecomposedController.h"
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <queue>
@@ -207,9 +209,13 @@ namespace crsce::decompress::solvers {
                          cellOrder[startIdx].preferred,  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                          false});
 
-        std::uint64_t iterations = 0;
-        std::uint64_t hashMismatches = 0;
-        std::uint64_t heapSelections = 0;
+        std::uint64_t iterations      = 0;
+        std::uint64_t hashMismatches  = 0;
+        std::uint64_t heapSelections  = 0;
+        std::uint64_t backjumps       = 0;
+        std::uint64_t backjumpDistSum = 0;
+        std::uint64_t backjumpDistMax = 0;
+        std::uint64_t nonBackjumpable = 0;
         const auto dfsStart = std::chrono::steady_clock::now();
 
         // Row-completion priority queue: (unknown_count, row_index), min-heap
@@ -306,11 +312,15 @@ namespace crsce::decompress::solvers {
 
             // --- Cross-row hash verification ---
             bool hashFailed = false;
+            bool directFailure = false; // true iff frame.row == failedRow
+            std::uint16_t failedRow = 0;
 
             // Check the directly-assigned cell's row
             if (cs.getStatDirect(frame.row).unknown == 0) {
                 if (!hasher_->verifyRow(frame.row, cs.getRow(frame.row))) {
-                    hashFailed = true;
+                    hashFailed    = true;
+                    directFailure = true;
+                    failedRow     = frame.row;
                     ++hashMismatches;
                 }
             }
@@ -321,6 +331,7 @@ namespace crsce::decompress::solvers {
                     if (a.r != frame.row && cs.getStatDirect(a.r).unknown == 0) {
                         if (!hasher_->verifyRow(a.r, cs.getRow(a.r))) {
                             hashFailed = true;
+                            failedRow  = a.r;
                             ++hashMismatches;
                             break;
                         }
@@ -329,7 +340,38 @@ namespace crsce::decompress::solvers {
             }
 
             if (hashFailed) {
-                continue; // prune this subtree
+                // B.1.8(a): Instrumentation — measure what a row-first-occurrence backjump
+                // WOULD cost, without actually performing it.  Telemetry (run 1) showed that
+                // blindly jumping to the first DFS frame for failedRow regresses depth from
+                // ~87.5K to ~43.7K: the jump skips 43K frames of other rows whose
+                // propagation effects determine row R's values, corrupting the search path.
+                //
+                // Effective CDCL backjumping requires antecedent (reason) tracking to
+                // identify the true conflict cause.  Without it, chronological backtracking
+                // (continue) is the correct and safe fallback.  The instrumentation fields
+                // (backjumps, backjump_dist_*) are retained to track when we implement
+                // proper reason tracking in a future iteration.
+                if (directFailure) {
+                    // Scan bottom-up for the shallowest frame for failedRow (measurement only).
+                    std::size_t targetIdx = stack.size();
+                    for (std::size_t i = 0; i < stack.size(); ++i) {
+                        if (stack[i].row == failedRow) {
+                            targetIdx = i;
+                            break;
+                        }
+                    }
+                    if (targetIdx < stack.size()) {
+                        const auto dist = static_cast<std::uint64_t>(stack.size() - targetIdx);
+                        backjumpDistSum += dist;
+                        backjumpDistMax = std::max(dist, backjumpDistMax);
+                        ++backjumps; // count potential backjumps for telemetry
+                    } else {
+                        ++nonBackjumpable;
+                    }
+                } else {
+                    ++nonBackjumpable;
+                }
+                continue; // chronological backtrack (safe without antecedent tracking)
             }
 
             // O11y rate logging every ~1M iterations
@@ -370,7 +412,12 @@ namespace crsce::decompress::solvers {
                     {"stall_escalations",      detector.escalations(),
                                                                     ::crsce::o11y::O11y::MetricKind::Gauge},
                     {"stall_deescalations",    detector.deescalations(),
-                                                                    ::crsce::o11y::O11y::MetricKind::Gauge}});
+                                                                    ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"backjumps",              backjumps,           ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"backjump_dist_max",      backjumpDistMax,     ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"backjump_dist_avg",      backjumps > 0 ? backjumpDistSum / backjumps : 0,
+                                                                    ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"non_backjumpable",       nonBackjumpable,     ::crsce::o11y::O11y::MetricKind::Gauge}});
             }
 
             // --- Cell selection: heap-first, then static ordering ---
@@ -439,8 +486,11 @@ namespace crsce::decompress::solvers {
                  {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
                  {"total_hash_mismatches", std::to_string(hashMismatches)},
                  {"total_heap_selections", std::to_string(heapSelections)},
-                 {"total_stall_escalations", std::to_string(detector.escalations())},
-                 {"total_stall_deescalations", std::to_string(detector.deescalations())}});
+                 {"total_stall_escalations",   std::to_string(detector.escalations())},
+                 {"total_stall_deescalations", std::to_string(detector.deescalations())},
+                 {"total_backjumps",           std::to_string(backjumps)},
+                 {"max_backjump_distance",     std::to_string(backjumpDistMax)},
+                 {"total_non_backjumpable",    std::to_string(nonBackjumpable)}});
         }
     }
 
