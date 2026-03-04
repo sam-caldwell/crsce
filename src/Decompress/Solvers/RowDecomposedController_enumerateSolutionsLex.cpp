@@ -19,6 +19,7 @@
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/FailedLiteralProber.h"
+#include "decompress/Solvers/StallDetector.h"
 #include "decompress/Solvers/IBranchingController.h"
 #include "decompress/Solvers/IPropagationEngine.h"
 #include "decompress/Solvers/LineID.h"
@@ -177,6 +178,7 @@ namespace crsce::decompress::solvers {
         // whether the main solver uses Metal.
         PropagationEngine probeProp(cs);
         FailedLiteralProber prober(cs, probeProp, *brancher_, *hasher_);
+        StallDetector detector;
 
         // --- Compute global cell ordering by probability confidence ---
         const ProbabilityEstimator estimator(cs);
@@ -242,11 +244,23 @@ namespace crsce::decompress::solvers {
                 : static_cast<std::uint8_t>(1 - frame.preferred);
             frame.nextValue++;
 
-            // Phase B: Probe alternate value. If infeasible, skip the backtrack branch.
+            // Phase B: Adaptive lookahead — probe alternate value at current depth k.
+            // k=0: skip probing (fastest forward progress).
+            // k=1: single-level probe via probeAlternate (existing hot-path).
+            // k=2..4: recursive k-level probe via probeAlternateDeep.
             if (frame.nextValue == 1) {
-                const auto altV = static_cast<std::uint8_t>(1 - v);
-                if (!prober.probeAlternate(frame.row, frame.col, altV)) {
-                    frame.nextValue = 2; // alternate is dead — force current value
+                const auto k = detector.currentK();
+                if (k > 0) {
+                    const auto altV = static_cast<std::uint8_t>(1 - v);
+                    bool feasible = false;
+                    if (k == 1) {
+                        feasible = prober.probeAlternate(frame.row, frame.col, altV);
+                    } else {
+                        feasible = prober.probeAlternateDeep(frame.row, frame.col, altV, k);
+                    }
+                    if (!feasible) {
+                        frame.nextValue = 2; // alternate is dead — force current value
+                    }
                 }
             }
 
@@ -320,6 +334,7 @@ namespace crsce::decompress::solvers {
 
             // O11y rate logging every ~1M iterations
             ++iterations;
+            detector.update(stack.size());
 
             // Re-seed the heap every ~4K iterations to catch rows that
             // drifted below threshold without a direct assignment in them.
@@ -345,11 +360,17 @@ namespace crsce::decompress::solvers {
                 ::crsce::o11y::O11y::instance().metric("solver_dfs_iterations", {
                     {"iterations",             iterations,      ::crsce::o11y::O11y::MetricKind::Counter},
                     {"depth",                  stack.size(),    ::crsce::o11y::O11y::MetricKind::Gauge},
-                    {"hash_mismatches",        hashMismatches,  ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"hash_mismatches",        hashMismatches,  ::crsce::o11y::O11y::MetricKind::Gauge},
                     {"heap_selections",        heapSelections,  ::crsce::o11y::O11y::MetricKind::Counter},
                     {"heap_size",              static_cast<std::uint64_t>(rowHeap.size()),
                                                                     ::crsce::o11y::O11y::MetricKind::Gauge},
-                    {"min_nz_row_unknown",     minNzRowUnknown, ::crsce::o11y::O11y::MetricKind::Gauge}});
+                    {"min_nz_row_unknown",     minNzRowUnknown, ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"probe_depth",            detector.currentK(),
+                                                                    ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"stall_escalations",      detector.escalations(),
+                                                                    ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"stall_deescalations",    detector.deescalations(),
+                                                                    ::crsce::o11y::O11y::MetricKind::Gauge}});
             }
 
             // --- Cell selection: heap-first, then static ordering ---
@@ -417,7 +438,9 @@ namespace crsce::decompress::solvers {
                 {{"total_iterations", std::to_string(iterations)},
                  {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
                  {"total_hash_mismatches", std::to_string(hashMismatches)},
-                 {"total_heap_selections", std::to_string(heapSelections)}});
+                 {"total_heap_selections", std::to_string(heapSelections)},
+                 {"total_stall_escalations", std::to_string(detector.escalations())},
+                 {"total_stall_deescalations", std::to_string(detector.deescalations())}});
         }
     }
 

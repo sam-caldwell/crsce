@@ -2529,106 +2529,10 @@ store requires careful synchronization or per-thread copies.
 
 ### B.7 Neighborhood-Based Lookahead
 
-The existing `FailedLiteralProber` implements 1-level lookahead: it tentatively assigns a single cell,
-propagates, and checks whether the resulting state is immediately infeasible. This appendix proposes
-*$k$-level neighborhood lookahead*, which extends the probe depth to detect doomed assignments that
-require multiple speculative assignments to expose.
-
-#### B.7.1 Motivation
-
-At the current depth plateau (~87K assignments, row ~170), the solver assigns cells in row-major order.
-Each assignment propagates through 8 constraint lines, but the propagation horizon is limited by the
-cardinality forcing rules: a line triggers forcing only when its residual drops to 0 or equals its
-unknown count. In the middle rows of the matrix, many lines have large unknown counts, so individual
-assignments rarely trigger cascading forces. The result is a "silent zone" where assignments accumulate
-without propagation feedback until a row completes and the SHA-1 check rejects the entire row.
-
-Neighborhood lookahead addresses this by exploring the *local future* of an assignment: after
-tentatively assigning cell $(r, c)$, it recursively assigns the next $k - 1$ cells in branching order,
-propagating at each level. If all $2^{k-1}$ continuations of the tentative assignment lead to
-contradictions, the assignment is provably infeasible regardless of choices made beyond the
-$k$-neighborhood.
-
-#### B.7.2 Relationship to Existing Components
-
-The existing prober infrastructure provides the 1-level case ($k = 1$). Specifically,
-`FailedLiteralProber::tryProbeValue(r, c, v)` assigns, propagates to fixpoint, optionally hash-checks,
-and undoes --- exactly a depth-1 lookahead. The `probeAlternate(r, c, v)` method applies this during DFS
-to prune the unexplored branch.
-
-The `RowDecomposedController` adds a layer of sophistication by using `ProbabilityEstimator` to guide
-cell selection and `probeAlternate` to prune branches, but it does not deepen the probe: each call to
-`probeAlternate` examines only the immediate consequences of a single assignment.
-
-Neighborhood lookahead generalizes this to depth $k$: after tentatively assigning $(r, c) = v$ and
-propagating, it selects the next $k - 1$ unassigned cells (in branching order) and recursively probes
-both values for each, forming a lookahead tree of depth $k$. If every leaf of the lookahead tree is
-infeasible, the root assignment $(r, c) = v$ is provably doomed.
-
-#### B.7.3 Algorithm
-
-Given the current solver state, a target cell $(r, c)$, a candidate value $v$, and a lookahead depth
-$k$:
-
-1. **Assign and propagate.** Tentatively assign $x_{r,c} = v$. Propagate to fixpoint. If infeasible,
-   return DOOMED (this is the $k = 1$ base case, identical to existing `tryProbeValue`).
-
-2. **Check depth.** If $k = 1$, return FEASIBLE (the assignment did not immediately contradict).
-
-3. **Select next cell.** Let $(r', c')$ be the next unassigned cell in row-major order after all
-   propagation-forced assignments.
-
-4. **Recurse.** Probe $(r', c') = 0$ at depth $k - 1$. If FEASIBLE, return FEASIBLE (at least one
-   continuation survives). Otherwise, probe $(r', c') = 1$ at depth $k - 1$. If FEASIBLE, return
-   FEASIBLE. If both return DOOMED, return DOOMED.
-
-5. **Undo.** Undo all tentative assignments from step 1 (and any recursive levels) before returning.
-
-The worst-case cost is $O(2^k)$ probe operations, each involving propagation at $O(8s)$ cost. For small
-$k$ (2--4), this is tractable: $k = 2$ quadruples the per-node probe cost, $k = 3$ octuples it.
-
-#### B.7.4 Selective Application
-
-Full $k$-level lookahead on every branching decision is expensive. Two strategies limit cost:
-
-*Trigger-based activation.* Apply deeper lookahead only when the standard 1-level probe is ambiguous
-(both values feasible but neither produces significant propagation). In CRSCE, this corresponds to
-cells in the "silent zone" where all 8 constraint lines have large residuals and unknown counts. A
-simple heuristic: if the minimum unknown count across the cell's 8 lines exceeds a threshold $\tau$
-(e.g., $\tau = s/4 \approx 128$), invoke $k$-level lookahead instead of 1-level.
-
-*Adaptive depth.* Start with $k = 2$ and increase to $k = 3$ or $k = 4$ only when the solver detects
-stalling (backtrack rate exceeds a threshold over a sliding window). The `ProbabilityEstimator` already
-computes per-cell scores from line residuals; cells with high estimated ambiguity (probability near 0.5)
-are natural candidates for deeper lookahead.
-
-#### B.7.5 Interaction with SAC (B.6)
-
-SAC and neighborhood lookahead are complementary. SAC strengthens the global consistency maintained at
-each search node, reducing the number of nodes explored. Neighborhood lookahead strengthens the
-per-node branching decision, detecting doomed branches that SAC alone cannot identify (because SAC
-probes only one cell at a time, while neighborhood lookahead probes correlated sequences of cells).
-
-In principle, the two can be composed: run SAC at each node to establish global consistency, then apply
-$k$-level lookahead for the branching decision. The combined cost is dominated by SAC (which is more
-expensive per node), so the incremental cost of lookahead is modest if SAC is already being maintained.
-
-#### B.7.6 Open Questions
-
-(a) What lookahead depth $k$ yields the best throughput--pruning tradeoff for 511×511 binary matrices
-with 8 constraint families? Empirical measurement on representative instances (all-zeros, all-ones,
-random, alternating) is needed to determine whether $k = 2$ provides sufficient additional pruning over
-$k = 1$, or whether $k = 3$ or higher is necessary to shift the depth plateau.
-
-(b) Can the lookahead tree be pruned using the `ProbabilityEstimator` scores? Rather than exploring all
-$2^{k-1}$ continuations, the lookahead could explore only the most-constrained continuation (lowest
-probability cell first), converting the exponential tree into a linear chain of depth $k$ at the cost of
-weaker pruning guarantees.
-
-(c) Is there a useful interaction between neighborhood lookahead and the toroidal-slope partitions
-specifically? The slope lines create long-range dependencies (a single slope line visits all $s$ rows),
-so a $k$-level lookahead on slope-constrained cells may propagate information across distant rows,
-breaking the "silent zone" that limits 1-level probing in the middle of the matrix.
+*This appendix is obsolete.* The neighborhood-based lookahead proposal has been subsumed by B.8 (Adaptive
+Lookahead), which incorporates exhaustive $k$-level lookahead (up to $k = 4$) with stall-driven
+escalation and de-escalation. B.8.3 specifies the exhaustive lookahead algorithm originally developed
+here.
 
 ### B.8 Adaptive Lookahead
 
@@ -2813,6 +2717,189 @@ exhaustive lookahead at $k = 4$.
 alternate value (as in the existing `probeAlternate`)? Probing only the alternate value halves the
 tree size at each depth, effectively doubling the affordable $k$. However, probing the canonical value
 as well can detect doomed states earlier, reducing backtrack depth.
+
+
+### B.9 Non-Linear Lookup-Table Partitions
+
+All eight implemented constraint families are *linear*: each defines its cell-to-line mapping via an arithmetic
+formula over $(r, c)$. Rows use $r$, columns use $c$, diagonals use $c - r + (s-1)$, anti-diagonals use $r + c$, and
+toroidal slopes use $(c - pr) \bmod s$ for various $p$. This linearity is what makes the algebraic kernel analysis
+in B.2.2 possible --- swap-invisible patterns exist because the constraint system is a set of linear functionals over
+$\mathbb{Z}$, and the null space of any finite set of linear functionals over a 261,121-dimensional binary vector
+space is necessarily large.
+
+This appendix proposes *non-linear partitions* defined by a precomputed pseudorandom lookup table rather than an
+algebraic formula. The partition uses $s$ uniform-length lines of $s$ cells each, encoded at $b$ bits per element ---
+the same structure and per-partition storage cost as LSM, VSM, or any toroidal-slope family. The mapping from cell to
+line is determined entirely by a deterministic PRNG, ensuring that the partition has no exploitable algebraic
+structure while remaining identical in compressor and decompressor.
+
+#### B.9.1 Construction
+
+Define a *lookup-table partition* (LTP) as a $511 \times 511$ matrix $T$ of `uint16` values, where $T[r][c] \in
+\{0, 1, \ldots, s - 1\}$ assigns cell $(r, c)$ to one of $s$ lines. Each line contains exactly $s$ cells:
+$|\{(r,c) : T[r][c] = k\}| = s$ for all $k \in \{0, \ldots, s-1\}$. The cross-sum for line $k$ is:
+
+$$
+    \Sigma_k = \sum_{\{(r,c) : T[r][c] = k\}} x_{r,c}
+$$
+
+where $x_{r,c} \in \{0, 1\}$ is the CSM cell value. Each $\Sigma_k \in \{0, 1, \ldots, s\}$, requiring $b =
+\lceil \log_2(s + 1) \rceil = 9$ bits to encode --- identical to the LSM, VSM, and toroidal-slope families.
+
+The table is constructed offline using a deterministic PRNG seeded with a fixed constant (e.g., the first 32 bytes
+of SHA-256("CRSCE-LTP-v1")). Construction proceeds as follows: create a list of all $s^2 = 261{,}121$ cell indices
+$(r, c)$ in row-major order, shuffle the list using a Fisher--Yates shuffle driven by the PRNG, then assign the
+first $s$ cells to line 0, the next $s$ cells to line 1, and so on through line $s - 1$. The result is a partition
+where each line's $s$ members are scattered pseudorandomly across the matrix, crossing rows, columns, diagonals, and
+slopes with no spatial structure.
+
+The resulting table is hardcoded into the source code as a `constexpr std::array<uint16_t, 261121>` literal. The
+table is part of the committed source, not a build-time artifact --- there is no code-generation step, no PRNG
+invocation at compile time, and no possibility of variation between builds or platforms. The PRNG is used only once,
+offline, to produce the literal values that are then checked into the repository. This guarantees bit-identical
+tables in compressor and decompressor unconditionally. At runtime, cell-to-line resolution is a single indexed
+memory access. The table occupies $s^2 \times 2 = 522{,}242$ bytes ($\approx 510$ KB) of static read-only memory
+per partition.
+
+#### B.9.2 Why Non-Linearity Matters
+
+With linear partitions, the set of matrices indistinguishable from a given matrix $M$ under the constraint system
+forms a coset of a lattice in $\mathbb{Z}^{s^2}$. The lattice kernel has dimension at least $s^2 - (ns - c)$ for $n$
+partitions with $c$ dependent constraints. This structure means that swap-invisible patterns can be constructed
+algebraically --- one solves a system of linear equations to find the null space, then enumerates binary-feasible
+vectors within it.
+
+A pseudorandom LTP breaks this structure. The cell-to-line mapping $T[r][c]$ has no algebraic relationship to
+$(r, c)$, so the constraint $\Sigma_k = \text{target}$ is not a linear functional over the cell coordinates in any
+useful sense. Formally, the constraint is still linear in the cell *values* (it is a sum), but the set of cells
+participating in each constraint is defined by a pseudorandom lookup rather than an arithmetic predicate. The
+"which cells share a line" structure cannot be analyzed via rank-nullity over $\mathbb{Z}$ --- the partition's
+geometry is opaque to linear-algebraic attack.
+
+For swap-invisible patterns, a $k$-cell swap must simultaneously balance across all linear partitions (rows, columns,
+diagonals, anti-diagonals, slopes) *and* all non-linear partitions. The linear partitions constrain the swap to lie
+in a lattice coset; the non-linear partitions impose additional combinatorial conditions that do not align with the
+lattice structure. A swap pattern that balances on a toroidal-slope line (because the cells lie on a modular
+arithmetic progression) has no reason to also balance on a pseudorandom line whose membership was determined by a
+PRNG. The two constraint classes are structurally independent.
+
+#### B.9.3 Storage Cost
+
+An LTP with $s$ uniform-length lines encodes identically to LSM, VSM, or any toroidal-slope family. Each line's
+cross-sum requires $b = 9$ bits. The per-partition storage cost is:
+
+$$
+    B_u(s) = s \times b = 511 \times 9 = 4{,}599 \text{ bits}
+$$
+
+This is the same cost as one toroidal-slope partition. Adding one LTP pair (two partitions) costs $2 \times 4{,}599
+= 9{,}198$ bits per block --- identical to a toroidal-slope pair. The compression ratio impact:
+
+| Configuration                     | Block bits | $C_r$  |
+|-----------------------------------|-----------|--------|
+| Current (8 partitions)            | 125,988   | 0.5175 |
+| + 1 LTP pair (10 partitions)     | 135,186   | 0.4823 |
+| + 2 LTP pairs (12 partitions)    | 144,384   | 0.4471 |
+
+Each LTP pair costs 3.5 percentage points of compression ratio, the same as a toroidal-slope pair. The decision
+between an additional slope pair and an LTP pair therefore reduces entirely to propagation effectiveness: does the
+non-linear structure provide more constraint tightening per stored bit than a 5th algebraic slope?
+
+#### B.9.4 Propagation Characteristics
+
+Non-linear partitions propagate differently from linear ones. A linear partition's lines have spatial coherence ---
+a row contains spatially adjacent cells, a diagonal contains cells along a geometric line, and a toroidal slope
+visits cells at regular modular intervals. This coherence means that forcing one cell on a line often forces nearby
+cells (because nearby cells share other linear constraints). Non-linear lines lack this property: the $s$ cells on a
+single LTP line are scattered pseudorandomly across the matrix, sharing no rows, columns, diagonals, or slopes in
+any systematic way.
+
+This scattering has both advantages and disadvantages for propagation.
+
+*Advantage: long-range information transfer.* When a cell on an LTP line is forced, the residual update propagates
+to all $s - 1$ other cells on that line, which may be in distant rows. This creates constraint feedback across
+regions of the matrix that no linear partition connects directly. In the mid-solve "silent zone" (rows 100--300),
+where linear partitions have large residuals and provide little forcing, an LTP line passing through that region
+may have a smaller residual (because some of its cells are in already-solved early rows), enabling forcing in rows
+that would otherwise receive no feedback.
+
+*Disadvantage: sparse cascade potential.* Linear partitions create dense local cascades: forcing a cell on a row
+updates the row residual, which may force an adjacent cell, which updates a column, which forces a cell in another
+row, and so on. The spatial locality ensures that each cascade step touches cells that share multiple constraints.
+LTP lines connect spatially distant cells, so a forcing event on an LTP line is unlikely to trigger a cascade on
+another LTP line (the forced cell's other LTP line contains a different random scatter of cells). The cascade
+potential is primarily through the cell's 8 linear lines, not through the LTP lines.
+
+The net effect is that LTPs provide *breadth* (information spread across the matrix) rather than *depth* (cascading
+local forcing). This makes them complementary to the existing linear partitions, which provide depth but limited
+breadth in the mid-solve.
+
+#### B.9.5 Runtime Cost
+
+The `ConstraintStore` would require a second set of line statistics for each LTP partition. Each LTP partition adds
+$s = 511$ lines to the store --- the same count as a toroidal-slope partition. At 8 bytes per line statistic
+(target, assigned, unknown), one LTP partition adds $511 \times 8 = 4{,}088$ bytes, identical to a slope partition.
+
+The per-assignment cost increases by 2 line-stat updates per LTP pair (one lookup per partition, one stat update
+each). The lookup is a single array access into the precomputed table --- $O(1)$, typically an L1 cache hit after
+the first few accesses. The `PropagationEngine` fast path (`tryPropagateCell`) would check 2 additional lines per
+LTP pair, extending the current 8-line check to 10. This is a 25% increase in per-iteration propagation cost,
+partially offset by the additional forcing opportunities that reduce the total number of iterations.
+
+The runtime footprint is therefore identical to adding a 5th toroidal-slope pair, with the sole difference being
+the 510 KB lookup table in static memory (versus a computed index formula for slopes).
+
+#### B.9.6 Crossing Density and Orthogonality
+
+Toroidal-slope partitions enjoy perfect 1-cell orthogonality with rows and columns: because $\gcd(p, s) = 1$ for
+the implemented slopes ($s = 511$ is prime), every (slope-line, row) pair and every (slope-line, column) pair
+intersects in exactly one cell. A pseudorandom LTP does not guarantee this property. By the birthday-problem
+heuristic, a random assignment of $s$ cells to each of $s$ lines produces approximately uniform crossing density ---
+each (LTP-line, row) pair contains roughly 1 cell in expectation --- but some pairs will contain 0 and others 2 or
+more. The variance is small ($\approx 1/e$ pairs empty for a Poisson approximation), and the overall constraint
+tightening is similar, but the lack of a guaranteed 1-cell intersection means that the orthogonality argument from
+B.2.4 does not extend cleanly to LTPs.
+
+However, the pseudorandom assignment guarantees statistical independence from all 8 linear families simultaneously,
+which is stronger than any single algebraic slope can claim. A 5th slope is algebraically related to the existing 4
+slopes (all are linear functionals mod $s$), and its null-space contribution partially overlaps with theirs. An LTP
+line's membership has zero algebraic correlation with any linear family, so the information it contributes is
+maximally independent in the combinatorial sense even if the intersection counts are not perfectly uniform.
+
+#### B.9.7 Interaction with Adaptive Lookahead (B.8)
+
+If LTP lines provide long-range information transfer, a $k$-level lookahead probe (B.8) on a cell that sits on a
+low-residual LTP line may detect contradictions in distant rows --- exactly the kind of "silent zone" breakthrough
+that lookahead alone struggles to achieve. When the solver probes a cell assignment at depth $k$, the propagation
+cascade now traverses 10 lines (8 linear + 2 LTP) per forced cell, and the LTP lines carry residual updates to
+cells far from the probe site. This broadens the "reach" of each probe step, potentially allowing $k = 2$ with LTPs
+to achieve pruning comparable to $k = 3$ without them. The combination may be synergistic, and empirical measurement
+is needed to quantify the effect.
+
+#### B.9.8 Open Questions
+
+(a) Does a pseudorandom LTP pair provide measurable propagation benefit beyond a 5th toroidal-slope pair, given
+identical storage costs (9,198 bits per pair)? The LTP's advantage is non-linearity and long-range information
+transfer; the slope pair's advantage is guaranteed 1-cell orthogonality and zero runtime memory overhead (computed
+index vs. 510 KB table). Empirical comparison on representative inputs is needed.
+
+(b) Is there an optimal PRNG seed that maximizes propagation effectiveness? While any deterministic seed produces a
+valid partition, different seeds yield different crossing-density profiles with the existing 8 partitions. An offline
+search over seeds --- evaluating propagation depth on a test suite of random matrices --- could identify a seed that
+maximizes constraint tightening. Because the seed is used only once to produce the hardcoded table, this search has
+zero runtime cost; it merely determines which literal array is committed to the source.
+
+(c) Should the LTP use more than $s$ lines? An LTP with $2s - 1 = 1{,}021$ variable-length lines (the DSM/XSM
+distribution) would provide short anchor lines that fix cells unconditionally, at the cost of higher per-partition
+storage ($B_d(s) = 8{,}185$ bits versus $sb = 4{,}599$ bits). The tradeoff between anchor-cell pruning and storage
+efficiency is an empirical question, though the uniform-length design is preferred for its storage parity with
+existing families.
+
+(d) Can multiple LTP partitions (each from a different PRNG seed) be stacked? Two independent pseudorandom
+partitions would impose two structurally independent non-linear constraint sets, further shrinking the space of
+swap-invisible patterns. The cost is linear (9,198 bits per additional pair, 510 KB per additional table), and the
+diminishing-returns curve is unknown.
 
 ## References
 

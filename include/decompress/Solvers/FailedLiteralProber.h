@@ -119,6 +119,26 @@ namespace crsce::decompress::solvers {
          */
         [[nodiscard]] bool probeAlternate(std::uint16_t r, std::uint16_t c, std::uint8_t v);
 
+        /**
+         * @name probeAlternateDeep
+         * @brief Recursive k-level exhaustive lookahead probe.
+         *
+         * At each level, assigns the given value, propagates, hash-checks completed rows,
+         * then picks the next unassigned cell and recursively probes both values. If both
+         * sub-probes are infeasible, the assignment is infeasible (contradiction at depth k).
+         *
+         * Recursion depth is bounded by the depth parameter (max 4), so stack usage is safe.
+         *
+         * @param r Row index of the cell to probe.
+         * @param c Column index of the cell to probe.
+         * @param v Value to probe (0 or 1).
+         * @param depth Remaining probe depth (1 = leaf, equivalent to probeAlternate).
+         * @return True if the value is feasible at this depth; false if contradiction detected.
+         * @throws None
+         */
+        [[nodiscard]] bool probeAlternateDeep(std::uint16_t r, std::uint16_t c,
+                                              std::uint8_t v, std::uint8_t depth);
+
     private:
         /**
          * @name tryProbeValue
