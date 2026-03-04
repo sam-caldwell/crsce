@@ -23,19 +23,20 @@ namespace crsce::decompress::solvers {
          * @name r
          * @brief Row index.
          */
-        std::uint16_t r;
+        std::uint16_t r{0};
 
         /**
          * @name c
          * @brief Column index.
          */
-        std::uint16_t c;
+        std::uint16_t c{0};
 
         /**
          * @name value
          * @brief Assigned value (0 or 1).
          */
-        std::uint8_t value;
+        std::uint8_t value{0};
+
     };
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 

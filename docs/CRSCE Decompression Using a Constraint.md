@@ -4110,6 +4110,607 @@ operates on clusters of variables rather than individual variables, explicitly a
 each cluster. The cost is $O(2^{|C|})$ per cluster of size $|C|$, which is tractable only for small clusters
 ($|C| \leq 20$). Whether meaningful clusters exist in the CRSCE graph's regular structure is an open question.
 
+### B.16 Partial Row Constraint Tightening
+
+The current propagation engine applies two forcing rules: when a line's residual $\rho(L) = 0$, all unknowns are
+forced to 0; when $\rho(L) = u(L)$, all unknowns are forced to 1. These rules activate only at the extremes ---
+either the residual is fully consumed or it exactly matches the unknown count. Between these extremes, the
+propagator does nothing: a line with $\rho = 47$ and $u = 103$ generates no forced assignments, even though the
+constraint significantly restricts the feasible completions. This binary behavior is the root cause of the plateau
+at depth ~87K: in the middle rows (100--300), residuals are far from both 0 and $u$, and the propagator becomes
+inert. This appendix proposes *partial row constraint tightening* (PRCT): detecting and exploiting deterministic
+cell values before the residual reaches a forcing extreme, by analyzing the interaction between a line's residual
+and the positions of its remaining unknowns.
+
+#### B.16.1 Positional Forcing from Cross-Line Interactions
+
+Consider a row $r$ with $u$ unknown cells and residual $\rho$. The row constraint alone tells us that exactly
+$\rho$ of the $u$ unknowns must be 1. Now consider a column $c$ that intersects row $r$ at an unknown cell
+$(r, c)$. The column has its own residual $\rho_c$ and unknown count $u_c$. If every unknown on column $c$
+*other than* $(r, c)$ were assigned to 1, the maximum contribution from column $c$'s other cells would be
+$u_c - 1$. If $\rho_c > u_c - 1$, then cell $(r, c)$ *must* be 1 to satisfy column $c$'s constraint. Dually,
+if $\rho_c = 0$, then cell $(r, c)$ must be 0 regardless of the row's state.
+
+The existing propagator already captures the $\rho_c = 0$ and $\rho_c = u_c$ cases. PRCT extends this by
+considering *joint* constraints. When the row has $u$ unknowns and residual $\rho$, and a column through one
+of those unknowns has residual $\rho_c$ and unknown count $u_c$, the cell at their intersection is forced to 1
+if assigning it to 0 would make the column infeasible given the row's constraint. Specifically, cell $(r, c)$ is
+forced to 1 if:
+
+$$\rho_c > u_c - 1$$
+
+and forced to 0 if $\rho_c = 0$. But these are just the standard single-line rules. The novel contribution of
+PRCT is reasoning about *groups* of cells. If a row has $u = 10$ unknowns and $\rho = 8$, then at most 2 of
+those unknowns can be 0. If a column through one of those unknowns has $\rho_c = 1$ and $u_c = 5$, then that
+column needs exactly 1 more one among its 5 unknowns. The row's constraint ($\rho = 8$ of $u = 10$) means that
+at most 2 of the 10 row-unknowns are 0. If the column's 5 unknowns include 3 cells from this row, then at most
+2 of those 3 can be 0 (from the row constraint), so at least 1 must be 1. If the column needs exactly 1 more one,
+and at least 1 of its row-overlapping unknowns must be 1, and its non-row unknowns could supply at most
+$u_c - 3$ ones, then we can reason about whether the column's non-row unknowns can satisfy the column without
+any row-cell contribution.
+
+#### B.16.2 Generalized Residual Interval Analysis
+
+A more systematic formulation treats each unknown cell's value as a variable in $\{0, 1\}$ and computes, for each
+cell, the *feasible interval* implied by all 8 constraint lines simultaneously. For cell $(r, c)$, define:
+
+$$v_{\min}(r, c) = \max_{L \ni (r,c)} \left( \rho(L) - (u(L) - 1) \right)^+$$
+
+$$v_{\max}(r, c) = \min_{L \ni (r,c)} \left( \rho(L),\; 1 \right)$$
+
+where $(x)^+ = \max(x, 0)$ and the max/min range over all 8 lines containing $(r, c)$. If $v_{\min} = 1$, the cell
+is forced to 1. If $v_{\max} = 0$, the cell is forced to 0. If $v_{\min} = v_{\max}$, the cell is determined.
+
+This computation generalizes the current forcing rules: $\rho(L) = 0$ implies $v_{\max} = 0$ for all cells on $L$,
+and $\rho(L) = u(L)$ implies $v_{\min} \geq 1$ for all cells on $L$ (since $\rho(L) - (u(L) - 1) = 1$). PRCT
+activates strictly earlier than the current rules because it considers the *intersection* of constraints from all
+8 lines, not each line independently.
+
+#### B.16.3 Tightening via Residual Bounds Propagation
+
+The interval analysis in B.16.2 can be strengthened by propagating bounds across lines. After computing
+$v_{\min}(r, c)$ and $v_{\max}(r, c)$ for all cells, update each line's effective residual:
+
+$$\rho'(L) = \rho(L) - \sum_{(r,c) \in L} v_{\min}(r, c)$$
+
+$$u'(L) = \sum_{(r,c) \in L} (v_{\max}(r, c) - v_{\min}(r, c))$$
+
+If $\rho'(L) = 0$, all cells with $v_{\max} = 1$ (i.e., not yet forced to 1) are forced to their minimum value.
+If $\rho'(L) = u'(L)$, all cells with $v_{\min} = 0$ are forced to their maximum value. This is a second-order
+tightening: the initial interval computation identifies some forced cells, which tighten the residuals, which may
+force additional cells.
+
+The process can be iterated to a fixed point, analogous to arc consistency in classical CSP. Each iteration costs
+$O(s)$ per line (scanning unknowns to compute bounds), and the total cost per fixpoint computation is $O(s \times
+|\text{lines}|) = O(s \times 5{,}108) \approx 2.6 \times 10^6$ operations. At the solver's current throughput,
+this is approximately 2.6 ms per full pass --- too expensive to run at every DFS node (which processes at ~500K
+nodes/sec), but feasible as a periodic tightening step (e.g., at row boundaries or when the stall detector fires).
+
+#### B.16.4 Row-Specific Early Detection
+
+A targeted variant focuses exclusively on rows approaching completion. When a row has $u \leq u_{\text{threshold}}$
+unknowns remaining (e.g., $u_{\text{threshold}} = 20$), the solver performs the interval analysis of B.16.2
+restricted to the $u$ unknown cells in that row, considering all 8 constraint lines through each cell. The cost
+is $O(8u)$ per row --- $O(160)$ operations at $u = 20$ --- negligible even at full DFS throughput.
+
+This targeted variant captures the most valuable tightening: as a row nears completion, the row residual
+constrains the remaining unknowns more tightly (fewer cells share the same residual budget), and cross-line
+constraints interact more strongly (fewer unknowns means each cell's value has more impact on other lines). The
+combination is most likely to produce forced cells in precisely the regime where the current propagator falls silent.
+
+#### B.16.5 DI Determinism
+
+PRCT is purely deductive: it infers forced cell values from the current constraint state using deterministic
+arithmetic. No random or heuristic elements are involved. The forced cells identified by PRCT are logically
+implied by the constraint system --- they would be assigned the same values by any correct solver. Therefore, PRCT
+preserves DI semantics: the compressor and decompressor produce identical forced assignments and identical search
+trajectories.
+
+The iteration order for bounds propagation (B.16.3) must be deterministic (e.g., process lines in index order,
+iterate until no cell bounds change). Floating-point arithmetic is not involved --- all quantities are integers
+(residuals, unknown counts, binary bounds) --- so bitwise reproducibility is automatic.
+
+#### B.16.6 Interaction with Other Proposals
+
+PRCT is complementary to B.8 (adaptive lookahead). Lookahead detects infeasibility by tentatively assigning values
+and propagating; PRCT detects forced values by analyzing constraint bounds without tentative assignments. PRCT can
+be seen as a *zero-cost lookahead*: it identifies some of the same forced cells that lookahead would discover, but
+without the overhead of assigning, propagating, and undoing. When PRCT forces cells, lookahead has fewer branching
+decisions to make, reducing the $2^k$ probe tree.
+
+PRCT also strengthens B.10 (constraint-tightness ordering). The tightness score $\theta(r, c)$ currently measures
+how close each line through $(r, c)$ is to a forcing state. PRCT's interval analysis provides a more direct signal:
+cells with $v_{\min} = v_{\max}$ are already determined and need not be branched on. Cells with $v_{\max} -
+v_{\min} = 1$ but $v_{\min} > 0$ on some lines are near-forced and should be prioritized for branching.
+
+#### B.16.7 Open Questions
+
+(a) How many additional cells does PRCT force in the plateau band compared to standard propagation? The answer
+depends on the residual distribution at depth ~87K. If residuals in the plateau are far from both 0 and $u$ on all
+8 lines simultaneously, even joint-constraint reasoning may fail to tighten bounds. Instrumentation of the solver
+to log per-cell $v_{\min}$ and $v_{\max}$ at plateau entry would quantify the potential.
+
+(b) How many iterations of bounds propagation (B.16.3) are needed to reach a fixed point? If the answer is
+typically 1--2 iterations, the amortized cost is low. If it is $O(s)$ iterations, the cost is prohibitive except
+at row boundaries.
+
+(c) Should PRCT be integrated into the propagation engine (running after every assignment) or invoked only at
+specific triggers (row boundaries, stall detection, or when $u$ drops below a threshold)? The answer depends on
+the cost-benefit ratio, which is an empirical question.
+
+(d) Can PRCT be combined with B.6 (singleton arc consistency) for stronger inference? SAC tentatively assigns each
+value to each cell and checks for a propagation failure; PRCT computes bounds without tentative assignments. Running
+PRCT inside SAC's propagation step would produce tighter bounds during SAC's feasibility check, potentially
+identifying more singleton-inconsistent values.
+
+### B.17 Look-Ahead on Row Completion
+
+The CRSCE solver verifies each completed row against its SHA-1 lateral hash (LH). A hash mismatch after all 511
+cells in a row are assigned triggers a backtrack, unwinding the most recent branching decision and trying the
+alternative value. The cost of this mismatch is proportional to the depth of the wasted subtree: the solver may have
+assigned thousands of cells beyond the row boundary before discovering (via a later row's hash check) that an
+assignment within the earlier row was wrong. This appendix proposes *row-completion look-ahead* (RCLA): when a row
+drops to a small number of unknowns $u \leq u_{\text{max}}$, enumerate all $\binom{u}{\rho}$ valid completions
+consistent with the row's cardinality constraint, check each against the SHA-1 hash, and prune immediately if none
+pass.
+
+#### B.17.1 Enumeration Cost
+
+A row with $u$ unknowns and residual $\rho$ has exactly $\binom{u}{\rho}$ completions consistent with the row's
+cardinality constraint (all other constraints aside). The SHA-1 cost per completion is approximately 200 ns
+(the row message is 512 bits = one SHA-1 block). The total enumeration cost is:
+
+$$C = \binom{u}{\rho} \times 200\;\text{ns}$$
+
+For small $u$, this is tractable:
+
+| $u$ | $\rho$ (worst case $= u/2$) | $\binom{u}{\rho}$ | Cost |
+|:---:|:---------------------------:|:------------------:|:----:|
+| 3   | 1--2                        | 3                  | 0.6 $\mu$s |
+| 5   | 2--3                        | 10                 | 2 $\mu$s |
+| 8   | 4                           | 70                 | 14 $\mu$s |
+| 10  | 5                           | 252                | 50 $\mu$s |
+| 15  | 7--8                        | 6,435              | 1.3 ms |
+| 20  | 10                          | 184,756            | 37 ms |
+
+At $u \leq 10$, the cost is under 50 $\mu$s --- comparable to a single iteration of the DFS loop at $k = 2$
+lookahead. At $u \leq 15$, the cost (1.3 ms) is tolerable if invoked once per row (511 rows per block, so
+$\sim 0.7$s total). At $u = 20$, the 37 ms cost is marginal; beyond $u = 20$, the exponential growth of
+$\binom{u}{\rho}$ makes exhaustive enumeration impractical.
+
+#### B.17.2 Pruning Power
+
+RCLA provides a fundamentally different pruning mechanism from constraint propagation or lookahead. Standard
+propagation identifies infeasible cells by analyzing residuals; lookahead identifies infeasible cells by tentatively
+assigning values and checking for cardinality violations. Neither mechanism can detect a row that is *cardinality-
+feasible but hash-infeasible*: all $\binom{u}{\rho}$ completions satisfy the row's cardinality constraint (and
+possibly all other cardinality constraints), but none produce a 512-bit message whose SHA-1 matches the stored
+lateral hash.
+
+When RCLA determines that no valid completion exists, it provides *proof of infeasibility* for the current partial
+assignment to the row. The solver can immediately backtrack to the most recent branching decision within the row,
+without assigning the remaining $u$ cells one by one, propagating after each, and eventually discovering the
+mismatch at $u = 0$. The savings are proportional to $u$: instead of $u$ assign-propagate-check cycles (each
+costing ~2--5 $\mu$s), the solver pays one $\binom{u}{\rho} \times 200$ ns enumeration.
+
+More importantly, RCLA catches doomed rows *before* the solver descends into subsequent rows. Without RCLA, a row
+that will fail its hash check at completion may first trigger thousands of cell assignments in rows below it (as
+the solver fills the matrix top-down). When the hash finally fails at $u = 0$, all those subsequent assignments
+are wasted. RCLA at $u = 10$ catches the doomed row 10 cells before completion, preventing the solver from
+descending into the next row's subtree on a doomed path.
+
+#### B.17.3 Interaction with Cross-Line Constraints
+
+The enumeration in B.17.1 considers only the row's cardinality constraint. Some of the $\binom{u}{\rho}$
+completions may violate other constraints (column, diagonal, slope residuals). Pre-filtering completions against
+cross-line feasibility before checking SHA-1 can reduce the enumeration count.
+
+For each candidate completion, the solver checks whether assigning the $u$ cells to their candidate values would
+create a negative residual or an excessive residual on any of the cross-lines passing through those cells. This
+check costs $O(8u)$ per candidate (8 lines per cell, each requiring a residual update). At $u = 10$, this is 80
+operations per candidate, or $252 \times 80 = 20{,}160$ operations total --- negligible compared to the SHA-1 cost.
+
+If cross-line filtering eliminates most candidates, the effective SHA-1 count drops substantially. In the plateau
+band, where cross-line residuals are moderately constrained, filtering might reduce the candidate count by 2--10×,
+making RCLA feasible at higher $u$ thresholds.
+
+#### B.17.4 Incremental SHA-1 Optimization
+
+The $\binom{u}{\rho}$ completions differ only in the positions of $u$ bits within the 512-bit row message. If the
+$u$ unknowns are clustered in the same 32-bit word of the SHA-1 input, the solver can precompute the SHA-1
+intermediate state up to the word boundary, then finalize only the last few rounds for each candidate. SHA-1
+processes its input in 32-bit words; if all unknowns fall within one or two words, the precomputation saves
+approximately 80--90\% of the SHA-1 cost per candidate.
+
+In practice, the $u$ unknowns are scattered across the 16-word (512-bit) input block, because the unknowns are the
+cells not yet forced by propagation, and forcing patterns depend on cross-line interactions across the full row.
+Therefore, the incremental optimization is unlikely to help in the general case. However, when RCLA is invoked at
+very small $u$ (3--5 unknowns), the unknowns may happen to cluster, and the optimization is worth attempting.
+
+#### B.17.5 Triggering Strategy
+
+RCLA should not be invoked at a fixed $u$ threshold for all rows. The cost-benefit ratio depends on $\rho$ as well
+as $u$: when $\rho$ is close to 0 or $u$, $\binom{u}{\rho}$ is small even for larger $u$ (e.g., $\binom{20}{1} =
+20$, costing only 4 $\mu$s). The optimal trigger is therefore:
+
+$$\text{Invoke RCLA when } \binom{u}{\rho} \leq C_{\max}$$
+
+where $C_{\max}$ is a threshold on the enumeration count (e.g., $C_{\max} = 500$, corresponding to $\sim 100\,
+\mu$s). This threshold-based trigger naturally adapts to the residual: rows with extreme residuals trigger RCLA
+earlier (at higher $u$), while rows with $\rho \approx u/2$ trigger later (at lower $u$).
+
+Computing $\binom{u}{\rho}$ is $O(1)$ with a precomputed lookup table for $u \leq 511$ and $\rho \leq u$. The
+lookup table requires $\sim 1$ MB of storage (512 × 512 × 4 bytes) and can be generated once at solver
+initialization.
+
+#### B.17.6 DI Determinism
+
+RCLA is purely deductive and deterministic. The enumeration order (e.g., lexicographic over the $u$ unknown
+positions) is fixed, and the SHA-1 computation is deterministic. If *any* completion passes the hash check, the
+row is feasible and the solver continues; if *none* pass, the row is provably infeasible and the solver backtracks.
+In neither case does RCLA alter the set of feasible solutions or the order in which they are visited. It merely
+detects infeasibility earlier than the standard approach (which waits until $u = 0$).
+
+DI semantics are preserved because RCLA prunes only infeasible subtrees: it never eliminates a partial assignment
+that could lead to a valid solution. The solver visits the same solutions in the same lexicographic order, but
+backtracks sooner on doomed rows.
+
+#### B.17.7 Expected Benefit
+
+In the plateau band, the solver encounters approximately $200 \times 511 \approx 100{,}000$ row completions per
+block (200 rows × 511 completions per row in the backtracking process --- many rows are completed multiple times
+due to backtracking). If RCLA detects infeasibility at $u = 10$ instead of $u = 0$, each detection saves the cost
+of 10 assign-propagate cycles plus any wasted work in subsequent rows. At 2--5 $\mu$s per cycle, the direct saving
+is 20--50 $\mu$s per detection. The indirect saving (preventing descent into subsequent rows on a doomed path) is
+potentially much larger --- up to hundreds of milliseconds per doomed subtree if the solver would have explored
+several rows before discovering the hash mismatch.
+
+Quantifying the indirect saving requires instrumentation: how deep does the solver typically descend beyond a
+doomed row before backtracking? If the answer is rarely more than a few cells (because the doomed row's hash
+is checked at $u = 0$ immediately), RCLA's benefit is limited to the 10-cell direct saving. If the answer is
+hundreds or thousands of cells (because the solver completes the row, starts the next, and backtracks only when
+a later hash fails), RCLA's benefit is substantial.
+
+#### B.17.8 Open Questions
+
+(a) What is the empirical distribution of $u$ and $\rho$ at the point where rows are completed in the plateau band?
+If rows typically reach $u = 0$ through forcing cascades (most cells are propagated, not branched), the "natural"
+$u$ at completion is already low, and RCLA has little room to trigger earlier.
+
+(b) Can RCLA be combined with B.14 (nogood recording)? When RCLA proves a row infeasible, the current
+partial assignment to the row's decision cells is a nogood. Recording this nogood (per B.14) prevents the solver
+from re-entering the same configuration on future backtracking, compounding RCLA's benefit.
+
+(c) For rows in the fast regime (rows 0--100 and 300--511), is RCLA ever triggered? In these regions, propagation
+forces most cells, so $u$ drops to 0 rapidly. RCLA may be relevant only in the plateau band, where propagation
+stalls and $u$ remains high.
+
+(d) Should RCLA check cross-line constraints (B.17.3) before or after the SHA-1 check? Cross-line filtering is
+cheaper per candidate ($O(8u)$ vs. SHA-1's $\sim 200$ ns), so checking cross-lines first and SHA-1 only on
+survivors is more efficient when many candidates fail cross-line checks. But if most candidates pass cross-lines
+(as expected when $u$ is small and residuals are loose), the filtering overhead is wasted.
+
+### B.18 Learning from Repeated Hash Failures
+
+B.14 proposes lightweight nogood recording: when an SHA-1 hash check fails, the solver records the failed row
+assignment (or the decision-cell subset thereof) as a nogood to prevent re-entering the same configuration. This
+appendix extends that idea in a different direction: rather than recording exact failed configurations, the solver
+*statistically tracks* which (row, partial assignment) patterns are associated with repeated failures and uses this
+information to *bias branching decisions* away from failure-prone patterns. The distinction from B.14 is that B.18
+operates at a coarser granularity --- it does not require exact matches to trigger, and it influences branching
+rather than pruning.
+
+#### B.18.1 Failure Frequency Tracking
+
+The solver maintains, for each row $r$, a *failure counter* $F(r)$ that increments each time the SHA-1 hash check
+fails on row $r$. Additionally, for each cell $(r, c)$ that was a *decision cell* (not forced by propagation) at
+the time of a hash failure, the solver maintains per-cell failure counters $F(r, c, 0)$ and $F(r, c, 1)$,
+recording how many times cell $(r, c)$ was assigned value 0 or 1 in a failed configuration.
+
+After $N$ hash failures on row $r$, the solver has a statistical profile of which cells and values are most
+frequently associated with failure. A cell $(r, c)$ with $F(r, c, 1) \gg F(r, c, 0)$ was assigned 1 in most
+failed configurations, suggesting that assigning it to 0 might be more productive. The solver can use this profile
+to *reorder the branching preference*: instead of always trying 0 first (canonical order), try the value with the
+lower failure count first.
+
+#### B.18.2 Failure-Biased Value Ordering
+
+The standard CRSCE solver branches with 0 first (canonical lexicographic order). Failure-biased value ordering
+modifies the branch-value preference for cells that have accumulated failure statistics. For cell $(r, c)$, define
+the *failure bias*:
+
+$$\beta(r, c) = F(r, c, 0) - F(r, c, 1)$$
+
+If $\beta > 0$, value 0 has been associated with more failures, so the solver tries 1 first. If $\beta < 0$,
+value 1 has been associated with more failures, so the solver tries 0 first (the default). If $\beta = 0$, no
+bias is available, and the default order applies.
+
+**This immediately raises a DI determinism concern.** Canonical enumeration requires 0-before-1 at every branching
+decision to ensure that the compressor and decompressor traverse the search tree in identical order. Changing the
+value ordering changes the traversal order, which changes the solution index and breaks DI semantics.
+
+#### B.18.3 Preserving DI Determinism
+
+The DI determinism constraint prohibits modifying the branch-value order. However, failure statistics can still
+inform the search through three alternative mechanisms that preserve canonical ordering:
+
+*Mechanism 1: Cell reordering within a row.* The solver's cell selection order within a row is not specified by the
+DI contract (which requires only that solutions are enumerated in lexicographic order over the full matrix, meaning
+row-major). Within a row, the solver is free to select cells in any order, provided that the same ordering is used
+in both compressor and decompressor. If the failure statistics are derived from the search trajectory (which is
+identical in both), the reordering is deterministic and DI-preserving.
+
+Specifically, within each row, the solver can prioritize cells whose failure statistics indicate they are most
+likely to cause a hash mismatch. Assigning these "dangerous" cells first causes conflicts to surface earlier in the
+row, before the solver invests effort in assigning "safe" cells. This is analogous to the fail-first heuristic in
+classical CSP solving (Haralick & Elliott, 1980).
+
+*Mechanism 2: Row-level restart priority.* When the solver backtracks out of a row with high $F(r)$, it can
+prioritize retrying that row with a different assignment before exploring other branches. This is a form of the
+restart mechanism proposed in B.11, localized to a specific row. DI is preserved because the row-level restart is
+triggered by the deterministic search trajectory.
+
+*Mechanism 3: Interaction with B.10 (tightness-driven ordering).* The failure statistics can be folded into B.10's
+tightness score $\theta(r, c)$ as an additional term:
+
+$$\theta'(r, c) = \theta(r, c) + \alpha \cdot \max(F(r, c, 0), F(r, c, 1))$$
+
+where $\alpha$ is a tuning parameter that controls the weight of failure history relative to constraint tightness.
+Cells with high failure counts are prioritized for early assignment, surfacing conflicts sooner. Because $\theta'$
+is computed identically in both compressor and decompressor, DI is preserved.
+
+#### B.18.4 Distinguishing Failure Patterns
+
+Not all hash failures are equally informative. A row that fails its hash on every attempt carries little
+information (the partial assignment above the row may be fundamentally wrong). A row that fails intermittently ---
+passing its hash on some attempts but not others --- provides the most useful signal: the failures are localized
+to specific cell configurations within the row.
+
+The solver can distinguish these cases by tracking the *success rate* $P_s(r) = S(r) / (S(r) + F(r))$, where
+$S(r)$ is the number of successful hash checks on row $r$. A row with $P_s \approx 0$ is chronically failing (the
+problem lies above the row), while a row with $0 < P_s < 1$ has configuration-specific failures (the problem is
+within the row's decision cells).
+
+Failure-biased reordering is most effective for the $0 < P_s < 1$ regime: the failure statistics distinguish
+good configurations from bad ones. For the $P_s \approx 0$ regime, reordering within the row is futile ---
+the solver should backtrack to a higher row instead, which is the domain of B.1 (CDCL) and B.11 (restarts).
+
+#### B.18.5 Storage and Lifetime
+
+The failure counters require $O(s^2)$ storage: one counter per cell per value, plus per-row counters. At 4 bytes
+per counter and 2 counters per cell: $261{,}121 \times 2 \times 4 = 2{,}088{,}968$ bytes ($\approx 2$ MB). The
+per-row counters add $511 \times 4 = 2{,}044$ bytes. Total: $\approx 2$ MB --- negligible relative to the
+constraint store.
+
+Counters are scoped to the current block and reset between blocks. Within a block, counters accumulate across all
+backtracking iterations. Unlike B.14's nogoods (which record exact configurations), failure counters are
+statistical summaries that grow more accurate over time but never consume unbounded storage.
+
+A potential concern is counter overflow: if the solver backtracks through a row millions of times, the counters
+may saturate. Using 32-bit counters provides a range of $\sim 4 \times 10^9$, sufficient for any practical solve.
+Alternatively, counters can be maintained as decaying averages (exponential moving averages with decay factor
+$\gamma$), weighting recent failures more heavily than distant ones.
+
+#### B.18.6 Open Questions
+
+(a) How correlated are per-cell failure statistics with actual conflict causes? If hash failures are essentially
+random (the SHA-1 hash is a pseudorandom function of the row's 511 bits), then cell-level failure statistics will
+converge slowly and carry little signal. Empirical measurement of the correlation between failure bias and future
+success is needed.
+
+(b) Is the $O(s^2)$ overhead of maintaining per-cell counters justified by the branching improvement? A cheaper
+alternative maintains only per-row counters $F(r)$ and uses them for row-level prioritization (Mechanism 2) without
+cell-level granularity. This reduces the overhead to $O(s)$ at the cost of less precise branching guidance.
+
+(c) Can failure statistics be shared across blocks? If the same input patterns recur across blocks (e.g., blocks
+from the same file have similar statistical properties), failure statistics from block $n$ could warm-start the
+solver for block $n + 1$. This violates the block-independence assumption but may be valid if the statistics are
+used only for heuristic ordering, not for correctness-critical pruning.
+
+(d) Does the combination of B.18 (failure-biased ordering) with B.14 (nogood recording) provide synergistic
+benefit? B.14 prunes exact reoccurrences; B.18 biases away from approximate reoccurrences. If the solver rarely
+re-enters the exact same configuration (making B.14's nogoods rarely activated), B.18's statistical approach may
+provide the coarser-grained learning that B.14 misses.
+
+### B.19 Enhanced Stall Detection and Extended Probe Strategies
+
+B.8 introduces adaptive lookahead with stall-triggered escalation from $k = 0$ to $k = 4$, where $k = 4$ is the
+current maximum. The stall detector monitors a sliding window of net depth advance and escalates when forward
+progress stalls. In practice, the solver reaches $k = 4$ in the deep plateau (rows ~170--300) and remains there,
+because the stall metric $\sigma$ never recovers sufficiently to trigger de-escalation. At $k = 4$, the solver
+processes 12--30K iterations/second with 16 exhaustive probes per decision. If this throughput is still insufficient
+to solve the block within the time bound, the solver has exhausted B.8's escalation ladder and has no further
+recourse.
+
+This appendix proposes two extensions: (1) enhanced stall detection that distinguishes *qualitatively different*
+stalling regimes and responds with targeted interventions, and (2) extended probe strategies that go beyond $k = 4$
+exhaustive lookahead by trading completeness for depth.
+
+#### B.19.1 Limitations of the Current Stall Metric
+
+The stall metric $\sigma = \Delta_{\text{depth}} / W$ measures net depth advance over a sliding window. This
+single scalar conflates two distinct stalling modes:
+
+*Shallow oscillation.* The solver repeatedly advances a few cells and backtracks the same distance. Net depth
+advance is near zero, but the solver is actively exploring alternatives at a fixed depth. This mode is productive:
+the solver is systematically eliminating infeasible branches at the current row, and each oscillation brings it
+closer to a feasible assignment.
+
+*Deep regression.* The solver backtracks through many rows, losing hundreds or thousands of depth levels before
+resuming forward progress. Net depth advance is deeply negative. This mode is unproductive: the solver has
+discovered that a high-level assignment (many rows above) is wrong, but it is unwinding cell by cell through
+intervening rows, revisiting decisions that are irrelevant to the conflict.
+
+Both modes produce $\sigma \leq 0$, triggering the same escalation response ($k \to k + 1$). But they call for
+different interventions. Shallow oscillation benefits from deeper lookahead (helping the solver find the feasible
+branch faster). Deep regression benefits from *backjumping* or *restarts* (jumping directly to the root cause
+instead of unwinding incrementally).
+
+#### B.19.2 Multi-Metric Stall Detection
+
+To distinguish stalling modes, the solver can maintain multiple metrics:
+
+*Backtrack depth distribution.* For each backtrack event, record the number of depth levels unwound, $d_{\text{bt}}$.
+Maintain a sliding window of the last $W_{\text{bt}}$ backtrack depths. If the median backtrack depth exceeds a
+threshold $d^{*}$ (e.g., $d^{*} = 100$ cells, corresponding to roughly $100 / 511 \approx 0.2$ rows), the solver
+is in deep-regression mode.
+
+*Row re-entry count.* Track how many times each row is re-entered (its unknowns drop to 0, a hash check occurs,
+and the solver backtracks into the row to try a different assignment). A row with a high re-entry count is a
+*conflict hotspot*: the partial assignment above the row is likely wrong, and no assignment within the row will
+satisfy the hash.
+
+*Forward-progress rate.* Instead of net depth advance, measure the *maximum depth reached* in the sliding window.
+If the maximum depth has not increased in $W$ decisions, the solver is making no progress regardless of local
+oscillations.
+
+These metrics can be combined into a *stall classification*:
+
+| Metric | Shallow Oscillation | Deep Regression | Mixed |
+|:------:|:-------------------:|:---------------:|:-----:|
+| $\sigma$ | $\approx 0$ | $\ll 0$ | $< 0$ |
+| Median $d_{\text{bt}}$ | Small ($< d^{*}$) | Large ($> d^{*}$) | Bimodal |
+| Max depth advance | Stationary | Declining | Stationary |
+
+#### B.19.3 Targeted Interventions by Stall Mode
+
+*For shallow oscillation.* The solver is stuck at a specific depth (typically a row boundary in the plateau).
+Appropriate interventions:
+
+(a) Escalate lookahead depth (B.8's existing response). Effective if the oscillation is caused by near-miss
+    branches that fail within a few cells.
+
+(b) Invoke RCLA (B.17) at a higher $u$ threshold for the stuck row. If the row has $u = 15$ unknowns, enumerate
+    all $\binom{15}{\rho}$ completions and check hashes. This either finds a feasible completion (resolving the
+    oscillation) or proves the row infeasible (allowing the solver to backtrack to the prior row).
+
+(c) Invoke PRCT (B.16) on the stuck row. Tighter bounds on the remaining unknowns may force additional cells,
+    reducing $u$ and enabling RCLA to trigger or enabling propagation cascades.
+
+*For deep regression.* The solver is backtracking through many rows. Appropriate interventions:
+
+(a) Trigger a partial restart (B.11). Rather than unwinding one level at a time, jump back to a checkpoint depth
+    (e.g., the beginning of the plateau band) and resume the DFS from there. This skips the unproductive
+    cell-by-cell unwinding.
+
+(b) Escalate to CDCL-style backjumping (B.1) if implemented. Analyze the conflict to identify the root-cause
+    decision and jump directly to it, skipping irrelevant intermediate rows.
+
+(c) Update failure statistics (B.18) for all rows traversed during the regression. The deep backtrack provides
+    evidence that the high-level assignment was wrong; recording this evidence biases future branching away from
+    the failed pattern.
+
+*For mixed stalling.* The solver alternates between oscillation and regression. A combined intervention uses
+multi-metric detection to select the appropriate response at each decision point.
+
+#### B.19.4 Extended Probe Strategies Beyond $k = 4$
+
+B.8 caps exhaustive lookahead at $k = 4$ (16 probes per decision) due to the exponential cost of the full $2^k$
+tree. When the solver reaches $k = 4$ and remains stalled, the following extensions offer deeper lookahead at
+sub-exponential cost:
+
+*Strategy A: Beam search.* Instead of exploring the full $2^k$ tree, maintain a beam of the $B$ most promising
+partial assignments at each depth level. At depth $d$, each of the $B$ candidates is extended by both values (0
+and 1), producing $2B$ candidates. These are evaluated by a heuristic (e.g., the number of constraint violations,
+or the constraint-tightness score from B.10) and the top $B$ are retained. The cost is $O(B \cdot k)$ per decision
+rather than $O(2^k)$.
+
+At $B = 8$ and $k = 16$, the cost is $8 \times 16 = 128$ probes per decision --- comparable to $k = 7$ exhaustive
+($2^7 = 128$) but reaching 16 levels deep. The tradeoff is that beam search is incomplete: it may miss
+contradictions that lie outside the beam. However, for detecting cardinality violations that manifest at depth
+8--16 (spanning 1--3 cells into the next row), beam search's heuristic filtering is likely to retain the
+relevant branches.
+
+*Strategy B: Row-boundary probing.* Rather than probing to a fixed depth $k$, probe forward until the next row
+boundary and check the SHA-1 hash. If the current cell is at position $(r, c)$ with $511 - c$ cells remaining
+in the row, the probe completes the row (assigning $511 - c$ cells greedily, using constraint-tightness ordering),
+checks the SHA-1 hash, and backtracks if the hash fails.
+
+The cost is $O(511 - c)$ propagation steps per probe, which varies from $O(s)$ (if $(r, c)$ is at the beginning
+of the row) to $O(1)$ (if $(r, c)$ is near the row end). On average, the probe cost is $O(s/2) \approx 256$
+propagation steps ($\sim 500$ $\mu$s). The solver runs two probes per decision (one for each value), costing
+$\sim 1$ ms per decision. At $\sim 1{,}000$ decisions per row ($\sim 200{,}000$ plateau-band decisions total), the
+overhead is $\sim 200$s per block --- comparable to the current solve time and thus marginally acceptable.
+
+The advantage of row-boundary probing over fixed-depth lookahead is that it exploits the SHA-1 hash as a
+verification oracle, which is far more powerful than cardinality-based pruning. A fixed-depth probe at $k = 4$ can
+detect only cardinality violations within 4 cells; a row-boundary probe can detect hash mismatches for the entire
+row, which catches failures that no finite $k$ would detect.
+
+*Strategy C: Stochastic lookahead.* Rather than exhaustively exploring all $2^k$ paths, sample $M$ random paths
+of depth $k$ and check each for feasibility. This is a Monte Carlo estimation of the feasibility rate at depth $k$:
+if all $M$ samples are infeasible, the current assignment is likely doomed. The false-negative probability (failing
+to detect a feasible path) is $(1 - p)^M$, where $p$ is the fraction of feasible paths. At $p = 0.01$ (1\% of
+paths are feasible) and $M = 100$, the false-negative rate is $(0.99)^{100} \approx 0.37$ --- too high for
+reliable pruning.
+
+Stochastic lookahead is therefore unsuitable as a primary pruning mechanism but could serve as a *stall-breaking
+heuristic*: when the solver is stuck at $k = 4$, sample 100 random paths of depth 32 (spanning $\sim 6$ cells
+per line across 4 rows). If all samples fail, switch to a different branching decision rather than
+exploring the full subtree deterministically. This trades completeness for speed in the deep stall regime.
+
+**DI determinism caveat.** Stochastic lookahead requires a deterministic PRNG seeded from the search state (e.g.,
+the current undo-stack hash) to ensure identical sampling in compressor and decompressor. Beam search and row-
+boundary probing are fully deterministic given deterministic tie-breaking in the heuristic evaluation.
+
+#### B.19.5 Stall Detector as Orchestrator
+
+The enhanced stall detector serves as an *orchestration layer* that coordinates B.8, B.11, B.16, B.17, and B.18.
+Rather than each proposal operating independently, the stall detector classifies the current stalling mode and
+dispatches the appropriate intervention:
+
+1. $\sigma > 0$: forward progress. No intervention. Use current $k$.
+
+2. $\sigma \leq 0$, median $d_{\text{bt}} < d^{*}$: shallow oscillation.
+   Escalate $k$ (B.8). If $k = 4$, invoke PRCT (B.16) + RCLA (B.17) on the stuck row. If still stalled,
+   try row-boundary probing (Strategy B).
+
+3. $\sigma \leq 0$, median $d_{\text{bt}} > d^{*}$: deep regression.
+   Trigger partial restart (B.11) or backjumping (B.1). Update failure statistics (B.18) for traversed rows.
+
+4. $\sigma \leq 0$, max depth not advancing for $> 3W$ decisions: persistent stall.
+   Invoke beam-search lookahead (Strategy A) at $k = 16, B = 8$. If still stalled, escalate to stochastic
+   lookahead (Strategy C).
+
+This orchestration layer is the key architectural contribution of B.19: it unifies the various plateau-breaking
+proposals into a coherent escalation hierarchy, applying each technique where it is most effective.
+
+#### B.19.6 DI Determinism
+
+All stall metrics (net depth advance, backtrack depth distribution, row re-entry counts, maximum depth) are
+deterministic functions of the search trajectory. The stall classification and intervention dispatch are therefore
+identical in compressor and decompressor. DI semantics are preserved.
+
+The extended probe strategies (beam search, row-boundary probing) are deterministic given deterministic heuristic
+evaluation. Stochastic lookahead requires a deterministic PRNG as noted in B.19.4.
+
+#### B.19.7 Open Questions
+
+(a) What are the empirical distributions of backtrack depth and row re-entry count in the plateau band? If the
+solver predominantly exhibits shallow oscillation (as the current $k = 4$ data suggests), the deep-regression
+interventions (B.11, B.1) are less urgent. If deep regressions are common, they are critical.
+
+(b) Is beam search (Strategy A) effective on the CRSCE factor graph? The heuristic evaluation function (constraint
+tightness, B.10) must correlate with actual feasibility for the beam to retain relevant branches. If the heuristic
+is poorly calibrated in the plateau (where tightness is uniformly weak), beam search degenerates to random sampling.
+
+(c) What is the overhead of row-boundary probing (Strategy B) in the non-plateau regime? If the stall detector
+correctly limits row-boundary probing to the plateau band, the overhead applies only to the $\sim 200$ hard rows.
+But if the stall detector misclassifies easy rows as stalled, probing wastes throughput on rows that would resolve
+quickly with standard propagation.
+
+(d) How should the stall detector's thresholds ($\sigma^{-}$, $d^{*}$, $W$, $W_{\text{bt}}$) be tuned? These
+parameters interact: a low $d^{*}$ classifies more episodes as deep regression, triggering more restarts; a high
+$d^{*}$ classifies more episodes as shallow oscillation, triggering more lookahead escalation. The optimal
+settings depend on the relative cost and benefit of each intervention, which varies across blocks.
+
+(e) Can the orchestration hierarchy (B.19.5) be formalized as a multi-armed bandit? Each intervention is an
+"arm" with an unknown reward (solve-time reduction). The stall detector is a contextual bandit that observes the
+stall classification and selects the arm with the highest expected reward. Thompson sampling or UCB could be used
+to balance exploration (trying new interventions) with exploitation (repeating interventions that have worked). The
+determinism requirement constrains the bandit: the selection policy must be a deterministic function of the search
+history to preserve DI.
+
 ## References
 
 Apple. (n.d.-a). Metal developer documentation.

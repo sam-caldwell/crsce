@@ -144,6 +144,57 @@ namespace crsce::decompress::solvers {
         }
 
         /**
+         * @name flatIndexToLineID
+         * @brief Inverse of lineIndex: map a flat index back to a LineID.
+         *
+         * Layout (same as lineIndex):
+         *   rows       [0,         kNumRows)
+         *   cols       [kNumRows,  kNumRows + kNumCols)
+         *   diags      [kNumRows + kNumCols, kNumRows + kNumCols + kNumDiags)
+         *   anti-diags [kNumRows + kNumCols + kNumDiags, kSlope256Base)
+         *   slope256   [kSlope256Base, kSlope255Base)
+         *   slope255   [kSlope255Base, kSlope2Base)
+         *   slope2     [kSlope2Base,   kSlope509Base)
+         *   slope509   [kSlope509Base, kTotalLines)
+         *
+         * @param idx Flat index in [0, kTotalLines).
+         * @return The corresponding LineID.
+         */
+        [[nodiscard]] static constexpr LineID flatIndexToLineID(const std::uint32_t idx) noexcept {
+            if (idx < kNumRows) {
+                return {.type = LineType::Row,
+                        .index = static_cast<std::uint16_t>(idx)};
+            }
+            if (idx < kNumRows + kNumCols) {
+                return {.type = LineType::Column,
+                        .index = static_cast<std::uint16_t>(idx - kNumRows)};
+            }
+            if (idx < kNumRows + kNumCols + kNumDiags) {
+                return {.type = LineType::Diagonal,
+                        .index = static_cast<std::uint16_t>(idx - kNumRows - kNumCols)};
+            }
+            if (idx < kSlope256Base) {
+                return {.type = LineType::AntiDiagonal,
+                        .index = static_cast<std::uint16_t>(
+                            idx - kNumRows - kNumCols - kNumDiags)};
+            }
+            if (idx < kSlope255Base) {
+                return {.type = LineType::Slope256,
+                        .index = static_cast<std::uint16_t>(idx - kSlope256Base)};
+            }
+            if (idx < kSlope2Base) {
+                return {.type = LineType::Slope255,
+                        .index = static_cast<std::uint16_t>(idx - kSlope255Base)};
+            }
+            if (idx < kSlope509Base) {
+                return {.type = LineType::Slope2,
+                        .index = static_cast<std::uint16_t>(idx - kSlope2Base)};
+            }
+            return {.type = LineType::Slope509,
+                    .index = static_cast<std::uint16_t>(idx - kSlope509Base)};
+        }
+
+        /**
          * @name ConstraintStore
          * @brief Construct a constraint store with the given target sums.
          * @param rowSums Target row sums (LSM), size s.
