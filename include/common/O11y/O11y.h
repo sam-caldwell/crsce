@@ -7,6 +7,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <coroutine>
 #include <cstdint>
@@ -33,12 +34,45 @@ namespace crsce::o11y {
             std::uint64_t last_ts_ms{0};
         };
 
+        /**
+         * @name MetricKind
+         * @brief Distinguishes gauges (raw snapshots) from counters (monotonic, rate-derived).
+         */
+        enum class MetricKind : std::uint8_t { Gauge, Counter };
+
+        /**
+         * @name MetricField
+         * @brief A single named numeric value with its kind.
+         */
+        struct MetricField {
+            /** @name name  @brief Field name. */
+            std::string name;
+            /** @name value @brief Raw numeric value. */
+            std::uint64_t value;
+            /** @name kind  @brief Gauge or Counter. */
+            MetricKind kind;
+        };
+
+        /**
+         * @name MetricFields
+         * @brief A collection of metric fields emitted together.
+         */
+        using MetricFields = std::vector<MetricField>;
+
         // Access singleton instance
         static O11y &instance();
 
         // Events (fire-and-forget, asynchronous)
         void event(std::string name, Tags tags = {});
         void event(std::string name, std::string message, std::optional<std::pair<std::string,std::string>> tag = std::nullopt);
+
+        /**
+         * @name metric
+         * @brief Emit numeric fields asynchronously; the background thread derives rates for counters.
+         * @param name Event name.
+         * @param fields Numeric fields (gauges emitted raw; counters produce _per_sec and avg_ derivatives).
+         */
+        void metric(std::string name, MetricFields fields);
 
         // Explicitly start the background worker (optional; async ops auto-start)
         void start() { ensure_started(); }
@@ -91,6 +125,35 @@ namespace crsce::o11y {
 
         // Internal sync operation (scheduled on background thread)
         void do_event(const std::string &name, const Tags &tags, std::uint64_t ts_ms, const std::string &message);
+
+        /**
+         * @name MetricWindowState
+         * @brief Per-event-name windowing state for rate computation (background thread only).
+         */
+        struct MetricWindowState {
+            /** @name prev_steady  @brief Timestamp of the previous metric emission. */
+            std::chrono::steady_clock::time_point prev_steady;
+            /** @name epoch_steady @brief Timestamp of the first metric emission (for avg rates). */
+            std::chrono::steady_clock::time_point epoch_steady;
+            /** @name prev_counter_values @brief Counter values at previous emission (for windowed delta). */
+            std::unordered_map<std::string, std::uint64_t> prev_counter_values;
+            /** @name initialized @brief False until the first emission for this event name. */
+            bool initialized{false};
+        };
+
+        /** @name metric_windows_ @brief Per-event-name windowing state (background thread only). */
+        std::unordered_map<std::string, MetricWindowState> metric_windows_; // NOLINT(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+
+        /**
+         * @name do_metric
+         * @brief Process a metric emission on the background thread, computing derived rates.
+         * @param name Event name.
+         * @param fields Numeric fields.
+         * @param ts_ms Wall-clock timestamp (milliseconds since epoch).
+         * @param now Monotonic timestamp for rate computation.
+         */
+        void do_metric(const std::string &name, const MetricFields &fields,
+                        std::uint64_t ts_ms, std::chrono::steady_clock::time_point now);
 
         // Internal coroutine utilities (exposed for TU access only)
         struct BackgroundAwaiter {

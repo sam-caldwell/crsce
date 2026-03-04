@@ -17,5 +17,7 @@ namespace crsce::common::detail::sha256 {
      * @param z Word z.
      * @return (x & y) ^ (~x & z)
      */
-    u32 ch(u32 x, u32 y, u32 z);
+    constexpr u32 ch(const u32 x, const u32 y, const u32 z) {
+        return (x & y) ^ (~x & z);
+    }
 }

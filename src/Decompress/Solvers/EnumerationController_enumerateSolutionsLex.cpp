@@ -130,36 +130,21 @@ namespace crsce::decompress::solvers {
         std::uint64_t dfsIterations = 0;
         std::uint64_t failedNotFeasible = 0;
         std::uint64_t failedHashMismatch = 0;
-        std::uint64_t failedHashMismatchAtWindowStart = 0;
         std::uint64_t candidatesSubmitted = 0;
 
         const auto dfsStart = std::chrono::steady_clock::now();
-        auto windowStart = dfsStart;
 
         while (!stack.empty()) {
             auto &frame = stack.back();
 
-            // Emit DFS progress every 10000 iterations with rate measurement
+            // Emit DFS progress every 1M iterations
             if (++dfsIterations % 1000000 == 0) {
-                const auto now = std::chrono::steady_clock::now();
-                const auto windowUs = std::chrono::duration_cast<std::chrono::microseconds>(now - windowStart).count();
-                const auto totalUs = std::chrono::duration_cast<std::chrono::microseconds>(now - dfsStart).count();
-                const double windowRate = windowUs > 0 ? 1000000.0 * 1e6 / static_cast<double>(windowUs) : 0.0;
-                const double avgRate = totalUs > 0 ? static_cast<double>(dfsIterations) * 1e6 / static_cast<double>(totalUs) : 0.0;
-                const auto windowHashMismatches = failedHashMismatch - failedHashMismatchAtWindowStart;
-                const double hashMismatchRate = windowUs > 0
-                    ? static_cast<double>(windowHashMismatches) * 1e6 / static_cast<double>(windowUs) : 0.0;
-                windowStart = now;
-                failedHashMismatchAtWindowStart = failedHashMismatch;
-                ::crsce::o11y::O11y::instance().event("solver_dfs_iterations",
-                    {{"count", std::to_string(dfsIterations)},
-                     {"depth", std::to_string(stack.size())},
-                     {"iter_per_sec", std::to_string(static_cast<std::uint64_t>(windowRate))},
-                     {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
-                     {"failed_not_feasible", std::to_string(failedNotFeasible)},
-                     {"failed_hash_mismatch", std::to_string(failedHashMismatch)},
-                     {"hash_mismatches_per_sec", std::to_string(static_cast<std::uint64_t>(hashMismatchRate))},
-                     {"candidates_submitted", std::to_string(candidatesSubmitted)}});
+                ::crsce::o11y::O11y::instance().metric("solver_dfs_iterations", {
+                    {"count",                dfsIterations,      ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"depth",                stack.size(),        ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"failed_not_feasible",  failedNotFeasible,   ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"failed_hash_mismatch", failedHashMismatch,  ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"candidates_submitted", candidatesSubmitted, ::crsce::o11y::O11y::MetricKind::Counter}});
             }
 
             // Undo previous value's assignment before trying next value or popping

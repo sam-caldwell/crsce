@@ -7,6 +7,7 @@
 #pragma once
 
 #include "common/BitHashBuffer/Sha256Types32.h" // u32
+#include "common/BitHashBuffer/sha256/rotr.h"
 
 namespace crsce::common::detail::sha256 {
     /**
@@ -15,5 +16,7 @@ namespace crsce::common::detail::sha256 {
      * @param x Input word.
      * @return σ1(x) = ROTR17(x) ^ ROTR19(x) ^ (x >> 10).
      */
-    u32 small_sigma1(u32 x);
+    constexpr u32 small_sigma1(const u32 x) {
+        return rotr(x, 17U) ^ rotr(x, 19U) ^ (x >> 10U);
+    }
 }

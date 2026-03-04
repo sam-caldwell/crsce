@@ -17,5 +17,7 @@ namespace crsce::common::detail::sha256 {
      * @param z Word z.
      * @return Majority bit per position among x, y, z.
      */
-    u32 maj(u32 x, u32 y, u32 z);
+    constexpr u32 maj(const u32 x, const u32 y, const u32 z) {
+        return (x & y) ^ (x & z) ^ (y & z);
+    }
 }

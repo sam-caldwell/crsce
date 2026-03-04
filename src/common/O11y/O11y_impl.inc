@@ -1,5 +1,6 @@
 // Implementation dependencies
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <coroutine>
 #include <cstdint>
@@ -239,17 +240,26 @@ namespace crsce::o11y {
     void O11y::flush_events() {
         const std::string path = detail::events_path();
 
+        // Capture CPU load averages once per flush batch
+        std::array<double, 3> loadavg = {0.0, 0.0, 0.0};
+#if defined(__unix__) || defined(__APPLE__)
+        ::getloadavg(loadavg.data(), 3);
+#endif
+
         std::vector<QueuedEvent> ev;
         {
             const std::scoped_lock lk(mu_);
             ev.swap(events_queue_);
         }
         for (const auto &e : ev) {
-            std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(6);
+            std::ostringstream oss; oss.setf(std::ios::fixed); oss.precision(2);
             oss << '{';
             oss << "\"ts_ms\":" << e.ts_ms;
             oss << ",\"run_id\":\"" << run_id_ << "\"";
             oss << ",\"pid\":" << pid_;
+            oss << ",\"load_avg_1m\":" << loadavg.at(0);
+            oss << ",\"load_avg_5m\":" << loadavg.at(1);
+            oss << ",\"load_avg_15m\":" << loadavg.at(2);
             oss << ",\"name\":\"" << detail::escape_json(e.name) << "\"";
             if (!e.message.empty()) {
                 oss << ",\"message\":\"" << detail::escape_json(e.message) << "\"";
@@ -269,6 +279,67 @@ namespace crsce::o11y {
         }
     }
 
+    /**
+     * @name do_metric
+     * @brief Compute derived rates for counters and delegate to do_event().
+     * @param name Event name.
+     * @param fields Numeric fields.
+     * @param ts_ms Wall-clock timestamp (ms since epoch).
+     * @param now Monotonic timestamp for rate computation.
+     */
+    void O11y::do_metric(const std::string &name, const MetricFields &fields,
+                          const std::uint64_t ts_ms,
+                          const std::chrono::steady_clock::time_point now) {
+        auto &w = metric_windows_[name];
+        Tags tags;
+        tags.reserve(fields.size() * 3);
+
+        if (!w.initialized) {
+            // First call: set epoch, store counter baselines, emit rates as 0
+            w.epoch_steady = now;
+            w.prev_steady = now;
+            w.initialized = true;
+            for (const auto &f : fields) {
+                tags.emplace_back(f.name, std::to_string(f.value));
+                if (f.kind == MetricKind::Counter) {
+                    w.prev_counter_values[f.name] = f.value;
+                    tags.emplace_back(f.name + "_per_sec", "0");
+                    tags.emplace_back("avg_" + f.name + "_per_sec", "0");
+                }
+            }
+        } else {
+            using namespace std::chrono;
+            const auto windowUs = duration_cast<microseconds>(now - w.prev_steady).count();
+            const auto totalUs = duration_cast<microseconds>(now - w.epoch_steady).count();
+
+            for (const auto &f : fields) {
+                tags.emplace_back(f.name, std::to_string(f.value));
+                if (f.kind == MetricKind::Counter) {
+                    const auto prevIt = w.prev_counter_values.find(f.name);
+                    const std::uint64_t prevVal = (prevIt != w.prev_counter_values.end())
+                        ? prevIt->second : 0;
+                    const auto delta = f.value - prevVal;
+
+                    const auto rate = windowUs > 0
+                        ? static_cast<std::uint64_t>(static_cast<double>(delta) * 1e6
+                            / static_cast<double>(windowUs))
+                        : std::uint64_t{0};
+                    const auto avg = totalUs > 0
+                        ? static_cast<std::uint64_t>(static_cast<double>(f.value) * 1e6
+                            / static_cast<double>(totalUs))
+                        : std::uint64_t{0};
+
+                    tags.emplace_back(f.name + "_per_sec", std::to_string(rate));
+                    tags.emplace_back("avg_" + f.name + "_per_sec", std::to_string(avg));
+                    w.prev_counter_values[f.name] = f.value;
+                }
+            }
+            w.prev_steady = now;
+        }
+
+        do_event(name, tags, ts_ms, std::string{});
+    }
+
     // Local helpers to avoid capturing 'this' in coroutine lambdas
     namespace {
         using crsce::o11y::O11y;
@@ -284,6 +355,24 @@ namespace crsce::o11y {
         O11y::Task co_event(O11y *self, std::string n, O11y::Tags t, std::string message) {
             co_await self->background();
             self->do_event(n, t, crsce::o11y::detail::now_ms(), message);
+            if (crsce::o11y::detail::flush_enabled()) {
+                try { self->flush_events(); } catch (...) { }
+            }
+        }
+
+        /**
+         * @name co_metric
+         * @brief Coroutine that processes a metric emission on the background thread.
+         * @param self O11y instance pointer.
+         * @param n Event name.
+         * @param f Metric fields.
+         * @param now Monotonic timestamp captured at call site.
+         * @return O11y::Task
+         */
+        O11y::Task co_metric(O11y *self, std::string n, O11y::MetricFields f,
+                              std::chrono::steady_clock::time_point now) {
+            co_await self->background();
+            self->do_metric(n, f, crsce::o11y::detail::now_ms(), now);
             if (crsce::o11y::detail::flush_enabled()) {
                 try { self->flush_events(); } catch (...) { }
             }
@@ -316,6 +405,18 @@ namespace crsce::o11y {
         Tags t;
         if (tag.has_value()) { t.emplace_back(tag->first, tag->second); }
         (void) co_event(this, std::move(name), std::move(t), std::move(message));
+    }
+
+    /**
+     * @name metric
+     * @brief Emit numeric fields asynchronously; the background thread derives rates for counters.
+     * @param name Event name.
+     * @param fields Metric fields.
+     */
+    void O11y::metric(std::string name, MetricFields fields) {
+        ensure_started();
+        const auto now = std::chrono::steady_clock::now();
+        (void) co_metric(this, std::move(name), std::move(fields), now);
     }
 
     /**

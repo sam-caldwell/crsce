@@ -7,6 +7,8 @@
 
 #include <cstdint>
 
+#include "common/Util/kPoly.h"
+
 namespace crsce::common::util::detail {
     /**
      * @name make_entry_rt
@@ -14,5 +16,15 @@ namespace crsce::common::util::detail {
      * @param i Byte value [0..255].
      * @return std::uint32_t Reflected table entry for i.
      */
-    std::uint32_t make_entry_rt(std::uint32_t i);
+    constexpr std::uint32_t make_entry_rt(const std::uint32_t i) {
+        std::uint32_t c = i;
+        for (int j = 0; j < 8; ++j) {
+            if (c & 1U) {
+                c = kPoly ^ (c >> 1U);
+            } else {
+                c >>= 1U;
+            }
+        }
+        return c;
+    }
 }

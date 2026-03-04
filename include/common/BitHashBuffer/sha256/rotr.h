@@ -16,5 +16,5 @@ namespace crsce::common::detail::sha256 {
      * @param n Rotation amount [0..31].
      * @return x rotated right by n bits.
      */
-    u32 rotr(u32 x, u32 n);
+    constexpr u32 rotr(const u32 x, const u32 n) { return (x >> n) | (x << (32U - n)); }
 }

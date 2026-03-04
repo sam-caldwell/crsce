@@ -7,7 +7,10 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
+#include <queue>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "common/Csm/Csm.h"
@@ -15,6 +18,7 @@
 #include "common/O11y/O11y.h"
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
+#include "decompress/Solvers/FailedLiteralProber.h"
 #include "decompress/Solvers/IBranchingController.h"
 #include "decompress/Solvers/IPropagationEngine.h"
 #include "decompress/Solvers/LineID.h"
@@ -24,6 +28,14 @@
 namespace crsce::decompress::solvers {
 
     namespace {
+
+        /**
+         * @name kRowCompletionThreshold
+         * @brief When a row's unknown-cell count drops to this value or below,
+         *        it becomes eligible for priority selection so that SHA-1 lateral
+         *        hash verification fires sooner.
+         */
+        constexpr std::uint16_t kRowCompletionThreshold = 64;
 
         /**
          * @struct ProbDfsFrame
@@ -66,6 +78,13 @@ namespace crsce::decompress::solvers {
              * @brief Preferred branch value from probability estimate.
              */
             std::uint8_t preferred;
+
+            /**
+             * @name fromHeap
+             * @brief True if this cell was selected from the row-completion
+             *        priority queue rather than the static ordering.
+             */
+            bool fromHeap;
         };
 
     } // anonymous namespace
@@ -153,6 +172,12 @@ namespace crsce::decompress::solvers {
             co_return;
         }
 
+        // --- Phase B setup: CPU propagation engine for in-DFS probing ---
+        // Speculative assign/undo cycles require CPU-side propagation regardless of
+        // whether the main solver uses Metal.
+        PropagationEngine probeProp(cs);
+        FailedLiteralProber prober(cs, probeProp, *brancher_, *hasher_);
+
         // --- Compute global cell ordering by probability confidence ---
         const ProbabilityEstimator estimator(cs);
         auto cellOrder = estimator.computeGlobalCellScores();
@@ -175,15 +200,27 @@ namespace crsce::decompress::solvers {
         std::vector<ProbDfsFrame> stack;
         stack.reserve(cellOrder.size());
         stack.push_back({startIdx, 0, 0,
-                         cellOrder[startIdx].row,    // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                         cellOrder[startIdx].col,    // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                         cellOrder[startIdx].preferred}); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                         cellOrder[startIdx].row,       // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                         cellOrder[startIdx].col,       // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                         cellOrder[startIdx].preferred,  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                         false});
 
         std::uint64_t iterations = 0;
         std::uint64_t hashMismatches = 0;
-        std::uint64_t hashMismatchesAtWindowStart = 0;
+        std::uint64_t heapSelections = 0;
         const auto dfsStart = std::chrono::steady_clock::now();
-        auto windowStart = dfsStart;
+
+        // Row-completion priority queue: (unknown_count, row_index), min-heap
+        using RowEntry = std::pair<std::uint16_t, std::uint16_t>;
+        std::priority_queue<RowEntry, std::vector<RowEntry>, std::greater<>> rowHeap;
+
+        // Seed the heap with rows already near completion after initial propagation
+        for (std::uint16_t r = 0; r < kS; ++r) {
+            const auto u = cs.getStatDirect(r).unknown;
+            if (u > 0 && u <= kRowCompletionThreshold) {
+                rowHeap.emplace(u, r);
+            }
+        }
 
         while (!stack.empty()) {
             auto &frame = stack.back();
@@ -204,6 +241,15 @@ namespace crsce::decompress::solvers {
                 ? frame.preferred
                 : static_cast<std::uint8_t>(1 - frame.preferred);
             frame.nextValue++;
+
+            // Phase B: Probe alternate value. If infeasible, skip the backtrack branch.
+            if (frame.nextValue == 1) {
+                const auto altV = static_cast<std::uint8_t>(1 - v);
+                if (!prober.probeAlternate(frame.row, frame.col, altV)) {
+                    frame.nextValue = 2; // alternate is dead — force current value
+                }
+            }
+
             frame.token = brancher_->saveUndoPoint();
 
             // Assign and record
@@ -230,6 +276,18 @@ namespace crsce::decompress::solvers {
                 : propagator_->getForcedAssignments();
             for (const auto &a : forced) {
                 brancher_->recordAssignment(a.r, a.c);
+            }
+
+            // Check rows affected by this assignment wave for heap eligibility
+            auto checkHeapRow = [&](std::uint16_t r) {
+                const auto u = cs.getStatDirect(r).unknown;
+                if (u > 0 && u <= kRowCompletionThreshold) {
+                    rowHeap.emplace(u, r);
+                }
+            };
+            checkHeapRow(frame.row);
+            for (const auto &a : forced) {
+                checkHeapRow(a.r);
             }
 
             // --- Cross-row hash verification ---
@@ -260,48 +318,91 @@ namespace crsce::decompress::solvers {
                 continue; // prune this subtree
             }
 
-            // O11y rate logging every 1M iterations
+            // O11y rate logging every ~1M iterations
             ++iterations;
-            if ((iterations & 0xFFFFF) == 0) { // every ~1M
-                const auto now = std::chrono::steady_clock::now();
-                const auto windowUs = std::chrono::duration_cast<std::chrono::microseconds>(
-                    now - windowStart).count();
-                const auto totalUs = std::chrono::duration_cast<std::chrono::microseconds>(
-                    now - dfsStart).count();
-                const double windowRate = windowUs > 0
-                    ? 1048576.0 * 1e6 / static_cast<double>(windowUs) : 0.0;
-                const double avgRate = totalUs > 0
-                    ? static_cast<double>(iterations) * 1e6 / static_cast<double>(totalUs) : 0.0;
-                const auto windowHashMismatches = hashMismatches - hashMismatchesAtWindowStart;
-                const double hashMismatchRate = windowUs > 0
-                    ? static_cast<double>(windowHashMismatches) * 1e6 / static_cast<double>(windowUs) : 0.0;
-                windowStart = now;
-                hashMismatchesAtWindowStart = hashMismatches;
-                ::crsce::o11y::O11y::instance().event("solver_dfs_iterations",
-                    {{"iterations", std::to_string(iterations)},
-                     {"depth", std::to_string(stack.size())},
-                     {"iter_per_sec", std::to_string(static_cast<std::uint64_t>(windowRate))},
-                     {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
-                     {"hash_mismatches", std::to_string(hashMismatches)},
-                     {"hash_mismatches_per_sec", std::to_string(static_cast<std::uint64_t>(hashMismatchRate))}});
+
+            // Re-seed the heap every ~4K iterations to catch rows that
+            // drifted below threshold without a direct assignment in them.
+            // Cost: 511 stat lookups (~1μs) every 4K iterations ≈ 0.01% overhead.
+            if ((iterations & 0xFFF) == 0) {
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    const auto u = cs.getStatDirect(r).unknown;
+                    if (u > 0 && u <= kRowCompletionThreshold) {
+                        rowHeap.emplace(u, r);
+                    }
+                }
             }
 
-            // Find the next unassigned cell in the ordering
-            auto nextIdx = frame.orderIdx + 1;
-            while (nextIdx < cellOrder.size() &&
-                   cs.getCellState(cellOrder[nextIdx].row, cellOrder[nextIdx].col) != CellState::Unassigned) {
-                ++nextIdx;
+            if ((iterations & 0xFFFFF) == 0) {
+                // Compute min nonzero row unknown for diagnostic visibility
+                std::uint16_t minNzRowUnknown = kS;
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    const auto u = cs.getStatDirect(r).unknown;
+                    if (u > 0 && u < minNzRowUnknown) {
+                        minNzRowUnknown = u;
+                    }
+                }
+                ::crsce::o11y::O11y::instance().metric("solver_dfs_iterations", {
+                    {"iterations",             iterations,      ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"depth",                  stack.size(),    ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"hash_mismatches",        hashMismatches,  ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"heap_selections",        heapSelections,  ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"heap_size",              static_cast<std::uint64_t>(rowHeap.size()),
+                                                                    ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"min_nz_row_unknown",     minNzRowUnknown, ::crsce::o11y::O11y::MetricKind::Gauge}});
             }
 
-            if (nextIdx >= static_cast<std::uint32_t>(cellOrder.size())) {
-                // All cells assigned -- yield the solution
-                co_yield buildCsm();
-                // Continue DFS for additional solutions (enumeration)
-            } else {
-                stack.push_back({nextIdx, 0, 0,
-                                 cellOrder[nextIdx].row,    // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                                 cellOrder[nextIdx].col,    // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                                 cellOrder[nextIdx].preferred}); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            // --- Cell selection: heap-first, then static ordering ---
+            bool selectedFromHeap = false;
+            std::uint16_t nextRow = 0;
+            std::uint16_t nextCol = 0;
+            std::uint8_t nextPreferred = 0;
+            std::uint32_t nextOrderIdx = frame.orderIdx;
+
+            // Check priority queue for near-complete rows
+            while (!rowHeap.empty()) {
+                auto [u, r] = rowHeap.top();
+                rowHeap.pop();
+                const auto actual = cs.getStatDirect(r).unknown;
+                if (actual == 0 || actual > kRowCompletionThreshold) {
+                    continue; // stale entry -- discard
+                }
+                // Valid: select best unassigned cell in this row
+                const auto rowCells = estimator.computeCellScores(r);
+                if (!rowCells.empty()) {
+                    nextRow = rowCells[0].row;
+                    nextCol = rowCells[0].col;
+                    nextPreferred = rowCells[0].preferred;
+                    selectedFromHeap = true;
+                    ++heapSelections;
+                    break;
+                }
+            }
+
+            if (!selectedFromHeap) {
+                // Fall back to static ordering
+                auto nextIdx = frame.orderIdx + 1;
+                while (nextIdx < cellOrder.size() &&
+                       cs.getCellState(cellOrder[nextIdx].row, cellOrder[nextIdx].col)
+                           != CellState::Unassigned) {
+                    ++nextIdx;
+                }
+                if (nextIdx >= static_cast<std::uint32_t>(cellOrder.size())) {
+                    // All cells assigned -- yield the solution
+                    co_yield buildCsm();
+                    // Continue DFS for additional solutions (enumeration)
+                } else {
+                    nextRow = cellOrder[nextIdx].row;       // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    nextCol = cellOrder[nextIdx].col;       // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    nextPreferred = cellOrder[nextIdx].preferred; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    nextOrderIdx = nextIdx;
+                }
+            }
+
+            // Push frame for the selected cell
+            if (selectedFromHeap || nextOrderIdx != frame.orderIdx) {
+                stack.push_back({nextOrderIdx, 0, 0, nextRow, nextCol, nextPreferred,
+                                 selectedFromHeap});
             }
         }
 
@@ -315,7 +416,8 @@ namespace crsce::decompress::solvers {
             ::crsce::o11y::O11y::instance().event("solver_dfs_complete",
                 {{"total_iterations", std::to_string(iterations)},
                  {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
-                 {"total_hash_mismatches", std::to_string(hashMismatches)}});
+                 {"total_hash_mismatches", std::to_string(hashMismatches)},
+                 {"total_heap_selections", std::to_string(heapSelections)}});
         }
     }
 

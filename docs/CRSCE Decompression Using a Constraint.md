@@ -10,9 +10,10 @@ date: "28 February 2026"
 ## Abstract
 
 Cross-Sums Compression and Expansion (CRSCE) compresses a fixed-size two-dimensional binary matrix---the Cross-Sum
-Matrix (CSM)---by replacing it with four families of exact-sum projections (row, column, diagonal, and anti-diagonal
-sums) together with independent per-row SHA-256 digests. Decompression is a constrained reconstruction problem: recover
-a matrix consistent with all projections and row hashes. Although per-row SHA-256 digests make non-uniqueness
+Matrix (CSM)---by replacing it with eight families of exact-sum projections (row, column, diagonal, anti-diagonal, and
+four toroidal-slope families) together with independent per-row SHA-1 digests and a single per-block SHA-256 digest.
+Decompression is a constrained reconstruction problem: recover a matrix consistent with all projections and hashes.
+Although the combined hash constraints make non-uniqueness
 astronomically unlikely under standard cryptographic assumptions, non-uniqueness is not logically impossible. This paper
 formalizes a *disambiguated* decompression process in which the compressor discovers a *canonical, zero-based*
 disambiguation index (DI) identifying the original matrix among all feasible reconstructions and appends that DI to the
@@ -26,10 +27,13 @@ branching heuristics.
 
 In the CRSCE scheme, an input bitstream is subdivided into blocks of approximately 32 KB. Each block is placed into $CSM
 \in \{0,1\}^{s \times s}$ with fixed size $s = 511$. Four cross-sum vectors are computed from $CSM$: row sums (LSM),
-column sums (VSM), diagonal sums (DSM), and anti-diagonal sums (XSM). An independent SHA-256 digest is also computed for
-each row, producing the lateral hash vector (LH). A disambiguation index (DI) is appended to handle the rare case of
-non-unique reconstruction. The compressed representation of each block is therefore the tuple $(\text{LH}, \text{DI},
-\text{LSM}, \text{VSM}, \text{DSM}, \text{XSM})$.
+column sums (VSM), diagonal sums (DSM), and anti-diagonal sums (XSM). Four toroidal-slope partitions (HSM1, SFC1,
+HSM2, SFC2) provide additional constraint lines using modular-arithmetic line families on the $s \times s$ torus.
+An independent SHA-1 digest is computed for each row, producing the lateral hash vector (LH), and a single SHA-256
+digest of the entire block produces the block hash (BH). A disambiguation index (DI) is appended to handle the rare
+case of non-unique reconstruction. The compressed representation of each block is therefore the tuple $(\text{LH},
+\text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1}, \text{HSM2},
+\text{SFC2})$.
 
 Compression is realized because the cross-sum vectors and hash vector are smaller than the original matrix. LSM and VSM
 each contain $s$ elements and each element requires $b = \lceil \log_2(s+1) \rceil$ bits. DSM and XSM each contain $2s -
@@ -41,12 +45,13 @@ $$
     B_d(s) = \lceil \log_2(s+1) \rceil + 2 \sum_{l=1}^{s-1} \lceil \log_2(l+1) \rceil
 $$
 
-LH consists of $s$ rows of 256 bits each. The disambiguation index (DI) is encoded as a fixed 8-bit unsigned integer per
-block, permitting up to 256 feasible reconstructions before the compressor must fail. The per-block compression ratio is
-therefore:
+LH consists of $s$ SHA-1 digests of 160 bits each. BH is a single SHA-256 digest of 256 bits. HSM1, SFC1, HSM2, and
+SFC2 each contain $s$ elements of $b = 9$ bits. The disambiguation index (DI) is encoded as a fixed 8-bit unsigned
+integer per block, permitting up to 256 feasible reconstructions before the compressor must fail. The per-block
+compression ratio is therefore:
 
 $$
-    C_r = 1 - \frac{2sb + 2 B_d(s) + 256s + 8}{s^2}
+    C_r = 1 - \frac{6sb + 2 B_d(s) + 160s + 256 + 8}{s^2}
 $$
 
 where $s = 511$,
@@ -58,17 +63,18 @@ $$
 Thus,
 
 $$
-    C_r = 1 - \frac{9{,}198 + 16{,}370 + 130{,}816 + 8}{261{,}121} = 1 - \frac{156{,}392}{261{,}121} \approx 0.4011
+    C_r = 1 - \frac{27{,}594 + 16{,}370 + 81{,}760 + 256 + 8}{261{,}121} = 1 - \frac{125{,}988}{261{,}121} \approx 0.5175
 $$
 
-This means for any given suitable input, CRSCE is *guaranteed* to realize approximately 40.1% compression per block.
+This means for any given suitable input, CRSCE is *guaranteed* to realize approximately 51.8% compression per block.
 This excludes any additional compressed file format header information.
 
 Decompression inverts this mapping: reconstruct $CSM$ given the stored constraints. The central difficulty is
 computational: the feasible set of $CSM$ consistent with all sum constraints may be large, and finding *the* correct
-$CSM$ is a constrained search problem. The SHA-256 row digests transform the problem from "find any feasible matrix"
-into "find a feasible matrix whose rows match $s$ given digests," which, under standard cryptographic assumptions,
-should make accidental ambiguity negligible (NIST, 2015; Dang, 2012).
+$CSM$ is a constrained search problem. The SHA-1 row digests and SHA-256 block digest transform the problem from
+"find any feasible matrix" into "find a feasible matrix whose rows match $s$ given digests and whose block matches a
+given digest," which, under standard cryptographic assumptions, should make accidental ambiguity negligible (NIST,
+2015; Dang, 2012).
 
 However, negligible is not zero. Moreover, determinism requirements ("exactly one output for a given compressed
 payload") require a defined behavior even in the pathological case of multiple feasible reconstructions. This paper
@@ -192,7 +198,7 @@ as a message of length $s + 1 = 512$ bits. The trailing zero bit is a fixed padd
 rows. Let
 
 $$
-    H(\text{row}_r) = \text{SHA-256}(\text{row}_r),
+    H(\text{row}_r) = \text{SHA-1}(\text{row}_r),
 $$
 
 and require
@@ -201,15 +207,27 @@ $$
     \forall r: \quad H(\text{row}_r) = \text{LH}[r].
 $$
 
-SHA-256 is standardized in FIPS 180-4, including message padding and parsing into 512-bit blocks (NIST, 2015).
+Additionally, a block hash (BH) is computed over the entire CSM serialized in row-major order:
+
+$$
+    \text{BH} = \text{SHA-256}(\text{CSM}_{\text{row-major}}).
+$$
+
+SHA-1 and SHA-256 are standardized in FIPS 180-4, including message padding and parsing into 512-bit blocks (NIST,
+2015). SHA-1 is used for per-row lateral hashes because its 160-bit digest provides sufficient second-preimage
+resistance ($2^{160}$) for non-adversarial collision detection, while its shorter digest saves 48,800 bits per block
+relative to SHA-256. The whole-block SHA-256 digest restores adversarial robustness to the $2^{128}$ birthday bound,
+dominating SHA-1's broken collision resistance ($\sim 2^{63}$; Stevens et al., 2017).
 
 ### 2.4 Decompression Objective
 
-Given the constraint set $\mathcal{C} = (s, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{LH})$, decompression
-seeks a $CSM$ satisfying all constraints. The premise that $\mathcal{C}$ admits exactly one feasible matrix is a design
-intent, not a mathematical guarantee; the cross-sum and hash constraints make non-uniqueness astronomically unlikely but
-cannot logically exclude it. The full compressed payload $\mathcal{C}' = (\text{LH}, \text{DI}, \text{LSM}, \text{VSM},
-\text{DSM}, \text{XSM})$ therefore includes an 8-bit disambiguation index (DI) that selects the intended reconstruction
+Given the constraint set $\mathcal{C} = (s, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1},
+\text{HSM2}, \text{SFC2}, \text{LH}, \text{BH})$, decompression seeks a $CSM$ satisfying all constraints. The premise
+that $\mathcal{C}$ admits exactly one feasible matrix is a design intent, not a mathematical guarantee; the cross-sum
+and hash constraints make non-uniqueness astronomically unlikely but cannot logically exclude it. The full compressed
+payload $\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1},
+\text{SFC1}, \text{HSM2}, \text{SFC2})$ therefore includes an 8-bit disambiguation index (DI) that selects the intended
+reconstruction
 from the canonical enumeration of feasible solutions (Section 4). It is the DI that provides the "exactly one solution"
 guarantee: even if $\mathcal{C}$ admits multiple feasible matrices, $\mathcal{C}'$ identifies precisely one.
 
@@ -217,8 +235,8 @@ guarantee: even if $\mathcal{C}$ admits multiple feasible matrices, $\mathcal{C}
 
 ### 3.1 Constraint Satisfaction and Factor-Graph View
 
-The decompression problem is naturally a CSP over $s^2$ Boolean variables with $6s - 2$ cardinality constraints plus $s$
-hash-equality constraints. For $s = 511$ this expands to:
+The decompression problem is naturally a CSP over $s^2$ Boolean variables with $10s - 2$ cardinality constraints plus
+$s$ row-hash constraints and 1 block-hash constraint. For $s = 511$ this expands to:
 
 $$
     s^2 = 261{,}121 \text{ Boolean variables}
@@ -228,19 +246,21 @@ $$
     \underbrace{511}_{\text{row}} +
     \underbrace{511}_{\text{column}} +
     \underbrace{1{,}021}_{\text{diagonal}} +
-    \underbrace{1{,}021}_{\text{anti-diagonal}} = 3{,}064 \text{ cardinality constraints}
+    \underbrace{1{,}021}_{\text{anti-diagonal}} +
+    \underbrace{4 \times 511}_{\text{toroidal-slope}} = 5{,}108 \text{ cardinality constraints}
 $$
 
 $$
-    511 \text{ SHA-256 row-hash constraints}
+    511 \text{ SHA-1 row-hash constraints} + 1 \text{ SHA-256 block-hash constraint}
 $$
 
 $$
-    3{,}064 + 511 = 3{,}575 \text{ total constraints}
+    5{,}108 + 512 = 5{,}620 \text{ total constraints}
 $$
 
 This can also be represented as a factor graph: variable nodes for each $CSM_{r,c}$, factor nodes for each
-row/column/diagonal/anti-diagonal sum constraint, and factor nodes for each SHA-256 row constraint. Factor graphs
+row/column/diagonal/anti-diagonal/toroidal-slope sum constraint, and factor nodes for each SHA-1 row constraint and
+the SHA-256 block constraint. Factor graphs
 support message-passing interpretations (Kschischang et al., 2001).
 
 In principle, belief propagation (BP) or its generalizations can provide probabilistic guidance in large constraint
@@ -250,12 +270,13 @@ for a fully specified row, either the digest matches or it does not.
 
 ### 3.2 Cryptographic Uniqueness as a Heuristic, Not a Proof
 
-SHA-256 is designed so that, absent structural weaknesses, finding distinct messages with the same digest is
-computationally infeasible; NIST guidance frames security strength for applications that rely on hash properties (Dang,
-2012; NIST, 2015). From a modeling perspective, treating $H$ as a random mapping from 511-bit strings to 256-bit
-digests, the expected number of 511-bit preimages for any fixed digest value is $2^{511}/2^{256} = 2^{255}$, so hashes
-alone do not uniquely identify a row among all possible rows. However, the decompressor is not choosing among all rows;
-it is choosing among rows that participate in a globally consistent $CSM$ satisfying four families of sum constraints.
+SHA-1 is designed so that, absent structural weaknesses in second-preimage resistance, finding a distinct message
+with the same digest is computationally infeasible; NIST guidance frames security strength for applications that rely
+on hash properties (Dang, 2012; NIST, 2015). From a modeling perspective, treating $H$ as a random mapping from
+511-bit strings to 160-bit digests, the expected number of 511-bit preimages for any fixed digest value is
+$2^{511}/2^{160} = 2^{351}$, so hashes alone do not uniquely identify a row among all possible rows. However, the
+decompressor is not choosing among all rows; it is choosing among rows that participate in a globally consistent $CSM$
+satisfying eight families of sum constraints and a whole-block SHA-256 digest.
 The heuristic claim is that the intersection "sum-feasible" $\cap$ "row-hash-matching" is typically singleton.
 
 This is a plausible engineering assumption but remains a heuristic: it does not exclude adversarially constructed
@@ -264,9 +285,9 @@ instances or rare coincidences.
 ### 3.3 Estimating the Probability of Non-Unique Reconstruction
 
 Section 3.2 argued qualitatively that hash-backed uniqueness is a heuristic. This section estimates the probability of
-non-uniqueness quantitatively under a random-oracle model for SHA-256. The analysis proceeds in two stages: first
-estimating the probability that an alternative matrix satisfies the cross-sum constraints alone, then combining this
-with the per-row hash collision barrier.
+non-uniqueness quantitatively under a random-oracle model for SHA-1 (row hashes) and SHA-256 (block hash). The
+analysis proceeds in three stages: estimating the cross-sum collision barrier across all 8 partitions, combining this
+with the per-row SHA-1 collision barrier, and adding the whole-block SHA-256 collision barrier.
 
 **Cross-sum collision probability.** For a second feasible matrix $CSM'$ to match the original $CSM$ on all four
 cross-sum families, each row must independently have identical Hamming weight to the corresponding original row.
@@ -289,32 +310,42 @@ all $s$ column sums, $2s - 1$ diagonal sums, and $2s - 1$ anti-diagonal sums, ea
 independent constraints that further reduce the probability.
 
 **Lateral hash collision probability.** Even if an alternative matrix satisfies all cross-sum constraints, it must also
-pass independent per-row SHA-256 verification. Under the random-oracle assumption, each of the $s$ row hashes must
+pass independent per-row SHA-1 verification. Under the random-oracle assumption, each of the $s$ row hashes must
 independently collide with the original digest. The probability that all $s$ rows collide simultaneously is:
 
 $$
-    P(\text{LH collision}) = \left(\frac{1}{2^{256}}\right)^s = 2^{-256s} = 2^{-130{,}816}.
+    P(\text{LH collision}) = \left(\frac{1}{2^{160}}\right)^s = 2^{-160s} = 2^{-81{,}760}.
 $$
 
-Converting to base 10: $\log_{10} P(\text{LH collision}) = -130{,}816 \times \log_{10} 2 \approx -39{,}379.54$.
+Converting to base 10: $\log_{10} P(\text{LH collision}) = -81{,}760 \times \log_{10} 2 \approx -24{,}614.43$.
 
-**Combined collision probability.** Treating the cross-sum and hash collision events as independent (a conservative
-assumption, since in practice the constraints are correlated and further reduce the joint probability):
+**Block hash collision probability.** The entire modified matrix $CSM'$ must also produce the same SHA-256 digest as
+$CSM$. Since $CSM' \neq CSM$, this is a second-preimage event at probability $2^{-256}$, independent of swap geometry
+and row-hash outcomes.
+
+**Combined collision probability.** Treating the cross-sum, row-hash, and block-hash collision events as independent (a
+conservative assumption, since in practice the constraints are correlated and further reduce the joint probability):
 
 $$
-    P_{\text{CRSCE}} \leq P(\text{LSM collision}) \times P(\text{LH collision}) \approx 10^{-819}
-    \times 10^{-39{,}380} \approx 10^{-40{,}199}.
+    P_{\text{CRSCE}} \leq P(\text{LSM collision}) \times P(\text{LH collision}) \times P(\text{BH collision})
+    \approx 10^{-819} \times 10^{-24{,}614} \times 10^{-77} \approx 10^{-25{,}510}.
 $$
 
-A probability of $\sim 10^{-40{,}199}$ is not merely negligible in a practical sense---it exceeds the security margin of
+With all 8 cross-sum partitions considered (not just LSM), the cross-sum barrier is substantially stronger, and the
+dominant term at minimum swap size $k_{\min} \geq 10$ (affecting $m \geq 3$ rows) is $2^{-(160 \times 3 + 256)} =
+2^{-736}$. The full-space collision estimate is approximately $10^{-30{,}000}$.
+
+A probability of $\sim 10^{-30{,}000}$ is not merely negligible in a practical sense---it exceeds the security margin of
 any deployed cryptographic system by many orders of magnitude. For context, the estimated number of atoms in the
 observable universe is approximately $10^{80}$, and the probability of a spontaneous SHA-256 collision under
 birthday-bound assumptions is approximately $2^{-128} \approx 10^{-38.5}$. The CRSCE collision probability is smaller
-than either by a factor exceeding $10^{40{,}000}$.
+than either by a factor exceeding $10^{29{,}000}$.
 
-This analysis assumes SHA-256 behaves as a random oracle, which is standard for non-adversarial settings. Under
-adversarial conditions (e.g., a crafted input designed to induce collisions), the analysis does not apply, but the DI
-mechanism (Section 2.4) provides deterministic correctness regardless of collision probability.
+This analysis assumes SHA-1 and SHA-256 behave as random oracles, which is standard for non-adversarial settings. SHA-1's
+collision resistance is broken at $\sim 2^{63}$ work (Stevens et al., 2017), but the whole-block SHA-256 digest
+neutralizes this: constructing two matrices that collide on all 511 SHA-1 row hashes AND the SHA-256 block hash
+requires at minimum $2^{128}$ work (the birthday bound on SHA-256). Under adversarial conditions, the DI mechanism
+(Section 2.4) provides deterministic correctness regardless of collision probability.
 
 ### 3.4 Enumeration and Indexing: Why Worst Cases Can Be Hard
 
@@ -428,10 +459,10 @@ is permitted to reject inputs that induce excessive ambiguity or excessive enume
 
 ### 5.1 Deterministic State Representation
 
-The deterministic solver maintains a compact state for each line (row, column, diagonal, and anti-diagonal) that enables
-incremental constraint propagation as cells are assigned. This representation allows the solver to detect infeasibility
-early, force deterministic assignments when only one value is possible, and verify completed rows against their SHA-256
-digests without recomputing from scratch.
+The deterministic solver maintains a compact state for each line (row, column, diagonal, anti-diagonal, and four
+toroidal-slope families) that enables incremental constraint propagation as cells are assigned. This representation
+allows the solver to detect infeasibility early, force deterministic assignments when only one value is possible, and
+verify completed rows against their SHA-1 digests without recomputing from scratch.
 
 For each line $L$, the solver tracks four quantities: $u(L)$, the count of unknown cells on the line; $a(L)$, the count
 of assigned ones; the required sum $S(L)$ from the corresponding cross-sum vector (LSM, VSM, DSM, or XSM); and the
@@ -445,16 +476,17 @@ When $\rho(L) = 0$, all unknown cells on $L$ are forced to $0$. When $\rho(L) = 
 forced to $1$. These are standard feasibility rules for cardinality constraints, and they can be applied repeatedly
 until reaching a fixpoint.
 
-Each assignment $CSM_{r,c} \leftarrow 0/1$ updates exactly four lines' $(u, a, \rho)$, enabling incremental propagation.
+Each assignment $CSM_{r,c} \leftarrow 0/1$ updates exactly eight lines' $(u, a, \rho)$ (one row, one column, one
+diagonal, one anti-diagonal, and four toroidal-slope lines), enabling incremental propagation.
 
 ### 5.2 Integrating Row Hash Checks Deterministically
 
-Row-hash constraints are most effective once a row becomes fully assigned. When $u(\text{row } r) = 0$, compute SHA-256
+Row-hash constraints are most effective once a row becomes fully assigned. When $u(\text{row } r) = 0$, compute SHA-1
 of the 511-bit row message and compare to $\text{LH}[r]$. A mismatch yields an immediate contradiction and triggers
-backtracking. SHA-256 preprocessing rules (padding and parsing) must follow FIPS 180-4 exactly to ensure
+backtracking. SHA-1 preprocessing rules (padding and parsing) must follow FIPS 180-4 exactly to ensure
 interoperability (NIST, 2015).
 
-This approach does *not* require representing SHA-256 as a boolean circuit; it relies on exact evaluation at the moment
+This approach does *not* require representing SHA-1 as a boolean circuit; it relies on exact evaluation at the moment
 the row becomes concrete, which is straightforward to implement and deterministic.
 
 ### 5.3 Canonical Branching to Support Enumeration
@@ -477,7 +509,7 @@ The procedure begins by initializing all $s^2$ cells as unassigned and computing
 \rho)$ for every row, column, diagonal, and anti-diagonal. Before any branching occurs, the propagator runs to fixpoint
 on the initial state: lines whose residual $\rho$ equals zero force all their unknowns to $0$, and lines whose residual
 equals the unknown count force all their unknowns to $1$. These forced assignments may cascade, since each forced cell
-updates four lines and may trigger further forcing on any of them. If propagation detects infeasibility---a negative
+updates eight lines and may trigger further forcing on any of them. If propagation detects infeasibility---a negative
 residual or a residual exceeding the unknown count on any line---the constraint set is inconsistent and no solutions
 exist.
 
@@ -491,16 +523,16 @@ stack) and tries the alternative value. When both values at a cell lead to infea
 up the tree.
 
 The `Propagate()` subroutine referenced below applies the feasibility rules from Section 5.1 to a queue of affected
-lines until quiescence. It returns false if any line becomes infeasible or if any completed row fails its SHA-256
+lines until quiescence. It returns false if any line becomes infeasible or if any completed row fails its SHA-1
 digest check (Section 5.2).
 
 ```text
 Algorithm 1: EnumerateSolutionsLex(C)
-    Input:  constraints C = (s, LSM, VSM, DSM, XSM, LH)
+    Input:  constraints C = (s, LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2, LH, BH)
     Output: stream of feasible matrices CSM in lex order
 
     Initialize all CSM[r,c] = UNASSIGNED
-    Initialize line stats (u, a, ρ) for all rows, cols, diags, anti-diags
+    Initialize line stats (u, a, ρ) for all rows, cols, diags, anti-diags, slopes
     Q <- all lines
     if not Propagate(Q): return
 
@@ -538,7 +570,7 @@ provides defense-in-depth against data corruption or truncation.
 
 ```text
 Algorithm 2: DecompressWithDI(C')
-Input:  C' = (LH, DI, LSM, VSM, DSM, XSM)
+Input:  C' = (LH, BH, DI, LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2)
 Output: S_DI
 
 k <- 0
@@ -553,7 +585,8 @@ error: DI out of range (no such solution)
 
 Compression is the inverse process: given the original matrix $CSM$, produce the compressed payload $\mathcal{C}'$
 including the correct disambiguation index. The compressor first computes the four cross-sum vectors and the per-row
-SHA-256 digests deterministically from the original matrix---this is straightforward arithmetic and hashing. The
+SHA-1 row digests and the SHA-256 block digest deterministically from the original matrix---this is straightforward
+arithmetic and hashing. The
 difficult step is discovering the DI, which requires determining the original matrix's position in the canonical
 enumeration of all feasible solutions.
 
@@ -584,8 +617,9 @@ Output: compressed payload C' or FAIL
 
 StartTimer()
 
-Compute LSM, VSM, DSM, XSM from CSM
-Compute LH[r] = SHA256(row_r) for all r    // per FIPS 180-4
+Compute LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2 from CSM
+Compute LH[r] = SHA1(row_r) for all r    // per FIPS 180-4
+Compute BH = SHA256(CSM_row_major)        // per FIPS 180-4
 
 k <- 0
 for Y in EnumerateSolutionsLex(C):
@@ -593,7 +627,7 @@ for Y in EnumerateSolutionsLex(C):
         return FAIL
     if Y == CSM:
         DI <- k
-        return (LH, DI, LSM, VSM, DSM, XSM)
+        return (LH, BH, DI, LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2)
     k <- k + 1
 
 // If enumeration ends without finding CSM, the constraints are inconsistent
@@ -611,7 +645,7 @@ or not produced at all.
 Apple Silicon systems provide high-performance ARM64 CPUs and integrated GPUs accessible through Metal. Metal is Apple's
 low-overhead API supporting compute kernels, buffers, and command submission, with its programming model and shading
 language specified in official documentation (Apple, n.d.-a; Apple, n.d.-b; Apple, n.d.-c). The implementation should
-preserve determinism of enumeration and must interoperate exactly with the format's SHA-256 definition.
+preserve determinism of enumeration and must interoperate exactly with the format's SHA-1 and SHA-256 definitions.
 
 Given $s = 511$, the raw matrix is only $511^2 = 261{,}121$ bits ($\approx 32$ KiB). Thus, the challenge is not storage
 but search control and propagation speed.
@@ -624,7 +658,7 @@ implementation can store each row as a 512-bit aligned bitset (8 × 64-bit words
 unknown mask per row, keep per-line residuals $(u, a, \rho)$ in small arrays, and maintain an undo stack recording
 assignments and line-stat deltas for fast rollback.
 
-Row-hash checking can use a constant-time, single-block SHA-256 implementation specialized for 511-bit messages, since
+Row-hash checking can use a constant-time, single-block SHA-1 implementation specialized for 511-bit messages, since
 the padded message occupies exactly one 512-bit block under FIPS 180-4 rules. This can reduce overhead relative to a
 general streaming hash, while remaining standards-compliant (NIST, 2015).
 
@@ -680,7 +714,7 @@ implementations.
 
 FIPS 180-4's padding procedure appends a single '1' bit, then zeros, then the 64-bit message length (NIST, 2015). For a
 512-bit message, the padded result occupies exactly two 512-bit blocks (1024 bits total). Because the input is
-byte-aligned, standard SHA-256 library functions can be used directly without custom bit-level padding logic. This
+byte-aligned, standard SHA-1 library functions can be used directly without custom bit-level padding logic. This
 simplifies implementation and ensures that LH behaves as a stable, interoperable constraint.
 
 ## 7. Complexity, Correctness, and the Role of Time-Bounded Failure
@@ -748,15 +782,15 @@ alternative implementations to be substituted without modifying the solver's con
 ### 9.2 Polymorphism as an Architectural Principle
 
 Polymorphism is not merely a stylistic preference; it is a structural requirement motivated by the algorithm's design.
-The solver operates over four families of cross-sum constraints (LSM, VSM, DSM, XSM) that differ in their indexing
+The solver operates over eight families of cross-sum constraints (LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2) that differ in their indexing
 geometry but share identical residual-tracking and forcing logic. A polymorphic line-constraint interface allows all
 four families to be processed uniformly by the propagation engine, eliminating redundant code paths and reducing the
 surface area for implementation errors.
 
 Similarly, the hash verification layer should be abstracted behind a common interface. Although the current
-specification uses SHA-256, the design discussed in Appendix B.1 (segmented prefix hashes) and potential future adoption
-of alternative hash functions both argue for a pluggable hash interface. Polymorphism ensures that such changes can be
-introduced without restructuring the solver.
+specification uses SHA-1 for per-row hashes and SHA-256 for the block hash, the design discussed in Appendix B.1
+(segmented prefix hashes) and potential future adoption of alternative hash functions both argue for a pluggable hash
+interface. Polymorphism ensures that such changes can be introduced without restructuring the solver.
 
 ### 9.3 Interface Boundaries
 
@@ -853,43 +887,67 @@ number of cells on line $k$, and the encoding width per element is derived from 
   +----------+ +--------+ +-------------+ +-------------+
 ```
 
-**`LateralHash`** stores the vector of $s$ SHA-256 digests, one per row. It provides `compute(row_r)` to hash a 512-bit
+**`LateralHash`** stores the vector of $s$ SHA-1 digests, one per row. It provides `compute(row_r)` to hash a 512-bit
 row message (511 data bits plus trailing zero) and `verify(r, digest)` to compare against the stored value.
 
 ```text
 +----------------------------------------------+
 |              LateralHash                     |
 +----------------------------------------------+
-| - digests: uint8[s][32]                      |
+| - digests: uint8[s][20]                      |
 | - s: uint16                                  |
 +----------------------------------------------+
 | + LateralHash(s: uint16)                     |
-| + compute(row: uint64[8]): uint8[32]         |
-| + store(r: uint16, digest: uint8[32]): void  |
-| + verify(r: uint16, digest: uint8[32]): bool |
-| + getDigest(r: uint16): uint8[32]            |
+| + compute(row: uint64[8]): uint8[20]         |
+| + store(r: uint16, digest: uint8[20]): void  |
+| + verify(r: uint16, digest: uint8[20]): bool |
+| + getDigest(r: uint16): uint8[20]            |
 +----------------------------------------------+
 ```
 
-**`CompressedPayload`** represents $\mathcal{C}' = (\text{LH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM},
-\text{XSM})$ and provides serialization and deserialization methods that enforce the wire format byte-alignment
-convention (Section 12.4): LH (byte-aligned), DI (uint8), followed by the bit-packed cross-sum vectors.
+**`BlockHash`** stores a single SHA-256 digest computed over the entire CSM serialized in row-major order. It provides
+`compute(csm)` to hash the full matrix and `verify(csm, expected)` to compare against the stored value.
+
+```text
++----------------------------------------------+
+|              BlockHash                       |
++----------------------------------------------+
+| + compute(csm: CSM): uint8[32]              |
+| + verify(csm: CSM, expected: uint8[32]): bool|
++----------------------------------------------+
+```
+
+**`ToroidalSlopeSum`** is a cross-sum vector for toroidal modular-slope partitions. Each partition consists of $s = 511$
+lines defined by $L_k = \{(t, (k + pt) \bmod s) : t = 0, \ldots, s-1\}$ for a fixed slope $p$. The four partitions
+use slopes $p \in \{256, 255, 2, 509\}$ (corresponding to HSM1, SFC1, HSM2, SFC2). Line index mapping is
+$k = (c - pr) \bmod s$, computed by a single multiply-and-modulus operation.
+
+**`CompressedPayload`** represents $\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM},
+\text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1}, \text{HSM2}, \text{SFC2})$ and provides serialization and
+deserialization methods that enforce the wire format byte-alignment convention (Section 12.4): LH (byte-aligned),
+BH (byte-aligned), DI (uint8), followed by the bit-packed cross-sum vectors.
 
 ```text
 +----------------------------------------------+
 |           CompressedPayload                  |
 +----------------------------------------------+
 | - lh: LateralHash                           |
+| - bh: uint8[32]                              |
 | - di: uint8                                  |
 | - lsm: RowSum                               |
 | - vsm: ColSum                               |
 | - dsm: DiagSum                               |
 | - xsm: AntiDiagSum                          |
+| - hsm1: ToroidalSlopeSum                    |
+| - sfc1: ToroidalSlopeSum                    |
+| - hsm2: ToroidalSlopeSum                    |
+| - sfc2: ToroidalSlopeSum                    |
 +----------------------------------------------+
 | + serialize(): bytestream                    |
 | + deserialize(data: bytestream): void        |
 | + getConstraintSet(): C                      |
 | + getDI(): uint8                             |
+| + getBH(): uint8[32]                         |
 +----------------------------------------------+
 ```
 
@@ -903,7 +961,8 @@ a restore point on the undo stack; and `Assignment` is a record of `(r, c, value
 assignment.
 
 **`IConstraintStore`** manages the current partial assignment of the $s^2$ cells and the per-line statistics $(u, a,
-\rho)$ for all $6s - 2$ lines. It is the single source of truth for the solver's state.
+\rho)$ for all $10s - 2$ lines (511 rows + 511 columns + 1,021 diagonals + 1,021 anti-diagonals + 4 × 511
+toroidal-slope lines = 5,108). It is the single source of truth for the solver's state.
 
 ```text
 +--------------------------------------------------+
@@ -914,7 +973,7 @@ assignment.
 | + getResidual(line: LineID): uint16              |
 | + getUnknownCount(line: LineID): uint16          |
 | + getAssignedCount(line: LineID): uint16         |
-| + getLinesForCell(r: uint16, c: uint16): LineID[4]|
+| + getLinesForCell(r: uint16, c: uint16): LineID[8]|
 | + getCellState(r: uint16, c: uint16): CellState  |
 +--------------------------------------------------+
 ```
@@ -947,7 +1006,7 @@ rollback), and controls the branching order (0 before 1) to ensure canonical lex
 +--------------------------------------------------+
 ```
 
-**`IHashVerifier`** abstracts the row-hash computation and comparison. The default implementation uses SHA-256 per FIPS
+**`IHashVerifier`** abstracts the row-hash computation and comparison. The default implementation uses SHA-1 per FIPS
 180-4 on 512-bit row messages. The interface admits alternative implementations (e.g., segmented prefix hashes per
 Appendix B.1) without changing the solver's control flow.
 
@@ -955,9 +1014,9 @@ Appendix B.1) without changing the solver's control flow.
 +--------------------------------------------------+
 |       <<interface>> IHashVerifier                |
 +--------------------------------------------------+
-| + computeHash(row: uint64[8]): uint8[32]        |
+| + computeHash(row: uint64[8]): uint8[20]        |
 | + verifyRow(r: uint16, row: uint64[8]): bool    |
-| + setExpected(r: uint16, digest: uint8[32]): void|
+| + setExpected(r: uint16, digest: uint8[20]): void|
 +--------------------------------------------------+
 ```
 
@@ -982,8 +1041,8 @@ it in an indexed selection (Algorithm 2).
 ### 10.4 Compressor and Decompressor as Compositions
 
 **`Compressor`** composes a `CSM`, a `CompressedPayload` builder, and an `IEnumerationController`. It computes the
-cross-sum vectors and lateral hashes from the original matrix, then invokes the enumerator to discover the DI within the
-time bound. On success, it assembles and serializes $\mathcal{C}'$.
+cross-sum vectors, SHA-1 lateral hashes, and SHA-256 block hash from the original matrix, then invokes the enumerator
+to discover the DI within the time bound. On success, it assembles and serializes $\mathcal{C}'$.
 
 ```text
 +--------------------------------------------------+
@@ -1278,7 +1337,7 @@ src/
     ├── HasherUtils/       Hashing utilities
     ├── LateralHash/       Lateral hash data structures
     ├── O11y/              Observability (Section 10.5)
-    ├── RowHashVerifier/   SHA-256 row hash verification
+    ├── RowHashVerifier/   SHA-1 row hash verification
     ├── Util/              General utilities
     └── exceptions/        Exception definitions
 ```
@@ -1310,7 +1369,7 @@ include/
     ├── HasherUtils/       Hashing utilities headers
     ├── LateralHash/       Lateral hash data structures headers
     ├── O11y/              Observability (Section 10.5) headers
-    ├── RowHashVerifier/   SHA-256 row hash verification headers
+    ├── RowHashVerifier/   SHA-1 row hash verification headers
     ├── Util/              General utilities headers
     └── exceptions/        Exception definitions headers
 ```
@@ -1342,7 +1401,7 @@ test/
     ├── Helpers/           Helper functions for tests
     ├── LateralHash/       Lateral hash data structures tests
     ├── O11y/              Observability (Section 10.5) tests
-    ├── RowHashVerifier/   SHA-256 row hash verification tests
+    ├── RowHashVerifier/   SHA-1 row hash verification tests
     ├── Util/              General utilities tests
     └── exceptions/        Exception definitions tests
 ```
@@ -1518,27 +1577,36 @@ implicit in the format.
 
 Each block payload is a fixed-length byte-aligned bitstream. The matrix dimension $s = 511$ is a format constant and is
 not stored per block. The fields appear in the following order, matching the wire format tuple $\mathcal{C}' =
-(\text{LH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM})$ defined in Section 4.2.
+(\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1},
+\text{HSM2}, \text{SFC2})$ defined in Section 4.2.
 
 ```text
 Field   Elements    Bits/Element   Total Bits   Total Bytes   Encoding
 ------  ----------  ------------   ----------   -----------   --------
-LH      511         256            130,816      16,352        32 bytes per digest, sequential
+LH      511         160            81,760       10,220        20 bytes per SHA-1 digest, sequential
+BH      1           256            256          32            32 bytes, SHA-256 of row-major CSM
 DI      1           8              8            1             uint8
 LSM     511         9              4,599        ---           MSB-first packed bitstream
 VSM     511         9              4,599        ---           MSB-first packed bitstream
 DSM     2s-1=1,021  variable       8,185        ---           MSB-first, ceil(log2(len(d)+1))
 XSM     2s-1=1,021  variable       8,185        ---           MSB-first, ceil(log2(len(x)+1))
+HSM1    511         9              4,599        ---           MSB-first packed bitstream
+SFC1    511         9              4,599        ---           MSB-first packed bitstream
+HSM2    511         9              4,599        ---           MSB-first packed bitstream
+SFC2    511         9              4,599        ---           MSB-first packed bitstream
 ------  ----------  ------------   ----------   -----------   --------
-Total                              156,392      19,549
+Total                              125,988      15,749
 ```
 
-The total block payload is $156{,}392$ bits ($19{,}549$ bytes). The payload is naturally byte-aligned, so no trailing
-padding bits are required. The total compressed file size is therefore $28 + (\text{block\_count} \times 19{,}549)$
+The total block payload is $125{,}988$ bits ($15{,}749$ bytes). The payload is naturally byte-aligned, so no trailing
+padding bits are required. The total compressed file size is therefore $28 + (\text{block\_count} \times 15{,}749)$
 bytes.
 
-**LH (Lateral Hash).** The 511 SHA-256 digests are stored sequentially, each as 32 bytes, for a total of 16,352 bytes.
+**LH (Lateral Hash).** The 511 SHA-1 digests are stored sequentially, each as 20 bytes, for a total of 10,220 bytes.
 LH[0] corresponds to row 0, LH[510] to row 510.
+
+**BH (Block Hash).** A single SHA-256 digest (32 bytes) computed over the entire CSM serialized in row-major order as
+a contiguous bitstream of $s^2 = 261{,}121$ bits.
 
 **DI (Disambiguation Index).** An 8-bit unsigned integer selecting the intended solution from the canonical enumeration
 (Section 4.2). Values 0--255 are valid; if the original matrix's position exceeds 255, compression fails.
@@ -1553,25 +1621,31 @@ straight (non-wrapping) diagonals. Element $k$ requires $\lceil \log_2(\text{len
 $\text{len}(k) = \min(k + 1,\; s,\; 2s - 1 - k)$ as defined in Section 2.2. Elements are serialized MSB-first in index
 order ($k = 0, 1, \ldots, 2s - 2$), packed continuously into the bitstream.
 
+**HSM1, SFC1, HSM2, and SFC2 (Toroidal-Slope Sums).** Each vector contains $s = 511$ elements, one per toroidal line.
+Each element requires $b = 9$ bits and is serialized MSB-first, identical to LSM and VSM. The four partitions use
+slopes $p \in \{256, 255, 2, 509\}$ respectively, where line $k$ of slope $p$ covers cells
+$\{(t, (k + pt) \bmod 511) : t = 0, \ldots, 510\}$. At runtime, the solver maps $(r, c) \to k = (c - pr) \bmod 511$.
+
 ### 12.5 Cross-Sum Ranges and Validation
 
-Each LSM and VSM entry must be in the range $[0, s]$ where $s = 511$. Each DSM entry at index $d$ must be in $[0,
-\text{len}(d)]$, and each XSM entry at index $x$ must be in $[0, \text{len}(x)]$. A decoder should reject any block
-containing out-of-range cross-sum values.
+Each LSM, VSM, HSM1, SFC1, HSM2, and SFC2 entry must be in the range $[0, s]$ where $s = 511$. Each DSM entry at index
+$d$ must be in $[0, \text{len}(d)]$, and each XSM entry at index $x$ must be in $[0, \text{len}(x)]$. A decoder should
+reject any block containing out-of-range cross-sum values.
 
 ### 12.6 Block Acceptance Criteria
 
-A block is accepted if and only if the reconstructed CSM simultaneously satisfies both conditions: it reproduces the
-stored LSM, VSM, DSM, and XSM vectors exactly for all indices, and it recomputes per-row LH from the reconstructed rows
-exactly ($\text{digest} = \text{SHA-256}(\text{row}_{64})$) for all $r \in \{0, \ldots, 510\}$. Any mismatch results in
-rejection of that block. Decoders must fail hard by default and must not produce partial output.
+A block is accepted if and only if the reconstructed CSM simultaneously satisfies all three conditions: it reproduces
+the stored LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, and SFC2 vectors exactly for all indices; it recomputes per-row LH
+from the reconstructed rows exactly ($\text{digest} = \text{SHA-1}(\text{row}_{64})$) for all $r \in \{0, \ldots,
+510\}$; and it recomputes the block hash exactly ($\text{BH} = \text{SHA-256}(\text{CSM}_{\text{row-major}})$). Any
+mismatch results in rejection of that block. Decoders must fail hard by default and must not produce partial output.
 
 ### 12.7 File Size Validation
 
 A decoder can validate file integrity before parsing blocks by checking:
 
 $$
-    \text{file\_size} = 28 + (\text{block\_count} \times 19{,}549)
+    \text{file\_size} = 28 + (\text{block\_count} \times 15{,}749)
 $$
 
 where `block_count` is read from the header. Any deviation indicates a truncated or corrupted file.
@@ -1582,15 +1656,18 @@ This paper formalized a disambiguated CRSCE decompression process that remains d
 set admits multiple feasible reconstructions. The key idea is *canonical solution indexing*: define a strict
 lexicographic order on feasible matrices, encode the zero-based DI of the intended solution as $S_{\text{DI}}$, and
 discover that DI at compression time by running the decompressor as an enumerator constrained by the known original
-matrix. The compressed payload $\mathcal{C}' = (\text{LH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM})$
-is ordered for byte-alignment efficiency, with all fixed-width fields preceding the bit-packed cross-sum vectors.
-Because enumeration can be expensive, the design includes exactly one tolerance parameter --- `max_compression_time` ---
-beyond which compression fails, requiring a fallback to another algorithm.
+matrix. The compressed payload $\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM},
+\text{XSM}, \text{HSM1}, \text{SFC1}, \text{HSM2}, \text{SFC2})$ is ordered for byte-alignment efficiency, with all
+fixed-width fields preceding the bit-packed cross-sum vectors. Because enumeration can be expensive, the design includes
+exactly one tolerance parameter --- `max_compression_time` --- beyond which compression fails, requiring a fallback to
+another algorithm.
 
-We established that the probability of a non-unique reconstruction is approximately $10^{-40{,}199}$ under a
-random-oracle model, combining the cross-sum collision barrier ($\sim 10^{-819}$) with the per-row SHA-256 collision
-barrier ($\sim 10^{-39{,}380}$). Each row is hashed as a byte-aligned 512-bit message (the 511-bit row plus a fixed
-trailing zero bit), simplifying implementation while preserving compliance with FIPS 180-4 (NIST, 2015).
+We established that the probability of a non-unique reconstruction is approximately $10^{-30{,}000}$ under a
+random-oracle model, combining the cross-sum collision barrier across 8 partitions with the per-row SHA-1 collision
+barrier ($\sim 10^{-24{,}614}$) and the whole-block SHA-256 collision barrier ($\sim 10^{-77}$). Each row is hashed
+as a byte-aligned 512-bit message (the 511-bit row plus a fixed trailing zero bit), simplifying implementation while
+preserving compliance with FIPS 180-4 (NIST, 2015). The SHA-256 block hash restores adversarial robustness to the
+$2^{128}$ birthday bound despite SHA-1's broken collision resistance.
 
 We moved from theory to implementation by presenting a deterministic enumerator based on incremental feasibility
 propagation for cardinality constraints, row-hash verification, and canonical branching to preserve lexicographic order.
@@ -1686,36 +1763,15 @@ reduces I/O overhead during high-throughput solver phases.
 
 ### B.1 Segmented Prefix Hashes for Early Solver Pruning
 
-The current design stores a single full-row SHA-256 digest per row, which can only be verified once all $s = 511$ bits
-of that row are assigned. This means the solver may pursue a doomed branch for hundreds of assignments before
-discovering a hash mismatch at the end of the row.
-
-A segmented prefix hash scheme would replace the single full-row digest with multiple shorter digests computed over
-progressively longer prefixes of each row. For example, four prefix checkpoints at bit positions 128, 256, 384, and 511
-would allow the solver to verify partial row assignments as each prefix is completed during left-to-right cell
-assignment. A mismatch at the first checkpoint (128 bits) would prune the branch before assigning the remaining 383
-bits, potentially eliminating a vast subtree of the search space.
-
-The storage budget is comparable to shorter full-row hashes. Four 32-bit prefix digests per row cost $4 \times 32 \times
-511 = 65{,}408$ bits --- the same as a single 128-bit full-row hash and half the current SHA-256 cost. The
-per-checkpoint collision resistance of $2^{-32}$ is low in isolation but sufficient in context: the solver is checking a
-single candidate prefix against a single stored digest among rows already constrained by four cross-sum families, and
-any false positive at an early checkpoint is caught by subsequent checkpoints or the final digest.
-
-The prefix digests need not use a cryptographic hash. A fast non-cryptographic function (e.g., xxHash3) would suffice
-for the intermediate checkpoints, with the final full-row checkpoint using truncated SHA-256 for the stronger uniqueness
-guarantee. This hybrid approach would preserve the FIPS 180-4 standardization narrative for the final constraint while
-accelerating solver pruning at intermediate stages.
-
-This idea remains under evaluation. The key open questions are: (a) the optimal number and placement of checkpoints
-given the solver's row-major assignment order, (b) the interaction between prefix hash pruning and
-constraint-propagation-driven forced assignments (which may complete row segments out of left-to-right order), and (c)
-the impact on $C_r$ under various checkpoint/digest-size configurations.
+*This appendix is obsolete.* The segmented prefix hash approach has been superseded by the dynamic row-completion
+priority queue (B.4), which achieves earlier LH verification by steering the solver toward nearly-complete rows
+rather than adding sub-row hash checkpoints. The priority queue approach requires no additional storage, no format
+changes, and no increase in per-block payload size.
 
 ### B.2 Auxiliary Cross-Sum Partitions as Solver Accelerators
 
-The lateral hash vector (LH) provides cryptographic collision resistance at a cost of $256s = 130{,}816$ bits per block.
-While no finite number of additional cross-sum partitions can replicate the nonlinear collision resistance of SHA-256
+The lateral hash vector (LH) provides cryptographic collision resistance at a cost of $160s = 81{,}760$ bits per block.
+While no finite number of additional cross-sum partitions can replicate the nonlinear collision resistance of SHA-1
 (see Section 3.3), auxiliary partitions may nevertheless improve decompression performance by increasing the density of
 constraint-propagation forcing opportunities, potentially reducing solver runtime to meet a sub-second wall-clock
 budget.
@@ -1738,8 +1794,8 @@ $$
 Collision is a virtual certainty with this limited view.  See the caveat, below. The actual collision probability
 is almost certainly lower due to the construction of cross sum vectors. Nonetheless, for comparison, the current
 design with four partitions and LH achieves
-$P(\text{collision}) \leq 2^{-256s} = 2^{-130{,}816} \approx 10^{-39{,}380}$
-under the SHA-256 random-oracle model (Section 3.3). The gap between the two regimes is qualitative, not merely
+$P(\text{collision}) \approx 10^{-30{,}000}$
+under the SHA-1/SHA-256 random-oracle model (Section 3.3). The gap between the two regimes is qualitative, not merely
 quantitative: cross-sum constraints are linear functionals over $\mathbb{Z}$, so the set of indistinguishable
 matrices forms a coset of a lattice in
 $\mathbb{Z}^{s^2}$ with kernel dimension at least $s^2 - (7s - 6) \approx 257{,}550$ even after all partitions are
@@ -1838,12 +1894,12 @@ case. Empirical enumeration at small matrix sizes ($s = 15$ or $s = 31$) would p
 $k_{\min}$ for specific curve geometries, and extrapolation to $s = 511$ would indicate whether sum-only collision
 resistance is sufficient in practice or whether LH remains necessary.
 
-**Propagation benefit.** Each additional partition increases the number of constraint lines per cell. With the four
-existing families, each cell participates in 4 lines. Adding $k$ partitions raises this to $4 + k$. The propagator's
-forcing rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones) trigger independently on each line, so the probability
-that a cell remains free after propagation drops from $(1-f)^4$ to $(1-f)^{4+k}$, where $f$ is the per-line forcing
-probability. Even $k = 2$ reduces the expected free-cell count by approximately 36\%, which can shrink the DFS
-backtracking tree exponentially.
+**Propagation benefit.** Each additional partition increases the number of constraint lines per cell. With the eight
+existing families (LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2), each cell participates in 8 lines. Adding $k$ further
+partitions raises this to $8 + k$. The propagator's forcing rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones)
+trigger independently on each line, so the probability that a cell remains free after propagation drops from $(1-f)^8$
+to $(1-f)^{8+k}$, where $f$ is the per-line forcing probability. Even $k = 2$ further reduces the expected free-cell
+count, which can shrink the DFS backtracking tree exponentially.
 
 **Proposed geometry: space-filling curve slicing.** A Hilbert curve (or similar space-filling curve) traverses all
 $s^2$ cells in a spatially coherent order. Cutting the curve into $s$ consecutive segments of $s$ cells each produces
@@ -2180,528 +2236,201 @@ at the cost of fewer long segments, changing the collision/propagation tradeoff.
 pairs, or must it remain an empirically verified property? Is there a combinatorial framework analogous to MOLS theory
 that governs the existence of mutually orthogonal variable-length partitions on finite grids?
 
-### B.4 Diagonal-Primary Corner-Inward Solver Reorientation
+### B.4 Dynamic Row-Completion Priority in Cell Selection
 
-The current solver (Section 5) assigns cells in row-major order, treating LSM and VSM as the primary constraint axes
-and DSM and XSM as secondary propagation aids. This section proposes inverting the priority: treat the diagonal (DSM)
-and anti-diagonal (XSM) families as the primary axes and reorder cell assignment to follow the natural constraint
-gradient from corners inward. This reorientation requires no changes to the compressed file format, no additional
-storage, and no new partitions --- it is purely an algorithmic change that exploits structure already present in every
-CRSCE block.
+The `RowDecomposedController` (Section 10.4) computes a global cell ordering via
+`ProbabilityEstimator::computeGlobalCellScores()` once before the DFS begins, then walks that static ordering for the
+entire solve. The ordering reflects constraint tightness at the moment of computation but becomes increasingly stale
+as the DFS progresses: propagation forces cells across many rows, dynamically changing per-row unknown counts
+$u(\text{row})$, yet the cell ordering never updates to reflect these changes. This appendix proposes replacing the
+static ordering with a *dynamic row-completion priority queue* that reacts to $u(\text{row})$ changes during the
+solve, steering the solver toward earlier SHA-1 lateral-hash (LH) verification without sacrificing DI determinism.
 
-#### B.4.1 The Rotated Coordinate System
+#### B.4.1 Motivation
 
-Define diagonal coordinate $d = c - r + (s - 1)$ and anti-diagonal coordinate $x = r + c$, consistent with the
-indexing in Section 2.2. In this rotated frame, DSM and XSM become the "row sums" and "column sums" of a
-diamond-shaped grid, while LSM and VSM become "diagonal sums" of the rotated system. The critical asymmetry between
-the two coordinate systems is that DSM and XSM lines have variable lengths ranging from 1 to $s$, while LSM and VSM
-lines are uniformly length $s = 511$. This variable-length structure creates a constraint gradient that the row-major
-solver does not exploit: cells near the matrix corners sit on the shortest DSM/XSM lines and are the most tightly
-constrained, while cells near the center sit on the longest lines and are the least constrained.
+The LH check (Section 5.2) fires when $u(\text{row}_r) = 0$ --- when every cell in row $r$ has been assigned. A SHA-1
+mismatch prunes the entire subtree rooted at the most recent branching decision, providing cryptographic-strength
+pruning that is far more powerful than cardinality-based propagation alone. Current performance data shows approximately
+200,000 hash mismatches per second at the depth plateau (~87K cells, row ~170), confirming that LH verification is the
+dominant pruning mechanism in the mid-solve.
 
-#### B.4.2 Corner-Inward Traversal Order
+The current `ProbabilityEstimator` does not account for this, and more critically, the cell ordering is computed once
+and never revisited. During the DFS, propagation cascades routinely force cells across multiple rows. A row that began
+the solve with $u = 511$ may reach $u = 3$ due to column, diagonal, or slope forcing --- but its remaining cells sit
+at their original positions deep in the static ordering, unreachable for potentially thousands of iterations. The
+solver continues branching on cells selected by stale confidence scores while a nearly-complete row waits, its LH
+check tantalizingly close but inaccessible.
 
-Define the *ring index* of cell $(r, c)$ as the Chebyshev distance from the nearest corner:
+The waste is quantifiable. Each iteration that could have completed a row but instead branches elsewhere is an
+iteration whose subtree cannot benefit from LH pruning. If the solver is running at 510K iter/sec and a row with
+$u = 2$ must wait 1,000 iterations to be reached in the static ordering, those 1,000 iterations (~2 ms) explore
+subtrees that a single LH check might have pruned entirely.
 
-$$
-    \text{ring}(r, c) = \min(r,\; c,\; s{-}1{-}r,\; s{-}1{-}c).
-$$
+#### B.4.2 The Static Ordering Problem
 
-The corner-inward traversal assigns cells in order of increasing ring index, with ties broken by a deterministic
-rule (e.g., clockwise traversal within each ring starting from the top-left corner). This processes the matrix in
-concentric rectangular rings:
+The current implementation in `RowDecomposedController::enumerateSolutionsLex()` calls
+`computeGlobalCellScores()` once after initial propagation (line 165). The returned vector is sorted by confidence
+descending and stored as `cellOrder`. The DFS stack stores indices into this vector (`orderIdx`), and cell selection
+advances sequentially through the array, skipping cells that propagation has already assigned.
 
-Ring 0 (perimeter): $4(s - 1) = 2{,}040$ cells. Contains all 4 cells on length-1 DSM lines and all 4 cells on
-length-1 XSM lines (these overlap at the 4 matrix corners, yielding 4 unconditionally determined cells). The remaining
-perimeter cells sit on DSM/XSM lines of lengths 2 through $\lceil s/2 \rceil$.
+This design has three consequences:
 
-Ring 1: $4(s - 3) = 2{,}032$ cells. DSM/XSM line lengths are at least 2 greater than Ring 0's equivalents.
+(a) *No reaction to $u(\text{row})$ changes.* When propagation drives a row to near-completion, the solver cannot
+reprioritize that row's remaining cells. They will be reached only when the sequential scan arrives at their position.
 
-Ring $\lfloor (s-1)/2 \rfloor = 255$ (center): 1 cell at $(255, 255)$, on the longest diagonal and anti-diagonal (both
-length $s = 511$). The least constrained cell in the matrix.
+(b) *Stale confidence scores.* The 7-line residual products that determine confidence change with every assignment and
+propagation cascade. A cell that was weakly constrained at the start of the solve may become highly constrained after
+50,000 assignments --- but its confidence score still reflects the initial state.
 
-The total ring count is $\lceil s/2 \rceil = 256$, and the constraint tightness decreases monotonically from Ring 0 to
-Ring 255.
+(c) *No cost to fix.* The DFS stack's `orderIdx` values are the sole obstacle to dynamic reordering. Replacing the
+static array walk with a priority-queue lookup preserves all other DFS mechanics (undo stack, hash verification,
+probe integration) unchanged.
 
-#### B.4.3 Precomputed Address Lookup Tables
+#### B.4.3 Proposed Design: Row-Completion Priority Queue
 
-The coordinate conversions $d = c - r + (s-1)$ and $x = r + c$ are each a single addition and subtraction, but in
-the inner loop of the constraint propagator these operations execute billions of times per block. Two precomputed
-static lookup tables eliminate this arithmetic entirely:
+The proposal adds a lightweight priority queue alongside the existing static ordering. The static ordering remains the
+default cell source; the priority queue overrides it only when a row crosses a completion threshold.
 
-**Diagonal index table:** A `constexpr std::array<uint16_t, 261121>` mapping the flat cell index
-$(r \times s + c)$ to the DSM line index $d$. At build time, the generator computes $d = c - r + (s-1)$ for each
-$(r, c)$ pair. At runtime, the constraint store resolves any cell's diagonal membership via a single array lookup.
+**Data structure.** A min-heap keyed on $u(\text{row})$, containing entries of the form $(\text{row},\; u)$ for each
+row with $0 < u(\text{row}) \leq \tau$, where $\tau$ is a tunable threshold. The heap occupies at most $s = 511$
+entries and supports $O(\log s)$ insert and extract-min.
 
-**Anti-diagonal index table:** An identical `constexpr std::array<uint16_t, 261121>` mapping the flat cell index to
-the XSM line index $x = r + c$.
+**Threshold crossing.** After each propagation wave (both the direct assignment and all forced cells), the solver
+checks $u(\text{row})$ for every row affected by the wave. If a row's unknown count drops to or below $\tau$ and
+the row is not already in the heap, it is inserted. This check piggybacks on the existing propagation loop, which
+already iterates forced assignments to record them on the undo stack (lines 245--247 in the current implementation).
 
-Each table occupies $261{,}121 \times 2 = 522{,}242$ bytes ($\approx 510$ KB), for a combined footprint of
-$\approx 1$ MB of static read-only memory. The tables are generated once at build time, loaded at program startup,
-and shared across all block operations. The per-lookup cost is a single indexed memory access --- typically a
-cache-line hit after the first few accesses warm the L1/L2 cache --- replacing two integer arithmetic operations per
-cell per propagation step.
+**Cell selection.** At each branching decision, the solver checks the priority queue first:
 
-For the corner-inward traversal itself, a third table maps traversal step index to flat cell index:
+1. If the heap is non-empty, extract the row $r^*$ with the smallest $u(\text{row})$. Select the most-constrained
+   unassigned cell in row $r^*$ (using the existing per-row `computeCellScores(r)` or a simpler scan of the row's
+   $u$ remaining cells). Branch on that cell.
 
-**Traversal order table:** A `constexpr std::array<uint32_t, 261121>` containing the flat cell indices in
-corner-inward ring order. The solver iterates through this table sequentially, selecting the next unassigned cell by
-advancing the traversal pointer rather than scanning for the first unassigned cell in row-major order. This reduces
-next-cell selection from $O(s^2)$ scan (in the worst case) to $O(1)$ indexed lookup.
+2. If the heap is empty, fall back to the static ordering: advance `orderIdx` to the next unassigned cell in
+   `cellOrder` and branch on it, exactly as the current implementation does.
 
-The combined memory cost of all three tables is approximately 1.5 MB --- negligible relative to the L2 cache budget
-on Apple Silicon (M-series chips provide 16--48 MB of shared L2 cache per performance cluster) and small relative to
-the constraint store itself (which maintains per-line statistics for $3{,}064$ lines).
+**Undo integration.** When the solver backtracks past a branching decision that was drawn from the priority queue,
+the unassigned cells in the affected row return to their unassigned state (via the existing undo stack). The row's
+$u(\text{row})$ increases, and if it exceeds $\tau$, the row is removed from the heap. This requires tracking which
+heap entries were added at which DFS depth, which can be accomplished with a small side stack of (row, depth) pairs
+popped during undo.
 
-#### B.4.4 Constraint Cascade from Corners
+#### B.4.4 DI Determinism
 
-The 4 matrix corners are each determined unconditionally by length-1 DSM and XSM lines before any search begins. Each
-solved corner cell updates its row (LSM), column (VSM), and one additional line each in DSM and XSM (the
-length-1 lines are already consumed). The row and column updates reduce the unknown count $u$ and adjust the
-residual $\rho$ on those lines, potentially triggering forcing on other cells within those rows or columns.
+Dynamic cell selection must produce the same enumeration order in both the compressor and decompressor to preserve
+DI semantics. This is guaranteed because the priority queue's behavior is a pure function of the constraint store
+state:
 
-The cells adjacent to corners sit on length-2 DSM and XSM lines. A length-2 line with sum $\sigma \in \{0, 2\}$
-determines both cells immediately; with $\sigma = 1$, only 2 configurations remain, and the LSM/VSM/opposite-family
-constraint through each cell may resolve the ambiguity. Under the uniform random model, $P(\sigma \in \{0, 2\}) = 0.5$,
-so approximately half of the length-2 lines solve both cells outright. Each newly solved cell cascades further through
-all 4 partition families.
+(a) The constraint store state at any DFS node is fully determined by the input constraints and the sequence of
+assignments made to reach that node.
 
-The cascade propagates inward ring by ring. At each ring, the newly determined cells from the previous ring's
-propagation have updated the row, column, diagonal, and anti-diagonal statistics for the current ring's cells. The
-cumulative effect is that the solver encounters progressively more constrained cells as it moves inward, because:
+(b) Both compressor and decompressor execute the same DFS with the same propagation engine, producing identical
+constraint store states at each node.
 
-(a) Each cell's row and column have fewer unknowns remaining (prior rings have assigned cells at the row/column
-endpoints).
+(c) The priority queue's contents depend only on $u(\text{row})$ values, which are part of the constraint store
+state. The cell selected within a priority row depends only on the per-row confidence scores, which are likewise
+determined by the store state.
 
-(b) Each cell's diagonal and anti-diagonal are longer than the previous ring's (more unknowns), but the row/column
-forcing from (a) may have already determined some cells on these longer diagonals.
+Therefore, both compressor and decompressor make identical cell-selection decisions at every node, and the
+enumeration order is deterministic. No changes to the file format or DI encoding are required.
 
-(c) The propagator's forcing rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones) trigger more readily as $u$
-decreases on any of the 4 lines through each cell.
+#### B.4.5 Cost Analysis
 
-#### B.4.5 Interaction with LH
+The per-decision overhead is bounded by the priority queue operations:
 
-The lateral hash check (Section 5.2) requires $u(\text{row}) = 0$ to fire. With corner-inward traversal, rows are
-not completed sequentially --- cells from both ends of each row are assigned in early rings, with center cells
-assigned in later rings. This delays hash verification compared to row-major order, where each row completes after
-exactly $s$ assignments.
+*Threshold check.* After propagation, the solver inspects $u(\text{row})$ for each row touched by forced
+assignments. In the worst case, a single propagation wave forces cells in all $s$ rows, requiring $s = 511$
+comparisons against $\tau$. This is a scan of 511 cached line statistics --- comparable to the existing forced-
+assignment recording loop and negligible relative to the propagation cost itself.
 
-However, the delay may be shorter than expected. As corner cells propagate through column constraints, interior cells
-on the same columns may be forced by column residuals reaching 0 or $u$, completing rows from the middle outward.
-The rows nearest the top and bottom edges (rows 0, 1, $s{-}2$, $s{-}1$) have the most cells on short diagonals and
-are likely to complete first. The center row (row 255) is completed last, as its cells sit on the longest diagonals.
+*Heap operations.* Each insert or extract-min costs $O(\log s) = O(9)$. At most $s$ rows can be in the heap
+simultaneously. In practice, the number of rows crossing $\tau$ per propagation wave is small (typically 0--3),
+so the amortized heap cost per decision is a few dozen instructions.
 
-The hash check remains fully effective once a row completes: a mismatch triggers immediate backtracking regardless of
-the order in which the row's cells were assigned. The practical question is whether the reduced branching factor from
-the corner-inward cascade compensates for the delayed hash pruning.
+*Per-row scoring.* When the priority queue selects a row $r^*$, the solver must identify the best cell within
+that row. A simple scan of the row's $u \leq \tau$ remaining cells, reading their 7 line residuals, costs $O(7\tau)$
+operations. At $\tau = 8$, this is 56 stat lookups --- under 200 ns on Apple Silicon.
 
-A hybrid strategy mitigates this tension: the solver primarily follows the corner-inward ring order but
-*opportunistically* assigns remaining cells in a nearly-complete row (e.g., $u(\text{row}) \leq 3$) to trigger the
-hash check early, then resumes the ring traversal. This requires maintaining a priority queue of rows sorted by
-unknown count, checked periodically during propagation. The overhead is minimal --- a scan of $s = 511$ row
-statistics --- and the payoff is earlier hash-based pruning.
+The total per-decision overhead is approximately 200--500 ns, less than 10% of the current ~2 $\mu$s per iteration.
+The throughput impact is negligible.
 
-#### B.4.6 DI Semantics Under Corner-Inward Order
+#### B.4.6 Expected Impact
 
-The canonical ordering (Section 4.1) must be redefined from row-major lexicographic to corner-inward ring-major
-lexicographic. The solution $S_0$ is the lex-first feasible matrix under the corner-inward cell ordering (with 0
-before 1 at each branch point). The compressor discovers DI by running the decompressor with the same corner-inward
-enumeration, so the DI mechanism is preserved identically.
+The primary benefit is more frequent LH checks. In the current static-ordering regime, rows complete only when the
+sequential scan happens to reach their remaining cells. With the priority queue, a row that reaches $u \leq \tau$ is
+immediately prioritized, and its remaining cells are assigned within the next $\tau$ decisions. This reduces the
+*latency* between a row becoming nearly complete (due to propagation) and the LH check firing.
 
-The only format-level implication is that the specification must document the traversal order unambiguously. The
-precomputed traversal order table (Section B.4.3) serves as the definitive reference: both compressor and decompressor
-use the identical table, guaranteeing identical enumeration order and deterministic DI semantics.
+The impact is largest in the mid-solve (rows 100--300), where propagation cascades from column, diagonal, and slope
+constraints frequently force cells in rows far ahead of the current sequential position. These "accidentally
+nearly-complete" rows represent free LH checks that the static ordering leaves on the table.
 
-#### B.4.7 Computational Complexity Comparison
+A conservative estimate: if the priority queue triggers even 10% more LH checks per unit time in the plateau region,
+and each LH mismatch prunes an average subtree of depth $d$, the effective search-space reduction compounds
+exponentially. At 200K mismatches/sec, a 10% increase yields 20K additional prunes/sec, each eliminating a subtree
+of $O(2^d)$ nodes.
 
-The per-node cost is identical to the current solver --- each assignment updates 4 lines, and propagation processes the
-same forcing rules. The lookup tables replace two arithmetic operations per cell with one memory access per cell,
-yielding a small constant-factor speedup in the propagator's inner loop. The dominant complexity difference is in the
-search tree size:
+#### B.4.7 Threshold Selection
 
-**Row-major (current):** The solver encounters cells in an order uncorrelated with constraint tightness. Short-diagonal
-cells (corners) and long-diagonal cells (center) are interleaved within each row. The effective branching factor is
-uniform across the traversal --- the solver has no opportunity to concentrate its effort where constraints are tightest.
-The search tree depth is the total number of cells not forced by propagation, and the branching factor reflects the
-average per-cell ambiguity across all diagonal lengths.
+The threshold $\tau$ controls the tradeoff between responsiveness and distraction:
 
-**Corner-inward:** The solver encounters cells in order of decreasing constraint tightness. Early rings have low
-branching factors (many cells forced by short diagonals), and the cumulative propagation from solved outer cells
-reduces the branching factor for inner rings. The search tree is *front-loaded* with easy decisions and
-*back-loaded* with hard ones --- but the hard ones are maximally constrained by the time they are reached.
+*$\tau = 1$.* The priority queue activates only when a single cell remains in a row. This is the most conservative
+setting --- the solver interrupts the static ordering only for guaranteed one-step row completions. The cost is
+zero (no per-row scoring needed, only one candidate cell). The drawback is that rows at $u = 2$ or $u = 3$ are not
+prioritized, missing opportunities where 2--3 assignments would yield an LH check.
 
-The net effect is a reduction in the effective tree size without any increase in per-node cost. The reduction is
-difficult to quantify analytically because it depends on the cascade dynamics between the four partition families, but
-the qualitative argument is unambiguous: presenting the most constrained cells first to a backtracking solver with
-propagation is a well-established heuristic in constraint satisfaction (known as the *fail-first* or *most
-constrained variable* principle) and is empirically superior to arbitrary variable ordering in virtually all studied
-CSP domains (Haralick & Elliott, 1980; Bessière, 2006).
+*$\tau = 4$--$8$.* The priority queue activates for rows within a few cells of completion. This is the expected sweet
+spot: the solver invests at most $\tau$ decisions to complete a row, and the LH payoff justifies the detour from the
+static ordering. The per-row scoring cost is bounded by $O(7\tau) \leq 56$ stat lookups.
 
-#### B.4.8 Diagonal-First Pruning versus Row-First Hash Verification
+*$\tau = s$.* Every row is always in the priority queue, and the solver effectively abandons the static ordering
+entirely in favor of a pure "complete the nearest row" strategy. This is likely suboptimal: it ignores constraint
+tightness entirely and may direct the solver to rows where the remaining cells are weakly constrained, leading to
+more backtracks.
 
-The corner-inward traversal creates a fundamental tension between two competing objectives: evaluating DSM/XSM
-constraints early to disqualify infeasible subtrees quickly, and completing rows early to trigger LH verification.
-Row-major order resolves this tension trivially in favor of rows --- each row completes after exactly $s$ assignments,
-enabling an LH check every 511 cells --- but at the cost of underexploiting DSM/XSM's variable-length constraint
-gradient until late in the search. Corner-inward order inverts the tradeoff: short diagonals and anti-diagonals
-complete in the first few rings, delivering aggressive early pruning, but rows complete unpredictably as cells arrive
-from both ends.
+#### B.4.8 Relationship to Adaptive Lookahead (B.8)
 
-Neither extreme is optimal. A *diagonal-biased row-aware* traversal strategy can reconcile the two objectives. The
-branching controller maintains both the ring-order traversal pointer and a row-completion watchlist tracking
-$u(\text{row})$ for all 511 rows. At each branching decision, the controller selects whichever unassigned cell
-offers the highest expected pruning value according to two competing signals: (a) cells on short or nearly-complete
-diagonal/anti-diagonal lines, which are likely to trigger propagation cascades or infeasibility detection, and
-(b) cells on nearly-complete rows (e.g., $u(\text{row}) \leq t$ for a tunable threshold $t$), which are close to
-enabling an LH verification that can prune entire subtrees with cryptographic certainty.
+Dynamic row-completion priority and adaptive lookahead (B.8) address different aspects of the solver's performance
+and should be evaluated independently. The priority queue modifies cell selection within the existing branching
+framework, steering the solver toward earlier LH verification without changing the propagation or lookahead
+machinery. Adaptive lookahead modifies the depth of speculative exploration at each branching decision, providing
+stronger pruning when the solver stalls. Neither depends on the other.
 
-The threshold $t$ governs the balance. At $t = 0$, the solver never interrupts the ring traversal for hash
-verification --- equivalent to pure corner-inward order with opportunistic LH checks only when rows happen to
-complete. At $t = s$, the solver always prioritizes rows --- equivalent to row-major order. Intermediate values
-(empirically, $t \in [3, 8]$ is a plausible starting range) allow the solver to "finish off" rows that are within
-a few cells of completion without abandoning the diagonal-first traversal for rows that are far from done.
-
-This hybrid strategy can be implemented without modifying the propagation engine. The branching controller's cell
-selection logic changes from a single traversal pointer to a priority function over unassigned cells, but the
-precomputed lookup tables (Section B.4.3) provide the necessary information: each cell's ring index, diagonal
-lengths, and row membership are all available in $O(1)$. The row-completion watchlist is maintained incrementally
---- each assignment decrements $u(\text{row})$ for the affected row, and rows crossing the threshold $t$ are added
-to the watchlist. The per-decision overhead is bounded by the watchlist size, which is at most $s = 511$ entries.
-
-The net effect is a solver that exploits DSM/XSM's constraint gradient for the majority of the search (where
-diagonal pruning has the highest leverage) while opportunistically completing rows for LH verification whenever
-doing so is cheap (a few remaining cells) and high-value (cryptographic pruning of an entire subtree).
+That said, the two proposals are complementary if both are adopted. At lookahead depth $k = 0$, the solver's only
+pruning mechanisms are cardinality forcing and LH checks. The priority queue maximizes the frequency of LH checks,
+extracting more pruning power from the $k = 0$ regime and potentially delaying the first escalation to $k = 1$. This
+preserves maximum throughput (~510K iter/sec) deeper into the solve. At higher $k$, the priority queue steers
+lookahead probes toward cells on nearly-complete rows, where the probe is more likely to trigger an LH check during
+speculative assignment, providing stronger pruning information per probe.
 
 #### B.4.9 Open Questions
 
-(a) What is the empirical speedup of corner-inward traversal over row-major traversal for the existing 4-partition +
-LH design, measured on random, all-zeros, all-ones, and adversarial inputs at $s = 511$?
+(a) What is the optimal threshold $\tau$? A value of $\tau \in [4, 8]$ is a plausible starting range, but empirical
+measurement on representative inputs (all-zeros, all-ones, random, alternating) is needed to determine the
+throughput--pruning tradeoff.
 
-(b) Does the hybrid diagonal-biased row-aware strategy (Section B.4.8) recover the hash pruning efficiency lost by
-non-sequential row completion, and if so, what is the optimal threshold $t$ for $u(\text{row})$ at which to interrupt
-the ring traversal for hash verification?
+(b) Should the priority queue also consider line-completion proximity for non-row lines (columns, diagonals, slopes)?
+Completing a column or diagonal does not trigger a hash check, but it does trigger cardinality forcing that may
+cascade to row completions. A multi-line priority heuristic could accelerate these secondary completions at the cost
+of a larger and more complex priority structure.
 
-(c) Is the Chebyshev ring order optimal, or does the anti-diagonal wavefront order ($x = r + c$, processing cells in
-order of increasing $x$) provide better cascade dynamics by completing entire anti-diagonals sequentially and enabling
-XSM-based verification at anti-diagonal boundaries?
+(c) When the priority queue selects a row, should the solver complete the entire row (assigning all $u$ remaining
+cells before returning to the static ordering), or should it assign one cell, re-propagate, and re-evaluate the
+priority queue? Completing the row in a burst maximizes the chance of an immediate LH check but may miss
+opportunities to switch to a different row that propagation has driven to an even lower $u$.
 
-(d) For the diagonal-biased row-aware strategy, is a static threshold $t$ sufficient, or should $t$ adapt dynamically
-based on search depth, propagation success rate, or the number of backtracks observed so far?
+(d) Does the priority queue interact adversely with the `FailedLiteralProber`? Probing a cell on a nearly-complete
+row triggers an LH check during the probe itself, providing stronger pruning information. This suggests the priority
+queue and probing are synergistic, but empirical verification is needed.
 
 ### B.5 Hash Alternatives to Improve Search Depth
 
-The current CRSCE format stores 511 independent SHA-256 row digests as the lateral hash vector LH, consuming
-$511 \times 256 = 130{,}816$ bits per block --- 83.6% of the 156,392-bit block payload. This section examines an
-alternative hashing scheme that substantially reduces LH's storage cost while preserving or strengthening collision
-resistance, and reinvests the saved bits into auxiliary cross-sum partitions that accelerate constraint propagation.
-The proposal has two components: (a) replace the per-row SHA-256 digests with per-row SHA-1 digests plus a single
-whole-block SHA-256 digest (BH), and (b) use the freed bit budget to add four toroidal-slope partitions
-(two orthogonal pairs) that provide per-assignment constraint feedback.
-
-#### B.5.1 Updated Hash Scheme
-
-Replace LH with two components:
-
-(a) **Lateral hashes (LH):** 511 SHA-1 digests, one per row. Each digest is computed over the row's 512-bit message
-(511 data bits + 1 trailing zero bit), identical to the current LH computation but using SHA-1 (NIST, 2015).
-Storage: $511 \times 160 = 81{,}760$ bits.
-
-(b) **Block hash (BH):** One SHA-256 digest computed over the entire $s \times s$ CSM, serialized in row-major
-order as a contiguous 261,121-bit message. Storage: 256 bits.
-
-Hash storage: $81{,}760 + 256 = 82{,}016$ bits. Savings from hash changes alone: $130{,}816 - 82{,}016 = 48{,}800$
-bits per block. This freed budget is partially reinvested in toroidal-slope partitions (Section B.5.5).
-
-#### B.5.2 Compression Ratio Impact
-
-The hash changes alone save 48,800 bits per block. Reinvesting part of that budget into four toroidal-slope
-partitions (two orthogonal pairs, Section B.5.5) costs $4 \times 511 \times 9 = 18{,}396$ bits, yielding a net savings of
-$48{,}800 - 18{,}396 = 30{,}404$ bits. The block payload drops from 156,392 to 125,988 bits, and the compressed
-size falls to $125{,}988 / 261{,}121 = 48.2\%$ of the original --- a compression ratio of 51.8%, an improvement
-of 11.7 percentage points over the current 40.1%.
-
-| Component           | Current (SHA-256)        | Proposed (SHA-1 + BH + slopes)       |
-|---------------------|--------------------------|--------------------------------------|
-| LH (row hashes)     | 130,816 bits (511 x 256) | 81,760 bits (511 x 160)              |
-| BH (block hash)     | ---                      | 256 bits (1 x 256)                   |
-| Slope partitions    | ---                      | 18,396 bits (4 x 511 x 9)            |
-| Total hash + slopes | 130,816 bits             | 100,412 bits                         |
-| Block payload       | 156,392 bits             | 125,988 bits                         |
-| Compression ratio   | 40.1%                    | 51.8%                                |
-
-The 48,800-bit budget admits up to $\lfloor 48{,}800 / 4{,}599 \rfloor = 10$ slope partitions (5 orthogonal pairs)
-at a total cost of 45,990 bits, which would bring the compression ratio to 41.2% --- nearly identical to the
-current format. This section adopts the conservative choice of 4 partitions (2 pairs) to demonstrate that a
-meaningful compression improvement and a meaningful propagation improvement can be achieved simultaneously.
-Scaling to more pairs is a straightforward budget tradeoff; the toroidal-slope construction trivially extends to
-additional pairs by selecting new slopes coprime to $s$.
-
-#### B.5.3 Collision Probability
-
-A *collision* is an alternative matrix $CSM' \neq CSM$ that satisfies all eight cross-sum partitions (4 original
-+ 4 slope) and all hash checks. Any such $CSM'$ must evade four independent defense layers: cross-sum feasibility
-across 8 partitions, slope-partition feasibility, per-row SHA-1 verification, and whole-block SHA-256 verification.
-
-**Cross-sum feasibility.** The difference $\Delta = CSM' - CSM$ must preserve every line sum across all 8
-partitions simultaneously. With 4 original partitions, the minimum swap requires $k_{\min} \geq 6$ cells
-(Section B.2). Each additional slope partition imposes further balance constraints: the swap must also preserve
-every line sum that overlaps the affected cells. With 4 interlocking slope partitions, each cell participates
-in 8 constraint lines instead of 4, and any valid swap must satisfy balance conditions on all 8. This raises
-$k_{\min}$ beyond 6; the exact value depends on the crossing density between slope partitions and the original
-four families. Because the toroidal-slope construction achieves perfect 1-cell crossing density against all
-existing partitions (Section B.5.8), $k_{\min} \geq 10$ is a conservative estimate.
-
-**Per-row SHA-1.** Each of the $m$ affected rows must independently produce the same SHA-1 digest as the
-original row despite containing different bits. SHA-1 produces 160-bit digests; treating the compression function
-as a random oracle on distinct 512-bit inputs, the per-row false-positive probability is $2^{-160}$. The joint
-probability for $m$ independently modified rows is $2^{-160m}$.
-
-**Whole-block SHA-256.** The entire modified matrix $CSM'$ must produce the same SHA-256 digest as $CSM$.
-Since $CSM' \neq CSM$, this is a second-preimage event at probability $2^{-256}$, independent of swap geometry.
-
-The per-row hashes and the block hash operate on different inputs (individual 512-bit rows versus the full
-261,121-bit matrix), making their false-positive events independent. The joint probability for a specific swap
-affecting $m$ rows is:
-
-$$P(m) = 2^{-160m} \times 2^{-256} = 2^{-(160m + 256)}$$
-
-The expected number of collisions, summing over all valid swap configurations:
-
-$$E[\text{collisions}] = \sum_{k=k_{\min}}^{s^2} N_k \times 2^{-(160 \cdot m_k + 256)}$$
-
-where $N_k$ is the count of valid swap configurations of size $k$ across all 8 partitions and
-$m_k \geq \max(2, \lceil k/2 \rceil)$ is the minimum number of affected rows. With $k_{\min} \geq 10$ and
-$m \geq 3$, the dominant term becomes:
-
-$$E[\text{collisions}] \lessapprox N_{10} \times 2^{-(160 \times 3 + 256)} = N_{10} \times 2^{-736}$$
-
-Using $N_{10} \leq s^{16} \approx 2^{144}$ as a loose upper bound for ten-cell swaps balanced across 8 partitions:
-
-$$E[\text{collisions}] \lessapprox 2^{144} \times 2^{-736} = 2^{-592}$$
-
-This is stronger than both the current scheme's $2^{-440}$ (at $m = 2$, 4 partitions) and the hash-only B.5
-variant's $2^{-504}$ (at $m = 2$, 4 partitions). The improvement comes from two sources: the slope partitions
-raise $k_{\min}$ (forcing larger, rarer swaps), and the block hash contributes a flat $2^{-256}$ floor.
-
-The kernel of the 8-partition constraint system has dimension at most $s^2 - (8s - 7) = 257{,}033$ (assuming
-the 4 slope partitions add $4s - 4 = 2{,}040$ independent constraints to the original $4s - 3 = 2{,}041$).
-The total constraint information is $82{,}016$ hash bits plus $18{,}396$ slope-sum bits $= 100{,}412$ bits.
-The full-space collision estimate scales proportionally:
-
-$$P(\text{collision}) \approx 10^{-30{,}000}$$
-
-reflecting the ratio $100{,}412 / 130{,}816 \approx 0.768$ applied to the current scheme's $10^{-40{,}000}$.
-
-For comparison:
-
-| Scheme | Partitions | Hash + slope bits | $P$ dominant term | Full-space estimate |
-|---|---|---|---|---|
-| Current (SHA-256 LH) | 4 | 130,816 | $2^{-440}$ ($k = 6, m = 2$) | $\approx 10^{-40{,}000}$ |
-| B.5 hashes only | 4 | 82,016 | $2^{-504}$ ($k = 6, m = 2$) | $\approx 10^{-25{,}000}$ |
-| B.5 hashes + 4 slopes | 8 | 100,412 | $2^{-592}$ ($k = 10, m = 3$) | $\approx 10^{-30{,}000}$ |
-
-#### B.5.4 SHA-1 Security Considerations
-
-SHA-1's collision resistance is broken: the SHAttered attack demonstrated a practical collision at $\sim 2^{63}$
-work (Stevens et al., 2017), and chosen-prefix collisions have been demonstrated at $\sim 2^{68}$ work
-(Leurent & Peyrin, 2020). However, CRSCE's decompression correctness depends on *second-preimage* resistance,
-not collision resistance. No practical second-preimage attack on SHA-1 exists; the best theoretical result is
-$2^{106}$ for messages exceeding $2^{60}$ blocks (Kelsey & Schneier, 2005), far longer than CRSCE's single-block
-512-bit row messages. For single-block messages, SHA-1's second-preimage resistance remains at the full
-$2^{160}$ security level.
-
-The adversarial concern is not decompression but *compression*: an attacker controlling the input could craft
-a file whose rows form a SHA-1 collision pair, producing a valid CRSCE payload where two distinct inputs
-decompress to the same output. The whole-block SHA-256 digest neutralizes this attack. Constructing two
-matrices that (a) collide on all 511 SHA-1 row hashes AND (b) collide on the whole-block SHA-256 requires at
-minimum $2^{128}$ work (the birthday bound on SHA-256), which dominates the $2^{63}$ cost of SHA-1 collision
-construction. The block hash thus restores adversarial robustness to the SHA-256 birthday bound regardless of
-SHA-1's collision weakness.
-
-#### B.5.5 Auxiliary Toroidal-Slope Partitions
-
-The 48,800-bit savings from SHA-1 row hashes enables the addition of auxiliary cross-sum partitions computed
-along toroidal modular-slope lines on the $s \times s$ grid. Each partition consists of $s = 511$ lines of
-exactly $s = 511$ cells each. The sum of each line is stored as a 9-bit value, identical in format to LSM
-and VSM.
-
-This section proposes four slope-line partitions organized as two orthogonal pairs: HSM1/SFC1 and HSM2/SFC2.
-The numeral identifies the pair: HSM1 and SFC1 are orthogonal partners, as are HSM2 and SFC2. Each pair
-consists of two families of toroidal lines whose slopes are negations of each other, producing *perfect*
-crossing density: any line from HSM1 intersects any line from SFC1 in exactly 1 cell, matching the ideal
-1-cell crossing density of the LSM-VSM pair (rows versus columns). This represents an analytically optimal
-construction --- no partition can achieve a smaller-than-1-cell intersection on a grid of coprime dimension.
-
-**Toroidal modular-slope construction.** A toroidal line of slope $p/q$ on the $s \times s$ grid is defined
-as a set of $s$ cells that wrap around the grid boundaries using modular arithmetic. Formally, for slope $p$
-with denominator $q = 1$ (i.e., integer slope), line $k$ ($0 \le k < s$) is the set
-$L_k = \{(t,\ (k + p \cdot t) \bmod s) : t = 0, 1, \ldots, s-1\}$. When $\gcd(|p|, s) = 1$, each line
-visits every row exactly once (period $s$), producing exactly $s$ disjoint lines that tile the grid. For
-rational slope $p/q$ with $\gcd(q, s) = 1$, the line is equivalently parameterized as
-$L_k = \{(t,\ (k + p \cdot q^{-1} \cdot t) \bmod s) : t = 0, \ldots, s-1\}$ where $q^{-1}$ is the modular
-inverse of $q$ modulo $s$. Since $s = 511$ is prime, every nonzero integer has an inverse modulo $s$, and
-$\gcd(q, s) = 1$ for all $q \not\equiv 0 \pmod{511}$.
-
-**Axiom compliance.** Each toroidal-slope partition satisfies the cross-sum partition axioms (Section 2.2.1)
-by construction. Conservation (Axiom 1): the $s$ lines partition all $s^2$ cells (each line contains $s$ cells,
-there are $s$ lines, and $\gcd(|p|, s) = 1$ ensures no cell is visited twice within a line or across lines),
-so their sums total $\|CSM\|_1$. Non-repetition (Axiom 3): each line visits row $t$ exactly once for
-$t = 0, \ldots, s-1$, so no cell appears twice in any line. Uniqueness (Axiom 2): lines within a partition
-are disjoint by construction (distinct $k$ values produce disjoint cell sets), and lines across different
-partitions cover different cell sets because distinct slopes produce geometrically distinct trajectories on
-the torus.
-
-**Perfect orthogonality.** Two toroidal-slope families with slopes $p_1$ and $p_2$ produce lines that
-intersect in exactly $\gcd(|p_1 - p_2|, s)$ cells. When $|p_1 - p_2|$ is coprime to $s$, every pair of
-lines (one from each family) intersects in exactly 1 cell --- the analytically optimal crossing density.
-For a pair using slopes $p$ and $-p$, the difference is $|p - (-p)| = 2|p|$, and $\gcd(2|p|, 511) = 1$
-whenever $|p| \not\equiv 0 \pmod{511}$ and $|p|$ is not a multiple of $511$ (which holds for all slopes
-considered here since $511$ is prime and $|p| < 511$).
-
-**Segment-to-line mapping.** Each toroidal-slope partition stores $s = 511$ sums. The $k$-th sum is the
-popcount of line $L_k$. At runtime, the solver maps $(r, c) \to k = (c - p \cdot r) \bmod s$ to determine
-which line a cell belongs to --- a single multiply-and-modulus operation requiring no lookup table.
-
-**Storage cost.** Each partition stores 511 sums of 9 bits: $511 \times 9 = 4{,}599$ bits. Four partitions
-cost $4 \times 4{,}599 = 18{,}396$ bits, consuming 37.7% of the 48,800-bit savings from SHA-1.
-
-#### B.5.6 Propagation Impact
-
-The four toroidal-slope partitions double the number of constraint lines per cell from 4 to 8. Each cell
-assignment now updates 8 lines' $(u, a, \rho)$ statistics instead of 4, and the propagation engine's forcing
-rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones) have twice as many opportunities to trigger per
-assignment.
-
-**Perfect crossing density advantage.** The toroidal-slope construction achieves 1-cell intersection between
-every pair of lines from different partitions (B.5.8). By contrast, space-filling curve segments (e.g.,
-Hilbert, Z-order) typically intersect in $\approx \sqrt{s} \approx 23$ cells. The 1-cell crossing density
-means that a constraint violation on any single line propagates maximally: changing a cell's value perturbs
-exactly one line in each of the 8 partitions, and each of those 8 lines shares exactly 1 cell with every line
-in every other partition. This eliminates the "shared-segment dilution" that weakens propagation with
-spatially compact curve segments, where multiple cells of a violated segment may fall within a single segment
-of a partner partition.
-
-**Forcing probability.** Let $f$ denote the per-line probability that a forcing rule triggers on a given
-propagation pass. The probability that a cell remains free (no line forces it) drops from $(1-f)^4$ to
-$(1-f)^8$. For $f \approx 0.03$ (worst-case sums near $s/2$), this is $0.885$ versus $0.784$ --- the fraction
-of cells requiring explicit branching drops by 11.4 percentage points. For more favorable inputs ($f \approx
-0.10$), the improvement is from $0.656$ to $0.430$ --- a 22.6 percentage-point reduction in branching cells.
-
-**Early pruning depth.** LH's pruning is delayed: a wrong assignment is not detected until the affected row
-completes, potentially 510 assignments later. Toroidal-slope partitions provide per-assignment feedback. When
-the solver assigns $CSM_{r,c} \leftarrow v$, it updates one line for each of the 4 slope partitions. If any
-line's residual becomes infeasible ($\rho < 0$ or $\rho > u$), the solver backtracks immediately --- at depth
-1 from the erroneous assignment, not depth 510. The average depth of a doomed branch before detection drops
-from $\sim 1/f_4$ to $\sim 1/f_8$, where $f_n$ is the per-assignment infeasibility detection probability with
-$n$ partitions. For $f \approx 0.03$: from $\sim 1/0.115 \approx 9$ assignments to $\sim 1/0.216 \approx 5$.
-
-**Complementarity with LH.** The slope partitions and LH serve structurally different roles. Slope lines
-provide shallow, fast, probabilistic pruning --- catching most wrong branches within a few assignments via
-feasibility checks that cost only integer comparisons. LH provides deep, certain pruning --- catching the rare
-branches that evade all 8 partition constraints but fail the cryptographic row hash. The slope partitions reduce
-the number of nodes the solver visits per second of wall time; LH reduces the number of candidate solutions
-the solver must enumerate. Together they attack both the width and depth of the search tree.
-
-#### B.5.7 Wire Format
-
-The proposed scheme modifies the block payload structure as follows:
-
-| Field | Elements | Bits/Element   | Total Bits | Encoding                           |
-|-------|----------|----------------|------------|------------------------------------|
-| LH    | 511      | 160            | 81,760     | 20 bytes per digest, sequential    |
-| BH    | 1        | 256            | 256        | 32 bytes, SHA-256 of row-major CSM |
-| DI    | 1        | 8              | 8          | uint8                              |
-| LSM   | 511      | 9              | 4,599      | MSB-first packed bitstream         |
-| VSM   | 511      | 9              | 4,599      | MSB-first packed bitstream         |
-| DSM   | 1,021    | var            | 8,185      | MSB-first, ceil(log2(len(d)+1))    |
-| XSM   | 1,021    | var            | 8,185      | MSB-first, ceil(log2(len(d)+1))    |
-| HSM1  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
-| SFC1  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
-| HSM2  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
-| SFC2  | 511      | 9              | 4,599      | MSB-first packed bitstream         |
-| Total |          |                | 125,988    |                                    |
-
-Per-block size changes from 19,549 bytes to $\lceil 125{,}988 / 8 \rceil = 15{,}749$ bytes, reducing total file
-size by 3,800 bytes per block.
-
-#### B.5.8 Proposed Toroidal-Slope Partitions
-
-This section selects four specific toroidal modular-slope partitions for HSM1/SFC1 and HSM2/SFC2. Each
-partition consists of 511 lines of 511 cells on the $511 \times 511$ grid, defined by toroidal wrapping with
-a fixed rational slope. The construction exploits the primality of $s = 511$ to guarantee perfect orthogonality
-within each pair and strong crossing properties against all existing partitions (LSM, VSM, DSM, XSM).
-
-**Pair 1: HSM1 (slope $\frac{1}{2}$) and SFC1 (slope $-\frac{1}{2}$).**
-
-*HSM1* uses slope $\frac{1}{2}$, which is equivalent to integer slope $p = 256$ since the modular inverse
-of $2$ modulo $511$ is $256$ (i.e., $2 \times 256 = 512 \equiv 1 \pmod{511}$). Line $k$ ($0 \le k < 511$)
-is the set $L_k = \{(t,\ (k + 256t) \bmod 511) : t = 0, 1, \ldots, 510\}$. Each line visits every row
-exactly once (since $\gcd(256, 511) = 1$, the sequence $\{256t \bmod 511\}$ has period 511), producing
-511 disjoint lines that tile the grid. The solver maps $(r, c) \to k = (c - 256r) \bmod 511$.
-
-*SFC1* uses slope $-\frac{1}{2}$, equivalent to integer slope $p = 255$ since $-256 \equiv 255 \pmod{511}$.
-Line $k$ is $L_k = \{(t,\ (k + 255t) \bmod 511) : t = 0, 1, \ldots, 510\}$. The solver maps
-$(r, c) \to k = (c - 255r) \bmod 511$.
-
-*Within-pair orthogonality.* The slope difference is $|256 - 255| = 1$, and $\gcd(1, 511) = 1$, so every
-HSM1 line intersects every SFC1 line in exactly 1 cell. More precisely, the system $(k_1 + 256t) \equiv c$,
-$(k_2 + 255t) \equiv c \pmod{511}$ reduces to $t \equiv (k_2 - k_1) \pmod{511}$, which has a unique solution
-for every $(k_1, k_2)$ pair. This is the same perfect 1-cell crossing density as LSM-VSM (rows versus columns).
-
-**Pair 2: HSM2 (slope 2) and SFC2 (slope $-2$).**
-
-*HSM2* uses integer slope $p = 2$. Line $k$ is $L_k = \{(t,\ (k + 2t) \bmod 511) : t = 0, 1, \ldots, 510\}$.
-Since $\gcd(2, 511) = 1$, each line visits every row exactly once. The solver maps $(r, c) \to k = (c - 2r)
-\bmod 511$.
-
-*SFC2* uses integer slope $p = 509$ (since $-2 \equiv 509 \pmod{511}$). Line $k$ is
-$L_k = \{(t,\ (k + 509t) \bmod 511) : t = 0, 1, \ldots, 510\}$. The solver maps
-$(r, c) \to k = (c - 509r) \bmod 511$.
-
-*Within-pair orthogonality.* The slope difference is $|2 - 509| = |2 - (-2)| = 4$, and $\gcd(4, 511) = 1$,
-so every HSM2 line intersects every SFC2 line in exactly 1 cell.
-
-**Relationship between pairs.** Pair 2 is the transpose of Pair 1: swapping the roles of rows and columns
-in the slope-$\frac{1}{2}$ construction yields slope $2$, and swapping in slope-$(-\frac{1}{2})$ yields slope
-$-2$. This transposition relationship mirrors the LSM-VSM duality (rows versus columns) and ensures geometric
-diversity between the two pairs.
-
-**Cross-pair crossing density.** The slope differences between lines of different pairs are:
-
-- HSM1 vs HSM2: $|256 - 2| = 254$, $\gcd(254, 511) = \gcd(254, 511) = 1$ $\Rightarrow$ 1 cell.
-- HSM1 vs SFC2: $|256 - 509| = 253$, $\gcd(253, 511) = \gcd(253, 511) = 1$ $\Rightarrow$ 1 cell.
-- SFC1 vs HSM2: $|255 - 2| = 253$, $\gcd(253, 511) = 1$ $\Rightarrow$ 1 cell.
-- SFC1 vs SFC2: $|255 - 509| = 254$, $\gcd(254, 511) = 1$ $\Rightarrow$ 1 cell.
-
-Every cross-pair line intersection is also exactly 1 cell. The construction achieves perfect orthogonality
-not only within pairs but across all four slope families and with the existing axis-aligned partitions:
-
-- vs LSM (rows): each slope line visits every row exactly once $\Rightarrow$ 1 cell per (line, row) pair.
-- vs VSM (columns): each slope line visits every column exactly once $\Rightarrow$ 1 cell per (line, column)
-  pair (since $\gcd(p, 511) = 1$ for all four slopes, the column visitation sequence is also a complete
-  residue system).
-- vs DSM (diagonals $d = c - r + 510$): each slope-$p$ line visits $511$ of $1{,}021$ diagonals, with at
-  most 1 cell per diagonal. The number of distinct diagonals visited depends on $\gcd(p - 1, 511)$: for
-  $p \in \{2, 255, 256, 509\}$, the values $p - 1 \in \{1, 254, 255, 508\}$ are all coprime to 511, so
-  each line visits 511 *distinct* diagonals --- hitting each at most once.
-- vs XSM (anti-diagonals $x = r + c$): similarly, the relevant quantity is $\gcd(p + 1, 511)$: for
-  $p \in \{2, 255, 256, 509\}$, the values $p + 1 \in \{3, 256, 257, 510\}$ are all coprime to 511, so
-  each line visits 511 distinct anti-diagonals.
-
-**Global uniqueness.** The six uniform partitions (LSM, VSM, HSM1, SFC1, HSM2, SFC2) produce
-$6 \times 511 = 3{,}066$ line sets. No two line sets across any pair of partitions cover the same cells,
-because any two lines from different partitions intersect in exactly 1 cell (proven above), while lines
-within the same partition are disjoint. Since every pair of lines from different partitions has intersection
-size 1, and lines within a partition have intersection size 511 (the entire line), no identification is
-possible across partitions. Uniqueness (Axiom 2) holds globally.
-
-**Runtime cost.** Unlike space-filling curves, which require precomputed lookup tables ($\sim$327 KB per
-curve), toroidal-slope partitions compute the line index directly: $k = (c - p \cdot r) \bmod 511$. This is
-a single integer multiplication and modular reduction, which on modern hardware executes in 1--2 clock cycles.
-No lookup tables are required, eliminating 1.3 MB of compiled constant data and improving cache utilization
-during constraint propagation.
-
-#### B.5.9 Open Questions
+The changes originally proposed in this appendix --- replacing per-row SHA-256 with per-row SHA-1 plus a whole-block
+SHA-256 digest (BH), and adding four toroidal-slope partitions (HSM1/SFC1, HSM2/SFC2) --- have been integrated into
+the main specification (Sections 1, 2.3, 3.1--3.3, 5.1--5.6, 10.2--10.4, and 12.4--12.7). Subsections B.5.1 through
+B.5.8 have been removed. The open questions below remain.
+
+#### B.5.1 Open Questions
 
 (a) What is the empirical decompression throughput difference between SHA-1 and SHA-256 row hashing on Apple
 Silicon M-series processors, measured as hash evaluations per second during constraint solving with frequent
@@ -2717,6 +2446,394 @@ $p_j$, which is achievable for any number of pairs up to $(511 - 1)/2 = 255$.
 -2\}$) that provide superior propagation interaction with DSM and XSM? The current slopes visit 511 of 1,021
 diagonals and anti-diagonals per line; alternative slopes may distribute diagonal visits differently, though
 the 1-cell intersection guarantee with all axis-aligned partitions holds for any slope coprime to 511.
+
+### B.6 Singleton Arc Consistency
+
+The current propagation engine applies cardinality-based forcing rules: when the residual $\rho(L) = 0$
+all unknowns on line $L$ are forced to 0, and when $\rho(L) = u(L)$ they are forced to 1 (Section 5.1).
+The existing `FailedLiteralProber` strengthens this by tentatively assigning each value to an unassigned
+cell, propagating, and detecting immediate contradictions --- a technique known as *failed literal
+detection* or *1-level lookahead* (Bessière, 2006). This appendix proposes *singleton arc consistency*
+(SAC), a strictly stronger propagation level that subsumes both cardinality forcing and failed literal
+probing.
+
+#### B.6.1 Definition
+
+A binary CSP is *singleton arc consistent* if, for every unassigned variable $x$ and every value $v$ in
+$\mathrm{dom}(x)$, tentatively assigning $x = v$ and enforcing arc consistency on the resulting subproblem
+does not wipe out any domain (Debruyne & Bessière, 1997). In the CRSCE context, the variables are the
+$s^2 = 261{,}121$ binary cells, the domains are $\{0, 1\}$, and arc consistency reduces to cardinality
+forcing iterated to fixpoint across all 5,108 constraint lines plus SHA-1 row-hash verification on
+completed rows.
+
+Formally, SAC removes value $v$ from $\mathrm{dom}(x_{r,c})$ whenever assigning $x_{r,c} = v$ and
+propagating to fixpoint yields an infeasible state --- that is, any line $L$ with $\rho(L) < 0$ or
+$\rho(L) > u(L)$, or any completed row whose SHA-1 digest disagrees with the stored lateral hash.
+
+#### B.6.2 Relationship to Existing Components
+
+The existing `FailedLiteralProber` already implements the core operation underlying SAC: it calls
+`tryProbeValue(r, c, v)`, which assigns, propagates to fixpoint, hash-checks completed rows, and
+undoes the assignment. The distinction is operational, not algorithmic:
+
+The current prober runs `probeToFixpoint()` once as a preprocessing pass (iterating all unassigned cells
+in row-major order, repeating until no new forcings are discovered) and `probeAlternate(r, c, v)` during
+DFS to prune the alternate branch at each node. SAC differs in that it maintains singleton arc
+consistency as an invariant throughout search, not merely at the root.
+
+Concretely, implementing SAC would require re-running the full probe loop after *every* assignment
+(branching or forced), not just at the root. Each time a cell is assigned, all remaining unassigned
+cells must be re-probed, because the assignment may have created new singleton inconsistencies that did
+not exist before. The fixpoint condition is global: SAC holds when a complete pass over all unassigned
+cells produces no new domain wipeouts.
+
+#### B.6.3 Expected Impact on CRSCE
+
+With 8 partition families, each cell participates in 8 constraint lines. A single tentative assignment
+propagates through all 8 lines, potentially forcing cells on each. These secondary forcings cascade
+through their own 8 lines, and so on. The high constraint density means that SAC propagation reaches
+deeper than in typical binary CSPs, because each forcing event touches 8 rather than 2--4 lines.
+
+The primary benefit is fewer DFS backtracks. At the current depth plateau (~87K cells, roughly row 170),
+the solver encounters approximately 200,000 hash mismatches per second, indicating that ~60% of
+iterations reach a completed row only to discover a SHA-1 mismatch. SAC would detect many of these
+doomed subtrees earlier --- when the tentative assignment that eventually causes the mismatch first
+creates a singleton inconsistency at an intermediate cell.
+
+#### B.6.4 Cost Analysis
+
+The cost of maintaining SAC is substantial. Let $n$ denote the number of currently unassigned cells. A
+single SAC maintenance pass probes $2n$ value--cell pairs (both values for each cell). Each probe invokes
+the propagation engine, which touches up to 8 lines per forced cell. In the worst case, a single probe
+propagates $O(s)$ forced cells, each updating 8 line statistics, giving $O(8s)$ work per probe and
+$O(16ns)$ per pass. Multiple passes may be needed to reach the SAC fixpoint, though empirically the
+number of passes is small (typically 2--4 in structured CSPs; Bessière, 2006).
+
+At the current depth plateau ($n \approx 174{,}000$), a single SAC pass performs roughly $348{,}000$
+probes. At an estimated 2--5 $\mu$s per probe (dominated by propagation and undo), one pass costs
+0.7--1.7 seconds. If SAC is maintained after every assignment, this cost multiplies by the number of
+assignments per second (~510,000 at current throughput), which is prohibitive as a per-assignment
+invariant.
+
+#### B.6.5 Practical Variants
+
+Two practical relaxations avoid the full SAC cost:
+
+*SAC as preprocessing.* Run SAC to fixpoint once before the DFS begins (extending the current
+`probeToFixpoint` to iterate until the SAC fixpoint, not just the single-pass failed-literal fixpoint).
+This imposes a one-time cost proportional to the number of SAC passes times $O(ns)$ and reduces the
+DFS search space without per-node overhead. The existing `probeToFixpoint` infrastructure supports this
+directly --- the change is to continue iterating until the stricter SAC fixpoint condition holds.
+
+*Partial SAC during search.* Rather than re-probing all unassigned cells after every assignment,
+re-probe only cells whose constraint lines were affected by the most recent propagation wave. If
+propagation forced $k$ cells, re-probe only the unassigned cells sharing a line with those $k$ cells.
+This limits re-probe scope to $O(8k \cdot s)$ cells in the worst case but is typically much smaller,
+since most propagation waves are local.
+
+I'm proud of myself.  I've made it this far without making any jokes about probing, cost or relaxation.
+I'm sure there's a proctology joke here somewhere...
+
+#### B.6.6 Open Questions
+
+(a) What is the empirical SAC fixpoint depth for random and structured 511×511 binary matrices? If SAC
+preprocessing resolves a significant fraction of cells beyond what failed literal probing achieves, the
+depth plateau may shift materially.
+
+(b) Does partial SAC (re-probing only affected neighborhoods) converge to the same fixpoint as full SAC,
+or does it settle at a weaker consistency level? If weaker, is the gap practically significant for CRSCE
+instances?
+
+(c) Can the probe loop be parallelized on GPU via Metal? Each probe is independent (tentative assign,
+propagate, undo), making the loop embarrassingly parallel in principle, though the shared constraint
+store requires careful synchronization or per-thread copies.
+
+### B.7 Neighborhood-Based Lookahead
+
+The existing `FailedLiteralProber` implements 1-level lookahead: it tentatively assigns a single cell,
+propagates, and checks whether the resulting state is immediately infeasible. This appendix proposes
+*$k$-level neighborhood lookahead*, which extends the probe depth to detect doomed assignments that
+require multiple speculative assignments to expose.
+
+#### B.7.1 Motivation
+
+At the current depth plateau (~87K assignments, row ~170), the solver assigns cells in row-major order.
+Each assignment propagates through 8 constraint lines, but the propagation horizon is limited by the
+cardinality forcing rules: a line triggers forcing only when its residual drops to 0 or equals its
+unknown count. In the middle rows of the matrix, many lines have large unknown counts, so individual
+assignments rarely trigger cascading forces. The result is a "silent zone" where assignments accumulate
+without propagation feedback until a row completes and the SHA-1 check rejects the entire row.
+
+Neighborhood lookahead addresses this by exploring the *local future* of an assignment: after
+tentatively assigning cell $(r, c)$, it recursively assigns the next $k - 1$ cells in branching order,
+propagating at each level. If all $2^{k-1}$ continuations of the tentative assignment lead to
+contradictions, the assignment is provably infeasible regardless of choices made beyond the
+$k$-neighborhood.
+
+#### B.7.2 Relationship to Existing Components
+
+The existing prober infrastructure provides the 1-level case ($k = 1$). Specifically,
+`FailedLiteralProber::tryProbeValue(r, c, v)` assigns, propagates to fixpoint, optionally hash-checks,
+and undoes --- exactly a depth-1 lookahead. The `probeAlternate(r, c, v)` method applies this during DFS
+to prune the unexplored branch.
+
+The `RowDecomposedController` adds a layer of sophistication by using `ProbabilityEstimator` to guide
+cell selection and `probeAlternate` to prune branches, but it does not deepen the probe: each call to
+`probeAlternate` examines only the immediate consequences of a single assignment.
+
+Neighborhood lookahead generalizes this to depth $k$: after tentatively assigning $(r, c) = v$ and
+propagating, it selects the next $k - 1$ unassigned cells (in branching order) and recursively probes
+both values for each, forming a lookahead tree of depth $k$. If every leaf of the lookahead tree is
+infeasible, the root assignment $(r, c) = v$ is provably doomed.
+
+#### B.7.3 Algorithm
+
+Given the current solver state, a target cell $(r, c)$, a candidate value $v$, and a lookahead depth
+$k$:
+
+1. **Assign and propagate.** Tentatively assign $x_{r,c} = v$. Propagate to fixpoint. If infeasible,
+   return DOOMED (this is the $k = 1$ base case, identical to existing `tryProbeValue`).
+
+2. **Check depth.** If $k = 1$, return FEASIBLE (the assignment did not immediately contradict).
+
+3. **Select next cell.** Let $(r', c')$ be the next unassigned cell in row-major order after all
+   propagation-forced assignments.
+
+4. **Recurse.** Probe $(r', c') = 0$ at depth $k - 1$. If FEASIBLE, return FEASIBLE (at least one
+   continuation survives). Otherwise, probe $(r', c') = 1$ at depth $k - 1$. If FEASIBLE, return
+   FEASIBLE. If both return DOOMED, return DOOMED.
+
+5. **Undo.** Undo all tentative assignments from step 1 (and any recursive levels) before returning.
+
+The worst-case cost is $O(2^k)$ probe operations, each involving propagation at $O(8s)$ cost. For small
+$k$ (2--4), this is tractable: $k = 2$ quadruples the per-node probe cost, $k = 3$ octuples it.
+
+#### B.7.4 Selective Application
+
+Full $k$-level lookahead on every branching decision is expensive. Two strategies limit cost:
+
+*Trigger-based activation.* Apply deeper lookahead only when the standard 1-level probe is ambiguous
+(both values feasible but neither produces significant propagation). In CRSCE, this corresponds to
+cells in the "silent zone" where all 8 constraint lines have large residuals and unknown counts. A
+simple heuristic: if the minimum unknown count across the cell's 8 lines exceeds a threshold $\tau$
+(e.g., $\tau = s/4 \approx 128$), invoke $k$-level lookahead instead of 1-level.
+
+*Adaptive depth.* Start with $k = 2$ and increase to $k = 3$ or $k = 4$ only when the solver detects
+stalling (backtrack rate exceeds a threshold over a sliding window). The `ProbabilityEstimator` already
+computes per-cell scores from line residuals; cells with high estimated ambiguity (probability near 0.5)
+are natural candidates for deeper lookahead.
+
+#### B.7.5 Interaction with SAC (B.6)
+
+SAC and neighborhood lookahead are complementary. SAC strengthens the global consistency maintained at
+each search node, reducing the number of nodes explored. Neighborhood lookahead strengthens the
+per-node branching decision, detecting doomed branches that SAC alone cannot identify (because SAC
+probes only one cell at a time, while neighborhood lookahead probes correlated sequences of cells).
+
+In principle, the two can be composed: run SAC at each node to establish global consistency, then apply
+$k$-level lookahead for the branching decision. The combined cost is dominated by SAC (which is more
+expensive per node), so the incremental cost of lookahead is modest if SAC is already being maintained.
+
+#### B.7.6 Open Questions
+
+(a) What lookahead depth $k$ yields the best throughput--pruning tradeoff for 511×511 binary matrices
+with 8 constraint families? Empirical measurement on representative instances (all-zeros, all-ones,
+random, alternating) is needed to determine whether $k = 2$ provides sufficient additional pruning over
+$k = 1$, or whether $k = 3$ or higher is necessary to shift the depth plateau.
+
+(b) Can the lookahead tree be pruned using the `ProbabilityEstimator` scores? Rather than exploring all
+$2^{k-1}$ continuations, the lookahead could explore only the most-constrained continuation (lowest
+probability cell first), converting the exponential tree into a linear chain of depth $k$ at the cost of
+weaker pruning guarantees.
+
+(c) Is there a useful interaction between neighborhood lookahead and the toroidal-slope partitions
+specifically? The slope lines create long-range dependencies (a single slope line visits all $s$ rows),
+so a $k$-level lookahead on slope-constrained cells may propagate information across distant rows,
+breaking the "silent zone" that limits 1-level probing in the middle of the matrix.
+
+### B.8 Adaptive Lookahead
+
+Sections B.6 and B.7 propose stronger consistency and deeper lookahead as independent techniques. This
+appendix proposes a unified *adaptive lookahead* strategy that begins with no lookahead ($k = 0$) and
+escalates the depth dynamically in response to search stalling, up to a maximum of $k = 4$ using full
+exhaustive lookahead at every depth. The motivation is twofold. First, the early rows of the matrix are
+heavily constrained by cross-sum residuals and require no lookahead; paying for it there wastes
+throughput. Second, the middle rows (approximately rows 100--300) enter a combinatorial phase transition
+where cardinality forcing alone produces negligible propagation, and the solver needs stronger pruning
+to sustain forward progress. An adaptive strategy applies each level of cost precisely when the solver
+needs it.
+
+The cap at $k = 4$ is deliberate. Exhaustive lookahead at depth $k$ explores $2^k$ probe paths per
+branching decision, giving it the strong pruning guarantee that an assignment is marked doomed only when
+*all* continuations fail. At $k = 4$, this costs 16 probes per decision --- roughly 32--80 $\mu$s at
+2--5 $\mu$s per probe --- keeping throughput in the 12K--30K iter/sec range. Beyond $k = 4$, exhaustive
+lookahead becomes prohibitively expensive ($k = 5$ requires 32 probes, $k = 6$ requires 64), and
+approximations such as linear-chain sampling sacrifice the completeness guarantee that makes lookahead
+effective (see B.8.7). Each probe propagates through all 8 constraint lines, so $k = 4$ explores up to
+$4 \times 8 = 32$ constraint-line interactions per path --- a detection radius sufficient to catch
+cardinality contradictions that span multiple lines without requiring a row-boundary SHA-1 check.
+
+#### B.8.1 Stall Detection
+
+The solver maintains a sliding window of the last $W$ branching decisions (e.g., $W = 10{,}000$). At
+each decision, it records the *net depth advance*: +1 for a forward assignment, $-d$ for a backtrack
+that unwinds $d$ levels. The *stall metric* $\sigma$ is the ratio of net depth advance to window size:
+
+$$\sigma = \frac{\Delta_{\text{depth}}}{W}$$
+
+When $\sigma > 0$, the solver is making forward progress. When $\sigma \leq 0$, the solver is stalled
+--- backtracking at least as often as it advances. The stall metric is cheap to maintain (one counter
+and one circular buffer) and requires no tuning beyond the window size $W$.
+
+#### B.8.2 Escalation and De-Escalation Policy
+
+The adaptive strategy adjusts the lookahead depth $k \in \{0, 1, 2, 3, 4\}$ using two thresholds on
+the stall metric: a stall threshold $\sigma^{-} \leq 0$ that triggers escalation and a recovery
+threshold $\sigma^{+} > 0$ that permits de-escalation.
+
+*Escalation.* When $\sigma \leq \sigma^{-}$ and $k < 4$, the solver increments $k$ by one. Each
+escalation level corresponds to a well-defined capability:
+
+- $k = 0$: cardinality forcing only (current `PropagationEngine` fast path). Maximum throughput
+  (~510K iter/sec). No per-decision overhead beyond propagation.
+
+- $k = 1$: 1-level failed-literal probing (existing `FailedLiteralProber::probeAlternate`). Two probes
+  per decision (test both values for the alternate branch). Throughput ~250K iter/sec. This is the
+  current production behavior of `RowDecomposedController`.
+
+- $k = 2$: exhaustive 2-level lookahead. Four probes per decision ($2^2$). After tentatively assigning
+  the alternate value and propagating, the solver probes both values for the next unassigned cell. An
+  assignment is doomed if all four leaf states are infeasible. Throughput ~125K iter/sec.
+
+- $k = 3$: exhaustive 3-level lookahead. Eight probes per decision ($2^3$). Extends the lookahead tree
+  one level deeper. Throughput ~60K iter/sec.
+
+- $k = 4$: exhaustive 4-level lookahead. Sixteen probes per decision ($2^4$). Each probe propagates
+  through 8 constraint lines, so the full tree touches up to 128 line interactions. Throughput
+  ~12K--30K iter/sec.
+
+*De-escalation.* When $\sigma > \sigma^{+}$ for a sustained period of at least $2W$ decisions and
+$k > 0$, the solver decrements $k$ by one. The sustained-period requirement provides hysteresis,
+preventing oscillation between depths. De-escalation is essential because the CRSCE constraint landscape
+is not monotonically harder with depth: the late rows (approximately 300--511) have small unknown counts
+per line, causing cardinality forcing to become aggressive again. A solver locked at $k = 4$ in this
+region pays a 17--42× throughput penalty for pruning it no longer needs.
+
+The hysteresis mechanism works as follows. The solver maintains a *recovery counter* $R$ that
+increments when $\sigma > \sigma^{+}$ and resets to zero otherwise. When $R \geq 2W$, the solver
+decrements $k$ by one and resets $R$. This ensures de-escalation occurs only after sustained forward
+progress, not on transient fluctuations.
+
+#### B.8.3 Exhaustive Lookahead at Depth $k$
+
+At each branching decision for cell $(r, c)$, the solver applies the B.7.3 algorithm at the current
+depth $k$. For completeness, the procedure specialized to CRSCE:
+
+1. **Base case ($k = 0$).** No lookahead. Assign and propagate; accept the result.
+
+2. **$k \geq 1$.** Before committing to the branching value (0, per canonical order), probe the
+   alternate value (1) at depth $k$:
+
+   (a) Tentatively assign $x_{r,c} = 1$. Propagate to fixpoint. If immediately infeasible, the
+       alternate branch is pruned (equivalent to $k = 1$). Undo and proceed with 0.
+
+   (b) If feasible at depth 1, select the next unassigned cell $(r', c')$ in row-major order and
+       recursively probe both values at depth $k - 1$.
+
+   (c) If all $2^{k-1}$ leaf states under $x_{r,c} = 1$ are infeasible, the alternate branch is
+       pruned at depth $k$. Undo and proceed with 0.
+
+   (d) Otherwise, the alternate branch is viable. Undo, assign $x_{r,c} = 0$ (canonical order), and
+       continue the DFS.
+
+The recursive structure naturally extends the existing `FailedLiteralProber` --- the $k = 1$ case is
+exactly `probeAlternate`, and each additional level wraps another layer of tentative-assign-propagate-
+undo around it.
+
+#### B.8.4 Expected Behavior Profile
+
+The adaptive strategy partitions the solve into distinct phases:
+
+*Rows 0--100 ($k = 0$).* Cross-sum residuals are large and SHA-1 row-hash checks at each row boundary
+provide strong pruning. The solver operates at maximum throughput (~510K iter/sec) with no lookahead
+overhead. Depth advances rapidly through the first ~51,000 cells.
+
+*Rows 100--170 ($k = 0 \to 1$).* As residuals shrink and the constraint landscape tightens, the solver
+enters the current plateau zone. The stall detector triggers the first escalation to $k = 1$, enabling
+failed-literal probing on alternate branches. Throughput drops to ~250K iter/sec but the additional
+pruning may sustain forward progress through this region.
+
+*Rows 170--300 ($k = 1 \to k_{\max} \leq 4$).* If $k = 1$ is insufficient (as current performance data
+suggests), further stalls trigger incremental escalation to $k = 2$, then $k = 3$, then $k = 4$. Each
+increment doubles the per-decision probe count, and the solver self-tunes to the minimum $k$ that
+sustains forward progress. At $k = 4$, the 16-probe exhaustive tree explores up to 128 constraint-line
+interactions per decision, substantially expanding the detection radius for cardinality contradictions.
+
+*Rows 300--511 (de-escalation).* In the final rows, unknown counts per line are small and cardinality
+forcing becomes aggressive again. The de-escalation mechanism detects sustained forward progress
+($\sigma > \sigma^{+}$ for $2W$ decisions) and decrements $k$, recovering throughput. In the best case,
+the solver returns to $k = 0$ for the final ~100 rows, running at full speed.
+
+#### B.8.5 Implementation Considerations
+
+The adaptive strategy composes cleanly with existing components. The stall detector is a lightweight
+addition to the `EnumerationController` main loop (one counter update and one circular-buffer write per
+decision). The exhaustive lookahead extends `FailedLiteralProber` with a depth parameter, recursively
+calling `tryProbeValue` at each level. No changes to `ConstraintStore`, `PropagationEngine`, or
+`IHashVerifier` are required.
+
+The primary implementation concern is undo correctness. At lookahead depth $k$, the solver has up to
+$k$ nested tentative assignments on the undo stack, each with its own propagation-forced cells. The
+existing `BranchingController` undo stack supports this naturally --- each tentative assignment pushes a
+frame, and unwinding pops frames in reverse order. Care is needed to ensure that SHA-1 hash
+verification is not triggered at intermediate lookahead levels: only the outermost probe should check
+SHA-1 on completed rows, since intermediate levels will be undone regardless. A simple depth counter
+passed to the hash verifier suffices.
+
+The memory cost is negligible. The lookahead tree is explored depth-first, so at most $k = 4$ undo
+frames are live simultaneously, each storing $O(s)$ forced-cell records in the worst case. The total
+additional memory is $O(ks) = O(2{,}044)$ entries --- under 20 KB.
+
+#### B.8.6 Cost--Benefit Summary
+
+| Depth $k$ | Probes/Decision | Approx. Throughput | Constraint-Line Reach | Pruning Guarantee |
+|:----------:|:---------------:|:------------------:|:---------------------:|:-----------------:|
+| 0          | 0               | 510K iter/sec      | 8 (propagation only)  | None              |
+| 1          | 2               | 250K iter/sec      | 16                    | Exhaustive        |
+| 2          | 4               | 125K iter/sec      | 32                    | Exhaustive        |
+| 3          | 8               | 60K iter/sec       | 64                    | Exhaustive        |
+| 4          | 16              | 12--30K iter/sec   | 128                   | Exhaustive        |
+
+All depths maintain the full exhaustive pruning guarantee: an assignment is marked doomed only when
+every continuation in the $2^k$ lookahead tree leads to a cardinality violation or hash mismatch. This
+guarantee is what makes failed-literal probing ($k = 1$) effective in the existing solver, and the
+adaptive strategy preserves it at every escalation level.
+
+#### B.8.7 Open Questions
+
+(a) What is the optimal window size $W$ for stall detection? Too small and the detector triggers on
+transient fluctuations; too large and it reacts slowly to genuine plateaus. A value of $W = 10{,}000$
+(~20 ms at 510K iter/sec) is a reasonable starting point but should be tuned empirically.
+
+(b) What are the optimal stall and recovery thresholds ($\sigma^{-}$ and $\sigma^{+}$)? Setting
+$\sigma^{-} = 0$ (escalate when net progress is zero) and $\sigma^{+} = 0.5$ (de-escalate when at
+least half of decisions advance depth) are initial candidates. The gap between the two thresholds
+controls hysteresis width.
+
+(c) For depths beyond $k = 4$, is a *linear-chain* approximation viable? Rather than exploring the
+full $2^k$ tree, the solver could follow a single most-constrained path of $k$ probes, reducing cost
+from $O(2^k)$ to $O(k)$. This sacrifices the exhaustive pruning guarantee --- the chain detects a
+contradiction only along one specific continuation, not all of them --- and its effectiveness depends
+on how well the most-constrained-cell heuristic correlates with actual failure paths. In CRSCE, where
+contradictions are often SHA-1 mismatches at row boundaries (essentially pseudorandom relative to
+constraint tightness), the false-negative rate of a linear chain may be unacceptably high. Empirical
+measurement is needed to determine whether linear-chain lookahead at $k = 8$ or $k = 16$ outperforms
+exhaustive lookahead at $k = 4$.
+
+(d) Should the lookahead tree explore both values at the branching cell (as in B.7.3), or only the
+alternate value (as in the existing `probeAlternate`)? Probing only the alternate value halves the
+tree size at each depth, effectively doubling the affordable $k$. However, probing the canonical value
+as well can detect doomed states earlier, reducing backtrack depth.
 
 ## References
 
@@ -2736,6 +2853,10 @@ Colbourn, C. J., & Dinitz, J. H. (Eds.). (2007). *Handbook of combinatorial desi
 
 Dang, Q. (2012). Recommendation for applications using approved hash algorithms (NIST Special Publication 800-107
 Revision 1). National Institute of Standards and Technology.
+
+Debruyne, R., & Bessière, C. (1997). Some practicable filtering techniques for the constraint satisfaction problem.
+In *Proceedings of the 15th International Joint Conference on Artificial Intelligence (IJCAI-97)* (pp. 412--417).
+Morgan Kaufmann.
 
 Hamilton, C. H., & Rau-Chaplin, A. (2008). Compact Hilbert indices: Space-filling curves for domains with unequal side
 lengths. *Information Processing Letters, 105*(5), 155--163.

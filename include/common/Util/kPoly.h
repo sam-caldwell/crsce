@@ -12,5 +12,5 @@ namespace crsce::common::util::detail {
      * @name kPoly
      * @brief Reflected CRC-32 polynomial constant 0xEDB88320.
      */
-    extern const std::uint32_t kPoly;
+    inline constexpr std::uint32_t kPoly = 0xEDB88320U;
 }

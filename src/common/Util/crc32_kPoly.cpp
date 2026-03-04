@@ -3,13 +3,5 @@
  * @brief Definition of reflected CRC-32 polynomial constant.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt
  */
-#include "common/Util/kPoly.h"
-#include <cstdint>
-
-namespace crsce::common::util::detail {
-    /**
-     * @name kPoly
-     * @brief Reflected CRC-32 polynomial constant 0xEDB88320.
-     */
-    const std::uint32_t kPoly = 0xEDB88320U;
-}
+// kPoly is now inline constexpr in kPoly.h; this TU kept for build-system compatibility.
+#include "common/Util/kPoly.h" // NOLINT(misc-include-cleaner)
