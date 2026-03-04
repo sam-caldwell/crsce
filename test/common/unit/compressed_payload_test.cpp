@@ -55,7 +55,7 @@ TEST(CompressedPayloadTest, DefaultConstructionXSMIsZero) {
 
 TEST(CompressedPayloadTest, DefaultConstructionLHIsZero) {
     const CompressedPayload payload;
-    const std::array<std::uint8_t, 32> zeroes{};
+    const std::array<std::uint8_t, CompressedPayload::kLHDigestBytes> zeroes{};
     for (std::uint16_t r = 0; r < CompressedPayload::kS; ++r) {
         EXPECT_EQ(payload.getLH(r), zeroes) << "LH row " << r;
     }
@@ -84,8 +84,8 @@ TEST(CompressedPayloadTest, SetDIOverwritesPrevious) {
 
 TEST(CompressedPayloadTest, SetLHGetLHRoundTripRow0) {
     CompressedPayload payload;
-    std::array<std::uint8_t, 32> digest{};
-    for (std::uint8_t i = 0; i < 32; ++i) {
+    std::array<std::uint8_t, CompressedPayload::kLHDigestBytes> digest{};
+    for (std::uint8_t i = 0; i < CompressedPayload::kLHDigestBytes; ++i) {
         digest.at(i) = i;
     }
     payload.setLH(0, digest);
@@ -94,8 +94,8 @@ TEST(CompressedPayloadTest, SetLHGetLHRoundTripRow0) {
 
 TEST(CompressedPayloadTest, SetLHGetLHRoundTripLastRow) {
     CompressedPayload payload;
-    std::array<std::uint8_t, 32> digest{};
-    for (std::uint8_t i = 0; i < 32; ++i) {
+    std::array<std::uint8_t, CompressedPayload::kLHDigestBytes> digest{};
+    for (std::uint8_t i = 0; i < CompressedPayload::kLHDigestBytes; ++i) {
         digest.at(i) = static_cast<std::uint8_t>(0xFF - i);
     }
     const std::uint16_t lastRow = CompressedPayload::kS - 1;
@@ -105,7 +105,7 @@ TEST(CompressedPayloadTest, SetLHGetLHRoundTripLastRow) {
 
 TEST(CompressedPayloadTest, SetLHOutOfRangeThrows) {
     CompressedPayload payload;
-    const std::array<std::uint8_t, 32> digest{};
+    const std::array<std::uint8_t, CompressedPayload::kLHDigestBytes> digest{};
     EXPECT_THROW(payload.setLH(CompressedPayload::kS, digest), std::out_of_range);
 }
 
@@ -256,15 +256,15 @@ TEST(CompressedPayloadTest, SerializeDeserializeRoundTripWithValues) {
     original.setDI(0x42);
 
     // Set a recognizable LH digest for row 0
-    std::array<std::uint8_t, 32> digest{};
-    for (std::uint8_t i = 0; i < 32; ++i) {
+    std::array<std::uint8_t, CompressedPayload::kLHDigestBytes> digest{};
+    for (std::uint8_t i = 0; i < CompressedPayload::kLHDigestBytes; ++i) {
         digest.at(i) = static_cast<std::uint8_t>(i + 1);
     }
     original.setLH(0, digest);
 
     // Set a different digest for the last row
-    std::array<std::uint8_t, 32> digestLast{};
-    for (std::uint8_t i = 0; i < 32; ++i) {
+    std::array<std::uint8_t, CompressedPayload::kLHDigestBytes> digestLast{};
+    for (std::uint8_t i = 0; i < CompressedPayload::kLHDigestBytes; ++i) {
         digestLast.at(i) = static_cast<std::uint8_t>(0xF0 + i);
     }
     original.setLH(CompressedPayload::kS - 1, digestLast);
@@ -336,7 +336,7 @@ TEST(CompressedPayloadTest, SerializeDeserializeRoundTripAllMaxValues) {
     }
 
     // Set all LH to 0xFF bytes
-    std::array<std::uint8_t, 32> allFF{};
+    std::array<std::uint8_t, CompressedPayload::kLHDigestBytes> allFF{};
     allFF.fill(0xFF);
     for (std::uint16_t r = 0; r < CompressedPayload::kS; ++r) {
         original.setLH(r, allFF);
@@ -404,7 +404,7 @@ TEST(CompressedPayloadTest, DiagonalVariableWidthEncodingRoundTrip) {
 TEST(CompressedPayloadTest, ConstantsAreCorrect) {
     EXPECT_EQ(CompressedPayload::kS, 511);
     EXPECT_EQ(CompressedPayload::kDiagCount, 1021);
-    EXPECT_EQ(CompressedPayload::kBlockPayloadBytes, 19549);
+    EXPECT_EQ(CompressedPayload::kBlockPayloadBytes, 15749);
 }
 
 } // namespace

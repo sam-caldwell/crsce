@@ -5,12 +5,15 @@
  */
 #include "decompress/Decompressor/Decompressor.h"
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "common/BlockHash/BlockHash.h"
 #include "common/Csm/Csm.h"
 #include "common/exceptions/DecompressDIOutOfRange.h"
 #include "common/Format/CompressedPayload/CompressedPayload.h"
@@ -21,7 +24,7 @@
 #include "decompress/Solvers/IPropagationEngine.h"
 #include "decompress/Solvers/PropagationEngine.h"
 #include "decompress/Solvers/RowDecomposedController.h"
-#include "decompress/Solvers/Sha256HashVerifier.h"
+#include "decompress/Solvers/Sha1HashVerifier.h"
 #ifdef CRSCE_ENABLE_METAL
 #include <cstdlib>
 
@@ -41,7 +44,7 @@ namespace crsce::decompress {
         // Extract the disambiguation index.
         const auto di = static_cast<std::uint32_t>(payload.getDI());
 
-        // Build the four cross-sum vectors from the payload.
+        // Build the four original cross-sum vectors from the payload.
         std::vector<std::uint16_t> lsm(kS);
         std::vector<std::uint16_t> vsm(kS);
         for (std::uint16_t k = 0; k < kS; ++k) {
@@ -57,12 +60,23 @@ namespace crsce::decompress {
             xsm[k] = payload.getXSM(k);
         }
 
-        // Create solver components.  All heap-allocated objects remain at fixed addresses
-        // after unique_ptr creation, so references taken before the moves remain valid.
-        auto store = std::make_unique<solvers::ConstraintStore>(lsm, vsm, dsm, xsm);
+        // Build the four toroidal-slope sum vectors from the payload.
+        std::vector<std::uint16_t> slope256(kS);
+        std::vector<std::uint16_t> slope255(kS);
+        std::vector<std::uint16_t> slope2(kS);
+        std::vector<std::uint16_t> slope509(kS);
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            slope256[k] = payload.getHSM1(k);
+            slope255[k] = payload.getSFC1(k);
+            slope2[k] = payload.getHSM2(k);
+            slope509[k] = payload.getSFC2(k);
+        }
+
+        // Create solver components.
+        auto store = std::make_unique<solvers::ConstraintStore>(
+            lsm, vsm, dsm, xsm, slope256, slope255, slope2, slope509);
 
         // Select propagation engine: Metal GPU or CPU-only.
-        // Set CRSCE_DISABLE_GPU=1 to force CPU-only for benchmarking.
         std::unique_ptr<solvers::IPropagationEngine> propagator;
 #ifdef CRSCE_ENABLE_METAL
         const char *disableGpu = std::getenv("CRSCE_DISABLE_GPU"); // NOLINT(concurrency-mt-unsafe)
@@ -77,9 +91,14 @@ namespace crsce::decompress {
 #endif
         auto brancher = std::make_unique<solvers::BranchingController>(*store, *propagator);
 
-        auto hasher = std::make_unique<solvers::Sha256HashVerifier>(kS);
+        // Build hash verifier: SHA-1 for per-row verification.
+        // getLH() returns 20-byte arrays; setExpected() takes 32-byte arrays (IHashVerifier interface).
+        auto hasher = std::make_unique<solvers::Sha1HashVerifier>(kS);
         for (std::uint16_t r = 0; r < kS; ++r) {
-            hasher->setExpected(r, payload.getLH(r));
+            const auto lh20 = payload.getLH(r);
+            std::array<std::uint8_t, 32> lh32{};
+            std::ranges::copy(lh20, lh32.begin());
+            hasher->setExpected(r, lh32);
         }
 
         // Enumerate solutions until we reach the DI-th one (0-based).
@@ -89,24 +108,27 @@ namespace crsce::decompress {
         std::uint32_t count = 0;
 
         if (di == 0) {
-            // DI=0: use the row-decomposed solver for faster single-solution reconstruction.
             solvers::RowDecomposedController solver(
                 std::move(store), std::move(propagator), std::move(brancher), std::move(hasher));
 
             for (const auto &csm : solver.enumerateSolutionsLex()) {
+                const bool bhOk = common::BlockHash::verify(csm, payload.getBH());
                 ::crsce::o11y::O11y::instance().event("reconstruct_done",
-                    {{"di_target", "0"}, {"solutions_examined", "1"}});
+                    {{"di_target", "0"}, {"solutions_examined", "1"},
+                     {"bh_verified", bhOk ? "true" : "false"}});
                 return csm;
             }
         } else {
-            // DI>0: use lex-order enumeration to skip to the DI-th solution.
             solvers::EnumerationController enumerator(
                 std::move(store), std::move(propagator), std::move(brancher), std::move(hasher));
 
             for (const auto &csm : enumerator.enumerateSolutionsLex()) {
                 if (count == di) {
+                    const bool bhOk = common::BlockHash::verify(csm, payload.getBH());
                     ::crsce::o11y::O11y::instance().event("reconstruct_done",
-                        {{"di_target", std::to_string(di)}, {"solutions_examined", std::to_string(count + 1)}});
+                        {{"di_target", std::to_string(di)},
+                         {"solutions_examined", std::to_string(count + 1)},
+                         {"bh_verified", bhOk ? "true" : "false"}});
                     return csm;
                 }
                 ::crsce::o11y::O11y::instance().event("reconstruct_di_candidate",

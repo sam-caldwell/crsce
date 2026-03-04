@@ -22,6 +22,10 @@ namespace crsce::decompress::solvers {
         switch (line.type) {
             case LineType::Row:
             case LineType::Column:
+            case LineType::Slope256:
+            case LineType::Slope255:
+            case LineType::Slope2:
+            case LineType::Slope509:
                 return kS;
             case LineType::Diagonal:
             case LineType::AntiDiagonal: {

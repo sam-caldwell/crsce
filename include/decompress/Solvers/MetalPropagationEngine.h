@@ -89,9 +89,9 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name kMetalPropTotalLines
-         * @brief Total number of constraint lines: 6s - 2 = 3064.
+         * @brief Total number of constraint lines: 10s - 2 = 5108.
          */
-        static constexpr std::size_t kMetalPropTotalLines = (6 * kS) - 2;
+        static constexpr std::size_t kMetalPropTotalLines = (10 * kS) - 2;
 
         /**
          * @name work_

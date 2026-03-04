@@ -16,21 +16,20 @@ using crsce::common::LateralHash;
 /**
  * @brief Verify that compute() on a known all-zero row produces a deterministic digest.
  *
- * An all-zero row is 64 zero bytes.  The SHA-256 of 64 zero bytes is a fixed, well-known
+ * An all-zero row is 64 zero bytes.  The SHA-1 of 64 zero bytes is a fixed, well-known
  * value.  We verify that compute() returns the correct digest.
  */
 TEST(LateralHashTest, ComputeAllZeroRowIsDeterministic) {
     const std::array<std::uint64_t, 8> zeroRow{};
     const auto digest = LateralHash::compute(zeroRow);
 
-    // SHA-256 of 64 zero bytes.
-    // printf '\x00' | dd bs=1 count=64 2>/dev/null | openssl dgst -sha256
-    // = f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b
-    constexpr std::array<std::uint8_t, 32> expected = {
-        0xf5, 0xa5, 0xfd, 0x42, 0xd1, 0x6a, 0x20, 0x30,
-        0x27, 0x98, 0xef, 0x6e, 0xd3, 0x09, 0x97, 0x9b,
-        0x43, 0x00, 0x3d, 0x23, 0x20, 0xd9, 0xf0, 0xe8,
-        0xea, 0x98, 0x31, 0xa9, 0x27, 0x59, 0xfb, 0x4b
+    // SHA-1 of 64 zero bytes.
+    // dd if=/dev/zero bs=1 count=64 2>/dev/null | openssl dgst -sha1
+    // = c8d7d0ef0eedfa82d2ea1aa592845b9a6d4b02b7
+    constexpr std::array<std::uint8_t, 20> expected = {
+        0xc8, 0xd7, 0xd0, 0xef, 0x0e, 0xed, 0xfa, 0x82,
+        0xd2, 0xea, 0x1a, 0xa5, 0x92, 0x84, 0x5b, 0x9a,
+        0x6d, 0x4b, 0x02, 0xb7
     };
     EXPECT_EQ(digest, expected);
 }
@@ -122,7 +121,7 @@ TEST(LateralHashTest, StoreGetDigestRoundTrip) {
 TEST(LateralHashTest, GetDigestReturnsZeroForUnstoredSlot) {
     const LateralHash lh(4);
     const auto retrieved = lh.getDigest(2);
-    const std::array<std::uint8_t, 32> zero{};
+    const std::array<std::uint8_t, LateralHash::kDigestBytes> zero{};
     EXPECT_EQ(retrieved, zero);
 }
 
@@ -131,7 +130,7 @@ TEST(LateralHashTest, GetDigestReturnsZeroForUnstoredSlot) {
  */
 TEST(LateralHashTest, StoreThrowsOutOfRange) {
     LateralHash lh(4);
-    const std::array<std::uint8_t, 32> digest{};
+    const std::array<std::uint8_t, LateralHash::kDigestBytes> digest{};
     EXPECT_THROW(lh.store(4, digest), std::out_of_range);
     EXPECT_THROW(lh.store(100, digest), std::out_of_range);
 }
@@ -141,7 +140,7 @@ TEST(LateralHashTest, StoreThrowsOutOfRange) {
  */
 TEST(LateralHashTest, VerifyThrowsOutOfRange) {
     const LateralHash lh(4);
-    const std::array<std::uint8_t, 32> digest{};
+    const std::array<std::uint8_t, LateralHash::kDigestBytes> digest{};
     EXPECT_THROW((void)lh.verify(4, digest), std::out_of_range);
 }
 

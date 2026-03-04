@@ -10,13 +10,17 @@
 namespace crsce::decompress::solvers {
     /**
      * @enum LineType
-     * @brief Discriminator for the four families of cross-sum constraints.
+     * @brief Discriminator for the eight families of cross-sum constraints.
      */
     enum class LineType : std::uint8_t {
         Row = 0,
         Column = 1,
         Diagonal = 2,
-        AntiDiagonal = 3
+        AntiDiagonal = 3,
+        Slope256 = 4,
+        Slope255 = 5,
+        Slope2 = 6,
+        Slope509 = 7
     };
 
     /**

@@ -6,6 +6,7 @@
 #include "crsce_viewer/viewer.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <fstream>
@@ -27,9 +28,10 @@ namespace crsce::viewer {
 namespace {
 
 /**
- * @brief Format a 32-byte digest as a lowercase hex string.
+ * @brief Format a byte-array digest as a lowercase hex string.
  */
-std::string hexDigest(const std::array<std::uint8_t, 32> &digest) {
+template <std::size_t N>
+std::string hexDigest(const std::array<std::uint8_t, N> &digest) {
     std::ostringstream oss;
     oss << std::hex << std::setfill('0');
     for (const auto b : digest) {

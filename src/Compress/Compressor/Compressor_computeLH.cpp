@@ -1,7 +1,7 @@
 /**
  * @file Compressor_computeLH.cpp
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
- * @brief Compressor::computeLH -- compute SHA-256 lateral hashes for each CSM row.
+ * @brief Compressor::computeLH -- compute SHA-1 lateral hashes for each CSM row.
  */
 #include "compress/Compressor/Compressor.h"
 
@@ -15,7 +15,7 @@ namespace crsce::compress {
 
     /**
      * @name computeLH
-     * @brief Compute SHA-256 lateral hashes for each CSM row and fill the payload.
+     * @brief Compute SHA-1 lateral hashes for each CSM row and fill the payload.
      * @param csm The populated cross-sum matrix.
      * @param payload The CompressedPayload to fill with LH digests.
      * @return void

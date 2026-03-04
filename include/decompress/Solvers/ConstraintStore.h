@@ -22,7 +22,8 @@ namespace crsce::decompress::solvers {
      * @brief Manages cell assignments and per-line statistics (u, a, rho) for the solver.
      *
      * Tracks the assignment state of all s^2 cells and maintains per-line statistics
-     * for all 6s-2 lines (s rows, s columns, 2s-1 diagonals, 2s-1 anti-diagonals).
+     * for all 6s-2 + 4s = 10s-2 lines (s rows, s columns, 2s-1 diagonals,
+     * 2s-1 anti-diagonals, and 4 toroidal-slope partitions of s lines each).
      */
     class ConstraintStore final : public IConstraintStore {
     public:
@@ -57,10 +58,66 @@ namespace crsce::decompress::solvers {
         static constexpr std::uint16_t kNumAntiDiags = (2 * kS) - 1;
 
         /**
-         * @name kTotalLines
-         * @brief Total number of constraint lines: 6s - 2 = 3064.
+         * @name kNumSlope
+         * @brief Number of lines per toroidal-slope partition (s).
          */
-        static constexpr std::uint32_t kTotalLines = kNumRows + kNumCols + kNumDiags + kNumAntiDiags;
+        static constexpr std::uint16_t kNumSlope = kS;
+
+        /**
+         * @name kNumSlopePartitions
+         * @brief Number of toroidal-slope partitions (4).
+         */
+        static constexpr std::uint16_t kNumSlopePartitions = 4;
+
+        /**
+         * @name kBasicLines
+         * @brief Number of original constraint lines: 6s - 2 = 3064.
+         */
+        static constexpr std::uint32_t kBasicLines = kNumRows + kNumCols + kNumDiags + kNumAntiDiags;
+
+        /**
+         * @name kTotalLines
+         * @brief Total number of constraint lines: 6s - 2 + 4s = 10s - 2 = 5108.
+         */
+        static constexpr std::uint32_t kTotalLines = kBasicLines + (kNumSlopePartitions * kNumSlope);
+
+        /**
+         * @name kSlopes
+         * @brief Slope values for the four toroidal partitions.
+         */
+        static constexpr std::array<std::uint16_t, kNumSlopePartitions> kSlopes = {256, 255, 2, 509};
+
+        /**
+         * @name kSlope256Base
+         * @brief Flat index base for the slope-256 (HSM1) partition.
+         */
+        static constexpr std::uint32_t kSlope256Base = kBasicLines;
+
+        /**
+         * @name kSlope255Base
+         * @brief Flat index base for the slope-255 (SFC1) partition.
+         */
+        static constexpr std::uint32_t kSlope255Base = kSlope256Base + kNumSlope;
+
+        /**
+         * @name kSlope2Base
+         * @brief Flat index base for the slope-2 (HSM2) partition.
+         */
+        static constexpr std::uint32_t kSlope2Base = kSlope255Base + kNumSlope;
+
+        /**
+         * @name kSlope509Base
+         * @brief Flat index base for the slope-509 (SFC2) partition.
+         */
+        static constexpr std::uint32_t kSlope509Base = kSlope2Base + kNumSlope;
+
+        /**
+         * @name kSlopeBases
+         * @brief Flat index base offsets for each slope partition, indexed by partition ordinal.
+         */
+        static constexpr std::array<std::uint32_t, kNumSlopePartitions> kSlopeBases = {
+            kSlope256Base, kSlope255Base, kSlope2Base, kSlope509Base
+        };
 
         /**
          * @name lineIndex
@@ -78,6 +135,10 @@ namespace crsce::decompress::solvers {
                 case LineType::Column:       return kS + line.index;
                 case LineType::Diagonal:     return (2U * kS) + line.index;
                 case LineType::AntiDiagonal: return (2U * kS) + kNumDiags + line.index;
+                case LineType::Slope256:     return kSlope256Base + line.index;
+                case LineType::Slope255:     return kSlope255Base + line.index;
+                case LineType::Slope2:       return kSlope2Base + line.index;
+                case LineType::Slope509:     return kSlope509Base + line.index;
             }
             return 0; // unreachable
         }
@@ -89,19 +150,27 @@ namespace crsce::decompress::solvers {
          * @param colSums Target column sums (VSM), size s.
          * @param diagSums Target diagonal sums (DSM), size 2s-1.
          * @param antiDiagSums Target anti-diagonal sums (XSM), size 2s-1.
+         * @param slope256Sums Target slope-256 (HSM1) sums, size s.
+         * @param slope255Sums Target slope-255 (SFC1) sums, size s.
+         * @param slope2Sums Target slope-2 (HSM2) sums, size s.
+         * @param slope509Sums Target slope-509 (SFC2) sums, size s.
          * @throws None
          */
         ConstraintStore(const std::vector<std::uint16_t> &rowSums,
                         const std::vector<std::uint16_t> &colSums,
                         const std::vector<std::uint16_t> &diagSums,
-                        const std::vector<std::uint16_t> &antiDiagSums);
+                        const std::vector<std::uint16_t> &antiDiagSums,
+                        const std::vector<std::uint16_t> &slope256Sums,
+                        const std::vector<std::uint16_t> &slope255Sums,
+                        const std::vector<std::uint16_t> &slope2Sums,
+                        const std::vector<std::uint16_t> &slope509Sums);
 
         void assign(std::uint16_t r, std::uint16_t c, std::uint8_t v) override;
         void unassign(std::uint16_t r, std::uint16_t c) override;
         [[nodiscard]] std::int32_t getResidual(LineID line) const override;
         [[nodiscard]] std::uint16_t getUnknownCount(LineID line) const override;
         [[nodiscard]] std::uint16_t getAssignedCount(LineID line) const override;
-        [[nodiscard]] std::array<LineID, 4> getLinesForCell(std::uint16_t r, std::uint16_t c) const override;
+        [[nodiscard]] std::array<LineID, 8> getLinesForCell(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] CellState getCellState(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint8_t getCellValue(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint16_t getRowUnknownCount(std::uint16_t r) const override;
@@ -150,6 +219,21 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] const LineStat &getStatDirect(std::uint32_t idx) const {
             return stats_[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
+
+        /**
+         * @name slopeFlatIndices
+         * @brief Get precomputed flat stat indices for the 4 slope partitions at cell (r, c).
+         *
+         * Returns a reference to 4 precomputed uint16_t flat stat indices, eliminating
+         * the expensive modular arithmetic (% 511) from hot paths. The table is computed
+         * once on first access and shared across all ConstraintStore instances.
+         *
+         * @param r Row index in [0, kS).
+         * @param c Column index in [0, kS).
+         * @return Reference to array of 4 flat stat indices [slope256, slope255, slope2, slope509].
+         */
+        [[nodiscard]] static const std::array<std::uint16_t, kNumSlopePartitions> &
+            slopeFlatIndices(std::uint16_t r, std::uint16_t c);
 
     private:
 

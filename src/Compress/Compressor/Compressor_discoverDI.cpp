@@ -6,6 +6,7 @@
 #include "compress/Compressor/Compressor.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -21,7 +22,7 @@
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/EnumerationController.h"
 #include "decompress/Solvers/PropagationEngine.h"
-#include "decompress/Solvers/Sha256HashVerifier.h"
+#include "decompress/Solvers/Sha1HashVerifier.h"
 
 namespace crsce::compress {
 
@@ -46,10 +47,18 @@ namespace crsce::compress {
         std::vector<std::uint16_t> colSums(kS);
         std::vector<std::uint16_t> diagSums(kDiagCount);
         std::vector<std::uint16_t> antiDiagSums(kDiagCount);
+        std::vector<std::uint16_t> slope256Sums(kS);
+        std::vector<std::uint16_t> slope255Sums(kS);
+        std::vector<std::uint16_t> slope2Sums(kS);
+        std::vector<std::uint16_t> slope509Sums(kS);
 
         for (std::uint16_t k = 0; k < kS; ++k) {
             rowSums[k] = payload.getLSM(k);
             colSums[k] = payload.getVSM(k);
+            slope256Sums[k] = payload.getHSM1(k);
+            slope255Sums[k] = payload.getSFC1(k);
+            slope2Sums[k] = payload.getHSM2(k);
+            slope509Sums[k] = payload.getSFC2(k);
         }
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             diagSums[k] = payload.getDSM(k);
@@ -58,14 +67,18 @@ namespace crsce::compress {
 
         // Create solver components as unique_ptrs.
         auto store = std::make_unique<decompress::solvers::ConstraintStore>(
-            rowSums, colSums, diagSums, antiDiagSums);
+            rowSums, colSums, diagSums, antiDiagSums,
+            slope256Sums, slope255Sums, slope2Sums, slope509Sums);
         auto propagator = std::make_unique<decompress::solvers::PropagationEngine>(*store);
         auto brancher = std::make_unique<decompress::solvers::BranchingController>(*store, *propagator);
-        auto hasher = std::make_unique<decompress::solvers::Sha256HashVerifier>(kS);
+        auto hasher = std::make_unique<decompress::solvers::Sha1HashVerifier>(kS);
 
-        // Set expected lateral hashes for each row.
+        // Set expected lateral hashes for each row (20-byte LH → 32-byte interface).
         for (std::uint16_t r = 0; r < kS; ++r) {
-            hasher->setExpected(r, payload.getLH(r));
+            const auto lh20 = payload.getLH(r);
+            std::array<std::uint8_t, 32> lh32{};
+            std::ranges::copy(lh20, lh32.begin());
+            hasher->setExpected(r, lh32);
         }
 
         // Create the enumeration controller.

@@ -113,6 +113,7 @@ namespace crsce::compress {
             common::format::CompressedPayload payload;
             computeCrossSums(csm, payload);
             computeLH(csm, payload);
+            computeBH(csm, payload);
 
             // Discover the disambiguation index (or skip if disabled).
             const std::uint8_t di = disableDI_ ? std::uint8_t{0}

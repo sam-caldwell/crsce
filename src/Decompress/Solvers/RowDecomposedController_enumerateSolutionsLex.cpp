@@ -87,10 +87,10 @@ namespace crsce::decompress::solvers {
         auto &cs = static_cast<ConstraintStore &>(*store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
         auto *cpuProp = dynamic_cast<PropagationEngine *>(propagator_.get());
 
-        // --- Initial propagation: queue all 3064 lines ---
+        // --- Initial propagation: queue all 5108 lines ---
         std::vector<LineID> allLines;
         constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
-        allLines.reserve(kS + kS + kNumDiags + kNumDiags);
+        allLines.reserve(kS + kS + kNumDiags + kNumDiags + (4 * kS));
         for (std::uint16_t i = 0; i < kS; ++i) {
             allLines.push_back({.type = LineType::Row, .index = i});
         }
@@ -102,6 +102,18 @@ namespace crsce::decompress::solvers {
         }
         for (std::uint16_t i = 0; i < kNumDiags; ++i) {
             allLines.push_back({.type = LineType::AntiDiagonal, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope256, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope255, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope2, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope509, .index = i});
         }
 
         (*propagator_).reset();
@@ -169,6 +181,7 @@ namespace crsce::decompress::solvers {
 
         std::uint64_t iterations = 0;
         std::uint64_t hashMismatches = 0;
+        std::uint64_t hashMismatchesAtWindowStart = 0;
         const auto dfsStart = std::chrono::steady_clock::now();
         auto windowStart = dfsStart;
 
@@ -259,13 +272,18 @@ namespace crsce::decompress::solvers {
                     ? 1048576.0 * 1e6 / static_cast<double>(windowUs) : 0.0;
                 const double avgRate = totalUs > 0
                     ? static_cast<double>(iterations) * 1e6 / static_cast<double>(totalUs) : 0.0;
+                const auto windowHashMismatches = hashMismatches - hashMismatchesAtWindowStart;
+                const double hashMismatchRate = windowUs > 0
+                    ? static_cast<double>(windowHashMismatches) * 1e6 / static_cast<double>(windowUs) : 0.0;
                 windowStart = now;
+                hashMismatchesAtWindowStart = hashMismatches;
                 ::crsce::o11y::O11y::instance().event("solver_dfs_iterations",
                     {{"iterations", std::to_string(iterations)},
                      {"depth", std::to_string(stack.size())},
                      {"iter_per_sec", std::to_string(static_cast<std::uint64_t>(windowRate))},
                      {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
-                     {"hash_mismatches", std::to_string(hashMismatches)}});
+                     {"hash_mismatches", std::to_string(hashMismatches)},
+                     {"hash_mismatches_per_sec", std::to_string(static_cast<std::uint64_t>(hashMismatchRate))}});
             }
 
             // Find the next unassigned cell in the ordering

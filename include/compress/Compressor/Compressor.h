@@ -20,14 +20,15 @@ namespace crsce::compress {
     /**
      * @class Compressor
      * @name Compressor
-     * @brief Compresses an input file into CRSCE format using cross-sum constraints and SHA-256 lateral hashes.
+     * @brief Compresses an input file into CRSCE format using cross-sum constraints, SHA-1 lateral hashes, and SHA-256 block hash.
      * @details
      * For each kS*kS-bit block the compressor:
      *   1. Loads bits into a CSM (row-major, MSB-first per byte)
-     *   2. Computes cross-sums (LSM, VSM, DSM, XSM)
-     *   3. Computes lateral hashes (SHA-256 per row)
-     *   4. Discovers the disambiguation index (DI) via solver enumeration
-     *   5. Serializes the block payload and writes to the output file
+     *   2. Computes cross-sums (LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2)
+     *   3. Computes lateral hashes (SHA-1 per row)
+     *   4. Computes block hash (SHA-256 of full CSM)
+     *   5. Discovers the disambiguation index (DI) via solver enumeration
+     *   6. Serializes the block payload and writes to the output file
      *
      * The output file consists of a 28-byte FileHeader followed by concatenated block payloads.
      */
@@ -91,13 +92,23 @@ namespace crsce::compress {
 
         /**
          * @name computeLH
-         * @brief Compute SHA-256 lateral hashes for each CSM row and fill the payload.
+         * @brief Compute SHA-1 lateral hashes for each CSM row and fill the payload.
          * @param csm The populated cross-sum matrix.
          * @param payload The CompressedPayload to fill with LH digests.
          * @return void
          * @throws None
          */
         static void computeLH(const common::Csm &csm, common::format::CompressedPayload &payload);
+
+        /**
+         * @name computeBH
+         * @brief Compute the SHA-256 block hash of the full CSM and store it in the payload.
+         * @param csm The populated cross-sum matrix.
+         * @param payload The CompressedPayload to fill with the BH digest.
+         * @return void
+         * @throws None
+         */
+        static void computeBH(const common::Csm &csm, common::format::CompressedPayload &payload);
 
         /**
          * @name discoverDI

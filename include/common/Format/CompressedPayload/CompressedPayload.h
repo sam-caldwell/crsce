@@ -3,10 +3,9 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  * @brief CompressedPayload class for CRSCE block serialization and deserialization.
  *
- * Each compressed block contains 511 lateral-hash digests, a diagnostics/info byte (DI),
- * and four cross-sum vectors (LSM, VSM, DSM, XSM) packed into a fixed-size
- * 19,549-byte payload.  LSM and VSM use 9-bit fixed-width encoding; DSM and XSM
- * use variable-width encoding based on the diagonal length at each index.
+ * Each compressed block contains 511 lateral-hash digests (SHA-1, 20 bytes each),
+ * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and eight cross-sum
+ * vectors packed into a fixed-size 15,749-byte payload.
  */
 #pragma once
 
@@ -19,17 +18,22 @@ namespace crsce::common::format {
     /**
      * @class CompressedPayload
      * @name CompressedPayload
-     * @brief Holds and serializes one CRSCE compressed block (19,549 bytes).
+     * @brief Holds and serializes one CRSCE compressed block (15,749 bytes).
      * @details
      * Block layout:
      *   Field   Elements  Bits/Element  Total Bits   Encoding
-     *   LH      511       256           130,816      32 bytes per digest, sequential
+     *   LH      511       160           81,760       20 bytes per SHA-1 digest, sequential
+     *   BH      1         256           256          32 bytes SHA-256 block hash
      *   DI      1         8             8            uint8
      *   LSM     511       9             4,599        MSB-first packed bitstream
      *   VSM     511       9             4,599        MSB-first packed bitstream
      *   DSM     1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
      *   XSM     1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
-     *   Total                           156,392 bits = 19,549 bytes
+     *   HSM1    511       9             4,599        MSB-first packed (slope 256)
+     *   SFC1    511       9             4,599        MSB-first packed (slope 255)
+     *   HSM2    511       9             4,599        MSB-first packed (slope 2)
+     *   SFC2    511       9             4,599        MSB-first packed (slope 509)
+     *   Total                           125,988 bits = 15,749 bytes
      */
     class CompressedPayload {
     public:
@@ -43,7 +47,7 @@ namespace crsce::common::format {
          * @name kBlockPayloadBytes
          * @brief Exact size of one serialized block in bytes.
          */
-        static constexpr std::size_t kBlockPayloadBytes = 19549;
+        static constexpr std::size_t kBlockPayloadBytes = 15749;
 
         /**
          * @name kDiagCount
@@ -58,25 +62,55 @@ namespace crsce::common::format {
          */
         CompressedPayload();
 
+        /**
+         * @name kLHDigestBytes
+         * @brief Size of a per-row lateral hash digest (SHA-1) in bytes.
+         */
+        static constexpr std::size_t kLHDigestBytes = 20;
+
+        /**
+         * @name kBHDigestBytes
+         * @brief Size of the block hash digest (SHA-256) in bytes.
+         */
+        static constexpr std::size_t kBHDigestBytes = 32;
+
         // -- LH accessors --
 
         /**
          * @name setLH
-         * @brief Store a 32-byte SHA-256 digest for row r.
+         * @brief Store a 20-byte SHA-1 digest for row r.
          * @param r Row index in [0, kS).
-         * @param digest The 32-byte digest to store.
+         * @param digest The 20-byte digest to store.
          * @throws std::out_of_range if r >= kS.
          */
-        void setLH(std::uint16_t r, const std::array<std::uint8_t, 32> &digest);
+        void setLH(std::uint16_t r, const std::array<std::uint8_t, kLHDigestBytes> &digest);
 
         /**
          * @name getLH
-         * @brief Retrieve the stored 32-byte SHA-256 digest for row r.
+         * @brief Retrieve the stored 20-byte SHA-1 digest for row r.
          * @param r Row index in [0, kS).
-         * @return Copy of the 32-byte digest.
+         * @return Copy of the 20-byte digest.
          * @throws std::out_of_range if r >= kS.
          */
-        [[nodiscard]] std::array<std::uint8_t, 32> getLH(std::uint16_t r) const;
+        [[nodiscard]] std::array<std::uint8_t, kLHDigestBytes> getLH(std::uint16_t r) const;
+
+        // -- BH accessors --
+
+        /**
+         * @name setBH
+         * @brief Store the 32-byte SHA-256 block hash.
+         * @param digest The 32-byte digest to store.
+         * @throws None
+         */
+        void setBH(const std::array<std::uint8_t, kBHDigestBytes> &digest);
+
+        /**
+         * @name getBH
+         * @brief Retrieve the stored 32-byte SHA-256 block hash.
+         * @return Copy of the 32-byte digest.
+         * @throws None
+         */
+        [[nodiscard]] std::array<std::uint8_t, kBHDigestBytes> getBH() const;
 
         // -- DI accessor --
 
@@ -176,6 +210,86 @@ namespace crsce::common::format {
          */
         [[nodiscard]] std::uint16_t getXSM(std::uint16_t k) const;
 
+        // -- HSM1 accessors (slope 256) --
+
+        /**
+         * @name setHSM1
+         * @brief Set the slope-256 (HSM1) sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setHSM1(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getHSM1
+         * @brief Get the slope-256 (HSM1) sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getHSM1(std::uint16_t k) const;
+
+        // -- SFC1 accessors (slope 255) --
+
+        /**
+         * @name setSFC1
+         * @brief Set the slope-255 (SFC1) sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setSFC1(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getSFC1
+         * @brief Get the slope-255 (SFC1) sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getSFC1(std::uint16_t k) const;
+
+        // -- HSM2 accessors (slope 2) --
+
+        /**
+         * @name setHSM2
+         * @brief Set the slope-2 (HSM2) sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setHSM2(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getHSM2
+         * @brief Get the slope-2 (HSM2) sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getHSM2(std::uint16_t k) const;
+
+        // -- SFC2 accessors (slope 509) --
+
+        /**
+         * @name setSFC2
+         * @brief Set the slope-509 (SFC2) sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setSFC2(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getSFC2
+         * @brief Get the slope-509 (SFC2) sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getSFC2(std::uint16_t k) const;
+
         // -- Serialization --
 
         /**
@@ -198,9 +312,15 @@ namespace crsce::common::format {
     private:
         /**
          * @name lh_
-         * @brief Lateral hash digests: kS SHA-256 digests (32 bytes each).
+         * @brief Lateral hash digests: kS SHA-1 digests (20 bytes each).
          */
-        std::vector<std::array<std::uint8_t, 32>> lh_;
+        std::vector<std::array<std::uint8_t, kLHDigestBytes>> lh_;
+
+        /**
+         * @name bh_
+         * @brief Block hash: SHA-256 digest of the full CSM (32 bytes).
+         */
+        std::array<std::uint8_t, kBHDigestBytes> bh_{};
 
         /**
          * @name di_
@@ -231,6 +351,30 @@ namespace crsce::common::format {
          * @brief Anti-diagonal sum vector: kDiagCount elements.
          */
         std::vector<std::uint16_t> xsm_;
+
+        /**
+         * @name hsm1_
+         * @brief Slope-256 (HSM1) sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> hsm1_;
+
+        /**
+         * @name sfc1_
+         * @brief Slope-255 (SFC1) sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> sfc1_;
+
+        /**
+         * @name hsm2_
+         * @brief Slope-2 (HSM2) sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> hsm2_;
+
+        /**
+         * @name sfc2_
+         * @brief Slope-509 (SFC2) sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> sfc2_;
 
         // -- Private bit-packing helpers --
 

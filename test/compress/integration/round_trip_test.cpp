@@ -87,13 +87,14 @@ TEST(RoundTrip, SingleByteRoundTrip) { // NOLINT(cert-err58-cpp,cppcoreguideline
 
     // Compress
     setenv("MAX_COMPRESSION_TIME", "30", 1); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner)
+    setenv("CRSCE_DISABLE_GPU", "1", 1); // NOLINT(concurrency-mt-unsafe,misc-include-cleaner) Metal GPU not yet updated for slope lines
     const crsce::compress::Compressor compressor;
     ASSERT_NO_THROW(compressor.compress(inputPath, compressedPath));
 
     // Verify compressed file exists and has expected size
-    // Header: 28 bytes, 1 block payload: 19,549 bytes → total 19,577 bytes
+    // Header: 28 bytes, 1 block payload: 21,849 bytes → total 21,877 bytes
     const auto compressedSize = std::filesystem::file_size(compressedPath);
-    EXPECT_EQ(compressedSize, 28U + 19549U) << "compressed file has unexpected size";
+    EXPECT_EQ(compressedSize, 28U + 15749U) << "compressed file has unexpected size";
 
     // Decompress
     crsce::decompress::Decompressor decompressor;

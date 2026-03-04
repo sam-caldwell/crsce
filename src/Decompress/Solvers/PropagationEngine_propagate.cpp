@@ -6,7 +6,6 @@
 #include "decompress/Solvers/PropagationEngine.h"
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -62,6 +61,46 @@ namespace crsce::decompress::solvers {
                     for (auto r = rMin; r <= rMax; ++r) {
                         const auto c = static_cast<std::uint16_t>(x - r);
                         callback(r, c);
+                    }
+                    break;
+                }
+
+                case LineType::Slope256: {
+                    constexpr std::uint16_t slope = 256;
+                    const auto k = static_cast<std::uint32_t>(line.index);
+                    for (std::uint16_t t = 0; t < kS; ++t) {
+                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
+                        callback(t, c);
+                    }
+                    break;
+                }
+
+                case LineType::Slope255: {
+                    constexpr std::uint16_t slope = 255;
+                    const auto k = static_cast<std::uint32_t>(line.index);
+                    for (std::uint16_t t = 0; t < kS; ++t) {
+                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
+                        callback(t, c);
+                    }
+                    break;
+                }
+
+                case LineType::Slope2: {
+                    constexpr std::uint16_t slope = 2;
+                    const auto k = static_cast<std::uint32_t>(line.index);
+                    for (std::uint16_t t = 0; t < kS; ++t) {
+                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
+                        callback(t, c);
+                    }
+                    break;
+                }
+
+                case LineType::Slope509: {
+                    constexpr std::uint16_t slope = 509;
+                    const auto k = static_cast<std::uint32_t>(line.index);
+                    for (std::uint16_t t = 0; t < kS; ++t) {
+                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
+                        callback(t, c);
                     }
                     break;
                 }
@@ -126,16 +165,13 @@ namespace crsce::decompress::solvers {
                 cs.assign(r, c, forceValue);
                 forced_.push_back({.r = r, .c = c, .value = forceValue});
 
-                // Add affected lines to the work queue (inline getLinesForCell arithmetic)
-                const auto d = static_cast<std::uint16_t>(c - r + (kS - 1));
-                const auto x = static_cast<std::uint16_t>(r + c);
-                const std::array<LineID, 4> affected = {{
-                    {.type = LineType::Row, .index = r},
-                    {.type = LineType::Column, .index = c},
-                    {.type = LineType::Diagonal, .index = d},
-                    {.type = LineType::AntiDiagonal, .index = x},
-                }};
-                for (const auto &affLine : affected) {
+                // Cascade through 4 basic lines only (row, col, diag, anti-diag).
+                // Slope stats are maintained via assign() and checked for feasibility
+                // in tryPropagateCell, but cascading through all 8 lines causes
+                // exponential propagation blowup that dominates iteration cost.
+                const auto affected = cs.getLinesForCell(r, c);
+                for (std::size_t i = 0; i < 4; ++i) {
+                    const auto &affLine = affected[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                     const auto idx = ConstraintStore::lineIndex(affLine);
                     if (!isQueued(idx)) {
                         markQueued(idx);

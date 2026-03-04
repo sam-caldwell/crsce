@@ -31,13 +31,22 @@ namespace {
      * @param colSums Target column sums (size kS).
      * @param diagSums Target diagonal sums (size kNumDiags).
      * @param antiDiagSums Target anti-diagonal sums (size kNumDiags).
+     * @param slope256Sums Target slope-256 sums (size kS).
+     * @param slope255Sums Target slope-255 sums (size kS).
+     * @param slope2Sums Target slope-2 sums (size kS).
+     * @param slope509Sums Target slope-509 sums (size kS).
      * @return Constructed ConstraintStore.
      */
     ConstraintStore makeStore(const std::vector<std::uint16_t> &rowSums,
                               const std::vector<std::uint16_t> &colSums,
                               const std::vector<std::uint16_t> &diagSums,
-                              const std::vector<std::uint16_t> &antiDiagSums) {
-        return {rowSums, colSums, diagSums, antiDiagSums};
+                              const std::vector<std::uint16_t> &antiDiagSums,
+                              const std::vector<std::uint16_t> &slope256Sums,
+                              const std::vector<std::uint16_t> &slope255Sums,
+                              const std::vector<std::uint16_t> &slope2Sums,
+                              const std::vector<std::uint16_t> &slope509Sums) {
+        return {rowSums, colSums, diagSums, antiDiagSums,
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
     }
 } // namespace
 
@@ -53,8 +62,13 @@ TEST(PropagationEngineTest, RhoZeroForcesAllUnknownsToZero) {
     const std::vector<std::uint16_t> colSums(kS, 0);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
+    const std::vector<std::uint16_t> slope256Sums(kS, 0);
+    const std::vector<std::uint16_t> slope255Sums(kS, 0);
+    const std::vector<std::uint16_t> slope2Sums(kS, 0);
+    const std::vector<std::uint16_t> slope509Sums(kS, 0);
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
     PropagationEngine engine(store);
 
     const std::vector<LineID> queue = {{.type = LineType::Row, .index = 0}};
@@ -91,6 +105,10 @@ TEST(PropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     std::vector<std::uint16_t> colSums(kS, 0);
     std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
+    std::vector<std::uint16_t> slope256Sums(kS, 0);
+    std::vector<std::uint16_t> slope255Sums(kS, 0);
+    std::vector<std::uint16_t> slope2Sums(kS, 0);
+    std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     // Anti-diagonal 0 contains only cell (0, 0). Set target = 1.
     antiDiagSums[0] = 1;
@@ -103,7 +121,14 @@ TEST(PropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     // Diagonal for (0,0) is index 510. Set its target to 1.
     diagSums[510] = 1;
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
+    // Slope line indices for cell (0,0) are all 0. Set targets to 1.
+    slope256Sums[0] = 1;
+    slope255Sums[0] = 1;
+    slope2Sums[0] = 1;
+    slope509Sums[0] = 1;
+
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
     PropagationEngine engine(store);
 
     const std::vector<LineID> queue = {
@@ -133,14 +158,23 @@ TEST(PropagationEngineTest, GetForcedAssignmentsReturnsList) {
     std::vector<std::uint16_t> colSums(kS, 0);
     std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
+    std::vector<std::uint16_t> slope256Sums(kS, 0);
+    std::vector<std::uint16_t> slope255Sums(kS, 0);
+    std::vector<std::uint16_t> slope2Sums(kS, 0);
+    std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     // Anti-diagonal 0 has length 1, target = 1 => forces cell (0,0) to 1
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
     diagSums[510] = 1;
+    slope256Sums[0] = 1;
+    slope255Sums[0] = 1;
+    slope2Sums[0] = 1;
+    slope509Sums[0] = 1;
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
     PropagationEngine engine(store);
 
     // Before propagation, forced list should be empty
@@ -163,13 +197,22 @@ TEST(PropagationEngineTest, ResetClearsForcedAssignments) {
     std::vector<std::uint16_t> colSums(kS, 0);
     std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
+    std::vector<std::uint16_t> slope256Sums(kS, 0);
+    std::vector<std::uint16_t> slope255Sums(kS, 0);
+    std::vector<std::uint16_t> slope2Sums(kS, 0);
+    std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
     diagSums[510] = 1;
+    slope256Sums[0] = 1;
+    slope255Sums[0] = 1;
+    slope2Sums[0] = 1;
+    slope509Sums[0] = 1;
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
     PropagationEngine engine(store);
 
     const std::vector<LineID> queue = {
@@ -193,8 +236,13 @@ TEST(PropagationEngineTest, InfeasibleWhenRhoNegative) {
     const std::vector<std::uint16_t> colSums(kS, 0);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
+    const std::vector<std::uint16_t> slope256Sums(kS, 0);
+    const std::vector<std::uint16_t> slope255Sums(kS, 0);
+    const std::vector<std::uint16_t> slope2Sums(kS, 0);
+    const std::vector<std::uint16_t> slope509Sums(kS, 0);
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
 
     // Manually assign cell (0, 0) to 1.  Row 0 target is 0, so rho = 0 - 1 = -1.
     store.assign(0, 0, 1);
@@ -217,11 +265,16 @@ TEST(PropagationEngineTest, InfeasibleWhenRhoGreaterThanU) {
     const std::vector<std::uint16_t> colSums(kS, 0);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
+    const std::vector<std::uint16_t> slope256Sums(kS, 0);
+    const std::vector<std::uint16_t> slope255Sums(kS, 0);
+    const std::vector<std::uint16_t> slope2Sums(kS, 0);
+    const std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     // Row 0 target = kS (need all kS cells to be 1)
     rowSums[0] = kS;
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
 
     // Assign all but the last cell on row 0 to 0
     for (std::uint16_t c = 0; c < kS - 1; ++c) {
@@ -244,7 +297,11 @@ TEST(PropagationEngineTest, EmptyQueueIsFeasible) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
-        std::vector<std::uint16_t>(kNumDiags, 0)
+        std::vector<std::uint16_t>(kNumDiags, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0)
     );
     PropagationEngine engine(store);
 
@@ -274,7 +331,14 @@ TEST(PropagationEngineTest, NoForcingWhenRhoBetweenZeroAndU) {
         antiDiagSums[d] = static_cast<std::uint16_t>(len / 2);
     }
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
+    // Each toroidal-slope line has length kS, so target kS/2 = 255 keeps rho between 0 and u.
+    const std::vector<std::uint16_t> slope256Sums(kS, 255);
+    const std::vector<std::uint16_t> slope255Sums(kS, 255);
+    const std::vector<std::uint16_t> slope2Sums(kS, 255);
+    const std::vector<std::uint16_t> slope509Sums(kS, 255);
+
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
     PropagationEngine engine(store);
 
     // Propagate row 0: rho = 255, u = 511. 0 < 255 < 511, so no forcing.

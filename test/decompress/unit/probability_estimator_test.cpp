@@ -33,7 +33,12 @@ namespace {
         const std::vector<std::uint16_t> colSums(kS, 0);
         const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-        return {rowSums, colSums, diagSums, antiDiagSums};
+        const std::vector<std::uint16_t> slope256Sums(kS, 0);
+        const std::vector<std::uint16_t> slope255Sums(kS, 0);
+        const std::vector<std::uint16_t> slope2Sums(kS, 0);
+        const std::vector<std::uint16_t> slope509Sums(kS, 0);
+        return {rowSums, colSums, diagSums, antiDiagSums,
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
     }
 
     /**
@@ -42,17 +47,24 @@ namespace {
      * @param colVal Uniform column sum value.
      * @param diagVal Uniform diagonal sum value.
      * @param antiDiagVal Uniform anti-diagonal sum value.
+     * @param slopeVal Uniform slope sum value (applied to all 4 slope partitions).
      * @return A ConstraintStore with the given uniform sums.
      */
     ConstraintStore makeUniformStore(const std::uint16_t rowVal,
                                      const std::uint16_t colVal,
                                      const std::uint16_t diagVal = 0,
-                                     const std::uint16_t antiDiagVal = 0) {
+                                     const std::uint16_t antiDiagVal = 0,
+                                     const std::uint16_t slopeVal = 0) {
         const std::vector<std::uint16_t> rowSums(kS, rowVal);
         const std::vector<std::uint16_t> colSums(kS, colVal);
         const std::vector<std::uint16_t> diagSums(kNumDiags, diagVal);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, antiDiagVal);
-        return {rowSums, colSums, diagSums, antiDiagSums};
+        const std::vector<std::uint16_t> slope256Sums(kS, slopeVal);
+        const std::vector<std::uint16_t> slope255Sums(kS, slopeVal);
+        const std::vector<std::uint16_t> slope2Sums(kS, slopeVal);
+        const std::vector<std::uint16_t> slope509Sums(kS, slopeVal);
+        return {rowSums, colSums, diagSums, antiDiagSums,
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
     }
 } // namespace
 
@@ -119,9 +131,20 @@ TEST(ProbabilityEstimatorTest, ScoresSortedByConfidenceDescending) {
     std::vector<std::uint16_t> colSums(kS, 255);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
+    // Slope sums: set index 0 to 1 (matching colSums[0]=1 for cell (0,0))
+    // so that score products are non-zero for the varied column.
+    std::vector<std::uint16_t> slope256Sums(kS, 0);
+    std::vector<std::uint16_t> slope255Sums(kS, 0);
+    std::vector<std::uint16_t> slope2Sums(kS, 0);
+    std::vector<std::uint16_t> slope509Sums(kS, 0);
+    slope256Sums[0] = 1;
+    slope255Sums[0] = 1;
+    slope2Sums[0] = 1;
+    slope509Sums[0] = 1;
     // Make column 0 different to create varied confidence values
     colSums[0] = 1;
-    const ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums);
+    const ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
+                                slope256Sums, slope255Sums, slope2Sums, slope509Sums);
 
     const ProbabilityEstimator estimator(store);
     const auto scores = estimator.computeCellScores(0);
@@ -155,7 +178,7 @@ TEST(ProbabilityEstimatorTest, SkipsAssignedCells) {
  *        and preferred should be 1.
  */
 TEST(ProbabilityEstimatorTest, HighTargetsPreferOne) {
-    auto store = makeUniformStore(kS, kS, 1, 1);
+    auto store = makeUniformStore(kS, kS, 1, 1, 1);
     const ProbabilityEstimator estimator(store);
 
     const auto scores = estimator.computeCellScores(0);

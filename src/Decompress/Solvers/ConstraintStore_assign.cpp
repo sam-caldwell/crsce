@@ -32,19 +32,30 @@ namespace crsce::decompress::solvers {
         // Update assigned bitset (LSB-first for ctzll scanning)
         assigned_[r][c / 64] |= (std::uint64_t{1} << (c % 64)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-        // Compute flat indices for the 4 affected lines
+        // Compute flat indices for the 4 original lines
         const auto ri = static_cast<std::uint32_t>(r);
         const auto ci = static_cast<std::uint32_t>(kS) + c;
         const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
         const auto xi = (2U * kS) + kNumDiags + static_cast<std::uint32_t>(r + c);
 
+        // Precomputed flat indices for the 4 slope lines (eliminates expensive % 511)
+        const auto &sl = slopeFlatIndices(r, c);
+        const auto si0 = static_cast<std::uint32_t>(sl[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const auto si1 = static_cast<std::uint32_t>(sl[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const auto si2 = static_cast<std::uint32_t>(sl[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const auto si3 = static_cast<std::uint32_t>(sl[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 
-        // Decrement unknown counts
+        // Decrement unknown counts for all 8 lines
         stats_[ri].unknown--;
         stats_[ci].unknown--;
         stats_[di].unknown--;
         stats_[xi].unknown--;
+        stats_[si0].unknown--;
+        stats_[si1].unknown--;
+        stats_[si2].unknown--;
+        stats_[si3].unknown--;
 
         // Increment assigned counts if value is 1
         if (v != 0) {
@@ -52,6 +63,10 @@ namespace crsce::decompress::solvers {
             stats_[ci].assigned++;
             stats_[di].assigned++;
             stats_[xi].assigned++;
+            stats_[si0].assigned++;
+            stats_[si1].assigned++;
+            stats_[si2].assigned++;
+            stats_[si3].assigned++;
         }
 
         // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)

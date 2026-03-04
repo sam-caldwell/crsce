@@ -65,6 +65,22 @@ namespace crsce::decompress::solvers {
                     }
                     break;
                 }
+
+                case LineType::Slope256:
+                case LineType::Slope255:
+                case LineType::Slope2:
+                case LineType::Slope509: {
+                    static constexpr std::array<std::uint16_t, 4> slopes = {256, 255, 2, 509};
+                    const auto slopeIdx = static_cast<std::size_t>(line.type) - static_cast<std::size_t>(LineType::Slope256);
+                    const auto p = static_cast<std::int32_t>(slopes.at(slopeIdx));
+                    const auto k = static_cast<std::int32_t>(line.index);
+                    for (std::uint16_t t = 0; t < kS; ++t) {
+                        const auto c = static_cast<std::uint16_t>(
+                            ((k + (p * static_cast<std::int32_t>(t))) % kS + kS) % kS);
+                        callback(t, c);
+                    }
+                    break;
+                }
             }
         }
     } // anonymous namespace
@@ -138,15 +154,10 @@ namespace crsce::decompress::solvers {
                         cs.assign(r, c, forceValue);
                         forced_.push_back({.r = r, .c = c, .value = forceValue});
 
-                        const auto d = static_cast<std::uint16_t>(c - r + (kS - 1));
-                        const auto x = static_cast<std::uint16_t>(r + c);
-                        const std::array<LineID, 4> affected = {{
-                            {.type = LineType::Row, .index = r},
-                            {.type = LineType::Column, .index = c},
-                            {.type = LineType::Diagonal, .index = d},
-                            {.type = LineType::AntiDiagonal, .index = x},
-                        }};
-                        for (const auto &affLine : affected) {
+                        // Cascade through 4 basic lines only (row, col, diag, anti-diag).
+                        const auto affected = cs.getLinesForCell(r, c);
+                        for (std::size_t i = 0; i < 4; ++i) {
+                            const auto &affLine = affected[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                             const auto idx = ConstraintStore::lineIndex(affLine);
                             if (!queued_.test(idx)) {
                                 queued_.set(idx);
@@ -175,19 +186,13 @@ namespace crsce::decompress::solvers {
                     return false;
                 }
 
-                // If GPU found new forced assignments, re-enter CPU loop with affected lines
+                // If GPU found new forced assignments, re-enter CPU loop with basic lines
                 if (forced_.size() > forcedBefore) {
                     for (auto idx = forcedBefore; idx < forced_.size(); ++idx) {
                         const auto &a = forced_[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                        const auto d = static_cast<std::uint16_t>(a.c - a.r + (kS - 1));
-                        const auto x = static_cast<std::uint16_t>(a.r + a.c);
-                        const std::array<LineID, 4> affected = {{
-                            {.type = LineType::Row, .index = a.r},
-                            {.type = LineType::Column, .index = a.c},
-                            {.type = LineType::Diagonal, .index = d},
-                            {.type = LineType::AntiDiagonal, .index = x},
-                        }};
-                        for (const auto &affLine : affected) {
+                        const auto affected = cs.getLinesForCell(a.r, a.c);
+                        for (std::size_t i = 0; i < 4; ++i) {
+                            const auto &affLine = affected[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                             const auto li = ConstraintStore::lineIndex(affLine);
                             if (!queued_.test(li)) {
                                 queued_.set(li);

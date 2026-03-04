@@ -15,7 +15,7 @@ namespace crsce::decompress::solvers {
     /**
      * @struct CellScore
      * @name CellScore
-     * @brief Per-cell probability estimate derived from column, diagonal, and anti-diagonal residuals.
+     * @brief Per-cell probability estimate derived from 7 non-row line residuals.
      */
     struct CellScore {
         /**
@@ -32,15 +32,15 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name score1
-         * @brief Product rho_col * rho_diag * rho_anti, proportional to P(cell=1).
+         * @brief Product of 7 rho values (col, diag, anti-diag, 4 slopes), proportional to P(cell=1).
          */
-        std::uint32_t score1;
+        std::uint64_t score1;
 
         /**
          * @name score0
-         * @brief Product (u_col-rho_col) * (u_diag-rho_diag) * (u_anti-rho_anti), proportional to P(cell=0).
+         * @brief Product of 7 (u-rho) values, proportional to P(cell=0).
          */
-        std::uint32_t score0;
+        std::uint64_t score0;
 
         /**
          * @name preferred
@@ -52,7 +52,7 @@ namespace crsce::decompress::solvers {
          * @name confidence
          * @brief Absolute difference |score1 - score0| for sorting (higher = more confident).
          */
-        std::uint32_t confidence;
+        std::uint64_t confidence;
     };
 
     /**
@@ -60,9 +60,9 @@ namespace crsce::decompress::solvers {
      * @name ProbabilityEstimator
      * @brief Computes per-cell P(1) estimates from cross-line residuals for a given row.
      *
-     * Uses only the column, diagonal, and anti-diagonal lines (not the row line) to
-     * estimate how likely each unknown cell is to be 1 vs 0. The scores are products
-     * of residuals, bounded by 511^3 < 2^27, so uint32_t arithmetic suffices.
+     * Uses only the 7 non-row lines (column, diagonal, anti-diagonal, and 4 toroidal
+     * slopes) to estimate how likely each unknown cell is to be 1 vs 0. The scores
+     * are products of 7 residuals, bounded by 511^7 < 2^63, so uint64_t arithmetic suffices.
      */
     class ProbabilityEstimator {
     public:

@@ -31,7 +31,12 @@ namespace {
         const std::vector<std::uint16_t> colSums(kS, 0);
         const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-        return {rowSums, colSums, diagSums, antiDiagSums};
+        const std::vector<std::uint16_t> slope256Sums(kS, 0);
+        const std::vector<std::uint16_t> slope255Sums(kS, 0);
+        const std::vector<std::uint16_t> slope2Sums(kS, 0);
+        const std::vector<std::uint16_t> slope509Sums(kS, 0);
+        return {rowSums, colSums, diagSums, antiDiagSums,
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
     }
 
     /**
@@ -45,7 +50,12 @@ namespace {
         const std::vector<std::uint16_t> colSums(kS, colSumVal);
         const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-        return {rowSums, colSums, diagSums, antiDiagSums};
+        const std::vector<std::uint16_t> slope256Sums(kS, 0);
+        const std::vector<std::uint16_t> slope255Sums(kS, 0);
+        const std::vector<std::uint16_t> slope2Sums(kS, 0);
+        const std::vector<std::uint16_t> slope509Sums(kS, 0);
+        return {rowSums, colSums, diagSums, antiDiagSums,
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
     }
 } // namespace
 
@@ -204,12 +214,12 @@ TEST(ConstraintStoreTest, GetRowSetsBitsCorrectly) {
 }
 
 /**
- * @brief getLinesForCell returns exactly 4 lines (row, col, diag, anti-diag).
+ * @brief getLinesForCell returns exactly 8 lines (row, col, diag, anti-diag, 4 slopes).
  */
-TEST(ConstraintStoreTest, GetLinesForCellReturnsFourLines) {
+TEST(ConstraintStoreTest, GetLinesForCellReturnsEightLines) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(0, 0);
-    EXPECT_EQ(lines.size(), 4U);
+    EXPECT_EQ(lines.size(), 8U);
 }
 
 /**

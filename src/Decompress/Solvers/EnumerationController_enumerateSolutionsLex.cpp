@@ -64,9 +64,9 @@ namespace crsce::decompress::solvers {
         // Create async hash pipeline for this enumeration run
         pipeline_ = std::make_unique<AsyncHashPipeline>(*hasher_, 8);
 
-        // Initial propagation: queue all lines
+        // Initial propagation: queue all 5108 lines (8 families)
         std::vector<LineID> allLines;
-        allLines.reserve(kS + kS + ((2 * kS) - 1) + ((2 * kS) - 1));
+        allLines.reserve(kS + kS + ((2 * kS) - 1) + ((2 * kS) - 1) + (4 * kS));
         for (std::uint16_t i = 0; i < kS; ++i) {
             allLines.push_back({.type = LineType::Row, .index = i});
         }
@@ -78,6 +78,18 @@ namespace crsce::decompress::solvers {
         }
         for (std::uint16_t i = 0; i < (2 * kS) - 1; ++i) {
             allLines.push_back({.type = LineType::AntiDiagonal, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope256, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope255, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope2, .index = i});
+        }
+        for (std::uint16_t i = 0; i < kS; ++i) {
+            allLines.push_back({.type = LineType::Slope509, .index = i});
         }
 
         (*propagator_).reset();
@@ -118,6 +130,7 @@ namespace crsce::decompress::solvers {
         std::uint64_t dfsIterations = 0;
         std::uint64_t failedNotFeasible = 0;
         std::uint64_t failedHashMismatch = 0;
+        std::uint64_t failedHashMismatchAtWindowStart = 0;
         std::uint64_t candidatesSubmitted = 0;
 
         const auto dfsStart = std::chrono::steady_clock::now();
@@ -133,7 +146,11 @@ namespace crsce::decompress::solvers {
                 const auto totalUs = std::chrono::duration_cast<std::chrono::microseconds>(now - dfsStart).count();
                 const double windowRate = windowUs > 0 ? 1000000.0 * 1e6 / static_cast<double>(windowUs) : 0.0;
                 const double avgRate = totalUs > 0 ? static_cast<double>(dfsIterations) * 1e6 / static_cast<double>(totalUs) : 0.0;
+                const auto windowHashMismatches = failedHashMismatch - failedHashMismatchAtWindowStart;
+                const double hashMismatchRate = windowUs > 0
+                    ? static_cast<double>(windowHashMismatches) * 1e6 / static_cast<double>(windowUs) : 0.0;
                 windowStart = now;
+                failedHashMismatchAtWindowStart = failedHashMismatch;
                 ::crsce::o11y::O11y::instance().event("solver_dfs_iterations",
                     {{"count", std::to_string(dfsIterations)},
                      {"depth", std::to_string(stack.size())},
@@ -141,6 +158,7 @@ namespace crsce::decompress::solvers {
                      {"avg_iter_per_sec", std::to_string(static_cast<std::uint64_t>(avgRate))},
                      {"failed_not_feasible", std::to_string(failedNotFeasible)},
                      {"failed_hash_mismatch", std::to_string(failedHashMismatch)},
+                     {"hash_mismatches_per_sec", std::to_string(static_cast<std::uint64_t>(hashMismatchRate))},
                      {"candidates_submitted", std::to_string(candidatesSubmitted)}});
             }
 
