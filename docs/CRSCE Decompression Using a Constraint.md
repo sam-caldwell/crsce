@@ -1768,186 +1768,165 @@ priority queue (B.4), which achieves earlier LH verification by steering the sol
 rather than adding sub-row hash checkpoints. The priority queue approach requires no additional storage, no format
 changes, and no increase in per-block payload size.
 
-### B.2 Auxiliary Cross-Sum Partitions as Solver Accelerators
+### B.2 Auxiliary Cross-Sum Partitions as Solver Accelerators (Implemented)
 
-The lateral hash vector (LH) provides cryptographic collision resistance at a cost of $160s = 81{,}760$ bits per block.
-While no finite number of additional cross-sum partitions can replicate the nonlinear collision resistance of SHA-1
-(see Section 3.3), auxiliary partitions may nevertheless improve decompression performance by increasing the density of
-constraint-propagation forcing opportunities, potentially reducing solver runtime to meet a sub-second wall-clock
-budget.
+This appendix originally proposed adding auxiliary cross-sum partitions to increase constraint density and accelerate
+decompression. Four toroidal-slope partitions --- HSM1 ($p = 256$), SFC1 ($p = 255$), HSM2 ($p = 2$), and SFC2
+($p = 509$) --- have been integrated into the main specification (Sections 2.4, 3.1, 10.2--10.3, and 12.4). The
+implementation uses the toroidal modular-slope construction described in B.5 rather than the Hilbert-curve geometry
+originally proposed here. The constraint store now manages $10s - 2 = 5{,}108$ lines (511 rows + 511 columns + 1,021
+diagonals + 1,021 anti-diagonals + $4 \times 511$ slope lines), each cell participates in 8 constraint lines, and the
+per-block payload is 125,988 bits (15,749 bytes) at a compression ratio of $C_r \approx 0.5175$ (51.8%).
 
-**Information-theoretic limitations.** A cross-sum partition of $s$ groups of $s$ cells contributes at most
-$s \lceil \log_2(s+1) \rceil = 4{,}599$ bits of constraint information. The LH budget of 130,816 bits accommodates at
-most $\lfloor 130{,}816 / 4{,}599 \rfloor = 28$ such partitions. Even 28 partitions yield a total signature of
-approximately 30,167 bits --- far short of the $s^2 = 261{,}121$ bits needed to uniquely determine the matrix. The
-expected collision class size with all 28 partitions (and no LH) remains $2^{230{,}954}$, making sum-only
-reconstruction without hashes infeasible. To quantify the collision probability precisely: the signature space of all
-cross-sum partitions combined (the four original families plus 28 auxiliary) has at most $2^{30{,}167}$ distinct values,
-while the matrix space has $2^{261{,}121}$ elements. By the pigeonhole principle, the probability that a uniformly
-random matrix is the unique preimage of its signature is at most $2^{30{,}167} / 2^{261{,}121} = 2^{-230{,}954}$, so
+The remainder of this section summarizes the analytical framework for evaluating the implemented design and assesses
+the cost and benefit of adding further partitions.
 
-$$
-    P(\text{collision} \mid 28 \text{ auxiliary partitions, no LH}) \geq 1 - 2^{-230{,}954}
-    \approx 1 - 10^{-69{,}541} = 0.\underbrace{99\ldots9}_{69{,}541 \text{ nines}}.
-$$
+#### B.2.1 Information-Theoretic Bounds
 
-Collision is a virtual certainty with this limited view.  See the caveat, below. The actual collision probability
-is almost certainly lower due to the construction of cross sum vectors. Nonetheless, for comparison, the current
-design with four partitions and LH achieves
-$P(\text{collision}) \approx 10^{-30{,}000}$
-under the SHA-1/SHA-256 random-oracle model (Section 3.3). The gap between the two regimes is qualitative, not merely
-quantitative: cross-sum constraints are linear functionals over $\mathbb{Z}$, so the set of indistinguishable
-matrices forms a coset of a lattice in
-$\mathbb{Z}^{s^2}$ with kernel dimension at least $s^2 - (7s - 6) \approx 257{,}550$ even after all partitions are
-included. SHA-256, by contrast, is a nonlinear pseudorandom function with no exploitable algebraic kernel. No number
-of additional linear sum partitions can close this gap.
+A cross-sum partition of $s$ groups of $s$ cells contributes at most $s \lceil \log_2(s+1) \rceil = 4{,}599$ bits of
+constraint information. The 8 implemented partitions contribute a combined maximum of $6sb + 2B_d(s) = 43{,}982$ bits
+of cross-sum information (where $b = 9$ for the 6 uniform-length families and $B_d(s)$ accounts for the variable-
+length DSM and XSM encodings). This is far short of the $s^2 = 261{,}121$ bits needed to uniquely determine the
+matrix. The kernel dimension of the linear constraint system is at least $s^2 - (10s - 2) = 255{,}013$, confirming
+that cross-sum constraints alone --- regardless of how many partitions are added --- cannot replace the nonlinear
+collision resistance provided by SHA-1 LH and SHA-256 BH.
 
-The following table summarizes the collision probability under three configurations:
+The following table summarizes the current and hypothetical configurations:
 
-| Configuration               | Information (bits) | Collision class size | $P(\text{collision})$            |
-|-----------------------------|--------------------|----------------------|----------------------------------|
-| 4 partitions only           | 25,568             | $2^{235{,}553}$      | $1 - 10^{-70{,}926}$             |
-| 4 partitions + 28 auxiliary | 30,167             | $2^{230{,}954}$      | $1 - 10^{-69{,}541}$             |
-| 4 partitions + LH (current) | 156,384            | $\leq 2^{-256}$ (cryptographic) | $\leq 10^{-39{,}380}$ |
+| Configuration                        | Cross-sum bits | Lines   | Lines/cell | $C_r$  |
+|--------------------------------------|----------------|---------|------------|--------|
+| 4 original (LSM/VSM/DSM/XSM)        | 25,568         | 3,064   | 4          | 0.6989 |
+| 8 implemented (+ HSM1/SFC1/HSM2/SFC2)| 43,982        | 5,108   | 8          | 0.5175 |
+| 10 partitions (+ 1 pair)            | 53,180         | 6,130   | 10         | 0.4823 |
+| 12 partitions (+ 2 pairs)           | 62,378         | 7,152   | 12         | 0.4471 |
+| 16 partitions (+ 4 pairs)           | 80,774         | 9,196   | 16         | 0.3768 |
 
-**Interlocking geometry and minimum swap size.** The pigeonhole and rank-nullity bounds above are *loose upper bounds*
-that treat each partition's sums as independent information channels. In practice, interlocking partitions create tight
-dependencies between sums: a single cell participates in one line from each of the 6 (or 32) partitions, so flipping
-that cell perturbs 6 (or 32) sums simultaneously. For a swap pattern to be invisible to the entire partition system, it
-must produce zero net change on *every* line it touches. This constraint increases the minimum number of cells involved
-in any valid swap, which in turn reduces the number of achievable collisions.
+Each additional pair of toroidal-slope partitions costs $2sb = 9{,}198$ bits per block (3.5 percentage points of
+compression ratio) and adds $2s = 1{,}022$ constraint lines.
 
-**Minimum swap size with linear partitions.** With only LSM and VSM, the minimal invisible swap is a 4-cell rectangle:
-cells at $(r_1, c_1)$, $(r_1, c_2)$, $(r_2, c_1)$, $(r_2, c_2)$ with alternating $+1/-1$ flips. Each row sees one
-$+1$ and one $-1$; each column likewise. However, adding DSM and XSM imposes further constraints: the four cells of a
-generic rectangle fall on four *distinct* diagonals and four distinct anti-diagonals, each seeing a single unbalanced
-$\pm 1$ flip. For the rectangle to also balance DSM, cells must pair on shared diagonals, requiring
-$c_1 - r_1 = c_2 - r_2$ and $c_2 - r_1 = c_1 - r_2$, which forces $c_1 = c_2$ --- a degenerate rectangle. The
-minimum invisible swap under all four linear partitions is therefore *already larger than 4 cells* for generic
-configurations. Balanced swaps require coordinated multi-cell patterns where each of the $4k$ (line, cell) interactions
-sums to zero simultaneously.
+#### B.2.2 Minimum Swap Size and Collision Resistance
 
-**Effect of adding PSM and NSM.** Space-filling curve partitions make the balance condition strictly harder. Each of the
-$k$ cells in a candidate swap falls on one PSM segment and one NSM segment, in addition to its row, column, diagonal,
-and anti-diagonal. For the swap to be invisible to PSM, every PSM segment touching a swap cell must contain an even
-number of affected cells with equal $+1/-1$ split. A segment containing a single affected cell detects the swap
-immediately. Because Hilbert curve segments are spatially compact and geometrically nonlinear, the probability that $k$
-cells pair up within PSM segments *and* within NSM segments *and* balance across all four original families
-simultaneously is extremely small.
+The pigeonhole bound above is a loose upper bound that treats each partition's sums as independent. In practice,
+interlocking partitions create tight dependencies: a single cell participates in one line from each of the 8
+partitions, so flipping that cell perturbs 8 sums simultaneously. For a swap pattern to be invisible to the entire
+partition system, it must produce zero net change on *every* line it touches.
 
-**Collision probability as a function of minimum swap size.** Let $k_{\min}$ denote the minimum number of cells in an
-invisible swap for a 6-partition system. The expected number of collision partners for a uniformly random matrix $M$ is
-bounded by:
+With only LSM and VSM, the minimal invisible swap is a 4-cell rectangle with alternating $+1/-1$ flips. Adding DSM
+and XSM breaks generic rectangles (the four cells fall on four distinct diagonals, each seeing an unbalanced flip),
+raising the minimum swap size above 4 cells. Each additional toroidal-slope partition imposes further balance
+constraints: the $k$ cells in a candidate swap must pair up within each slope line they touch, with equal $+1/-1$
+split per line.
+
+Let $k_{\min}$ denote the minimum swap size for an $n$-partition system. The expected number of collision partners
+for a uniformly random matrix is bounded by:
 
 $$
-    E[\text{collisions}] \leq \sum_{k=k_{\min}}^{s^2} \binom{s^2}{k} \cdot 2^{-k} \cdot g_6(k)
+    E[\text{collisions}] \lessapprox \left(\frac{e \, s^2}{2k}\right)^k \cdot \exp(-nk \, e^{-k/s})
+    \cdot 2^{-nk^2/(2s)}
 $$
 
-where $2^{-k}$ accounts for binary feasibility (each flipped cell must have the correct current value in $M$ to remain
-in $\{0,1\}$) and $g_6(k)$ is the probability that a random $k$-cell subset admits a valid balanced swap across all 6
-partitions. The factor $g_6(k)$ incorporates two conditions: (a) no line may contain exactly one affected cell (the
-"no-singletons" condition), and (b) for each line with $m \geq 2$ affected cells, the $\pm 1$ assignment must sum to
-zero.
+where the first factor counts $k$-cell subsets, the second enforces the no-singleton condition across $n$ partitions,
+and the third enforces pairwise balance. The following table evaluates this bound at $n = 8$ (implemented) and
+$n = 12$ (hypothetical) for representative swap sizes:
 
-For condition (a) alone, modeling cell-to-line assignments as Poisson with rate $\lambda = k/s$, the probability that a
-single partition has no singleton lines is approximately $\exp(-k \, e^{-k/s})$. For 6 partitions:
+| $k_{\min}$ | $E[\text{collisions}]$ ($n = 8$) | $E[\text{collisions}]$ ($n = 12$) |
+|:-----------:|:--------------------------------:|:---------------------------------:|
+| 8           | $\approx 10^{14}$               | $\approx 10^{10}$                |
+| 20          | $\approx 10^{15}$               | $\approx 10^{5}$                 |
+| 50          | $\approx 10^{-8}$               | $\approx 10^{-50}$               |
+| 80          | $\approx 10^{-75}$              | $\approx 10^{-157}$              |
+| 100         | $\approx 10^{-138}$             | $\approx 10^{-260}$              |
 
-$$
-    P(\text{no singletons on all 6}) \approx \exp(-6k \, e^{-k/s}).
-$$
+For $n = 8$, the collision count drops below 1 at $k_{\min} \gtrsim 45$. For $n = 12$, this threshold drops to
+$k_{\min} \gtrsim 25$. In either case, LH and BH provide the definitive collision guarantee ($\sim 10^{-30{,}000}$);
+the cross-sum collision analysis is relevant only as a secondary assurance and for understanding the propagation
+benefit.
 
-For condition (b), each line with exactly 2 affected cells must have opposite signs, contributing an additional factor
-of approximately $(1/2)$ per such line. The number of 2-cell lines per partition is approximately
-$s \cdot \lambda^2 e^{-\lambda}/2 = k^2 / (2s)$ under the Poisson model, giving a per-partition balance factor of
-$(1/2)^{k^2/(2s)}$. Across 6 partitions:
+#### B.2.3 Propagation Benefit of Additional Partitions
 
-$$
-    P(\text{pairwise balance}) \approx 2^{-3k^2/s}.
-$$
-
-Combining all factors and using $\binom{s^2}{k} \approx (e \, s^2 / k)^k$:
-
-$$
-    E[\text{collisions}] \lessapprox \left(\frac{e \, s^2}{2k}\right)^k \cdot \exp(-6k \, e^{-k/s}) \cdot 2^{-3k^2/s}.
-$$
-
-The following table evaluates this bound for $s = 511$ (so $s^2 = 261{,}121$) across several values of $k_{\min}$:
-
-| $k_{\min}$ | $\binom{s^2}{k} \cdot 2^{-k}$ | $P(\text{no singletons})$ | $P(\text{balance})$ | $E[\text{collisions}]$ |
-|---|---|---|---|---|
-| 8     | $\approx 10^{38}$  | $\approx 10^{-20}$  | $\approx 10^{-1}$   | $\approx 10^{17}$             |
-| 20    | $\approx 10^{79}$  | $\approx 10^{-50}$  | $\approx 10^{-7}$   | $\approx 10^{22}$             |
-| 50    | $\approx 10^{168}$ | $\approx 10^{-118}$ | $\approx 10^{-44}$  | $\approx 10^{6}$              |
-| 80    | $\approx 10^{247}$ | $\approx 10^{-182}$ | $\approx 10^{-112}$ | $\approx 10^{-47}$            |
-| 100   | $\approx 10^{296}$ | $\approx 10^{-222}$ | $\approx 10^{-175}$ | $\approx 10^{-101}$           |
-| 150   | $\approx 10^{408}$ | $\approx 10^{-314}$ | $\approx 10^{-395}$ | $\approx 10^{-301}$           |
-
-The critical observation is that for $k_{\min} \gtrsim 80$, the expected number of collision partners drops below 1,
-meaning the probability of collision becomes small. At $k_{\min} \geq 100$ the probability is negligible by any
-engineering standard, and at $k_{\min} \geq 150$ it approaches the cryptographic regime ($10^{-301}$ is comparable to
-$2^{-1{,}000}$).
-
-Whether Hilbert-curve-based PSM/NSM partitions push $k_{\min}$ into this range is an open empirical question. The
-nonlinear, spatially compact geometry of Hilbert segments makes it difficult for small cell sets to pair up
-simultaneously on all 6 partition families, suggesting $k_{\min}$ may be substantially larger than the linear-only
-case. Empirical enumeration at small matrix sizes ($s = 15$ or $s = 31$) would provide direct measurements of
-$k_{\min}$ for specific curve geometries, and extrapolation to $s = 511$ would indicate whether sum-only collision
-resistance is sufficient in practice or whether LH remains necessary.
-
-**Propagation benefit.** Each additional partition increases the number of constraint lines per cell. With the eight
-existing families (LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2), each cell participates in 8 lines. Adding $k$ further
-partitions raises this to $8 + k$. The propagator's forcing rules ($\rho = 0$ forces zeros, $\rho = u$ forces ones)
-trigger independently on each line, so the probability that a cell remains free after propagation drops from $(1-f)^8$
-to $(1-f)^{8+k}$, where $f$ is the per-line forcing probability. Even $k = 2$ further reduces the expected free-cell
-count, which can shrink the DFS backtracking tree exponentially.
-
-**Proposed geometry: space-filling curve slicing.** A Hilbert curve (or similar space-filling curve) traverses all
-$s^2$ cells in a spatially coherent order. Cutting the curve into $s$ consecutive segments of $s$ cells each produces
-a partition satisfying all three cross-sum axioms (Section 2.2.1). The orthogonal partner is obtained by applying the
-same procedure to a 90°-rotated (transposed) traversal of the matrix. This yields two new cross-sum families:
-
-- **PSM** (P-curve sums): $s = 511$ segments from the Hilbert curve in the natural orientation.
-- **NSM** (N-curve sums): $s = 511$ segments from the Hilbert curve over the transposed matrix.
-
-Each segment meanders through a compact spatial region, crossing many rows, columns, diagonals, and anti-diagonals at
-non-degenerate angles. Because the Hilbert curve is self-similar and nonlinear, the resulting partitions are
-geometrically independent from the four existing linear families, maximizing the incremental constraint information per
-added bit.
-
-**Implementation via static lookup tables.** Rather than computing curve coordinates at runtime, the partition
-assignments are precomputed at build time by a code-generation script. The script generates two C++ headers, each
-containing a `constexpr std::array<uint16_t, 261121>` that maps the flat cell index $(r \times s + c)$ to the
-partition line index $k \in \{0, \ldots, 510\}$. At runtime, the constraint store resolves PSM and NSM line membership
-via a single array lookup per cell --- identical in cost to the existing row/column index computations and free of
-modular arithmetic overhead. The combined table size is approximately 510 KB of static read-only memory, loaded once at
-program startup.
-
-**Hilbert curve adaptation for non-power-of-two grids.** The standard Hilbert curve is defined on $2^n \times 2^n$
-grids. For $s = 511$, two adaptation strategies exist. First, generate the curve on a $512 \times 512$ grid and
-discard the 1,023 cells falling outside the $511 \times 511$ matrix, adjusting the two affected segment lengths
-accordingly (these segments would encode their sums using fewer bits, analogous to the variable-length treatment of DSM
-and XSM). Second, use a generalized Hilbert curve construction for non-power-of-two dimensions (Hamilton \&
-Rau-Chaplin, 2008). The former is simpler to implement; the latter produces a cleaner partition at the cost of a more
-complex generator.
-
-**Storage cost and compression ratio impact.** Two additional partitions add $2 \times 4{,}599 = 9{,}198$ bits per
-block, increasing the block payload from 156,392 to 165,590 bits. The revised compression ratio becomes:
+Each additional partition increases the number of constraint lines per cell. The propagator's forcing rules
+($\rho = 0$ forces zeros, $\rho = u$ forces ones) trigger independently on each line. If $f$ denotes the per-line
+forcing probability at a given search depth, the probability that a cell remains unforceable after propagation is
+$(1 - f)^n$ for $n$ lines per cell. The reduction from $n = 8$ to $n = 10$ is:
 
 $$
-    C_r = 1 - \frac{165{,}590}{261{,}121} \approx 0.3658
+    \frac{(1-f)^{10}}{(1-f)^8} = (1-f)^2
 $$
 
-This reduces space savings from 40.1\% to 36.6\% --- a 3.5 percentage-point penalty. Whether this tradeoff is
-justified depends on the empirical decompression speedup, which can only be measured once the solver is implemented and
-profiled against worst-case inputs (random-looking matrices with sums clustered near $s/2$, where forcing rules trigger
-least frequently).
+At a representative $f = 0.05$ (5% per-line forcing probability in the mid-solve), this reduces the unforceable
+fraction by a factor of $(0.95)^2 = 0.9025$ --- a 10% reduction in the number of cells requiring branching decisions.
+Because DFS tree size is exponential in the number of branch points, even a modest reduction compounds significantly.
 
-**Open questions.** (a) What is the minimum number of auxiliary partitions needed to bring worst-case decompression
-under 1 second on Apple Silicon? (b) Does the Hilbert curve's spatial coherence outperform algebraic constructions
-(e.g., toroidal modular-slope lines) in propagation cascade depth, or is crossing density the dominant factor
-regardless of geometry? (c) Can auxiliary partitions be combined with the segmented prefix hashes of Section B.1 to
-simultaneously accelerate propagation and enable early hash pruning, and if so, what is the optimal allocation of the
-LH bit budget between the two mechanisms?
+The toroidal-slope construction guarantees 1-cell orthogonality between all partition pairs (Section 2.2.1): any two
+lines from different partitions share exactly 1 cell. This means every assignment propagates information into every
+other partition without redundancy. Additional slope pairs preserve this property provided $\gcd(p, 511) = 1$ and
+$\gcd(|p_i - p_j|, 511) = 1$ for all existing slopes $p_j$. The current slopes $\{2, 255, 256, 509\}$ leave
+abundant room for expansion --- up to 255 total pairs are theoretically possible (see B.5.1(b)).
+
+#### B.2.4 Implemented Design: Toroidal Modular-Slope Partitions
+
+The original B.2 proposed Hilbert-curve-based PSM/NSM partitions implemented via static lookup tables. The actual
+implementation uses toroidal modular-slope partitions instead, for three reasons:
+
+*Analytical orthogonality.* The toroidal-slope construction provides a proof-backed guarantee that any two lines from
+different partitions intersect in exactly 1 cell, via the $\gcd$-based argument in Section 2.2.1. Hilbert-curve
+partitions have no such guarantee --- their crossing density depends on the specific curve geometry and must be verified
+empirically.
+
+*Zero-overhead index computation.* Slope line membership is computed as $k = (c - pr) \bmod s$, which compiles to a
+multiply-subtract-modulo sequence costing 1--2 cycles on Apple Silicon. The `ConstraintStore` precomputes flat
+stat-array indices for all 4 slope families via `slopeFlatIndices(r, c)`, eliminating even the modular arithmetic from
+the hot path. Hilbert-curve partitions would require a 510 KB lookup table per partition pair.
+
+*Trivial extensibility.* Adding a new slope pair requires selecting a slope $p$ with $\gcd(p, 511) = 1$ and
+$\gcd(|p - p_j|, 511) = 1$ for all existing slopes. No code-generation scripts, build-time lookup tables, or
+curve-adaptation logic is needed.
+
+#### B.2.5 Cost--Benefit of Further Partitions
+
+Adding a fifth slope pair (10 partitions total) costs 9,198 bits per block, reducing $C_r$ from 51.8% to 48.2% ---
+a 3.5 percentage-point penalty. The benefit is 1,022 additional constraint lines and an increase from 8 to 10
+lines per cell. Whether this tradeoff is justified depends on the empirical decompression speedup.
+
+The current solver plateaus at depth ~87K (row ~170) with 8 partitions. The plateau is a combinatorial phase
+transition in the mid-rows where cardinality forcing is inactive and LH checks are the only strong pruning
+mechanism. Additional partitions increase the per-assignment propagation radius but do not create new hash
+checkpoints. The marginal benefit is therefore an increase in cardinality forcing frequency --- more lines per cell
+means more chances for a line's residual to reach 0 or $u$ --- but this benefit diminishes as the number of partitions
+grows, because the residuals on the new lines are initially large (each slope line has $s = 511$ cells) and individual
+assignments reduce them by at most 1.
+
+The following qualitative assessment applies to the current plateau regime:
+
+*Strong case for a 5th pair (10 partitions).* At 10 lines per cell, the probability of at least one forcing trigger
+per assignment increases measurably. The 3.5-point compression cost is modest, and the propagation benefit is
+concentrated exactly where the solver needs it --- in the mid-rows where 8-line propagation is insufficient.
+
+*Diminishing returns beyond 12 partitions.* At 12 lines per cell, the incremental forcing probability gain from each
+additional pair is $(1-f)^2 \approx 0.90$, the same 10% relative reduction. But the compression cost accumulates
+linearly: 12 partitions yield $C_r \approx 44.7\%$, and 16 partitions yield $C_r \approx 37.7\%$. The compression
+ratio approaches the regime where CRSCE's overhead rivals the input size, undermining the format's purpose.
+
+*Hard limit.* At $n = 28$ partitions (the maximum fitting within the information-theoretic budget), the compression
+ratio drops to approximately 11% --- effectively no compression. Long before this point, the solver's constraint
+density is high enough that other bottlenecks (hash verification throughput, propagation queue overhead) dominate.
+
+#### B.2.6 Open Questions
+
+(a) What is the empirical decompression speedup from adding a 5th slope pair (10 partitions) on Apple Silicon,
+measured on random, all-zeros, all-ones, and adversarial inputs at $s = 511$? This is the minimal experiment needed
+to determine whether further partitions address the depth plateau.
+
+(b) At what partition count does the propagation engine's per-iteration cost (updating line statistics for $n$ lines
+per assignment) become a throughput bottleneck? Currently, the `PropagationEngine` fast path
+(`tryPropagateCell`) checks 8 lines per assignment. Scaling to 10 or 12 lines increases this cost linearly, but the
+fast-path exit condition (no forcing needed) may absorb the additional checks with minimal throughput impact.
+
+(c) What slope values should a 5th pair use? The current slopes $\{2, 255, 256, 509\}$ correspond to geometric
+slopes $\{2, -\frac{1}{2}, \frac{1}{2}, -2\}$. A 5th pair must satisfy the coprimality constraints with all existing
+slopes. Candidate pairs include $\{3, 508\}$ (slopes $\{3, -3\}$), $\{4, 507\}$ (slopes $\{4, -4\}$), and
+$\{128, 383\}$ (slopes $\{\frac{1}{4}, -\frac{1}{4}\}$, subject to verification that
+$\gcd(|128 - p_j|, 511) = 1$ for all existing $p_j$).
 
 ### B.3 Variable-Length Curve Partitions as LH Replacement
 
