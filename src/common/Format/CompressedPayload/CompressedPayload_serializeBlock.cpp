@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  * @brief CompressedPayload::serializeBlock() implementation.
  *
- * Serializes one compressed block into exactly kBlockPayloadBytes (15,247) bytes:
+ * Serializes one compressed block into exactly kBlockPayloadBytes (15,749) bytes:
  *   1. 511 x 20-byte LH digests (SHA-1)     (10,220 bytes)
  *   2. 32-byte BH digest (SHA-256)           (32 bytes)
  *   3. 1-byte DI                             (1 byte)
@@ -11,12 +11,12 @@
  *   5. VSM:    511 x 9 bits, MSB-first packed   (4,599 bits)
  *   6. DSM:    1021 variable-width, MSB-first   (8,185 bits)
  *   7. XSM:    1021 variable-width, MSB-first   (8,185 bits)
- *   8. LTP1SM: variable-width (bit_width(ltp_len(k)) per element) (3,595 bits)
- *   9. LTP2SM: variable-width                                      (3,595 bits)
- *  10. LTP3SM: variable-width                                      (3,595 bits)
- *  11. LTP4SM: variable-width                                      (3,595 bits)
- *   Total cross-sum region: 39,948 bits (partial byte zero-padded)
- *   Grand total: 10,220 + 32 + 1 + ceil(39,948/8) = 15,247 bytes
+ *   8. LTP1SM: variable-width (bit_width(ltp_len(k)) per element) (4,600 bits)
+ *   9. LTP2SM: variable-width                                      (4,600 bits)
+ *  10. LTP3SM: variable-width                                      (4,600 bits)
+ *  11. LTP4SM: variable-width                                      (4,600 bits)
+ *   Total cross-sum region: 43,968 bits (partial byte zero-padded)
+ *   Grand total: 10,220 + 32 + 1 + ceil(43,968/8) = 15,749 bytes
  */
 #include "common/Format/CompressedPayload/CompressedPayload.h"
 
@@ -78,31 +78,31 @@ namespace crsce::common::format {
             packBits(buf, bitOffset, xsm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
-        // 8. LTP1SM: variable-width per B.21 (bit_width(ltp_len(k)) bits per element)
+        // 8. LTP1SM: 9 bits per element (B.23: bit_width(511) = 9 for all k)
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             packBits(buf, bitOffset, ltp1sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
         // 9. LTP2SM: variable-width
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             packBits(buf, bitOffset, ltp2sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
         // 10. LTP3SM: variable-width
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             packBits(buf, bitOffset, ltp3sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
         // 11. LTP4SM: variable-width
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             packBits(buf, bitOffset, ltp4sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 

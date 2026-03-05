@@ -71,31 +71,31 @@ namespace crsce::common::format {
             xsm_[k] = unpackBits(data, bitOffset, n);
         }
 
-        // 8. LTP1SM: variable-width per B.21 (bit_width(ltp_len(k)) bits per element)
+        // 8. LTP1SM: 9 bits per element (B.23: bit_width(511) = 9 for all k)
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             ltp1sm_[k] = unpackBits(data, bitOffset, n);
         }
 
         // 9. LTP2SM: variable-width
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             ltp2sm_[k] = unpackBits(data, bitOffset, n);
         }
 
         // 10. LTP3SM: variable-width
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             ltp3sm_[k] = unpackBits(data, bitOffset, n);
         }
 
         // 11. LTP4SM: variable-width
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
-                std::bit_width(static_cast<std::uint32_t>(decompress::solvers::ltpLineLen(k))));
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
             ltp4sm_[k] = unpackBits(data, bitOffset, n);
         }
     }

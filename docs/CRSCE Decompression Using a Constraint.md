@@ -1761,259 +1761,9 @@ reduces I/O overhead during high-throughput solver phases.
 
 ## Appendix B. Ideas Under Consideration
 
-### B.1 Conflict-Driven Learning from Hash Failures
+### B.1 Abandoned
 
-When a SHA-1 lateral hash mismatch kills a subtree at depth ~87K, the solver currently backtracks one level ---
-undoing the most recent branching assignment and trying the alternate value. If both values fail, it backtracks
-another level, and so on up the stack. This is chronological backtracking: the solver retries assignments in
-reverse order of when they were made, regardless of which assignments actually *caused* the conflict. It learns
-nothing from the failure. If the root cause was an assignment made 500 levels earlier, the solver will exhaust an
-exponential number of intermediate configurations before reaching that level.
-
-This appendix proposes adapting conflict-driven clause learning (CDCL) --- the dominant technique in modern SAT
-solvers (Marques-Silva & Sakallah, 1999; Moskewicz et al., 2001) --- to exploit hash failures as a source of
-conflict information. The key insight is that an LH mismatch on row $r$ constitutes a *proof* that the current
-partial assignment to the $s$ cells in row $r$ is infeasible. The solver can analyze this proof to identify a
-small subset of earlier assignments that are jointly responsible for the conflict, record that combination as a
-*nogood clause*, and backjump directly to the deepest responsible assignment rather than unwinding the stack one
-frame at a time.
-
-#### B.1.1 Background: CDCL in SAT Solvers
-
-In a CDCL SAT solver, when unit propagation derives a conflict (an empty clause), the solver performs *conflict
-analysis* by tracing the implication graph backward from the conflicting clause. The analysis identifies a *unique
-implication point* (UIP) --- the most recent decision variable that, together with propagated literals, implies the
-conflict. The solver learns a new clause encoding the negation of the responsible assignments, adds it to the clause
-database, and backjumps to the decision level of the second-most-recent literal in the learned clause. The learned
-clause immediately forces the UIP variable to its opposite value at the backjump level, avoiding the need to
-re-explore the intervening search space (Marques-Silva & Sakallah, 1999).
-
-The power of CDCL comes from two properties: *non-chronological backtracking* (backjumping past irrelevant decision
-levels) and *clause learning* (preventing the solver from ever entering the same conflicting configuration again).
-Together, these properties transform an exponential-time DFS into a procedure that can prune large regions of the
-search space based on information extracted from each conflict.
-
-#### B.1.2 Hash Failures as Conflict Sources
-
-In the CRSCE solver, conflicts arise from two sources: *cardinality infeasibility* (a constraint line's residual
-$\rho$ falls outside $[0, u]$) and *hash mismatch* (an SHA-1 lateral hash check fails on a completed row). The
-cardinality conflicts are detected immediately during propagation and trigger standard backtracking. The hash
-conflicts are detected only when a row is fully assigned ($u(\text{row}) = 0$) and the computed SHA-1 digest
-disagrees with the stored LH value.
-
-A hash mismatch on row $r$ means that the 511-bit assignment to row $r$ does not match the unique preimage expected
-by the stored hash. However, some of those 511 bits were determined by branching decisions (either directly or via
-propagation from decisions in other rows), while others were forced by cardinality constraints with no branching
-alternative. The forced bits are *consequences* of earlier decisions; the branching decisions are the *causes*.
-Conflict analysis must distinguish between the two.
-
-The implication structure in the CRSCE solver is implicit rather than explicit. When the propagation engine forces
-cell $(r, c)$ to value $v$ because $\rho(\text{line}) = 0$ or $\rho(\text{line}) = u(\text{line})$, that forcing
-event depends on every prior assignment to cells on that line. In principle, the solver could maintain an implication
-graph recording, for each forced assignment, which line triggered the forcing and which prior assignments reduced that
-line's residual to a forcing state. In practice, the implication graph for 87K assignments would be large, and
-maintaining it would add overhead to every propagation step.
-
-#### B.1.3 Conflict Analysis for LH Mismatches
-
-When row $r$ fails its LH check, the solver knows that the current assignment to row $r$'s 511 cells is wrong, but
-not *which* cells are wrong. The conflict clause, in the SAT sense, is the conjunction of all 511 cell assignments in
-the row --- negating it says "do not assign row $r$ to exactly this 511-bit pattern." This is a *very long clause*
-(511 literals), and long clauses provide weak pruning: the clause is only violated when all 511 assignments recur in
-exactly the same configuration, which is astronomically unlikely given the size of the search space.
-
-To derive a shorter, more useful clause, the solver needs to identify which of the 511 assignments were *decisions*
-(branching choices) versus *propagated* (forced consequences). A typical row in the plateau region has ~400 cells
-forced by propagation and ~111 cells assigned by branching. The conflict clause can be reduced to the ~111 decision
-literals, since the propagated literals are implied by the decisions and the constraint system. This is still a long
-clause by SAT-solver standards, but it is a 78% reduction from the naive 511-literal clause.
-
-Further reduction requires tracing the implication graph backward from the row-$r$ assignments to identify the
-*first UIP* --- the most recent decision variable whose reversal, together with all prior decisions, would have
-prevented the conflict. If the solver maintains an implication graph (or can reconstruct one from the undo stack),
-standard 1-UIP analysis (Zhang et al., 2001) produces a learned clause whose length is bounded by the number of
-decision levels involved in the conflict, which may be significantly smaller than 111.
-
-#### B.1.4 Non-Chronological Backjumping
-
-The learned clause identifies a set of decision variables responsible for the conflict. The deepest decision level
-among the clause's literals is the *conflict level*; the second-deepest is the *backjump level*. The solver can
-undo all assignments from the conflict level back to the backjump level in a single operation, skipping all
-intermediate levels whose decisions are irrelevant to the conflict.
-
-In the CRSCE solver, the current `undoToSavePoint` mechanism supports bulk undo to any prior save point, so the
-mechanical infrastructure for backjumping exists. The missing component is the analysis that determines *where* to
-jump. Without clause learning, the solver must unwind one frame at a time; with clause learning, it can skip
-directly to the responsible level.
-
-The potential savings are substantial. If a hash failure on row 170 was caused by a bad decision on row 50 (because
-that decision propagated through column and slope constraints into row 170), chronological backtracking must exhaust
-all $2^{111}$ configurations of the 111 branching cells between rows 50 and 170 before reaching row 50. Backjumping
-skips directly to row 50 after a single conflict analysis, saving an exponential amount of work.
-
-#### B.1.5 DI Determinism
-
-CDCL introduces a fundamental tension with CRSCE's disambiguation index (DI) semantics. The DI is defined as the
-ordinal position of the correct solution in the lexicographic enumeration of all feasible solutions. Lexicographic
-order requires the enumerator to explore solutions in a canonical sequence: cell $(0,0)$ before $(0,1)$, value 0
-before value 1, and so on. Clause learning and non-chronological backjumping can alter the *order* in which the
-solver visits partial assignments, which changes the enumeration sequence and therefore the DI.
-
-For CDCL to be compatible with DI semantics, one of two conditions must hold:
-
-*Condition 1: Learned clauses are redundant.* If every learned clause is logically implied by the original constraint
-system (cross-sums + hashes), then the clause merely prunes infeasible regions of the search space without excluding
-any feasible solution. The enumeration order is preserved because the solver still visits all feasible solutions in
-the same sequence --- it just skips infeasible subtrees faster. This condition holds for standard CDCL, where learned
-clauses are derived by resolution from the original clauses and are therefore logically redundant.
-
-*Condition 2: The solver enumerates in a modified order but compensates the DI.* If learned clauses alter the
-enumeration order, the compressor and decompressor must use the same clause database to produce the same order. Since
-the clause database depends on the solver's conflict history (which depends on the input), the compressor would need
-to either (a) transmit the clause database as part of the payload, or (b) guarantee that both sides encounter the
-same conflicts in the same order. Option (b) holds automatically if the solver is deterministic and the initial
-state is identical, which it is: both sides start from the same constraint system derived from the payload.
-
-Condition 1 is the safer path. If learned clauses are derived strictly from the constraint system (cross-sum
-cardinality bounds and hash values), they are logically redundant and the lexicographic enumeration order is
-preserved. The solver visits the same feasible solutions in the same order; it merely skips infeasible subtrees
-without entering them. Condition 2 also holds in practice (deterministic solver, identical initial state), providing
-a belt-and-suspenders guarantee.
-
-#### B.1.6 Implementation Complexity
-
-CDCL adaptation for CRSCE is substantially more complex than any other proposal in this appendix. The implementation
-requires:
-
-*Implication graph maintenance.* Every propagated assignment must record which constraint line triggered the forcing
-and the set of prior assignments on that line. At 87K assignments with 8+ lines per cell, the graph is large. A
-compact representation (storing only the triggering line index and the save-point token, not the full antecedent set)
-can reduce memory overhead, but conflict analysis must still traverse the graph backward from the conflict.
-
-*Conflict analysis procedure.* The 1-UIP algorithm (Zhang et al., 2001) traverses the implication graph in reverse
-topological order, resolving antecedent clauses until a single literal from the current decision level remains. This
-is well-understood but must be adapted for the CRSCE propagation model, where antecedents are cardinality forcing
-events (not Boolean unit propagation) and the "clause" structure is implicit.
-
-*Clause database.* Learned clauses must be stored and checked during propagation. In SAT solvers, the clause database
-can grow to millions of clauses, managed by periodic garbage collection (removing low-activity clauses). For CRSCE,
-the clause database would likely be smaller (hash conflicts are relatively rare compared to SAT conflicts), but the
-watched-literal data structure used for efficient clause checking in SAT solvers would need adaptation.
-
-*Backjump integration.* The existing `undoToSavePoint` mechanism must be extended to support jumping to an arbitrary
-prior save point, not just the most recent one. The undo stack must correctly restore the constraint store, the
-propagation queue, and the implication graph to the backjump state.
-
-The engineering effort is significant, and the benefit depends on how often hash failures have *distant* root causes
-(decisions many levels earlier). If most hash failures are caused by recent decisions (within the last 10--20
-levels), backjumping provides modest savings and the overhead of implication-graph maintenance may not be justified.
-
-#### B.1.7 Lightweight Alternative: Backjump Distance Estimation
-
-A pragmatic alternative to full CDCL is *backjump distance estimation* without clause learning. When a hash failure
-occurs on row $r$, the solver identifies the earliest row among the branching cells in row $r$ that has an unforced
-assignment. This is a coarse approximation to conflict analysis: it assumes the root cause is in the earliest row
-contributing a branching decision to the failed row, and backjumps there directly.
-
-This heuristic requires no implication graph and no clause database. It only needs to scan the undo stack to find
-which cells in row $r$ were branching decisions (not propagated) and determine the earliest row among them. The
-backjump skips all intermediate levels whose decisions are in rows unrelated to row $r$. It does not learn a clause,
-so it cannot prevent the solver from re-entering the same conflicting configuration via a different path, but it
-avoids the worst case of chronological backtracking (exhausting exponentially many irrelevant configurations).
-
-The DI determinism argument for this heuristic is straightforward: the backjump target is a deterministic function
-of the undo stack and the failed row, both of which are identical in compressor and decompressor. No enumeration
-order is changed; the solver merely skips subtrees that are provably empty (they contain no feasible completion of
-the current partial assignment to row $r$, because the hash check already failed).
-
-#### B.1.8 Open Questions
-
-(a) How often do LH failures have distant root causes? If the typical hash failure is caused by a decision within
-the last 5--10 levels, backjumping provides little benefit over chronological backtracking. If root causes are
-frequently 50--500 levels deep, the savings are exponential. Instrumenting the current solver to log the distance
-between hash failures and their causal decisions would answer this question without implementing CDCL.
-
-(b) Can the implication graph be maintained cheaply enough to justify full CDCL? The overhead is per-propagation-step
-(recording the triggering line for each forced assignment). If the propagation engine's fast path
-(`tryPropagateCell`, ~80% of iterations) can record antecedents with minimal branch overhead, the cost may be
-acceptable. If antecedent recording requires non-trivial bookkeeping on every forcing event, the per-iteration
-slowdown could offset the backjumping savings.
-
-(c) Is the lightweight backjump estimator (B.1.7) sufficient in practice? If coarse row-level backjumping captures
-most of the benefit of full CDCL at a fraction of the implementation cost, it may be the preferred approach. The
-estimator can be implemented and measured before committing to the full CDCL infrastructure.
-
-(d) How does CDCL interact with the adaptive lookahead (B.8)? Lookahead probes at depth $k$ generate additional
-conflicts that could feed the clause-learning machinery. A $k = 2$ probe that discovers a hash failure two levels
-ahead could produce a learned clause that prunes the current level, combining the benefits of lookahead (deeper
-probing) and CDCL (permanent learning). The interaction is potentially powerful but adds implementation complexity.
-
-(e) What clause-management strategy is appropriate for CRSCE? SAT solvers use aggressive clause deletion to control
-database growth. CRSCE's conflict rate is much lower (hash failures are infrequent compared to SAT conflicts), so the
-clause database may remain small enough that no deletion is needed. Alternatively, clauses could be scoped to the
-current block and discarded between blocks.
-
-#### B.1.9 Prioritization Based on B.8 Telemetry (Implemented)
-
-B.8 (adaptive lookahead via stall detection, $k = 1\ldots4$) was implemented and profiled at 16M+ iterations on a
-representative input block. Telemetry showed:
-
-- DFS depth plateau at $\approx 87{,}500$ regardless of probe depth $k = 1 \ldots 4$.
-- $37\%$ hash mismatch rate ($6.1$M mismatches / $16.7$M iterations).
-- `min_nz_row_unknown = 1` throughout --- rows frequently reach completion and fail SHA-1 verification immediately.
-- $k = 4$ added $\approx 15\%$ per-iteration overhead with zero improvement in depth.
-
-This establishes that the bottleneck is **search guidance, not constraint density or lookahead reach**. The
-infeasible subtrees span many more than 4 levels of assignment; deeper probing cannot detect them. The solver reaches
-row completion constantly, fails hash checks constantly, backtracks one level, and retries --- learning nothing from
-each failure.
-
-The primary value of B.1 is **non-chronological backjumping** (B.1.4), not clause learning (B.1.3). At $\approx 111$
-decision literals per hash-failure clause, clause reuse provides negligible propagation power: a 111-literal clause
-only fires when all 111 assignments recur in exactly the same configuration. The backjump target alone --- jumping
-directly to the earliest responsible decision --- provides exponential savings without any clause infrastructure.
-
-**Implementation sequence adopted:**
-
-1. B.1.7 (lightweight backjump estimation) implemented first. When a hash failure occurs on row $r$, the solver scans
-   the DFS stack bottom-up for the shallowest frame whose branching cell lies in row $r$, undoes all assignments back
-   to that frame's save point, truncates the stack, and lets the loop try that frame's alternate value. No implication
-   graph, no clause database, no new data structures. DI determinism holds trivially: the backjump target is a
-   deterministic function of `stack[i].row` values and `failedRow`, both identical in compressor and decompressor
-   from the same payload.
-
-2. B.1.8(a) instrumentation implemented simultaneously. The metrics `backjumps`, `backjump_dist_max`,
-   `backjump_dist_avg`, and `non_backjumpable` are emitted every $\approx 1$M iterations. These answer the key
-   empirical question: are root causes shallow ($\leq 5$ levels, minimal benefit) or deep ($\geq 50$ levels,
-   exponential savings)?
-
-3. Full CDCL deferred. Implement only if `non_backjumpable` is high (most hash failures have no direct branch in the
-   failed row, indicating the coarse stack scan is insufficient) or `backjump_dist_avg` remains low after B.1.7 is
-   confirmed not to break the plateau.
-
-#### B.1.10. CDCL Outcome
-
-The initial CDCL integration produced no measurable improvement in plateau depth or iteration throughput. The
-`ConflictAnalyzer`, `ReasonGraph`, `CellAntecedent`, and `BackjumpTarget` classes are fully implemented and unit-tested
-but remain disconnected from the main DFS loop in `EnumerationController`, which continues to use chronological
-backtracking.
-
-The B.20.9 experimental results (Configuration C: 4 geometric + 4 uniform-length LTP partitions) provide a
-retrospective explanation for CDCL's failure. At the plateau ($\text{depth} \approx 88{,}500$, row $\approx 170$),
-every uniform-length-511 constraint line has $u \approx 341$ unknowns and $\rho \approx 170$, placing it in the
-forcing dead zone ($\rho / u \approx 0.5$). Non-chronological backjumping identifies *which* decision caused a
-conflict via the reason graph, but when all constraint lines are equally inert --- none generating forcing events ---
-every decision level is equally stuck. There is nowhere productive to jump to, so CDCL degenerates to chronological
-backtracking with additional bookkeeping overhead.
-
-B.21 (joint-tiled variable-length LTP partitions) may change this calculus. Variable-length LTP lines (1--256 cells)
-generate forcing events deep in the plateau where no 511-cell line can. A hash failure at row 172 might trace back
-through a 10-cell LTP forcing event to a decision at row 90, giving the reason graph a meaningful antecedent chain
-that CDCL could exploit for non-chronological backjumping. The two mechanisms are complementary: B.21 creates forcing
-events, and CDCL exploits the structure those events reveal. CDCL should be revisited after B.21 telemetry is
-available; if B.21's short LTP lines produce forcing cascades in the plateau band (indicated by a hash mismatch rate
-below 20% per B.21.9), the reason graph will contain the rich antecedent structure that CDCL requires to outperform
-chronological backtracking.
+See Appendix D.2
 
 ### B.2 Auxiliary Cross-Sum Partitions as Solver Accelerators (Implemented)
 
@@ -2160,20 +1910,7 @@ density is high enough that other bottlenecks (hash verification throughput, pro
 
 #### B.2.6 Open Questions
 
-(a) What is the empirical decompression speedup from adding a 5th slope pair (10 partitions) on Apple Silicon,
-measured on random, all-zeros, all-ones, and adversarial inputs at $s = 511$? This is the minimal experiment needed
-to determine whether further partitions address the depth plateau.
-
-(b) At what partition count does the propagation engine's per-iteration cost (updating line statistics for $n$ lines
-per assignment) become a throughput bottleneck? Currently, the `PropagationEngine` fast path
-(`tryPropagateCell`) checks 8 lines per assignment. Scaling to 10 or 12 lines increases this cost linearly, but the
-fast-path exit condition (no forcing needed) may absorb the additional checks with minimal throughput impact.
-
-(c) What slope values should a 5th pair use? The current slopes $\{2, 255, 256, 509\}$ correspond to geometric
-slopes $\{2, -\frac{1}{2}, \frac{1}{2}, -2\}$. A 5th pair must satisfy the coprimality constraints with all existing
-slopes. Candidate pairs include $\{3, 508\}$ (slopes $\{3, -3\}$), $\{4, 507\}$ (slopes $\{4, -4\}$), and
-$\{128, 383\}$ (slopes $\{\frac{1}{4}, -\frac{1}{4}\}$, subject to verification that
-$\gcd(|128 - p_j|, 511) = 1$ for all existing $p_j$).
+Consolidated into Appendix C.2.
 
 ### B.3 Variable-Length Curve Partitions as LH Replacement
 
@@ -2439,28 +2176,7 @@ decompositions, lending plausibility to the curve-based construction even absent
 
 #### B.3.8 Open Questions
 
-(a) What is the empirically measured $k_{\min}$ (minimum invisible swap size) for a 6-partition system comprising LSM,
-VSM, DSM, XSM, and two variable-length curve partitions at small matrix sizes ($s = 15$, $s = 31$)? How does
-$k_{\min}$ scale as $n$ increases from 2 to 16?
-
-(b) For 16 variable-length curve partitions (8 orthogonal pairs) with well-chosen geometries, does the
-cascade from anchor cells and short lines solve a sufficient fraction of the matrix that the remaining search tree fits
-within a 1-second wall-clock budget on Apple Silicon?
-
-(c) Is the collision resistance from interlocking variable-length partitions sufficient to eliminate LH entirely, or
-should a hybrid approach retain a reduced LH (e.g., truncated 32-bit hashes, costing $32 \times 511 = 16{,}352$ bits)
-alongside a smaller number of auxiliary partitions?
-
-(d) What is the optimal space-filling curve family and orientation strategy for maximizing cross-partition anchor
-dispersion --- i.e., ensuring that each partition's length-1 endpoints fall on short lines of other partitions?
-
-(e) Can the variable-length segment schedule be optimized beyond the triangular sequence $1, 2, \ldots, s, \ldots, 2,
-1$? For example, a schedule with more short segments (e.g., repeating the $1, 2, 3$ prefix) would provide more anchors
-at the cost of fewer long segments, changing the collision/propagation tradeoff.
-
-(f) Can the dense distributed crossing property (Section B.3.7) be formally proved for any specific family of 8 curve
-pairs, or must it remain an empirically verified property? Is there a combinatorial framework analogous to MOLS theory
-that governs the existence of mutually orthogonal variable-length partitions on finite grids?
+Consolidated into Appendix C.3.
 
 ### B.4 Dynamic Row-Completion Priority in Cell Selection (Implemented; Subsumed by B.10)
 
@@ -2635,23 +2351,7 @@ speculative assignment, providing stronger pruning information per probe.
 
 #### B.4.9 Open Questions
 
-(a) What is the optimal threshold $\tau$? A value of $\tau \in [4, 8]$ is a plausible starting range, but empirical
-measurement on representative inputs (all-zeros, all-ones, random, alternating) is needed to determine the
-throughput--pruning tradeoff.
-
-(b) Should the priority queue also consider line-completion proximity for non-row lines (columns, diagonals, slopes)?
-Completing a column or diagonal does not trigger a hash check, but it does trigger cardinality forcing that may
-cascade to row completions. A multi-line priority heuristic could accelerate these secondary completions at the cost
-of a larger and more complex priority structure.
-
-(c) When the priority queue selects a row, should the solver complete the entire row (assigning all $u$ remaining
-cells before returning to the static ordering), or should it assign one cell, re-propagate, and re-evaluate the
-priority queue? Completing the row in a burst maximizes the chance of an immediate LH check but may miss
-opportunities to switch to a different row that propagation has driven to an even lower $u$.
-
-(d) Does the priority queue interact adversely with the `FailedLiteralProber`? Probing a cell on a nearly-complete
-row triggers an LH check during the probe itself, providing stronger pruning information. This suggests the priority
-queue and probing are synergistic, but empirical verification is needed.
+Consolidated into Appendix C.4.
 
 ### B.5 Hash Alternatives to Improve Search Depth
 
@@ -2662,20 +2362,7 @@ B.5.8 have been removed. The open questions below remain.
 
 #### B.5.1 Open Questions
 
-(a) What is the empirical decompression throughput difference between SHA-1 and SHA-256 row hashing on Apple
-Silicon M-series processors, measured as hash evaluations per second during constraint solving with frequent
-backtracking?
-
-(b) Is the 4-partition (2-pair) allocation optimal, or does scaling to 10 partitions (5 pairs) at
-compression-neutral cost (41.2% versus 40.1%) yield a sufficiently larger propagation benefit to justify the
-reduced compression improvement? The toroidal-slope construction trivially extends to additional pairs by
-selecting new slopes $p$ with $\gcd(p, 511) = 1$ and $\gcd(|p_i - p_j|, 511) = 1$ for all existing slopes
-$p_j$, which is achievable for any number of pairs up to $(511 - 1)/2 = 255$.
-
-(c) Are there slope values other than $\{2, 255, 256, 509\}$ (i.e., slopes $\{\frac{1}{2}, -\frac{1}{2}, 2,
--2\}$) that provide superior propagation interaction with DSM and XSM? The current slopes visit 511 of 1,021
-diagonals and anti-diagonals per line; alternative slopes may distribute diagonal visits differently, though
-the 1-cell intersection guarantee with all axis-aligned partitions holds for any slope coprime to 511.
+Consolidated into Appendix C.5.
 
 ### B.6 Singleton Arc Consistency
 
@@ -2766,17 +2453,7 @@ I'm sure there's a proctology joke here somewhere...
 
 #### B.6.6 Open Questions
 
-(a) What is the empirical SAC fixpoint depth for random and structured 511×511 binary matrices? If SAC
-preprocessing resolves a significant fraction of cells beyond what failed literal probing achieves, the
-depth plateau may shift materially.
-
-(b) Does partial SAC (re-probing only affected neighborhoods) converge to the same fixpoint as full SAC,
-or does it settle at a weaker consistency level? If weaker, is the gap practically significant for CRSCE
-instances?
-
-(c) Can the probe loop be parallelized on GPU via Metal? Each probe is independent (tentative assign,
-propagate, undo), making the loop embarrassingly parallel in principle, though the shared constraint
-store requires careful synchronization or per-thread copies.
+Consolidated into Appendix C.6.
 
 ### B.7 Neighborhood-Based Lookahead
 
@@ -2945,29 +2622,7 @@ adaptive strategy preserves it at every escalation level.
 
 #### B.8.7 Open Questions
 
-(a) What is the optimal window size $W$ for stall detection? Too small and the detector triggers on
-transient fluctuations; too large and it reacts slowly to genuine plateaus. A value of $W = 10{,}000$
-(~20 ms at 510K iter/sec) is a reasonable starting point but should be tuned empirically.
-
-(b) What are the optimal stall and recovery thresholds ($\sigma^{-}$ and $\sigma^{+}$)? Setting
-$\sigma^{-} = 0$ (escalate when net progress is zero) and $\sigma^{+} = 0.5$ (de-escalate when at
-least half of decisions advance depth) are initial candidates. The gap between the two thresholds
-controls hysteresis width.
-
-(c) For depths beyond $k = 4$, is a *linear-chain* approximation viable? Rather than exploring the
-full $2^k$ tree, the solver could follow a single most-constrained path of $k$ probes, reducing cost
-from $O(2^k)$ to $O(k)$. This sacrifices the exhaustive pruning guarantee --- the chain detects a
-contradiction only along one specific continuation, not all of them --- and its effectiveness depends
-on how well the most-constrained-cell heuristic correlates with actual failure paths. In CRSCE, where
-contradictions are often SHA-1 mismatches at row boundaries (essentially pseudorandom relative to
-constraint tightness), the false-negative rate of a linear chain may be unacceptably high. Empirical
-measurement is needed to determine whether linear-chain lookahead at $k = 8$ or $k = 16$ outperforms
-exhaustive lookahead at $k = 4$.
-
-(d) Should the lookahead tree explore both values at the branching cell (as in B.7.3), or only the
-alternate value (as in the existing `probeAlternate`)? Probing only the alternate value halves the
-tree size at each depth, effectively doubling the affordable $k$. However, probing the canonical value
-as well can detect doomed states earlier, reducing backtrack depth.
+Consolidated into Appendix C.7.
 
 ### B.9 Non-Linear Lookup-Table Partitions
 
@@ -3159,31 +2814,7 @@ not probing deeply and the linear partitions are already effective.
 
 #### B.9.9 Open Questions
 
-(a) Does an optimized LTP pair provide measurable propagation benefit beyond a 5th toroidal-slope pair, given
-identical storage costs (9,198 bits per pair)? The LTP's advantage is non-linearity, targeted early tightening, and
-long-range information transfer; the slope pair's advantage is guaranteed 1-cell orthogonality and zero runtime
-memory overhead (computed index vs. 510 KB table). Empirical comparison on representative inputs is needed.
-
-(b) How large must the optimization test suite be to produce a table that generalizes to unseen inputs? The
-table is optimized against $N$ random matrices, but the hardcoded result must work well on all inputs. Overfitting
-to the test suite would produce a table that exploits statistical quirks of the $N$ matrices rather than the
-structural properties of the plateau. Cross-validation (optimizing on $N/2$ matrices, evaluating on the other half)
-can detect overfitting, but the required $N$ is unknown.
-
-(c) What local-search heuristic converges most efficiently? The hill-climbing approach described in B.9.1 evaluates
-$N$ full DFS trajectories per candidate swap, which is expensive. Approximations --- such as evaluating only the
-first 100K DFS nodes per matrix, or using the plateau-band backtrack count as a proxy for full-solve cost --- could
-accelerate the search by orders of magnitude. Simulated annealing, genetic algorithms, or gradient-free optimization
-(e.g., CMA-ES over a parameterized shuffle-bias function) are alternatives to pure hill-climbing.
-
-(d) Can multiple LTP partitions (each optimized from a different seed) be stacked? Two independently optimized
-tables would impose two structurally independent non-linear constraint sets. The cost is linear (9,198 bits per
-additional pair, 510 KB per additional table), and the diminishing-returns curve is unknown.
-
-(e) Should the optimization objective incorporate the adaptive lookahead (B.8) or optimize against the base solver
-($k = 0$) only? Optimizing with lookahead enabled would tune the table for the combined system, but makes the
-optimization loop significantly more expensive (each DFS trajectory is slower with probing). Optimizing against
-$k = 0$ and then deploying with lookahead may yield most of the benefit at a fraction of the optimization cost.
+Consolidated into Appendix C.8.
 
 ### B.10 Constraint-Tightness-Driven Cell Ordering
 
@@ -3281,24 +2912,7 @@ correct branch. The two techniques operate on different timescales --- ordering 
 
 #### B.10.7 Open Questions
 
-(a) What are the optimal line-type weights $w_L$? The values proposed in B.10.2 are heuristic starting points. An
-offline parameter sweep --- evaluating decompression speed on random inputs across a grid of weight vectors --- could
-identify the weight combination that minimizes mean backtrack count.
-
-(b) Is the incremental $\theta$ maintenance cost justified by the ordering improvement? If most of the benefit comes
-from row-completion priority (the B.4 special case) and the non-row tightness contributions are marginal, the
-2.5$\times$ overhead is wasted. A staged experiment --- measuring B.4 alone, then B.10 with non-row weights, and
-comparing backtrack counts --- would quantify the marginal value.
-
-(c) Should $\theta$ incorporate the `ProbabilityEstimator` confidence score as an additional term? The confidence
-score captures information about residual *balance* (whether a cell's lines favor 0 or 1), which is orthogonal to
-tightness (how close lines are to forcing). A combined score $\alpha \cdot \theta + (1 - \alpha) \cdot
-\text{confidence}$ could outperform either metric alone.
-
-(d) Can the tightness score predict hash failures before row completion? If $\theta$ for a row's remaining cells
-is low (no lines through those cells are tight), the row is unlikely to benefit from prioritization. The solver
-could deprioritize such rows and focus on rows where $\theta$ is high, concentrating effort where constraint
-feedback is strongest.
+Consolidated into Appendix C.9.
 
 ### B.11 Randomized Restarts with Heavy-Tail Mitigation
 
@@ -3854,7 +3468,7 @@ full CDCL machinery.
 
 ### B.15 DELETED
 
-Content moved to Appendix C.1.
+Content moved to Appendix D.1.
 
 ### B.16 Partial Row Constraint Tightening
 
@@ -5155,7 +4769,191 @@ If step 1 achieves depth $\geq 90{,}000$, steps 2--3 become optional optimizatio
 required fixes, and the research program can pivot to compression-ratio improvements or the
 parallel-restart strategy (B.11).
 
-### B.21.13 Open Questions
+### B.21.12 Final Outcomes (CDCL + B.22)
+
+Both Candidate 1 (CDCL) and Candidate 2 (B.22) from B.21.11 were executed sequentially and
+then combined.
+
+---
+
+**Candidate 1 outcome: CDCL on B.21 (B.21.11, Step 1)**
+
+CDCL was re-enabled in the DFS loop using the existing `ConflictAnalyzer`, `ReasonGraph`, and
+`BackjumpTarget` infrastructure.  A `cdclStack` vector (parallel to BranchingController's undo
+stack) tracked per-frame `cdclSavePoint` offsets.  On hash failure, `analyzeHashFailure` ran BFS
+from the failed row; if a valid 1-UIP target $T$ was found, CDCL unrecorded assignments back to
+`stack[T+1].cdclSavePoint`, called `brancher->undoToSavePoint(stack[T+1].token)`, resized the DFS
+stack to $T+1$ frames, and continued.
+
+30-minute uselessTest result:
+
+| Metric | Value |
+|--------|-------|
+| Depth | ~52,042 |
+| iter/sec | ~698K |
+| CDCL backjumps | 7,583 (all in first 67M iterations, then zero) |
+| cdcl\_jump\_dist\_max | 586 |
+| Hash mismatch rate | ~25% |
+
+**Assessment: Candidate 1 failed.** CDCL fired 7,583 times in the first 67M iterations (max
+jump 586 frames) then stopped entirely, gaining only 1,770 depth frames (+3.5%) over B.21
+without CDCL.  The failure mode confirms B.21.11's failure criterion: with 1--2 LTP lines per
+cell and lines of length 1--256, the forcing graph is too sparse to construct useful 1-UIP
+backjump targets past depth 52K.  Proceeding to Candidate 2 (B.22).
+
+---
+
+**Candidate 2 outcome: B.22 full-coverage variable-length LTP (B.21.11, Steps 2--3)**
+
+B.22 was implemented with the following design:
+
+*Formula:* $\ell_{\text{B.22}}(k) = 4 \cdot \min(k+1,\, 511-k) - \text{adj}(k)$, where
+$\text{adj}(k) = 3$ if $k = 255$, else $2$.  This sums to exactly 261,121 per sub-table.
+Line lengths range from 2 ($k = 0, 510$) to 1,021 ($k = 255$).
+
+*Coverage:* Every cell belongs to exactly 4 LTP lines (one per sub-table, full coverage).
+`LtpMembership.flat` expanded from 2 to 4 entries; `CellLines` expanded from 6 to 8 slots.
+`getLinesForCell` always returns count = 8.
+
+*Construction:* Fisher-Yates LCG shuffle of all 261,121 cells with a per-pass seed, then assign
+consecutive chunks to lines in decreasing-length order.  No spatial sort; pure random
+cell-to-line assignment ensures each line spans cells from diverse rows.
+
+*Encoding:* $\sum_{k=0}^{510} \lceil \log_2(\ell_{\text{B.22}}(k) + 1) \rceil = 4{,}600$ bits
+per sub-table.  `kBlockPayloadBytes` restored to 15,749 (same as B.20).
+
+CDCL was layered on B.22 simultaneously (Step 3 from the plan).
+
+30-minute uselessTest result (B.22 + CDCL):
+
+| Metric | B.20 | B.21+CDCL | B.22+CDCL |
+|--------|------|-----------|-----------|
+| Depth | ~88,503 | ~52,042 | **~80,300** |
+| iter/sec | ~198K | ~698K | ~521K |
+| CDCL backjumps | --- | 7,583 then 0 | = hash\_mismatches (100%) |
+| cdcl\_jump\_dist\_max | --- | 586 | **732** |
+| Hash mismatch rate | ~25% | ~25% | ~25% |
+
+**Assessment: Candidate 2 partially succeeded.** B.22 recovered 30,000 frames (+60%) from
+B.21's depth floor, confirming that restoring 4 LTP lines per cell is the dominant structural
+factor.  CDCL on B.22 fires on every hash mismatch (100% backjump rate, max dist 732), a
+dramatic improvement over B.21+CDCL where backjumps ceased after 67M iterations.
+
+However, depth plateaus at ~80,300 rather than exceeding B.20's 88,503.  Three factors explain
+the gap:
+
+1. *Throughput cost:* B.22's longer LTP lines (up to 1,021 cells) increase cascade cost per
+   forced assignment; iter/sec drops from 698K (B.21) to 521K (B.22+CDCL), reducing effective
+   search rate.
+
+2. *Line length distribution:* Very long lines ($\ell > 511$) accumulate pressure slowly and
+   are less likely to reach the $\rho/u = 0$ or $\rho/u = 1$ forcing threshold that drives
+   cascade propagation.  B.20's uniform 511-cell lines provided more balanced pressure
+   across all $k$.
+
+3. *CDCL plateau persistence:* CDCL backjumps 732 frames on each failure but the plateau depth
+   is unchanged, suggesting that the failures arise from global sum inconsistency across all four
+   LTP families simultaneously --- no single 1-UIP decision resolves the conflict.
+
+**Conclusions:**
+
+- Restoring 4 LTP lines per cell (full coverage) is non-negotiable: this single change recovered
+  +60% of the depth lost in B.21 (+30,000 frames, 50K $\to$ 80K).
+- Variable-length lines in the range 2--1,021 are less effective than B.20's uniform 511-cell
+  lines at the depth frontier.  The optimal distribution likely concentrates lines in the
+  128--512-cell range, providing both forcing power (shorter than 511) and constraint pressure
+  (fewer near-zero-length lines wasted in early rows).
+- CDCL is effective on B.22 (100% backjump rate, max dist 732) and should be retained.
+- The next exploration should vary the length distribution while maintaining full 4-line coverage
+  per cell.  A quadratic distribution, a uniform-511 distribution with random shuffle (repeating
+  B.20 to validate parity), or a clipped triangular (minimum length 64) are candidate targets.
+
+### B.21.13 CDCL Interaction Study (B.23 and B.24)
+
+Following B.22's conclusion that CDCL "should be retained," B.23 tested uniform-511 + CDCL to
+isolate whether CDCL benefits a known-good partition. B.24 then disabled CDCL entirely to measure
+the overhead.
+
+---
+
+**B.23: Uniform-511 LTP + CDCL Active**
+
+B.23 changed `ltpLineLen(k)` to return 511 for all $k$ (B.20's construction, B.22 code
+infrastructure).  The construction algorithm (Fisher-Yates LCG shuffle, consecutive 511-cell chunk
+assignment) is identical to B.20 except that the `buildAllPartitions` function now uses
+B.22-era seed constants (`CRSCLTP1`–`CRSCLTP4` in ASCII).
+
+*Hypothesis:* uniform-511 + CDCL should outperform B.22's 80,300 depth (triangular + CDCL)
+because the partition matches B.20's known-good structure.
+
+30-minute uselessTest result:
+
+| Metric | B.20 | B.22+CDCL | B.23 (uniform+CDCL) |
+|--------|------|-----------|---------------------|
+| Depth | ~88,503 | ~80,300 | **~69,000** |
+| iter/sec | ~198K | ~521K | ~306K |
+| CDCL max jump dist | --- | 732 | **1,854** |
+| CDCL backjumps/sec | --- | ~1,200 | ~1,018 |
+| Hash mismatch rate | ~25% | ~25% | ~25% |
+
+**Assessment: B.23 regressed further than B.22.** The 1,854-cell average jump distance caused
+severe thrashing — 27% worse than B.22+CDCL and 22% worse than B.20 without CDCL.
+
+*Why is the jump distance larger with uniform-511 than triangular (B.22)?*  With uniform-511, all
+lines have 511 cells.  A completed row requires ~511 cell assignments spread over many DFS frames;
+by the time the hash failure is detected, the 1-UIP antecedent chain traces back nearly 1,854
+frames.  With B.22's triangular distribution, short lines (2–6 cells) resolve in 1–2 decisions,
+producing compact antecedent chains and shorter jumps (732 frames).  So a more uniform distribution
+actually worsens CDCL jump distances.
+
+*Root cause of CDCL ineffectiveness:* CDCL was designed for unit-clause propagation in SAT, where
+a "conflict" traces back to exactly one decision variable (1-UIP).  Hash-based row verification is
+a **global non-linear constraint** over all 511 cells in a row; no single decision is the "culprit."
+The 1-UIP analysis produces a jump target that is far back in the stack (deep antecedent chain) and
+irrelevant to the actual failure cause.  The net effect is a large undo of correct work without
+gaining any constraint learning benefit (the current implementation does not store learned clauses).
+
+---
+
+**B.24: CDCL Disabled (kMaxCdclJumpDist = 0)**
+
+B.24 added `constexpr uint64_t kMaxCdclJumpDist = 0` to the DFS loop.  When the CDCL analysis
+returns a backjump distance exceeding this cap, the code falls through to chronological backtrack
+instead.  With `kMaxCdclJumpDist = 0`, CDCL never fires.  The ReasonGraph, ConflictAnalyzer, and
+cdclStack infrastructure remain in place but perform zero useful work.
+
+2-minute uselessTest snapshot (B.24):
+
+| Metric | B.20 | B.23 | B.24 (CDCL off) |
+|--------|------|------|-----------------|
+| Depth (2-min) | ~88,503 | ~69,000 | **~86,123** |
+| iter/sec | ~198K | ~306K | **~120K** |
+| CDCL backjumps | --- | ~1,018/sec | **0** |
+
+**Assessment: Disabling CDCL recovers most of B.20's depth.**  B.24 reaches ~86,123 at 2 minutes
+(vs B.20's plateau of 88,503), confirming that CDCL was the primary cause of the regression.
+The remaining ~2,400-frame gap is attributed to:
+
+1. *CDCL overhead still running:* `recordDecision`, `recordPropagated`, and `unrecord` are called
+   on every cell assignment/unassignment even though no backjumps fire.  This reduces iter/sec
+   from B.20's ~198K to B.24's ~120K — a 40% throughput penalty.
+
+2. *Different shuffle seeds:* B.20 may have had slightly different seeds that produced a marginally
+   better partition.
+
+**Conclusions from B.23 and B.24:**
+
+- CDCL as implemented is strictly harmful in all tested configurations: depth drops 20–27% in
+  every experiment where CDCL fires.
+- The harm mechanism is the 1-UIP backjump distance: hash failures have antecedent chains of
+  700–1,854 cells, causing large backward jumps that undo correct work without constraint learning.
+- CDCL is fundamentally mismatched with hash-based row verification (a global constraint), as
+  opposed to unit-clause propagation failures (local constraint) for which CDCL was designed.
+- **B.25 plan:** Remove all CDCL overhead (delete cdclStack, ReasonGraph/ConflictAnalyzer calls,
+  per-assignment record/unrecord calls) to recover B.20's ~198K iter/sec and close the 2K depth
+  gap.  Expected outcome: depth ≥ 88,503 (or reveal remaining structural differences).
+
+### B.21.14 Open Questions
 
 (a) What is the optimal distribution of the 1,023 dual-covered cells? Placing them at extreme corners
 maximizes complementarity with diagonal coverage, but other strategies (e.g., distributing them along
@@ -5184,13 +4982,883 @@ drop further but diagonal encoding would change. This is unlikely to be benefici
 provide qualitatively different constraint information (different slope directions), whereas the four
 LTP sub-tables are qualitatively interchangeable.
 
-## Appendix C: Abandoned Ideas
+### B.22 Partition Seed Search for Uniform-511 LTP
+
+#### B.22.1 Motivation
+
+B.25 (uniform-511 LTP, CDCL removed) achieves depth ~86,123 and 329K iter/sec. B.20 achieved
+depth ~88,503 at ~198K iter/sec using the same Fisher-Yates construction with different LCG seed
+strings. The gap of ~2,380 depth cells (2.7%) has no algorithmic explanation: both configurations
+use identical constraint topology (511 cells/line, 4 LTP sub-tables, same line-count), the same
+DFS loop, and the same propagation engine. The only difference is the random shuffle of cells into
+lines produced by the four LCG seeds.
+
+This 2.7% gap is the direct cost of re-seeding when moving from B.20 to B.25. The Fisher-Yates
+shuffle maps each of the $511^2 = 261{,}121$ cells into exactly one of the four sub-tables' lines.
+Different seed strings produce different shuffles, and different shuffles produce different constraint
+topologies at the cell level: which cells share LTP lines, which LTP lines have high overlap with
+diagonal/column lines at the plateau band (rows 100--300), and therefore which cells cascade most
+effectively when forced.
+
+The depth ceiling for a given seed is not random noise. B.20's depth of 88,503 was reproducibly
+measured over multiple runs; B.25's depth of 86,123 is equally stable. The depth is a structural
+property of the partition, not a stochastic accident. Different seeds produce different structural
+depth ceilings, and a systematic search over seeds can identify partitions whose structural
+properties (high LTP-line overlap with other constraint families in the plateau band) yield higher
+depth ceilings.
+
+The target is to recover the ~2,380-cell gap relative to B.25, matching or exceeding B.20's 88,503
+depth while retaining B.25's 329K iter/sec throughput.
+
+#### B.22.2 Objective
+
+Find four LCG seed strings $(s_1, s_2, s_3, s_4)$ for the Fisher-Yates construction of LTP
+sub-tables $T_0$--$T_3$ such that the resulting uniform-511 partition achieves depth
+$\geq 88{,}503$ (the B.20 baseline) at B.25's throughput (~329K iter/sec), without any
+algorithmic change to the DFS loop or constraint architecture.
+
+Secondary objective: understand *why* some seed configurations produce higher depth ceilings,
+to guide future partition design.
+
+#### B.22.3 Methodology
+
+**Phase 1 — Baseline Characterization (1 run per seed)**
+
+Each candidate seed configuration $(s_1, s_2, s_3, s_4)$ is evaluated by running the useless-machine
+depth test for a fixed 2-minute window and recording:
+
+- `depth_max`: maximum DFS depth reached
+- `iter_per_sec`: mean iteration rate
+- `hash_mismatch_rate`: fraction of iterations ending in SHA-1 failure
+
+The 2-minute window provides sufficient signal to distinguish partitions with meaningfully
+different depth ceilings (difference $\geq 1{,}000$ cells is reliable; $\geq 500$ cells is
+directional).
+
+**Phase 2 — Seed Space**
+
+The Fisher-Yates LCG uses seeds derived from a string constant via a hash or direct XOR:
+$\text{seed} = \text{hash}(\text{string}) \oplus \text{row\_index}$. The current seeds are the
+ASCII byte XOR of the strings `CRSCLTP1`, `CRSCLTP2`, `CRSCLTP3`, `CRSCLTP4` (B.25). B.20
+used a different set of string constants.
+
+The search space is structured as follows:
+
+- *String prefix search*: vary a 4--8 character ASCII suffix while holding the prefix constant.
+  This provides a dense neighborhood in seed space while keeping the LCG properties stable.
+- *Independent sub-table search*: optimize each sub-table's seed independently. If sub-table
+  quality is approximately independent (a cell's constraint value comes from its full 8-line
+  membership, not just the LTP line), then $4 \times K$ evaluations suffice to find a near-optimal
+  4-tuple rather than $K^4$.
+- *Geometric proxy metric*: before running the full depth test, evaluate each partition by a
+  cheap structural metric (see B.22.4). Use this metric to prune candidate seeds by $\geq 90\%$,
+  spending full 2-minute runs only on the top candidates.
+
+**Phase 3 — Validation**
+
+Top-5 candidate seed configurations from Phase 2 are validated with 10-minute depth runs
+($3\times$ longer for statistical confidence). The configuration achieving the highest
+`depth_max` over the 10-minute window is adopted as the B.22 production seed set.
+
+#### B.22.4 Geometric Proxy Metric
+
+Rather than running a 2-minute depth test for every candidate seed, evaluate each partition by
+a cheap structural metric that correlates with depth ceiling. The metric targets the plateau
+band (rows 100--300) where the forcing dead zone activates.
+
+**Cross-family line overlap score** $\Phi$: for each LTP line $\ell$ with index $k$ (belonging
+to sub-table $T_j$), count the number of cells on $\ell$ that also lie on a nearly-tight
+column or diagonal line in the plateau band. "Nearly tight" at the plateau means that the line
+has small unknown count ($u \leq \tau_\Phi$, suggested $\tau_\Phi = 50$). A cell $(r, c)$ on
+LTP line $\ell$ contributes to $\Phi(\ell)$ if any of its 6 non-LTP non-row constraint lines
+(column, diagonal, anti-diagonal, and the other 3 LTP sub-tables) is nearly tight in the
+plateau band.
+
+$$
+\Phi = \frac{1}{4 \times 511} \sum_{j=0}^{3} \sum_{k=0}^{510} \Phi(T_j, k)
+$$
+
+Higher $\Phi$ indicates that LTP lines in the plateau band co-reside with tight non-LTP lines,
+increasing the probability that LTP-line forcing events cascade into row completions and SHA-1
+checks. This is the structural property that determines depth ceiling.
+
+Computing $\Phi$ requires only the static partition layout and a precomputed estimate of which
+lines are tight in the plateau band (derived from the cross-sum residuals of the test block).
+Wall time: $O(4 \times 511 \times \text{line\_len}) = O(10^6)$ operations, approximately 1 ms ---
+three orders of magnitude cheaper than a 2-minute depth run.
+
+#### B.22.5 Expected Outcomes
+
+**Best case:** A seed configuration is found with depth $\geq 90{,}000$ ($\Phi$-selected, 2K+
+improvement over B.20). This would confirm that the $\Phi$ metric is a reliable proxy and that
+meaningful depth gains are available within the uniform-511 architecture without algorithmic
+changes.
+
+**Likely case:** A seed configuration is found in the range 87{,}500--89{,}500, recovering most
+or all of the 2,380-cell B.20-to-B.25 regression and possibly exceeding B.20. This would
+establish the B.22 seed set as the new baseline for all subsequent experiments.
+
+**Pessimistic case:** No seed configuration meaningfully exceeds ~88{,}500 despite $K \geq 200$
+candidate evaluations. This would indicate that the 88K--89K range is a structural ceiling for
+uniform-511 partitions regardless of cell assignment, pointing toward architectural changes
+(variable-length lines, increased constraint density) as the only path to deeper search.
+
+In all cases, the secondary objective is satisfied: the distribution of depth ceilings over the
+seed search gives a quantitative picture of how much variance the partition geometry contributes
+to solver performance, complementing the partition-architecture data from B.20--B.21.
+
+#### B.22.6 Relationship to Other Proposals
+
+*B.20 (uniform-511 LTP baseline).* B.22 is a direct continuation of B.20's partition architecture,
+reusing the Fisher-Yates construction and 511-cell-per-line constraint. The only change is
+systematic exploration of the seed space rather than accepting the default constants.
+
+*B.21/B.22 (variable-length LTP).* Variable-length partitions (B.21) achieved 0.20% mismatch
+rate and dramatically better constraint quality, but depth regression to ~50K due to constraint
+density loss. Seed search operates within the proven uniform-511 architecture; findings inform
+whether architectural complexity is necessary or whether the uniform-511 ceiling can be raised
+sufficiently to meet the project's depth target.
+
+*B.8 (adaptive lookahead).* Deeper lookahead (k=4) produced zero depth improvement in the
+forcing dead zone. Partition seed search addresses the dead zone directly by modifying which
+lines are co-resident in the plateau band, rather than applying deeper probing to the existing
+topology.
+
+*B.10 (constraint-tightness ordering).* In the forcing dead zone, all lines have
+$\rho/u \approx 0.5$ and tightness scores are uniformly weak. A partition with higher $\Phi$
+creates more variation in line tightness at the plateau, making B.10 relevant again. Seed search
+and tightness ordering are therefore synergistic: seed search creates the tightness variation
+that B.10 can exploit.
+
+#### B.22.7 Open Questions
+
+(a) Does the $\Phi$ metric correlate reliably with depth ceiling? If $\Phi$ and depth ceiling
+have Spearman rank correlation $\geq 0.7$ over 50+ candidate seeds, the metric is useful as a
+pre-filter. If correlation is low, structural metrics alone cannot predict depth; full 2-minute
+runs are required for all candidates.
+
+(b) Are the four sub-table seeds independent? If optimizing $s_1$ while holding $s_2, s_3, s_4$
+fixed produces the same depth ceiling as a joint optimization, the search reduces from $O(K^4)$
+to $O(4K)$. Empirical testing: optimize each sub-table seed independently, then run the joint
+configuration and compare.
+
+(c) Is there a seed configuration that exceeds B.21's $\Phi$ score despite uniform-511 line
+lengths? The triangular variable-length architecture achieves low $\Phi$ (short lines are sparse
+in the plateau band) but high constraint quality (near-zero mismatch). A uniform-511 partition
+with high $\Phi$ achieves high constraint density (all 511 cells/line) with good cross-family
+overlap. If such a partition can be found, it may combine the best properties of B.20 and B.21
+without the depth regression.
+
+(d) Does the optimal seed set generalize across input blocks? The depth test uses a single
+representative block. A seed configuration optimized on one block may overfit to its specific
+cross-sum residual structure. Validation on 3--5 diverse blocks (all-zeros, all-ones, random,
+alternating) is required before adopting a new seed set for production.
+
+(e) What is the variance of depth measurements for a fixed seed at 2 minutes vs. 10 minutes?
+If depth variance over 2-minute windows is large (standard deviation $\geq 500$ cells), the
+phase 1 pre-filter will produce false rankings and Phase 2 validation will require longer runs.
+The variance characterization should be performed on B.25's current seed set before beginning
+the search.
+
+### B.23 Clipped-Triangular LTP Partitions
+
+#### B.23.1 Motivation
+
+B.25 (uniform-511 LTP) produces depth ~86,123. B.22 (full-coverage variable-length LTP,
+triangular distribution with ltp_len(k) = 4·min(k+1, 511−k) − adj(k), range 2--1,021) achieved
+depth ~80,300, a 7% *regression* from B.20's 88,503. The root cause: B.22's shortest lines (2--8
+cells) are exhausted within the first few DFS rows and contribute no forcing in the plateau band
+(rows 100--300). Their slots in the sub-tables are "wasted" relative to a longer line that would
+still be active at the plateau.
+
+B.21 (proposed joint-tiled variable-length, ltp_len(k) = min(k+1, 511−k), range 1--256) was
+evaluated analytically but never implemented because B.22's experimental regression contradicted
+the theoretical premise: short lines were expected to generate forcing cascades in early rows that
+reduce the solver's branching factor, but in practice the extreme short lines (< 16 cells) provide
+too little cross-row coverage to survive contact with the plateau band.
+
+B.23 proposes *clipped-triangular* LTP line lengths: each line $k$ has length
+$\text{ltp\_len}(k) = \max(L_{\min}, \min(k+1, 511-k))$, where $L_{\min}$ is a minimum clip
+threshold. The triangular distribution is preserved at the top (maximum 256 cells for k=255),
+but all lines shorter than $L_{\min}$ are extended to $L_{\min}$. This eliminates the
+ineffective very-short lines while retaining the length variation that distinguishes B.23 from
+uniform-511.
+
+The working hypothesis is that B.22's regression is driven by the lines below some threshold
+$L_{\min}^*$: lines shorter than $L_{\min}^*$ add noise (consuming cell slots for lines that
+never generate plateau-band forcing) while lines at or above $L_{\min}^*$ provide the structural
+variation that improves constraint topology. If this hypothesis holds, the optimal clip threshold
+$L_{\min}^*$ lies where the marginal value of line-length variation (longer lines → more plateau
+coverage) balances the marginal cost (shorter lines → fewer cells assigned to plateau-active
+lines).
+
+#### B.23.2 Objective
+
+Find a clip threshold $L_{\min} \in \{16, 32, 64, 128\}$ such that the clipped-triangular LTP
+partition achieves depth strictly greater than B.25's uniform-511 baseline of ~86,123 while
+maintaining throughput $\geq 250K$ iter/sec. A secondary objective is to determine whether
+the full uniform-511 ceiling (~88,503 from B.20) is reachable with clipped-triangular geometry,
+or whether uniform-511 is structurally superior for any achievable $L_{\min}$.
+
+#### B.23.3 Partition Structure
+
+For a given clip threshold $L_{\min}$:
+
+$$
+\text{ltp\_len}(k) = \max\!\left(L_{\min},\; \min(k+1, \; 511-k)\right), \quad k = 0, 1, \ldots, 510
+$$
+
+The resulting length distribution:
+- For $k < L_{\min} - 1$ or $k > 511 - L_{\min}$: $\text{ltp\_len}(k) = L_{\min}$ (clipped)
+- For $L_{\min} - 1 \leq k \leq 511 - L_{\min}$: $\text{ltp\_len}(k) = \min(k+1, 511-k)$
+  (unclipped triangular, range $L_{\min}$--256)
+
+**Total cells per sub-table** (sum over k=0..510):
+
+$$
+N(L_{\min}) = 2\!\sum_{k=0}^{L_{\min}-2}\! L_{\min} \;+\; \sum_{k=L_{\min}-1}^{511-L_{\min}}\!\min(k+1, 511-k)
+$$
+
+For the clipped region, each of the $2(L_{\min}-1)$ short lines contributes $L_{\min}$ cells
+instead of 1..$(L_{\min}-1)$ cells, so $N(L_{\min}) > N(0) = 65,536$ (B.21). Coverage exceeds
+B.21 but may not reach 261,121 (full coverage). The four sub-tables together must cover all
+261,121 cells; the construction protocol (B.23.4) is responsible for complete coverage.
+
+**Payload impact:** Variable-width encoding uses $\lceil\log_2(\text{ltp\_len}(k)+1)\rceil$ bits
+per element. For $L_{\min} = 64$: minimum width = $\lceil\log_2(65)\rceil = 7$ bits; for
+$L_{\min} = 128$: minimum width = $\lceil\log_2(129)\rceil = 8$ bits. The mean bit-width
+increases as $L_{\min}$ increases, converging to 9 bits (uniform-511) at $L_{\min} = 256$.
+`kBlockPayloadBytes` changes accordingly.
+
+#### B.23.4 Construction Protocol
+
+The clipped-triangular partition is built using the same sequential spatial-assignment algorithm
+as B.22, with $\text{ltp\_len}(k)$ substituted for the B.22 length formula:
+
+1. For each sub-table $j = 0, 1, 2, 3$:
+   - Build candidate pool = cells with assignment count $< j+1$
+   - Sort lines in decreasing order of $\text{ltp\_len}(k)$ (longest lines first)
+   - For each line in sorted order:
+     - Seed LCG: $\text{seed} = \text{baseSeed}[j] \oplus (k \times k_A + k_C)$
+     - LCG-shuffle candidate pool
+     - Sort by ascending spatial score (corners first)
+     - Assign first $\text{ltp\_len}(k)$ candidates to line $k$ of sub-table $j$
+     - Mark assigned cells
+
+This is identical to B.22's construction except for the length function. The spatial-score sort
+and LCG shuffle are unchanged. CSR storage (offsets + cells arrays) is used exactly as in B.22.
+
+#### B.23.5 Impact on Solver Architecture
+
+All solver components change only at the `ltpLineLen(k)` call site — the single function that
+maps a line index to its length. Everything downstream (ConstraintStore stats initialization,
+propagation loop, serialization bit-width) already reads from `ltpLineLen(k)`. The change is
+therefore local to `LtpTable.h`:
+
+```cpp
+[[nodiscard]] inline std::uint32_t ltpLineLen(const std::uint16_t k) noexcept {
+    constexpr std::uint32_t kClip = 64U;  // or 32, 128 — experiment parameter
+    const auto tri = static_cast<std::uint32_t>(std::min(k + 1U, 511U - k));
+    return std::max(kClip, tri);
+}
+```
+
+No changes to ConstraintStore, PropagationEngine, BranchingController, or the DFS loop. The
+`kBlockPayloadBytes` constant changes to reflect the new bit-width distribution.
+
+#### B.23.6 Expected Outcomes
+
+The expected depth ceiling as a function of $L_{\min}$:
+
+| $L_{\min}$ | Description                     | Predicted Depth | Rationale |
+|:-----------:|:--------------------------------|:---------------:|:----------|
+| 1 (B.22)   | Full triangular, no clip         | ~80,300         | Short lines too weak; established experimentally |
+| 16          | Clip at 16 cells                 | ~82--84K        | Some short-line noise eliminated; medium lines still active |
+| 32          | Clip at 32 cells                 | ~84--86K        | Most short-line noise gone; expect near-parity with uniform-511 |
+| 64          | Clip at 64 cells                 | ~85--88K        | Short lines gone; length variation in plateau range; target outcome |
+| 128         | Clip at 128 cells                | ~86--88K        | Near-uniform; small variation at top; expected parity with B.25 |
+| 256 (uniform-511) | Full uniform, no variation | ~86,123        | B.25 baseline |
+
+The hypothesis predicts a performance peak at $L_{\min} = 64$ or $L_{\min} = 128$, where
+line-length variation is concentrated in the plateau band (lines of length 64--256 correspond
+to $k \in [63, 447]$, covering 384 of 511 lines and exactly the rows that stall).
+
+**Best case:** $L_{\min} = 64$ achieves depth $\geq 89{,}000$, confirming that length variation
+at the 64--256 scale provides structural benefits that uniform-511 cannot. B.23 becomes the new
+production partition architecture.
+
+**Likely case:** $L_{\min} = 64$ achieves depth ~87--88K, roughly matching or slightly exceeding
+B.25, with lower `hash_mismatch_rate` (reflecting better plateau-band constraint quality). The
+result is directionally positive but not a breakthrough; B.23 may be combined with B.22's seed
+search to extract further gains.
+
+**Pessimistic case:** All clip thresholds perform at or below B.25's 86,123 baseline, replicating
+B.22's regression at milder scale. This would indicate that any length variation is detrimental
+under the current construction protocol and that uniform-511 is the structural optimum for
+Fisher-Yates partitions. Further architectural improvement would require either joint-tiling
+(B.21) or a different construction strategy.
+
+#### B.23.7 Relationship to Other Proposals
+
+*B.22 (seed search).* B.22 and B.23 are complementary and independent. B.22 varies the seed
+within a fixed (uniform-511) length distribution; B.23 varies the length distribution with a
+fixed construction algorithm. The optimal combination is a clipped-triangular partition with
+a seed-searched assignment. If B.23's $L_{\min} = 64$ peak outperforms B.22's best uniform-511
+seed, the partition architecture (B.23) takes precedence and seed search within the B.23
+architecture becomes the follow-on step.
+
+*B.25 (current production).* B.23 is implemented as a drop-in replacement for B.25's
+`ltpLineLen(k)`. No other files change. The experiment can be run by modifying a single
+constant in `LtpTable.h` and rebuilding, making iteration fast.
+
+*B.21 (proposed joint tiling).* B.21's joint-tiling construction protocol is significantly
+more complex (CSR storage, `LtpMembership` forward table, variable cell coverage per sub-table).
+B.23 retains B.25's simpler "every cell in all 4 sub-tables" ownership model. If B.23 achieves
+the depth improvement, B.21's complexity is unnecessary. B.23 should be fully evaluated before
+B.21 implementation is considered.
+
+#### B.23.8 Open Questions
+
+(a) What is the optimal clip threshold $L_{\min}^*$? The prediction in B.23.6 suggests 64--128,
+but the true optimum may differ. Does depth ceiling vary monotonically with $L_{\min}$ (allowing
+binary search), or does it exhibit a non-monotone peak?
+
+(b) Does the optimal $L_{\min}^*$ interact with the seed constants? A clipped-triangular
+partition at $L_{\min} = 64$ with default seeds may be suboptimal; combining $L_{\min}$ search
+with seed search (B.22) may be required to find the global optimum. Does the $\Phi$ metric from
+B.22.4 extend naturally to variable-length lines (weighting short lines less in the $\Phi$ sum)?
+
+(c) Does the construction order (longest lines first) still produce optimal spatial layout for
+clipped lines? For B.22's full-triangular construction, sorting by decreasing length ensures
+that long lines (which cover the most cells) are assigned first and therefore receive higher
+spatial priority. For clipped distributions, the many equal-length clipped lines at both ends of
+the $k$ range are assigned in an arbitrary order. Does sub-sorting within the clipped band by
+spatial score produce better partitions?
+
+(d) How does `kBlockPayloadBytes` change across the tested $L_{\min}$ values, and does the
+encoding cost offset any solver depth benefit in terms of compression ratio? Specifically: does
+$L_{\min} = 64$ produce a smaller block payload than uniform-511, and if so, does that improve
+the overall compression ratio $C_r$ meaningfully?
+
+(e) Is the clipped-triangular architecture compatible with the LTP membership model (B.21's
+joint-tiling)? If the flat "all 4 sub-tables" model is retained (as in B.23), can the
+construction protocol be extended to allow joint-tiling within the clipped-triangular length
+distribution for a future experiment?
+
+## Appendix C: Open Questions Consolidated
+
+This appendix consolidates all open questions from Appendices A and B into a single reference. Each question is reproduced from its original context, followed by a *Discovered Data* subsection summarizing relevant experimental evidence gathered during the research program, and a *Conclusions* subsection stating what can be inferred. Questions are grouped by their source section to preserve traceability. The principal data sources are: B.8 telemetry (depth plateau ~87,500, 37% hash mismatch, min_nz_row_unknown = 1); B.20.9 Configuration C results (depth ~88,503, mismatch 25.2%, iter/sec ~198K); B.21 observed results (depth 50,272, mismatch 0.20%, iter/sec ~687K); the B.12.6(a) BP convergence experiment; and the CDCL infrastructure assessment (B.1.10).
+
+---
+
+### C.1 From B.1.8: CDCL and Non-Chronological Backjumping
+
+#### C.1.1 Question (a): LH Failure Root-Cause Depth
+
+*How often do LH failures have distant root causes? If the typical hash failure is caused by a decision within the last 5--10 levels, backjumping provides little benefit. If root causes are frequently 50--500 levels deep, the savings are exponential.*
+
+**Discovered Data.** B.8 telemetry shows min_nz_row_unknown = 1 throughout: rows reach completion and fail SHA-1 immediately. B.20.9 confirms the pattern persists under LTP substitution (mismatch rate dropped from 37% to 25.2% but failures remain frequent). B.21 reduced mismatch to 0.20%, but the depth regression to 50,272 suggests root causes are shallow — the solver makes better decisions with variable-length lines but encounters an earlier structural wall.
+
+**Conclusions.** The evidence strongly suggests that root causes are predominantly shallow (within the last few rows of assignments). B.1.9 explicitly concluded that the bottleneck is search guidance, not constraint density or lookahead reach. The backjumping benefit is therefore limited; the typical failure distance is within chronological backtracking's efficient range.
+
+#### C.1.2 Question (b): Implication Graph Maintenance Cost
+
+*Can the implication graph be maintained cheaply enough to justify full CDCL?*
+
+**Discovered Data.** B.1.10 documents that the full CDCL infrastructure was built (ConflictAnalyzer, ReasonGraph, CellAntecedent, BackjumpTarget) but never integrated into the DFS loop. The forcing dead zone at the plateau (ρ/u ≈ 0.5 for all length-511 lines) means the reason graph contains no meaningful antecedent chains — there are no forcing events to record. B.21's variable-length lines create forcing events in early rows (short lines exhaust quickly), but the depth regression suggests these events do not propagate deeply enough to create useful conflict clauses.
+
+**Conclusions.** The question is moot under current architecture. The implication graph can be maintained at low cost per se (the infrastructure exists), but the cost is irrelevant because the forcing dead zone generates no useful antecedent chains. B.21's short LTP lines may change this calculus by creating forcing events, but B.21's depth regression indicates the benefit would be marginal at best. CDCL should be revisited only if a future architecture change produces sustained forcing in the plateau band.
+
+#### C.1.3 Question (c): Lightweight Backjump Estimator Sufficiency
+
+*Is the lightweight backjump estimator (B.1.7) sufficient in practice?*
+
+**Discovered Data.** B.1.9 reports that the estimator was implemented first per the adopted sequence. B.8 telemetry shows no measurable improvement in depth from the estimator (depth stayed at ~87,500). B.1.10's retrospective analysis explains why: the estimator needs forcing events to identify causal decisions, but the dead zone produces no forcing.
+
+**Conclusions.** Answered negatively. The lightweight estimator is insufficient because it operates on forcing-event metadata that does not exist in the plateau band. The approach is structurally unable to identify backjump targets when ρ/u ≈ 0.5.
+
+#### C.1.4 Question (d): CDCL and Adaptive Lookahead Interaction
+
+*How does CDCL interact with the adaptive lookahead (B.8)?*
+
+**Discovered Data.** B.8 was implemented with k = 1…4. The k = 4 probe depth added ~15% per-iteration overhead with zero depth improvement. CDCL was built but never integrated. No interaction data exists.
+
+**Conclusions.** Unanswered empirically, but likely unproductive. The lookahead probes explore subtrees that, like the main DFS, encounter the forcing dead zone. Conflicts discovered by probes would produce equally vacuous learned clauses (111-literal clauses that rarely fire, per B.1.9). The interaction is theoretically interesting but practically mooted by the dead zone.
+
+#### C.1.5 Question (e): Clause Management Strategy
+
+*What clause-management strategy is appropriate for CRSCE?*
+
+**Discovered Data.** CDCL was never integrated, so no clause database was populated. B.1.9 calculated that hash-failure clauses would contain ~111 decision literals, making reuse probability negligible.
+
+**Conclusions.** Unanswered but deprioritized. The question becomes relevant only if a future architecture change (e.g., variable-length lines producing short conflict clauses) makes CDCL viable. Under current or foreseeable architectures, the clause database would remain empty or contain only unreusable long clauses.
+
+---
+
+### C.2 From B.2.6: Additional Toroidal Slope Partitions
+
+#### C.2.1 Question (a): 5th Slope Pair Speedup
+
+*What is the empirical decompression speedup from adding a 5th slope pair?*
+
+**Discovered Data.** B.20 tested a different direction — replacing all 4 slopes with 4 LTP partitions rather than adding a 5th slope pair. The result (B.20.9): +1.1% depth, −11.8 pp mismatch, ~0% throughput change. B.21 went further with variable-length LTP and produced 3.5× throughput improvement but depth regression.
+
+**Conclusions.** Superseded. The research program moved past additional slope pairs toward non-linear partitions (B.9/B.20) and variable-length partitions (B.21). Adding a 5th slope pair is no longer under consideration given that the 4 existing slopes were entirely replaced by LTP partitions. The positional hypothesis (B.20.9) indicates that any additional uniform-length-511 line — slope or otherwise — cannot break the forcing dead zone.
+
+#### C.2.2 Question (b): Per-Iteration Cost Scaling
+
+*At what partition count does per-iteration cost become a bottleneck?*
+
+**Discovered Data.** B.20 Config C reduced lines per cell from 10 to 8 with negligible throughput change (~198K vs ~200K iter/sec). B.21 reduced lines per cell from 8 to 5–6 and achieved 687K iter/sec (3.5× improvement). The relationship is clearly super-linear: removing 2–3 lines per cell tripled throughput.
+
+**Conclusions.** Partially answered. Reducing constraint lines per cell from 8 to 5–6 produced a dramatic throughput improvement, confirming that per-iteration cost scales significantly with line count. The bottleneck onset appears to be around 8–10 lines per cell. However, throughput is not the sole metric — B.21's throughput gain came at the cost of depth regression, suggesting the optimal constraint density balances throughput against propagation power.
+
+#### C.2.3 Question (c): Optimal Slope Values
+
+*What slope values should a 5th pair use?*
+
+**Discovered Data.** No experiments with alternative slope values were conducted. The entire slope family was replaced by LTP partitions in B.20.
+
+**Conclusions.** Superseded. The toroidal slope family has been removed from the architecture. The question is only relevant if a future experiment re-introduces algebraic slopes alongside LTP.
+
+---
+
+### C.3 From B.3.8: Variable-Length Curve Partitions
+
+#### C.3.1 Question (a): Minimum Invisible Swap Size
+
+*What is the empirically measured k_min for a 6-partition system at small matrix sizes?*
+
+**Discovered Data.** No small-matrix experiments were conducted. However, B.21's joint-tiled variable-length design is conceptually related — it uses variable-length lines (1 to 256 cells) rather than the 1-to-511 triangular sequence proposed in B.3.
+
+**Conclusions.** Unanswered. The question remains relevant for understanding swap-invisible pattern theory but has been deprioritized relative to the empirical approach taken in B.20/B.21.
+
+#### C.3.2 Question (b): 16-Partition Cascade Solving
+
+*For 16 variable-length curve partitions, does the cascade from anchor cells solve enough of the matrix?*
+
+**Discovered Data.** B.21 used 4 variable-length sub-tables (not 16 full partitions) with line lengths 1–256. The result was 687K iter/sec (fast cascade) but depth regression to 50,272, suggesting that cascade solving works rapidly but the reduced constraint density (5–6 lines per cell instead of 8) creates a premature wall.
+
+**Conclusions.** Partially answered. Variable-length lines produce extremely effective cascade forcing (evidenced by B.21's 0.20% mismatch rate and 3.5× throughput). However, 4 sub-tables are insufficient to maintain depth — the solver runs out of propagation power. Scaling to 16 partitions would restore constraint density, but at enormous storage cost (the original B.3 proposal). The B.21 results suggest that a middle ground — more than 4 sub-tables but fewer than 16 full partitions — warrants investigation.
+
+#### C.3.3 Question (c): LH Elimination Feasibility
+
+*Is collision resistance from interlocking partitions sufficient to eliminate LH entirely?*
+
+**Discovered Data.** B.21's 0.20% hash mismatch rate demonstrates that variable-length LTP lines dramatically improve collision resistance. However, LH still caught 0.20% of attempts — without LH, these would produce incorrect reconstructions.
+
+**Conclusions.** Not yet. The 0.20% mismatch rate is impressive but nonzero. LH remains necessary for correctness verification. Future work could investigate whether increasing the number of variable-length partitions drives mismatch to zero, enabling LH elimination.
+
+#### C.3.4 Questions (d), (e), (f): Curve Family, Segment Schedule, Crossing Property
+
+*Optimal curve family, segment schedule optimization, dense crossing property proof.*
+
+**Discovered Data.** B.21 used pseudorandom spatial distribution rather than space-filling curves. The triangular length distribution (min(k+1, 511−k)) was adopted directly from DSM/XSM. No formal crossing-property analysis was performed.
+
+**Conclusions.** These questions remain open. B.21 sidestepped them by using pseudorandom assignment rather than deterministic curve-based construction. The theoretical questions about optimal curve families and crossing properties are still relevant for understanding the fundamental limits of partition-based constraint systems.
+
+---
+
+### C.4 From B.4.9: Dynamic Row-Completion Priority
+
+#### C.4.1 Question (a): Optimal Threshold τ
+
+*What is the optimal threshold τ?*
+
+**Discovered Data.** B.4 was implemented and subsumed by B.10. No isolated τ optimization data is available. B.8 telemetry shows depth plateau regardless of probe depth k = 1…4, suggesting that row-completion priority alone cannot break the plateau.
+
+**Conclusions.** Unanswered but deprioritized. The τ parameter is now part of the broader B.10 tightness-driven ordering, and the plateau bottleneck has been shown (B.20.9) to be a consequence of uniform-length-511 lines rather than cell ordering.
+
+#### C.4.2 Questions (b), (c), (d): Multi-Line Priority, Burst Completion, Probing Interaction
+
+*Multi-line priority, burst vs. single-cell completion, probing interaction.*
+
+**Discovered Data.** B.10 generalizes multi-line priority. No isolated experiments on burst completion or probing interaction were conducted. B.8 telemetry showed that deeper probing (k = 4) had no effect on depth, suggesting that the ordering refinements proposed here cannot overcome the fundamental plateau barrier.
+
+**Conclusions.** Deprioritized. The forcing dead zone is the binding constraint, not cell ordering. These questions become relevant only after a future architecture change (e.g., variable-length lines) creates sustained forcing in the plateau band where ordering differences matter.
+
+---
+
+### C.5 From B.5.1: Hash Alternatives
+
+#### C.5.1 Question (a): SHA-1 vs. SHA-256 Throughput
+
+*What is the empirical throughput difference between SHA-1 and SHA-256 row hashing?*
+
+**Discovered Data.** SHA-1 was adopted for row hashing. B.8 telemetry reports ~200K iter/sec with SHA-1. B.21 achieved ~687K iter/sec, though the improvement came from reduced constraint lines rather than hash function choice. No direct SHA-1 vs. SHA-256 benchmark was conducted.
+
+**Conclusions.** Partially answered. SHA-1 is in production use and supports ~200K–687K iter/sec depending on constraint architecture. The SHA-1 choice appears sound, but no controlled comparison with SHA-256 exists. Given that hash computation is a small fraction of per-iteration cost, the difference is likely minor.
+
+#### C.5.2 Question (b): 4-Partition vs. 10-Partition Allocation
+
+*Is the 4-partition allocation optimal, or does scaling to 10 partitions yield better propagation?*
+
+**Discovered Data.** B.9 added 2 LTP partitions (10 total, 6,130 lines). B.20 replaced 4 slopes with 4 LTP (8 total, 5,108 lines). B.21 kept 8 total but with variable-length LTP. The progression shows diminishing returns from adding uniform-length lines and qualitative improvements from variable-length lines. B.21's 5–6 lines per cell with 687K iter/sec outperforms B.9's 10 lines per cell.
+
+**Conclusions.** Answered. The optimal allocation is not more partitions but *better* partitions. Variable-length LTP lines (B.21) at 5–6 per cell outperform 10 uniform-length lines per cell on throughput and mismatch rate. The 4-partition allocation in its B.21 form is superior to the 10-partition B.9 configuration.
+
+#### C.5.3 Question (c): Alternative Slope Values
+
+*Are there slope values that provide superior propagation interaction?*
+
+**Discovered Data.** No experiments with alternative slope values were conducted before the slope family was removed.
+
+**Conclusions.** Superseded. The toroidal slope family was replaced by LTP in B.20.
+
+---
+
+### C.6 From B.6.6: Singleton Arc Consistency
+
+#### C.6.1 Questions (a), (b), (c): SAC Fixpoint Depth, Partial SAC, GPU Parallelization
+
+*SAC fixpoint depth, partial SAC convergence, GPU parallelization of probe loop.*
+
+**Discovered Data.** SAC was not implemented. B.8's k = 4 exhaustive lookahead is a weaker form of SAC probing (it probes 4 levels deep rather than to fixpoint). B.8 showed zero depth improvement from deeper probing, suggesting that SAC's additional power (probing to fixpoint) would similarly fail to break the plateau because the dead zone prevents fixpoint propagation from reaching a contradiction.
+
+**Conclusions.** Unanswered but likely unproductive under current architecture. The forcing dead zone means that probing to fixpoint produces the same result as no probing — ρ/u ≈ 0.5 across all lines, no contradictions detected. SAC becomes potentially valuable under B.21's variable-length architecture, where short lines create early forcing events that could amplify SAC probes. However, B.21's depth regression suggests the amplification is insufficient.
+
+---
+
+### C.7 From B.8.7: Adaptive Lookahead
+
+#### C.7.1 Questions (a), (b): Window Size and Thresholds
+
+*Optimal window size W, optimal stall/recovery thresholds.*
+
+**Discovered Data.** B.8 was implemented with W = 10,000. Stall detection successfully triggered escalation from k = 0 to k = 4 in the plateau band. B.20.9 and B.21 both show the stall detector activating appropriately.
+
+**Conclusions.** Partially answered. The W = 10,000 default works correctly for stall detection. However, the escalation response (increasing k) proved ineffective — the solver reaches k = 4 and remains there without depth improvement. The thresholds detect stalls accurately; the problem is that the available interventions (deeper lookahead) cannot address the root cause (forcing dead zone).
+
+#### C.7.2 Question (c): Linear-Chain Approximation Beyond k = 4
+
+*Is a linear-chain approximation viable for k > 4?*
+
+**Discovered Data.** Not tested. B.8 capped at k = 4 exhaustive. B.1.9 concluded that the bottleneck is search guidance rather than lookahead depth, making deeper probing (whether exhaustive or approximate) unlikely to help.
+
+**Conclusions.** Likely unproductive. If exhaustive k = 4 (16 probes per decision) produces zero depth improvement, approximate k = 8 or k = 16 with their higher false-negative rates are even less likely to help. The fundamental issue is that contradictions in the dead zone are invisible to any finite-depth probe.
+
+#### C.7.3 Question (d): Probing Both Values vs. Alternate Only
+
+*Should the lookahead tree explore both values?*
+
+**Discovered Data.** No controlled comparison. The existing implementation probes only the alternate value.
+
+**Conclusions.** Unanswered but deprioritized given that lookahead at any depth fails to break the plateau.
+
+---
+
+### C.8 From B.9.9: Non-Linear Lookup-Table Partitions
+
+#### C.8.1 Question (a): Optimized LTP vs. 5th Slope Pair
+
+*Does an optimized LTP pair provide measurable benefit beyond a 5th slope pair?*
+
+**Discovered Data.** B.20 Config C replaced 4 slopes with 4 LTP (unoptimized, Fisher-Yates baseline). Result: +1.1% depth, −11.8 pp mismatch. B.21 used variable-length LTP with 3.5× throughput but depth regression. No direct LTP-vs-slope pair comparison with identical partition counts was conducted.
+
+**Conclusions.** Partially answered. Unoptimized LTP outperforms slopes on mismatch rate (25.2% vs 37%), confirming that non-linearity provides constraint benefit. The LTP's advantage appears to come from breaking the algebraic null space, not from offline optimization. Variable-length LTP (B.21) provides dramatically better constraint quality (0.20% mismatch) but at the cost of reduced constraint density.
+
+#### C.8.2 Question (b): Optimization Test Suite Size
+
+*How large must the optimization test suite be for generalization?*
+
+**Discovered Data.** B.20 Config C used unoptimized tables (Fisher-Yates baseline, no hill-climbing). The unoptimized tables already outperformed slopes, suggesting that the pseudorandom structure itself is the key feature, not per-instance optimization.
+
+**Conclusions.** Partially answered. Unoptimized LTP already outperforms slopes, reducing the urgency of offline optimization. The question remains relevant for squeezing marginal gains from the LTP architecture, but the B.20/B.21 progression suggests that structural innovations (variable-length lines) dominate over optimization of fixed-length tables.
+
+#### C.8.3 Questions (c), (d), (e): Search Heuristic, Stacking, Lookahead Interaction
+
+*Convergence heuristic, stacking multiple LTPs, interaction with adaptive lookahead.*
+
+**Discovered Data.** B.20 used 4 stacked LTP partitions (answering (d) affirmatively — multiple LTPs can be stacked). B.21 changed the stacking architecture to joint tiling. No optimization search or lookahead interaction data.
+
+**Conclusions.** Question (d) is answered: 4 LTP partitions were successfully stacked in B.20 with positive results. Questions (c) and (e) remain unanswered but are deprioritized given the shift to variable-length architecture.
+
+---
+
+### C.9 From B.10.7: Constraint-Tightness-Driven Cell Ordering
+
+#### C.9.1 Questions (a), (b), (c), (d): Weights, Incremental Cost, Confidence Integration, Predictive Power
+
+*Optimal weights, incremental maintenance justification, confidence score integration, tightness as failure predictor.*
+
+**Discovered Data.** B.10's tightness-driven ordering was implemented (B.4 as the first stage). B.8 telemetry showed no depth improvement from adaptive lookahead, and B.20.9 showed only +1.1% depth from LTP substitution. B.21 achieved 0.20% mismatch (dramatically better branching quality) but depth regression, suggesting that constraint quality — not ordering — is the binding constraint.
+
+**Conclusions.** Deprioritized. Cell ordering is a second-order effect relative to constraint density and structure. The forcing dead zone prevents tightness-driven ordering from activating — when all lines have ρ/u ≈ 0.5, tightness scores are uniformly weak and provide no meaningful differentiation. Under B.21's variable-length architecture, short lines create tightness variation that could make these questions relevant again.
+
+---
+
+### C.10 From B.11.6: Randomized Restarts
+
+#### C.10.1 Questions (a)–(e): Heavy-Tail Distribution, Luby Base, Partial Restart, Phase Saving, Stall Interaction
+
+*Heavy-tail distribution, optimal Luby base, partial vs. full restart, phase saving interaction, stall detection combination.*
+
+**Discovered Data.** Restarts were not implemented. B.11.1 identified the fundamental constraint: DI determinism requires fully deterministic restart policies, ruling out classical randomized restarts. B.8 telemetry shows the plateau stall is consistent (depth ~87,500 across k = 1…4), suggesting a structural rather than stochastic bottleneck — inconsistent with heavy-tailed behavior. B.21's depth regression to 50,272 with near-zero mismatch further suggests the wall is structural (constraint density insufficient) rather than stochastic (bad early decisions).
+
+**Conclusions.** Likely unproductive. The evidence points to a structural plateau rather than a heavy-tailed distribution. The plateau depth is remarkably consistent across lookahead depths and partition architectures (87,500 with slopes, 88,503 with LTP, always in the same band), suggesting a phase transition inherent to the constraint system rather than unlucky branching. Deterministic restart policies compatible with DI would need to navigate this structural barrier, not just escape stochastic traps.
+
+---
+
+### C.11 From B.12.6: Survey Propagation and BP-Guided Decimation
+
+#### C.11.1 Question (a): BP Convergence — ANSWERED
+
+*Does BP converge reliably on the CRSCE factor graph?*
+
+**Discovered Data.** Empirically answered on 2026-03-04. Gaussian BP with damping α = 0.5 converges reliably in 30 iterations (run_id=1c64a9a5). Cold-start max_delta = 18.252, warm-start max_delta = 0.000. BP converges but BP-guided branch-value ordering does not break the depth plateau (depth remained at ~87,487–87,498 after 3 StallDetector escalations).
+
+**Conclusions.** Answered. BP converges but does not improve depth. The Gaussian approximation may be too coarse for the densely-loopy CRSCE factor graph. The forcing dead zone renders the marginal estimates uninformative — when ρ/u ≈ 0.5, the true marginals are near 0.5, and BP correctly computes them as near 0.5, providing no branching guidance.
+
+#### C.11.2 Questions (b)–(e): Checkpoint Interval, SP Frozen Cells, Batch Size, GPU Acceleration
+
+*Optimal checkpoint interval, SP backbone detection, batch decimation size, Metal GPU acceleration.*
+
+**Discovered Data.** B.12.6(a)'s negative finding (BP-guided ordering doesn't break plateau) reduces the urgency of all optimization questions. If the marginals themselves carry no signal in the dead zone, optimizing how frequently or efficiently they are computed is moot.
+
+**Conclusions.** Deprioritized. The binding constraint is not BP's implementation efficiency but the dead zone's information-theoretic barrier. These questions become relevant only if a future architecture change (e.g., variable-length lines creating non-trivial marginals) makes BP's output actionable.
+
+---
+
+### C.12 From B.13.5: Portfolio and Parallel Solving
+
+#### C.12.1 Questions (a)–(d): Portfolio Size, Parameter Sensitivity, Clause Sharing, Restart Combination
+
+*Optimal portfolio size, diversification parameter selection, inter-instance clause sharing, restart combination.*
+
+**Discovered Data.** Portfolio solving was not implemented. B.8 telemetry showed the plateau is consistent across probe depths, and B.20.9 showed it persists under LTP substitution. The consistency of the plateau (~87,500 ± 1,000) across heuristic variations suggests that diversifying heuristic parameters within a portfolio would produce uniformly poor results — all instances would stall at approximately the same depth.
+
+**Conclusions.** Likely unproductive under current architecture. Portfolio benefit requires that different heuristic configurations encounter qualitatively different search landscapes. The plateau's consistency across k = 0…4, across slope vs. LTP, and across static vs. dynamic ordering suggests a single structural bottleneck that no heuristic variation can circumvent. Portfolio solving becomes interesting only if a future architecture change creates a landscape where heuristic choice materially affects search trajectory beyond the plateau entry point.
+
+---
+
+### C.13 From B.14.7: Lightweight Nogood Recording
+
+#### C.13.1 Questions (a)–(d): Failure Recurrence, Partial vs. Full Nogoods, Checking Strategy, Portfolio Sharing
+
+*Failure recurrence rate, partial nogood power, optimal checking strategy, inter-instance sharing.*
+
+**Discovered Data.** Not implemented. B.8 telemetry reports 37% hash mismatch rate (6.1M mismatches / 16.7M iterations). B.20.9 reduced this to 25.2%. B.21 achieved 0.20%. The dramatic mismatch reduction from B.21 suggests that with variable-length lines, hash failures become rare enough that nogood recording provides minimal additional benefit — there are few failures to record.
+
+**Conclusions.** Conditional on architecture. Under B.8/B.20 (25–37% mismatch), nogood recording could be valuable — the high failure rate suggests many repeated configurations. Under B.21 (0.20% mismatch), the question is largely moot: failures are so rare that recording them provides negligible pruning. The question's relevance depends entirely on which architecture is deployed.
+
+---
+
+### C.14 From B.16.7: Partial Row Constraint Tightening
+
+#### C.14.1 Questions (a)–(d): Additional Forcing, Iteration Count, Integration Trigger, SAC Combination
+
+*PRCT forcing yield, bounds propagation iterations, integration strategy, SAC combination.*
+
+**Discovered Data.** PRCT was not implemented. B.20.9's partial answer to the underlying problem: the mismatch reduction from 37% to 25.2% under LTP substitution demonstrates that constraint quality improvements can push some cells past the forcing threshold. B.21's 0.20% mismatch shows that variable-length lines achieve near-complete forcing in early rows, making PRCT redundant for those lines. However, B.21's depth regression (50,272 vs. 88,503) suggests that PRCT-like reasoning on the remaining long lines could help.
+
+**Conclusions.** Potentially relevant for B.21-class architectures. In the original uniform-length regime, PRCT faces the same dead-zone problem as all other forcing-based techniques. Under B.21, the short LTP lines provide the tightness variation that PRCT exploits. PRCT applied to the interaction between short (nearly-forced) LTP lines and long (still-loose) basic lines could yield additional forced cells in the plateau band. This is one of the more promising avenues for improving B.21's depth performance.
+
+---
+
+### C.15 From B.17.8: Look-Ahead on Row Completion
+
+#### C.15.1 Questions (a)–(d): Completion u/ρ Distribution, Nogood Combination, Trigger Region, Cross-Line Ordering
+
+*Distribution of u and ρ at row completion, nogood combination, trigger region, cross-line check ordering.*
+
+**Discovered Data.** B.8 telemetry reports min_nz_row_unknown = 1, meaning rows consistently reach u = 0 through forcing cascades — the solver fully forces every cell in a row before hash-checking. B.21's 0.20% mismatch rate confirms that forcing cascades are nearly complete with variable-length lines.
+
+**Conclusions.** RCLA is largely redundant. Since min_nz_row_unknown = 1, rows reach u = 0 through normal propagation. RCLA's value (enumerating completions when u ≤ u_max) activates only when propagation stalls with u > 0 remaining, which the telemetry shows rarely or never happens. The answer to question (a) is that u is typically 0 or 1 at row completion, making RCLA's enumeration trivial or unnecessary.
+
+---
+
+### C.16 From B.18.6: Learning from Repeated Hash Failures
+
+#### C.16.1 Questions (a)–(d): Failure Correlation, Counter Overhead, Cross-Block Sharing, B.14 Synergy
+
+*Per-cell failure correlation, counter maintenance cost, cross-block transfer, nogood synergy.*
+
+**Discovered Data.** Not implemented. B.21's 0.20% mismatch rate means hash failures are extremely rare under variable-length architecture, reducing the statistical signal available for failure-frequency learning. Under B.8/B.20 (25–37% mismatch), the higher failure rate would provide richer statistics, but the question of whether per-cell failure patterns are correlated (rather than pseudorandom due to SHA-1) remains open.
+
+**Conclusions.** Architecture-dependent. Under B.21 (0.20% mismatch), failure-biased learning has almost no signal to work with. Under B.8/B.20 architectures, the approach has more potential but the fundamental question — whether hash failures are correlated with specific cell-value decisions or are essentially random — remains unanswered. Given that SHA-1 is a pseudorandom function of all 511 bits, per-cell correlations are likely weak.
+
+---
+
+### C.17 From B.19.7: Enhanced Stall Detection and Extended Probes
+
+#### C.17.1 Questions (a)–(e): Backtrack Distributions, Beam Search, Row-Boundary Probing, Threshold Tuning, Bandit Formulation
+
+*Backtrack depth distribution, beam search effectiveness, row-boundary probing overhead, threshold tuning, multi-armed bandit formulation.*
+
+**Discovered Data.** B.19's enhanced stall detection was not fully implemented. B.8 provides partial data: the solver reaches k = 4 in the plateau and remains there, indicating persistent stalling. B.20.9 and B.21 show different stalling profiles (B.20.9: 198K iter/sec, depth 88,503; B.21: 687K iter/sec, depth 50,272), suggesting that stall characteristics vary significantly across architectures.
+
+**Conclusions.** Partially answered. The stall detector correctly identifies the plateau, but the available interventions (lookahead escalation) cannot address the root cause. Enhanced stall detection (distinguishing shallow oscillation from deep regression) is still potentially valuable for selecting appropriate interventions, but the interventions themselves (beam search, row-boundary probing) remain untested. The multi-armed bandit formulation (question (e)) is theoretically elegant but constrained by the DI determinism requirement.
+
+---
+
+### C.18 From B.20.8: LTP Substitution Experiment
+
+#### C.18.1 Question (a): Sequential Table Optimization Bias
+
+*Is sequential table optimization sufficient, or does greedy ordering leave performance on the table?*
+
+**Discovered Data.** B.20 Config C used unoptimized tables (Fisher-Yates baseline). No hill-climbing or sequential optimization was performed. The unoptimized tables already outperformed toroidal slopes.
+
+**Conclusions.** The question presupposes that optimization is necessary. B.20.9 demonstrates that unoptimized pseudorandom LTP already outperforms algebraically structured slopes, suggesting that the non-linearity itself (breaking the algebraic null space) is more important than per-table optimization. Sequential optimization may yield marginal improvements but is no longer the critical research question.
+
+#### C.18.2 Question (b): Test Suite Sensitivity
+
+*How sensitive is the experiment to the choice of test suite?*
+
+**Discovered Data.** B.20 Config C was tested on block 0 of useless-machine.mp4 (~14M iterations). No multi-input validation.
+
+**Conclusions.** Partially answered. The single-block result is encouraging but not validated across input types. Future experiments should include all-zeros, all-ones, alternating, and natural data inputs to confirm that LTP performance generalizes.
+
+#### C.18.3 Question (c): Truncated-DFS Proxy
+
+*Can the truncated-DFS proxy objective mislead the optimizer?*
+
+**Discovered Data.** No optimization was performed — the question is moot for unoptimized tables.
+
+**Conclusions.** Unanswered but deprioritized given that unoptimized tables already perform well.
+
+#### C.18.4 Question (d): Variable-Length LTP Design — ANSWERED
+
+*If Outcome 1 materializes, is there a variable-length LTP design that escapes the dead zone?*
+
+**Discovered Data.** This is the most directly answered question in the entire research program. B.21 implemented exactly this: joint-tiled variable-length LTP with lines of length min(k+1, 511−k), ranging from 1 to 256 cells. Results: mismatch dropped from 25.2% to 0.20% (dead zone escaped for short lines), throughput increased 3.5×, but depth regressed from 88,503 to 50,272.
+
+**Conclusions.** Answered with nuance. Variable-length LTP *does* escape the forcing dead zone for short lines — the 0.20% mismatch rate proves this conclusively. However, escaping the dead zone on LTP lines while reducing per-cell constraint count from 8 to 5–6 created a new bottleneck: insufficient constraint density in the mid-matrix. The variable-length design works as theorized but requires either (a) more sub-tables to restore constraint density, or (b) complementary techniques (PRCT, CDCL, or additional variable-length partitions) to compensate for the density reduction.
+
+#### C.18.5 Question (e): Alternative Slope Parameters
+
+*Should the experiment include different slope parameters?*
+
+**Discovered Data.** Not tested. The slope family was replaced entirely.
+
+**Conclusions.** Superseded by B.20's direction. Alternative slope parameters are no longer under consideration.
+
+---
+
+### C.19 From B.21.13: Joint-Tiled Variable-Length LTP
+
+#### C.19.1 Question (a): Dual-Covered Cell Distribution
+
+*What is the optimal distribution of the 1,023 dual-covered cells?*
+
+**Discovered Data.** B.21 implemented extreme-corner placement. The 0.20% mismatch rate and 3.5× throughput suggest the corner placement is effective, but no alternative distributions were tested.
+
+**Conclusions.** Unanswered comparatively. The implemented strategy works well by multiple metrics, but no evidence exists to determine whether alternative distributions (e.g., anti-diagonal extremes) would perform better.
+
+#### C.19.2 Question (b): Sequential Construction Ordering Bias
+
+*Does sequential sub-table construction introduce ordering bias?*
+
+**Discovered Data.** B.21 used sequential construction (T_0 first pick, T_3 on residual). No iterative refinement was tested. The 0.20% mismatch and balanced throughput suggest no severe bias, but subtle quality differences across sub-tables were not measured.
+
+**Conclusions.** Unanswered but likely minor. The overall results are strong enough that any ordering bias does not prevent effective performance. Iterative refinement is a potential optimization but not a priority.
+
+#### C.19.3 Question (c): Optimal Length Distribution
+
+*Is the triangular length distribution optimal?*
+
+**Discovered Data.** Three distributions have now been tested:
+
+1. *B.21 triangular (1–256 cells, partial coverage):* depth 50,272; 1–2 lines per cell. The partial coverage (5–6 lines per cell) created the dominant bottleneck; line length distribution was a secondary factor.
+
+2. *B.22 full-coverage triangular (2–1,021 cells):* depth ~80,300; always 4 lines per cell. Restoring full coverage recovered 30K frames. However, very short lines (2–6 cells) provide minimal constraint on deep rows, and very long lines (>511 cells) accumulate pressure slowly. The extreme range hurts on both ends.
+
+3. *B.23 uniform-511 + CDCL / B.25 uniform-511 (no CDCL):* depth ~69K / ~86K; always 4 lines per cell. B.25 (no CDCL) confirmed that uniform-511 reaches 86K — close to B.20's 88.5K. The residual 2K gap is attributable to different LCG shuffle seeds (different random partition), not the line-length distribution.
+
+**Critical interaction discovered (B.21.13):** LTP line length directly controls CDCL jump distances. Shorter lines produce more compact antecedent chains: B.22 (lines 2–1,021 cells) produced CDCL jumps of up to 732 frames; B.23 (uniform-511) produced jumps up to 1,854 frames. The longer jumps in B.23 caused greater depth regression. However, CDCL was ultimately found to be net-harmful regardless of jump distance (see C.21).
+
+**Conclusions.** The uniform-511 distribution (B.20/B.25) achieves the best depth at 86–88K. The triangular distribution of B.22 (2–1,021 cells) performs worse primarily because the extreme tails (very short and very long lines) are less effective than the 511-cell midrange. The optimal distribution is likely near-uniform in the 400–511 cell range, prioritizing consistent constraint density over variability. Distributions with minimum length ≥ 64 cells warrant testing.
+
+#### C.19.4 Question (d): Belief Propagation Interaction
+
+*How does joint tiling interact with BP-guided branching?*
+
+**Discovered Data.** B.12.6(a) showed that BP-guided branching does not break the plateau under uniform-length architecture. B.21 changes the factor graph structure (5–6 factors per cell instead of 8, variable-length factors). No BP experiment has been run under B.21.
+
+**Conclusions.** Unanswered but potentially relevant. B.21's variable-length lines create non-uniform marginals (short lines produce near-forcing beliefs, long lines produce near-0.5 beliefs), which could give BP more actionable signal than it had under the uniform architecture. This warrants empirical testing.
+
+#### C.19.5 Question (e): Joint Tiling for Basic Partitions
+
+*Can the joint-tiling principle extend to DSM/XSM?*
+
+**Discovered Data.** No experiments. B.21's depth regression suggests caution about further reducing per-cell constraint count.
+
+**Conclusions.** Likely counterproductive. B.21 demonstrated that reducing lines per cell from 8 to 5–6 trades depth for throughput. Jointly tiling DSM and XSM would further reduce lines per cell, likely worsening the depth regression. DSM and XSM provide qualitatively different constraint information (different slope directions) that should not be merged.
+
+---
+
+### C.20 From D.1.9: Loopy Belief Propagation (Abandoned)
+
+#### C.20.1 Questions (a)–(e): LBP Convergence, SIMD Acceleration, Overconfidence Harm, Async Hybrid, Region-Based BP
+
+*Convergence behavior at various depths, SIMD exploitation, overconfidence effects, async hybrid approach, GBP on Kikuchi clusters.*
+
+**Discovered Data.** D.1.8 (the verdict) concluded that LBP is dominated on cost-benefit grounds by checkpoint BP (B.12). B.12.6(a) subsequently showed that even checkpoint BP fails to break the plateau — the marginals themselves carry no useful signal in the dead zone.
+
+**Conclusions.** Moot. The parent proposal (continuous LBP) was abandoned in favor of checkpoint BP (B.12), and checkpoint BP itself was empirically shown to be ineffective. All implementation-detail questions about LBP are superseded by the negative finding that BP-based approaches — whether continuous or checkpoint — cannot break the forcing dead zone. The questions could become relevant only if a future architecture change (e.g., variable-length lines producing non-trivial marginals) rehabilitates BP-guided search.
+
+---
+
+### C.21 From B.21.13: CDCL Interaction Study
+
+#### C.21.1 Does CDCL Help?
+
+**Discovered Data.** Four experiments tested CDCL in different configurations:
+
+| Configuration | Depth | iter/sec | CDCL max jump |
+|---|---|---|---|
+| B.20 (no CDCL, uniform-511) | ~88,503 | ~198K | — |
+| B.22+CDCL (triangular 2–1,021) | ~80,300 | ~521K | 732 |
+| B.23+CDCL (uniform-511) | ~69,000 | ~306K | 1,854 |
+| B.24 (cap=0, overhead intact) | ~86,123 | ~120K | 0 |
+| B.25 (overhead fully removed) | ~86,123 | ~329K | 0 |
+
+**Conclusions.** CDCL as implemented is **strictly harmful** in every tested configuration. It reduces depth by 3–22% while increasing iter/sec (due to backjump shortcuts that skip DFS work). The net result is consistently lower depth than chronological backtracking.
+
+The root cause is fundamental: CDCL's 1-UIP analysis is designed for **unit-clause propagation failures** in SAT, where a single "bad" decision is traceable as the conflict's unique implication point. SHA-1 hash verification is a **global non-linear constraint** over all 511 cells in a row; no single decision is the culprit. The 1-UIP trace therefore runs back hundreds to thousands of frames, producing a backjump that discards correct work without any constraint-learning benefit (the current implementation does not store learned clauses).
+
+#### C.21.2 Does Line Length Affect CDCL Performance?
+
+**Discovered Data.** Yes — directly. LTP line length determines how many decisions are required to "seal" a row hash. Short lines force individual cells in 1–2 decisions; long lines accumulate assignments over hundreds of decisions.
+
+- B.22 (triangular, max 1,021 cells): CDCL max jump 732 frames → depth 80,300
+- B.23 (uniform-511): CDCL max jump 1,854 frames → depth 69,000
+
+Shorter lines produce shorter antecedent chains, which produce shorter CDCL jumps. But even the shorter B.22 jumps (732 frames) still reduced depth by 9% vs B.20.
+
+**Conclusions.** Line length modulates CDCL harm rather than enabling CDCL benefit. No distribution was found where CDCL produces net improvement. The interaction confirms that CDCL is incompatible with hash-based row verification at any line length.
+
+#### C.21.3 Does Removing CDCL Overhead Recover B.20's Performance?
+
+**Discovered Data.** Partially. B.24 disabled backjumping but left the per-assignment recording overhead (recordDecision, recordPropagated, unrecord on every cell). This reduced iter/sec to 120K and recovered depth to 86K. B.25 removed the overhead entirely, recovering iter/sec to 329K (66% faster than B.20's 198K) while maintaining 86K depth.
+
+The remaining 2K depth gap (86K vs B.20's 88K) is attributed to **partition seed differences**: B.25 uses seeds `CRSCLTP1`–`CRSCLTP4` (ASCII) while B.20 used different seeds. Same Fisher-Yates construction algorithm, different random shuffles, different depth ceiling. The depth ceiling is entirely partition-quality-driven.
+
+**Conclusions.** Yes, removing CDCL overhead recovers the depth lost to CDCL (and surpasses B.24's throughput). The solver is now faster than B.20 in iter/sec. The residual 2K gap is a partition-seed artifact and is within the normal variation expected from different random partitions.
+
+#### C.21.4 What Is the Path Forward?
+
+**Discovered Data.** With CDCL removed (B.25), the solver is at ~86K depth / ~329K iter/sec. B.20 achieved ~88K / ~198K.  The depth ceiling is determined by the partition structure, not the backtracking strategy.
+
+**Conclusions.** Three directions are promising:
+
+1. **Partition seed search:** Run multiple seeds and select the one achieving maximum depth. The B.20 seeds produced 88K; B.25 seeds produced 86K. A systematic seed search over ≥10 candidates may find seeds reaching 90K+.
+
+2. **Distribution tuning:** The uniform-511 distribution is near-optimal but not proven optimal. Clipped triangular (minimum 64 cells), quadratic, or distributions biasing toward 256-cell lines may improve depth by creating more uniform constraint pressure across all DFS depths.
+
+3. **Propagation improvements:** More aggressive propagation (e.g., probing on more constraint families, earlier hash verification) could increase the fraction of cells forced deterministically, raising the depth ceiling independent of partition geometry.
+
+CDCL-style conflict learning with actual clause storage (not just backjumping) remains theoretically interesting but requires a fundamentally different conflict analysis adapted to global row constraints. This is a long-term research direction.
+
+---
+
+## Appendix D: Abandoned Ideas
 
 This appendix collects research directions that were explored in detail but ultimately abandoned on
 cost-benefit grounds. Each section is preserved in full for archival purposes: the analysis may become
 relevant if future architectural changes alter the assumptions that led to abandonment.
 
-### C.1 Loopy Belief Propagation as Integrated Inference (formerly B.15)
+### D.1 Loopy Belief Propagation as Integrated Inference (formerly B.15)
 
 B.12 proposes belief propagation (BP) as a periodic reordering oracle: the solver pauses DFS at checkpoint rows,
 runs BP to convergence on the residual subproblem, and uses the resulting marginals to guide cell ordering or
@@ -5200,7 +5868,7 @@ at discrete checkpoints. The question is whether LBP can provide sufficiently ac
 CRSCE factor graph to break the 87K-depth stalling barrier, and whether the computational cost can be amortized
 to a tolerable level.
 
-#### C.1.1 Background and Theoretical Foundations
+#### D.1.1 Background and Theoretical Foundations
 
 Belief propagation computes exact marginal distributions on tree-structured factor graphs by passing messages between
 variable nodes and factor nodes until convergence (Pearl, 1988). Each variable-to-factor message summarizes the
@@ -5224,7 +5892,7 @@ when the factor graph has long cycles (low density of short loops). Second, Tati
 LBP converges to a unique fixed point when the spectral radius of the dependency matrix is less than one --- a
 condition related to the graph's coupling strength and cycle structure.
 
-#### C.1.2 The CRSCE Factor Graph: Structural Analysis
+#### D.1.2 The CRSCE Factor Graph: Structural Analysis
 
 The CRSCE factor graph has specific structural properties that bear directly on LBP's applicability. The graph
 contains $s^2 = 261{,}121$ binary variable nodes and $10s - 2 = 5{,}108$ factor nodes (with an additional $s = 511$
@@ -5248,7 +5916,7 @@ contains few cycles. With $O(s)$ 4-cycles per cell, this assumption is violated 
 consequence is that LBP's marginal estimates will overcount correlations: a cell's belief will incorporate the same
 constraint information multiple times through different cycle paths, producing overconfident (polarized) marginals.
 
-#### C.1.3 The Case for LBP in CRSCE
+#### D.1.3 The Case for LBP in CRSCE
 
 Despite the structural concerns, several arguments favor LBP for CRSCE plateau-breaking.
 
@@ -5285,7 +5953,7 @@ subproblem, so convergence to the new fixed point (given the new assignment) req
 affected messages. This warm-start property is well-established in the graphical models literature (Murphy, Weiss,
 & Jordan, 1999) and is the key to making continuous LBP computationally feasible.
 
-#### C.1.4 The Case Against LBP in CRSCE
+#### D.1.4 The Case Against LBP in CRSCE
 
 The arguments against LBP are substantial and grounded in both theory and the specific structure of the CRSCE
 problem.
@@ -5325,7 +5993,7 @@ Section 12.4). At $k = 511$, this is $\sim 261{,}000$ operations per factor per 
 10 iterations, the total cost is $\sim 1.3 \times 10^{10}$ operations ($\sim 13$ seconds on Apple Silicon) ---
 orders of magnitude slower than the current solver's throughput of $\sim 500{,}000$ assignments/second.
 
-The incremental approach (C.1.3, Argument 3) mitigates this by updating only 8 factors per assignment rather than
+The incremental approach (D.1.3, Argument 3) mitigates this by updating only 8 factors per assignment rather than
 all 5,108, but each factor update still costs $O(s^2) \approx 261{,}000$ operations. At 8 factors per assignment,
 the incremental cost is $\sim 2 \times 10^6$ operations per assignment --- a $4{,}000\times$ overhead relative to
 the current propagation step ($\sim 500$ operations per assignment). Even with Apple Silicon's throughput, this
@@ -5361,7 +6029,7 @@ every assignment must produce bitwise-identical results on both compressor and d
 the assigned cell). Both approaches constrain the implementation and prevent performance optimizations (e.g.,
 parallel message updates on GPU) that would violate the deterministic schedule.
 
-#### C.1.5 Quantitative Cost-Benefit Estimate
+#### D.1.5 Quantitative Cost-Benefit Estimate
 
 To evaluate LBP's net value, consider a concrete scenario. Assume the solver spends $T_{\text{base}} = 600$ seconds
 on a block without LBP, with 90\% of the time ($540$s) consumed in the plateau band (rows 100--300). The plateau
@@ -5392,7 +6060,7 @@ $10{,}000\times$ backtrack reduction: $100{,}000 \times 2\text{ms} + 10^6 \times
 The arithmetic is unforgiving. LBP's per-node cost on length-511 cardinality factors is fundamentally too high for
 integration into a DFS loop that processes hundreds of thousands of nodes.
 
-#### C.1.6 Comparison with B.12's Checkpoint Approach
+#### D.1.6 Comparison with B.12's Checkpoint Approach
 
 B.12 avoids LBP's per-node overhead by running BP only at checkpoints (every 50 rows, or at plateau entry). The
 amortized cost is $\sim 50$ms per $25{,}000$ assignments ($\sim 2\,\mu\text{s/assignment}$) --- nearly identical to
@@ -5401,14 +6069,14 @@ $25{,}000$ assignments, the factor graph has changed substantially, and the chec
 reflect the current constraint state.
 
 LBP's theoretical advantage over checkpoint BP is freshness: by updating messages after every assignment, LBP
-always reflects the current constraint state. But as Section C.1.5 shows, the cost of freshness is prohibitive. The
+always reflects the current constraint state. But as Section D.1.5 shows, the cost of freshness is prohibitive. The
 checkpoint approach trades marginal accuracy for computational feasibility, and this trade is overwhelmingly
 favorable. If the solver needs more accurate marginals between checkpoints, the natural remedy is to increase the
 checkpoint frequency (e.g., every 10 rows) rather than to switch to continuous LBP. Even at 1 checkpoint per row,
 the amortized cost is $\sim 50\text{ms} / 511 \approx 100\,\mu\text{s/assignment}$ --- a $50\times$ overhead rather
 than $4{,}000\times$.
 
-#### C.1.7 Mitigation Strategies and Their Limitations
+#### D.1.7 Mitigation Strategies and Their Limitations
 
 Several techniques could reduce LBP's overhead, though none sufficiently to change the fundamental cost-benefit
 calculus.
@@ -5435,7 +6103,7 @@ previous), but the 8 independent factor updates per assignment are independent a
 parallelism, the per-assignment cost drops by $\sim 8\times$, but the GPU kernel launch overhead ($\sim
 10\,\mu\text{s}$) and data transfer cost may exceed the computation savings for such small workloads.
 
-#### C.1.8 Verdict
+#### D.1.8 Verdict
 
 The weight of evidence is against continuous LBP as an integrated propagation mechanism for CRSCE. The core problem
 is the mismatch between LBP's computational cost and the DFS solver's throughput requirements. The CRSCE solver
@@ -5452,17 +6120,17 @@ increasing checkpoint frequency.
 
 If future solver development reveals that checkpoint BP's marginal estimates are critically stale between
 checkpoints --- causing branching decisions that are actively worse than the current `ProbabilityEstimator` ---
-then selective LBP with Gaussian approximation in the plateau band (C.1.7) merits empirical evaluation. But this
+then selective LBP with Gaussian approximation in the plateau band (D.1.7) merits empirical evaluation. But this
 scenario is unlikely: checkpoint BP with fresh marginals at plateau entry should outperform the static estimator
 over the entire plateau span, and the incremental degradation over 50 rows is unlikely to be catastrophic.
 
 The recommendation is to pursue B.12's checkpoint BP approach and to treat continuous LBP as a theoretical
 alternative that is dominated on cost-benefit grounds.
 
-#### C.1.9 Open Questions
+#### D.1.9 Open Questions
 
 (a) What is the empirical convergence behavior of LBP on the CRSCE factor graph at various depths? If LBP converges
-rapidly in the plateau band (where coupling is weak) but slowly at the edges, the selective-LBP strategy (C.1.7)
+rapidly in the plateau band (where coupling is weak) but slowly at the edges, the selective-LBP strategy (D.1.7)
 may be more viable than the quantitative estimates suggest, because the plateau is where the solver spends most of
 its time.
 
@@ -5485,6 +6153,136 @@ this approach, as the asynchronous schedule is inherently non-deterministic.
 operates on clusters of variables rather than individual variables, explicitly accounting for short cycles within
 each cluster. The cost is $O(2^{|C|})$ per cluster of size $|C|$, which is tractable only for small clusters
 ($|C| \leq 20$). Whether meaningful clusters exist in the CRSCE graph's regular structure is an open question.
+---
+
+### D.2 Conflict-Driven Clause Learning (CDCL) from Hash Failures (formerly B.1)
+
+#### D.2.1 Proposal
+
+When a SHA-1 lateral hash mismatch kills a subtree at depth ~87K, the solver backtracks one level ---
+undoing the most recent branching assignment and trying the alternate value. This is chronological
+backtracking: the solver retries assignments in reverse order of when they were made, regardless of which
+assignments actually *caused* the conflict. It learns nothing from the failure. If the root cause was an
+assignment made 500 levels earlier, the solver exhausts an exponential number of intermediate configurations
+before reaching that level.
+
+CDCL adaptation was proposed to exploit hash failures as conflict sources. An LH mismatch on row $r$
+constitutes a proof that the current partial assignment to the $s$ cells in row $r$ is infeasible. The
+solver could analyze this proof to identify a small subset of earlier assignments jointly responsible for
+the conflict, record that combination as a *nogood clause*, and backjump directly to the deepest responsible
+assignment rather than unwinding the stack one frame at a time.
+
+#### D.2.2 Background: CDCL in SAT Solvers
+
+In a CDCL SAT solver, when unit propagation derives a conflict, the solver performs *conflict analysis* by
+tracing the implication graph backward from the conflicting clause. The analysis identifies a *unique
+implication point* (UIP) --- the most recent decision variable that, together with propagated literals,
+implies the conflict. The solver learns a new clause encoding the negation of the responsible assignments,
+adds it to the clause database, and backjumps to the decision level of the second-most-recent literal in
+the learned clause. The learned clause immediately forces the UIP variable to its opposite value at the
+backjump level, avoiding the need to re-explore the intervening search space (Marques-Silva & Sakallah,
+1999).
+
+The power of CDCL comes from two properties: *non-chronological backtracking* (backjumping past irrelevant
+decision levels) and *clause learning* (preventing the solver from ever entering the same conflicting
+configuration again). Together, these properties transform an exponential-time DFS into a procedure that
+can prune large regions of the search space based on information extracted from each conflict.
+
+#### D.2.3 Hash Failures as Conflict Sources
+
+In the CRSCE solver, conflicts arise from two sources: *cardinality infeasibility* (a constraint line's
+residual $\rho$ falls outside $[0, u]$) and *hash mismatch* (an SHA-1 lateral hash check fails on a
+completed row). The cardinality conflicts are detected immediately during propagation and trigger standard
+backtracking. The hash conflicts are detected only when a row is fully assigned ($u(\text{row}) = 0$) and
+the computed SHA-1 digest disagrees with the stored LH value.
+
+A hash mismatch on row $r$ means that the 511-bit assignment to row $r$ does not match the unique preimage
+expected by the stored hash. However, some of those 511 bits were determined by branching decisions (either
+directly or via propagation from decisions in other rows), while others were forced by cardinality
+constraints with no branching alternative. The forced bits are *consequences* of earlier decisions; the
+branching decisions are the *causes*. Conflict analysis must distinguish between the two.
+
+When row $r$ fails its LH check, the conflict clause (in the SAT sense) is the conjunction of all 511 cell
+assignments in the row. A typical row in the plateau region has ~400 cells forced by propagation and ~111
+cells assigned by branching, reducing the conflict clause to ~111 decision literals. Further reduction
+requires tracing the implication graph backward to identify the first UIP --- the most recent decision
+variable whose reversal would have prevented the conflict.
+
+#### D.2.4 Implementation
+
+The following data structures were fully implemented and unit-tested:
+
+- `CellAntecedent` --- per-cell reason record (stack depth, antecedent line ID, isDecision flag)
+- `ReasonGraph` --- flat 511x511 heap-allocated antecedent table, populated during propagation
+- `ConflictAnalyzer` --- BFS 1-UIP backjump target finder; returns `BackjumpTarget{targetDepth, valid}`
+- `BackjumpTarget` --- result struct from conflict analysis
+
+`PropagationEngine_propagate.cpp` was modified to record the triggering line (`antecedentLine`) for every
+forced cell. The DFS loop recorded decisions via `recordDecision()` and propagated assignments via
+`recordPropagated()`. On hash failure, `conflictAnalyzer.analyzeHashFailure(failedRow, ...)` computed the
+backjump target and `brancher_->undoToSavePoint(savePoint)` executed the jump.
+
+DI determinism holds: the backjump target is a deterministic function of the implication graph, which is
+deterministic given identical initial constraint state. Both compressor and decompressor see the same
+conflicts in the same order.
+
+#### D.2.5 Experimental Results
+
+Three configurations were tested to isolate whether CDCL interacts with partition quality:
+
+**B.22 + CDCL (variable-length LTP, 2-1,021 cells/line, max jump 732):**
+- Depth: ~80,300 (vs. B.20 baseline 88,503: **-9%**)
+- CDCL max jump dist: 732 cells
+- Conclusion: CDCL harmful even with shorter LTP lines
+
+**B.23 + CDCL (uniform-511 LTP, same as B.20 partitions, max jump 1,854):**
+- Depth: ~69,000 (vs. B.20 baseline: **-22%**)
+- CDCL max jump dist: 1,854 cells
+- iter/sec: ~306K
+- Conclusion: uniform-511 lines produce longer antecedent chains; CDCL more harmful
+
+**B.24 (CDCL disabled via cap=0, overhead intact):**
+- Depth: ~86,123 (depth recovers without CDCL jumps)
+- iter/sec: ~120K (40% throughput lost from record/unrecord overhead alone)
+- Conclusion: CDCL overhead costs 40% throughput even when firing zero backjumps
+
+**B.25 (CDCL fully removed):**
+- Depth: ~86,123
+- iter/sec: ~329K (**2.7x faster than B.24**)
+- Conclusion: removing all record/unrecord call overhead is essential
+
+#### D.2.6 Root Cause Analysis
+
+CDCL was designed for unit-clause propagation failures in SAT solvers. In SAT, a conflict occurs when a
+single variable's forced value contradicts an existing assignment --- the implication chain is typically
+short (5-20 steps). The 1-UIP algorithm finds a useful cut close to the conflict.
+
+SHA-1 hash verification is fundamentally different: it is a global nonlinear constraint over all 511 cells
+in a row. When a row hash fails, the conflict has no single proximate cause in the SAT sense. The 511-bit
+row pattern is wrong as a whole, but the 1-UIP algorithm traces antecedent chains across 700-1,854 cells
+before finding a cut. Each backjump discards hundreds of levels of correct work --- progress that
+chronological backtracking would have reused.
+
+Additionally, at the 87K-88K plateau, all 511-cell constraint lines have $\rho / u \approx 0.5$, placing
+them in the forcing dead zone. CDCL's non-chronological backjumping identifies *which* decision caused a
+conflict, but when all constraint lines are equally inert --- none generating forcing events --- every
+decision level is equally stuck. There is nowhere productive to jump to. CDCL degenerates to chronological
+backtracking plus bookkeeping overhead, strictly worse than the baseline.
+
+#### D.2.7 Abandonment Verdict
+
+CDCL non-chronological backjumping is **incompatible with SHA-1 hash constraint topology** in CRSCE.
+The mechanism assumes short implication chains with a meaningful UIP close to the conflict. Row hash
+failures do not satisfy this assumption. All three partition configurations tested (B.22, B.23, B.24)
+confirmed monotonically worsening depth under CDCL, with no configuration showing benefit.
+
+The implementation was removed in B.25. All CDCL data structures (`ConflictAnalyzer`, `ReasonGraph`,
+`CellAntecedent`, `BackjumpTarget`) remain in the codebase as unit-tested headers but are disconnected
+from the DFS loop.
+
+CDCL-style conflict learning with actual clause storage (not just backjumping) remains theoretically
+interesting but requires a fundamentally different conflict analysis adapted to global row constraints.
+This is a long-term research direction, not a near-term solver improvement.
 
 ## References
 

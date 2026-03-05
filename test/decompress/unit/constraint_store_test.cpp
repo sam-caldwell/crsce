@@ -208,13 +208,12 @@ TEST(ConstraintStoreTest, GetRowSetsBitsCorrectly) {
 }
 
 /**
- * @brief getLinesForCell returns 5 or 6 lines (row, col, diag, anti-diag, 1-2 LTP) per B.21.
+ * @brief getLinesForCell returns exactly 8 lines (row, col, diag, anti-diag, 4 LTP) per B.22.
  */
-TEST(ConstraintStoreTest, GetLinesForCellReturnsFiveOrSixLines) {
+TEST(ConstraintStoreTest, GetLinesForCellReturnsEightLines) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(0, 0);
-    EXPECT_GE(lines.count, static_cast<std::uint8_t>(5));
-    EXPECT_LE(lines.count, static_cast<std::uint8_t>(6));
+    EXPECT_EQ(lines.count, static_cast<std::uint8_t>(8));
 }
 
 /**

@@ -19,7 +19,7 @@ namespace crsce::decompress::solvers {
      * @name tryPropagateCell
      * @brief Fast-path propagation for a single-cell assignment.
      *
-     * Computes the 4 basic flat stat indices plus 1-2 LTP indices (B.21) and checks
+     * Computes the 4 basic flat stat indices plus 4 LTP indices (B.22) and checks
      * feasibility/forcing inline. Returns immediately if no forcing is needed (the
      * common case ~80% of iterations). Falls back to full propagate() when forcing required.
      *
@@ -38,21 +38,21 @@ namespace crsce::decompress::solvers {
         const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
         const auto xi = (2U * kS) + ConstraintStore::kNumDiags + static_cast<std::uint32_t>(r + c);
 
-        // B.21: LTP membership is 1 or 2 sub-tables
+        // B.22: LTP membership is always 4 sub-tables (full coverage)
         const auto &mem = ltpMembership(r, c);
 
-        // Check all lines (4 basic + 1-2 LTP) for feasibility and forcing
-        // Use a fixed 6-element array; only first (4 + mem.count) are valid
-        const std::array<std::uint32_t, 6> indices = {  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        // Check all 8 lines (4 basic + 4 LTP) for feasibility and forcing
+        const std::array<std::uint32_t, 8> indices = {  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             ri, ci, di, xi,
-            static_cast<std::uint32_t>(mem.flat[0]),
-            static_cast<std::uint32_t>(mem.count > 1 ? mem.flat[1] : mem.flat[0])
+            static_cast<std::uint32_t>(mem.flat[0]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            static_cast<std::uint32_t>(mem.flat[1]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            static_cast<std::uint32_t>(mem.flat[2]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            static_cast<std::uint32_t>(mem.flat[3])  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         };
-        const auto numLines = static_cast<std::size_t>(4U + mem.count);
         bool needsForcing = false;
 
-        for (std::size_t n = 0; n < numLines; ++n) {
-            const auto &stat = cs.getStatDirect(indices[n]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        for (const auto idx : indices) {
+            const auto &stat = cs.getStatDirect(idx); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             const auto rho = static_cast<std::int32_t>(stat.target) - static_cast<std::int32_t>(stat.assigned);
             const auto u = static_cast<std::int32_t>(stat.unknown);
             if (rho < 0 || rho > u) {

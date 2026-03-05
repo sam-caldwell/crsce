@@ -39,7 +39,7 @@ namespace crsce::decompress::solvers {
         const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
         const auto xi = (2U * kS) + kNumDiags + static_cast<std::uint32_t>(r + c);
 
-        // B.21: LTP membership is 1 or 2 sub-tables (not always 4)
+        // B.22: LTP membership is always 4 sub-tables (full coverage)
         const auto &mem = ltpMembership(r, c);
 
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)

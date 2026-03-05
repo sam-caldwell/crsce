@@ -1,12 +1,20 @@
 /**
  * @file LtpTable.h
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt.
- * @brief Joint-tiled variable-length LTP partitions LTP1–LTP4 for B.21.
+ * @brief Full-coverage uniform-511 LTP partitions LTP1–LTP4 for B.23.
  *
- * Four joint-tiled sub-tables partitioning all s^2 = 261,121 cells into 511 lines of
- * variable length ltp_len(k) = min(k+1, 511-k) (1 to 256 cells). Each cell belongs to
- * 1 sub-table (260,098 cells) or 2 sub-tables (1,023 corner cells).
- * Forward table: cell → LtpMembership. Reverse table: line → span of LtpCell.
+ * Four independent sub-tables, each assigning all 261,121 cells to exactly one of 511
+ * uniform-length lines.  Every line has exactly 511 cells (ltp_len(k) = kLtpS for all k);
+ * total per sub-table = 511 * 511 = 261,121.
+ * Each cell belongs to exactly one line in each of the four sub-tables (count always 4).
+ * Sub-tables use independent LCG shuffles so each line spans a diverse cross-section of rows.
+ * Forward table: cell → LtpMembership (count=4, flat[0..3]).
+ * Reverse table: line → span of LtpCell.
+ *
+ * B.23 hypothesis: uniform-511 lines (same structure as B.20) combined with the CDCL
+ * backjumping infrastructure (B.1) should isolate the effect of CDCL on a known-good
+ * partition.  Compare to B.20 (88,503 depth, no CDCL) and B.22 (80,300 depth, CDCL,
+ * triangular 2–1021 distribution).
  */
 #pragma once
 
@@ -78,38 +86,37 @@ namespace crsce::decompress::solvers {
      * @name LtpMembership
      * @brief Forward-table entry: which LTP sub-table lines does cell (r,c) belong to?
      *
-     * Each cell belongs to 1 sub-table (count=1) or 2 sub-tables (count=2).
-     * flat[i] is the flat stat-array index (e.g. kLtp1Base + line_k) for sub-table i.
+     * Under B.22 full-coverage: every cell belongs to exactly one line in each of the four
+     * sub-tables (count always 4).  flat[i] is the flat stat-array index for sub-table i.
      */
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     struct LtpMembership {
         /**
          * @name count
-         * @brief Number of LTP sub-tables this cell belongs to (1 or 2).
+         * @brief Number of LTP sub-tables this cell belongs to (always 4 under B.22).
          */
         std::uint8_t count{0};
 
         /**
          * @name flat
-         * @brief Flat stat-array indices; flat[1] unused when count==1.
+         * @brief Flat stat-array indices for LTP sub-tables 0..3.
          */
-        std::array<std::uint16_t, 2> flat{};
+        std::array<std::uint16_t, 4> flat{};
     };
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     /**
      * @name ltpLineLen
-     * @brief Compute the length of LTP line k: min(k+1, kLtpS-k).
+     * @brief Return the length of LTP line k under B.23: always kLtpS (511).
      *
-     * Triangular: line 0 has 1 cell, line 255 has 256 cells, line 510 has 1 cell.
+     * All 511 lines are uniform-length.  Sum over k=0..510 equals kLtpS*kLtpS = 261,121
+     * (full matrix coverage).
      *
-     * @param k Line index in [0, kLtpNumLines).
-     * @return Number of cells on the line (1 to 256).
+     * @param k Line index in [0, kLtpNumLines).  Unused (all lines same length).
+     * @return kLtpS (511).
      */
-    [[nodiscard]] inline std::uint16_t ltpLineLen(const std::uint16_t k) noexcept {
-        const auto kp1 = static_cast<std::uint16_t>(k + 1U);
-        const auto sMinusK = static_cast<std::uint16_t>(kLtpS - k);
-        return (kp1 < sMinusK) ? kp1 : sMinusK;
+    [[nodiscard]] inline std::uint32_t ltpLineLen([[maybe_unused]] const std::uint16_t k) noexcept {
+        return static_cast<std::uint32_t>(kLtpS);
     }
 
     /**

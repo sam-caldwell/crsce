@@ -16,7 +16,7 @@ namespace crsce::decompress::solvers {
      * @name lineLen
      * @brief Compute the length of a line (number of cells).
      *
-     * B.21: LTP lines have variable length ltp_len(k) = min(k+1, kS-k), not always kS.
+     * B.23: LTP lines have uniform length kS = 511 cells (ltpLineLen always returns kLtpS).
      *
      * @param line The line identifier.
      * @return Number of cells on the line.
@@ -31,7 +31,7 @@ namespace crsce::decompress::solvers {
             case LineType::LTP2:
             case LineType::LTP3:
             case LineType::LTP4:
-                return ltpLineLen(line.index);
+                return static_cast<std::uint16_t>(ltpLineLen(line.index));
             case LineType::Diagonal:
             case LineType::AntiDiagonal: {
                 const auto k = static_cast<int>(line.index);

@@ -16,11 +16,11 @@ namespace crsce::decompress::solvers {
      * @name getLinesForCell
      * @brief Get the LineIDs (row, col, diag, anti-diag, LTP1–LTP4) that cell (r, c) participates in.
      *
-     * B.21: returns 5 lines for cells in 1 LTP sub-table, 6 lines for corner cells in 2.
+     * B.22: always returns 8 lines (4 basic + 4 LTP, one per sub-table, full coverage).
      *
      * @param r Row index.
      * @param c Column index.
-     * @return CellLines with 5 or 6 valid LineIDs.
+     * @return CellLines with always 8 valid LineIDs.
      * @throws None
      */
     auto ConstraintStore::getLinesForCell(const std::uint16_t r,
@@ -33,7 +33,7 @@ namespace crsce::decompress::solvers {
         result.lines[2] = {.type = LineType::Diagonal,      .index = static_cast<std::uint16_t>(c - r + (kS - 1))};
         result.lines[3] = {.type = LineType::AntiDiagonal,  .index = static_cast<std::uint16_t>(r + c)};
 
-        // B.21: 1 or 2 LTP lines depending on membership
+        // B.22: always 4 LTP lines (one per sub-table, full coverage)
         for (std::uint8_t j = 0; j < mem.count; ++j) {
             const auto flatIdx = static_cast<std::uint32_t>(mem.flat[j]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             result.lines[4 + j] = flatIndexToLineID(flatIdx); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)

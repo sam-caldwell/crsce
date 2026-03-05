@@ -1,13 +1,13 @@
 /**
  * @file unit_ltp_table_test.cpp
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt.
- * @brief Unit tests for LtpTable: B.21 joint-tiled variable-length partitions.
+ * @brief Unit tests for LtpTable: B.23 full-coverage uniform-511 LTP partitions.
  *
- * B.21 invariants verified:
- *   Axiom 1 (Conservation): sum of all line lengths per sub-table = 65,536 = 2^16.
- *   Axiom 2 (No duplicates): each cell appears at most once per line.
- *   Axiom 3 (Variable lengths): ltp_len(k) = min(k+1, 511-k), k=0→1, k=255→256, k=510→1.
- *   Coverage: every cell (r,c) has ltpMembership count 1 or 2.
+ * B.23 invariants verified:
+ *   Axiom 1 (Full coverage): sum of all line lengths per sub-table = 261,121 = 511*511.
+ *   Axiom 2 (No duplicates): each cell appears exactly once per sub-table.
+ *   Axiom 3 (Uniform lengths): ltp_len(k) = 511 for all k in [0, 510].
+ *   Coverage: every cell (r,c) has ltpMembership count exactly 4.
  *   Forward/reverse consistency: ltpMembership flat index resolves to the correct reverse table.
  *   Reproducibility: ltpMembership is deterministic (static table, idempotent).
  */
@@ -34,8 +34,8 @@ using crsce::decompress::solvers::ltpLineLen;
 using crsce::decompress::solvers::ltpMembership;
 
 namespace {
-    /// sum_{k=0}^{510} min(k+1, 511-k) = 2^16 = 65,536
-    constexpr std::uint32_t kCellsPerSubTable = 65536U;
+    /// sum_{k=0}^{510} ltp_len(k) = 511*511 = 261,121 (full matrix coverage)
+    constexpr std::uint32_t kCellsPerSubTable = 261121U;
     constexpr std::uint32_t kTotalCells = static_cast<std::uint32_t>(kLtpS) * kLtpS; // 261,121
 } // namespace
 
@@ -44,16 +44,30 @@ namespace {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief ltpLineLen(k) = min(k+1, 511-k): check boundary and peak values.
+ * @brief ltpLineLen(k) = kLtpS (511) for all k in [0, 510] (B.23 uniform-511).
+ *
+ * All 511 lines have exactly 511 cells, independent of k.
  */
 TEST(LtpTableTest, LtpLineLenBoundaryAndPeak) {
-    EXPECT_EQ(ltpLineLen(0),   1);
-    EXPECT_EQ(ltpLineLen(1),   2);
-    EXPECT_EQ(ltpLineLen(254), 255);
-    EXPECT_EQ(ltpLineLen(255), 256);
-    EXPECT_EQ(ltpLineLen(256), 255);
-    EXPECT_EQ(ltpLineLen(509), 2);
-    EXPECT_EQ(ltpLineLen(510), 1);
+    constexpr auto kExpected = static_cast<std::uint32_t>(kLtpS);
+    EXPECT_EQ(ltpLineLen(0),   kExpected);
+    EXPECT_EQ(ltpLineLen(1),   kExpected);
+    EXPECT_EQ(ltpLineLen(254), kExpected);
+    EXPECT_EQ(ltpLineLen(255), kExpected);
+    EXPECT_EQ(ltpLineLen(256), kExpected);
+    EXPECT_EQ(ltpLineLen(509), kExpected);
+    EXPECT_EQ(ltpLineLen(510), kExpected);
+}
+
+/**
+ * @brief Sum of all ltpLineLen values = 261,121 (511 lines * 511 cells each, B.23 uniform).
+ */
+TEST(LtpTableTest, LtpLineLenSumEqualsMatrixSize) {
+    std::uint32_t total = 0;
+    for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+        total += ltpLineLen(k);
+    }
+    EXPECT_EQ(total, kCellsPerSubTable);
 }
 
 // ---------------------------------------------------------------------------
@@ -61,7 +75,7 @@ TEST(LtpTableTest, LtpLineLenBoundaryAndPeak) {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Axiom 1 for LTP1: total cells across all 511 LTP1 lines = 65,536.
+ * @brief Axiom 1 for LTP1: total cells across all 511 LTP1 lines = 261,121.
  */
 TEST(LtpTableTest, Ltp1AxiomOneConservation) {
     std::uint32_t count = 0;
@@ -101,7 +115,7 @@ TEST(LtpTableTest, Ltp1AxiomTwoNoDuplicatesInLine) {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Axiom 1 for LTP2: total cells across all 511 LTP2 lines = 65,536.
+ * @brief Axiom 1 for LTP2: total cells across all 511 LTP2 lines = 261,121.
  */
 TEST(LtpTableTest, Ltp2AxiomOneConservation) {
     std::uint32_t count = 0;
@@ -139,7 +153,7 @@ TEST(LtpTableTest, Ltp2AxiomTwoNoDuplicatesInLine) {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Axiom 1 for LTP3: total cells across all 511 LTP3 lines = 65,536.
+ * @brief Axiom 1 for LTP3: total cells across all 511 LTP3 lines = 261,121.
  */
 TEST(LtpTableTest, Ltp3AxiomOneConservation) {
     std::uint32_t count = 0;
@@ -173,7 +187,7 @@ TEST(LtpTableTest, Ltp3AxiomTwoNoDuplicatesInLine) {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Axiom 1 for LTP4: total cells across all 511 LTP4 lines = 65,536.
+ * @brief Axiom 1 for LTP4: total cells across all 511 LTP4 lines = 261,121.
  */
 TEST(LtpTableTest, Ltp4AxiomOneConservation) {
     std::uint32_t count = 0;
@@ -203,23 +217,22 @@ TEST(LtpTableTest, Ltp4AxiomTwoNoDuplicatesInLine) {
 }
 
 // ---------------------------------------------------------------------------
-// Coverage: every cell has membership count 1 or 2
+// Coverage: every cell has membership count exactly 4
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Every cell (r,c) belongs to exactly 1 or 2 LTP sub-tables (B.21 joint tiling).
+ * @brief Every cell (r,c) belongs to exactly 4 LTP sub-tables (B.22 full coverage).
  *
- * Iterates all 261,121 cells. Verifies ltpMembership(r,c).count in {1,2}.
+ * Iterates all 261,121 cells. Verifies ltpMembership(r,c).count == 4.
  */
-TEST(LtpTableTest, AllCellsCoveredOnceOrTwice) {
+TEST(LtpTableTest, AllCellsCoveredExactlyFourTimes) {
     std::uint32_t covered = 0;
     for (std::uint16_t r = 0; r < kLtpS; ++r) {
         for (std::uint16_t c = 0; c < kLtpS; ++c) {
             const auto &mem = ltpMembership(r, c);
-            EXPECT_GE(mem.count, static_cast<std::uint8_t>(1))
-                << "Cell (" << r << "," << c << ") not in any sub-table";
-            EXPECT_LE(mem.count, static_cast<std::uint8_t>(2))
-                << "Cell (" << r << "," << c << ") in more than 2 sub-tables";
+            EXPECT_EQ(mem.count, static_cast<std::uint8_t>(4))
+                << "Cell (" << r << "," << c << ") has count " << static_cast<int>(mem.count)
+                << " (expected 4)";
             ++covered;
         }
     }

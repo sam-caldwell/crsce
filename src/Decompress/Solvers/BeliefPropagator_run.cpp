@@ -114,9 +114,9 @@ namespace crsce::decompress::solvers {
             }
 
             // Collect unknown cells and their cavity beliefs into a stack buffer
-            // Max line length is kS = 511; array is stack-allocated.
+            // Max line length is 511 (all LTP lines uniform in B.23); array is stack-allocated.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
-            std::array<CellBuf, 511> buf;
+            std::array<CellBuf, 1024> buf;
             std::uint16_t nUnknowns = 0;
 
             forEachCellOnLine(line, kS, [&](const std::uint16_t r, const std::uint16_t c) {

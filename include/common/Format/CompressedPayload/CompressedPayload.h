@@ -5,7 +5,7 @@
  *
  * Each compressed block contains 511 lateral-hash digests (SHA-1, 20 bytes each),
  * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and eight cross-sum
- * vectors packed into a fixed-size 15,247-byte payload.
+ * vectors packed into a fixed-size 15,749-byte payload.
  */
 #pragma once
 
@@ -18,9 +18,9 @@ namespace crsce::common::format {
     /**
      * @class CompressedPayload
      * @name CompressedPayload
-     * @brief Holds and serializes one CRSCE compressed block (15,247 bytes).
+     * @brief Holds and serializes one CRSCE compressed block (15,749 bytes).
      * @details
-     * Block layout (B.21: LTP sums use variable-width encoding):
+     * Block layout (B.22: LTP sums use variable-width encoding, 4*min(k+1,511-k)-adj(k) cells/line):
      *   Field    Elements  Bits/Element  Total Bits   Encoding
      *   LH       511       160           81,760       20 bytes per SHA-1 digest, sequential
      *   BH       1         256           256          32 bytes SHA-256 block hash
@@ -29,11 +29,11 @@ namespace crsce::common::format {
      *   VSM      511       9             4,599        MSB-first packed bitstream
      *   DSM      1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
      *   XSM      1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
-     *   LTP1SM   511       variable      3,595        MSB-first, bit_width(ltp_len(k)) bits
-     *   LTP2SM   511       variable      3,595        MSB-first, bit_width(ltp_len(k)) bits
-     *   LTP3SM   511       variable      3,595        MSB-first, bit_width(ltp_len(k)) bits
-     *   LTP4SM   511       variable      3,595        MSB-first, bit_width(ltp_len(k)) bits
-     *   Total                            121,972 bits = 15,247 bytes (rounded up)
+     *   LTP1SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP2SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP3SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP4SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
+     *   Total                            125,992 bits = 15,749 bytes (rounded up)
      */
     class CompressedPayload {
     public:
@@ -45,12 +45,12 @@ namespace crsce::common::format {
 
         /**
          * @name kBlockPayloadBytes
-         * @brief Exact size of one serialized block in bytes (15,247).
+         * @brief Exact size of one serialized block in bytes (15,749).
          *
-         * B.21: LTP sums use variable-width encoding (bit_width(ltp_len(k)) bits per element).
-         * Fixed: 10,253 bytes (LH+BH+DI) + 4,994 bytes (bit-packed cross-sums) = 15,247.
+         * B.22: LTP sums use variable-width encoding (bit_width(ltp_len(k)) bits per element).
+         * Fixed: 10,253 bytes (LH+BH+DI) + 5,496 bytes (bit-packed cross-sums) = 15,749.
          */
-        static constexpr std::size_t kBlockPayloadBytes = 15247;
+        static constexpr std::size_t kBlockPayloadBytes = 15749;
 
         /**
          * @name kDiagCount
