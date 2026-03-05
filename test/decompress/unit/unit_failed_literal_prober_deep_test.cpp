@@ -34,13 +34,9 @@ namespace {
     ConstraintStore makeStore(const std::vector<std::uint16_t> &rowSums,
                               const std::vector<std::uint16_t> &colSums,
                               const std::vector<std::uint16_t> &diagSums,
-                              const std::vector<std::uint16_t> &antiDiagSums,
-                              const std::vector<std::uint16_t> &slope256Sums,
-                              const std::vector<std::uint16_t> &slope255Sums,
-                              const std::vector<std::uint16_t> &slope2Sums,
-                              const std::vector<std::uint16_t> &slope509Sums) {
+                              const std::vector<std::uint16_t> &antiDiagSums) {
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
@@ -52,11 +48,7 @@ namespace {
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kNumDiags, 0),
-            std::vector<std::uint16_t>(kNumDiags, 0),
-            std::vector<std::uint16_t>(kS, 0),
-            std::vector<std::uint16_t>(kS, 0),
-            std::vector<std::uint16_t>(kS, 0),
-            std::vector<std::uint16_t>(kS, 0)
+            std::vector<std::uint16_t>(kNumDiags, 0)
         );
     }
 
@@ -77,11 +69,7 @@ namespace {
             std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
             diagSums,
-            antiDiagSums,
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255)
+            antiDiagSums
         );
     }
 

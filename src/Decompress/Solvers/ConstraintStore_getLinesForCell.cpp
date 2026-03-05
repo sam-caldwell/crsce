@@ -14,27 +14,24 @@
 namespace crsce::decompress::solvers {
     /**
      * @name getLinesForCell
-     * @brief Get the ten LineIDs (row, col, diag, anti-diag, 4 slopes, LTP1, LTP2) that cell (r, c) participates in.
+     * @brief Get the eight LineIDs (row, col, diag, anti-diag, LTP1–LTP4) that cell (r, c) participates in.
      * @param r Row index.
      * @param c Column index.
-     * @return Array of 10 LineIDs.
+     * @return Array of 8 LineIDs.
      * @throws None
      */
     auto ConstraintStore::getLinesForCell(const std::uint16_t r,
-                                          const std::uint16_t c) const -> std::array<LineID, 10> {
-        const auto &sl = slopeFlatIndices(r, c);
+                                          const std::uint16_t c) const -> std::array<LineID, 8> {
         const auto &ltp = ltpFlatIndices(r, c);
         return {{
             {.type = LineType::Row, .index = r},
             {.type = LineType::Column, .index = c},
             {.type = LineType::Diagonal, .index = static_cast<std::uint16_t>(c - r + (kS - 1))},
             {.type = LineType::AntiDiagonal, .index = static_cast<std::uint16_t>(r + c)},
-            {.type = LineType::Slope256, .index = static_cast<std::uint16_t>(sl[0] - kSlope256Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::Slope255, .index = static_cast<std::uint16_t>(sl[1] - kSlope255Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::Slope2,   .index = static_cast<std::uint16_t>(sl[2] - kSlope2Base)},   // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::Slope509, .index = static_cast<std::uint16_t>(sl[3] - kSlope509Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::LTP1,     .index = static_cast<std::uint16_t>(ltp[0] - kLTP1Base)},    // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::LTP2,     .index = static_cast<std::uint16_t>(ltp[1] - kLTP2Base)}     // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            {.type = LineType::LTP1, .index = static_cast<std::uint16_t>(ltp[0] - kLTP1Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            {.type = LineType::LTP2, .index = static_cast<std::uint16_t>(ltp[1] - kLTP2Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            {.type = LineType::LTP3, .index = static_cast<std::uint16_t>(ltp[2] - kLTP3Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            {.type = LineType::LTP4, .index = static_cast<std::uint16_t>(ltp[3] - kLTP4Base)}  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }};
     }
 } // namespace crsce::decompress::solvers

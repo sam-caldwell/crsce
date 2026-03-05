@@ -4,8 +4,8 @@
  * @brief CompressedPayload class for CRSCE block serialization and deserialization.
  *
  * Each compressed block contains 511 lateral-hash digests (SHA-1, 20 bytes each),
- * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and ten cross-sum
- * vectors packed into a fixed-size 16,899-byte payload.
+ * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and eight cross-sum
+ * vectors packed into a fixed-size 15,749-byte payload.
  */
 #pragma once
 
@@ -18,24 +18,22 @@ namespace crsce::common::format {
     /**
      * @class CompressedPayload
      * @name CompressedPayload
-     * @brief Holds and serializes one CRSCE compressed block (16,899 bytes).
+     * @brief Holds and serializes one CRSCE compressed block (15,749 bytes).
      * @details
-     * Block layout:
-     *   Field   Elements  Bits/Element  Total Bits   Encoding
-     *   LH      511       160           81,760       20 bytes per SHA-1 digest, sequential
-     *   BH      1         256           256          32 bytes SHA-256 block hash
-     *   DI      1         8             8            uint8
-     *   LSM     511       9             4,599        MSB-first packed bitstream
-     *   VSM     511       9             4,599        MSB-first packed bitstream
-     *   DSM     1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
-     *   XSM     1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
-     *   HSM1    511       9             4,599        MSB-first packed (slope 256)
-     *   SFC1    511       9             4,599        MSB-first packed (slope 255)
-     *   HSM2    511       9             4,599        MSB-first packed (slope 2)
-     *   SFC2    511       9             4,599        MSB-first packed (slope 509)
-     *   LTP1SM  511       9             4,599        MSB-first packed (LTP1 partition)
-     *   LTP2SM  511       9             4,599        MSB-first packed (LTP2 partition)
-     *   Total                           135,186 bits = 16,899 bytes
+     * Block layout (B.20: 4 slope fields replaced by LTP1SM–LTP4SM):
+     *   Field    Elements  Bits/Element  Total Bits   Encoding
+     *   LH       511       160           81,760       20 bytes per SHA-1 digest, sequential
+     *   BH       1         256           256          32 bytes SHA-256 block hash
+     *   DI       1         8             8            uint8
+     *   LSM      511       9             4,599        MSB-first packed bitstream
+     *   VSM      511       9             4,599        MSB-first packed bitstream
+     *   DSM      1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
+     *   XSM      1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
+     *   LTP1SM   511       9             4,599        MSB-first packed (LTP1 partition)
+     *   LTP2SM   511       9             4,599        MSB-first packed (LTP2 partition)
+     *   LTP3SM   511       9             4,599        MSB-first packed (LTP3 partition)
+     *   LTP4SM   511       9             4,599        MSB-first packed (LTP4 partition)
+     *   Total                            125,988 bits = 15,749 bytes (rounded up)
      */
     class CompressedPayload {
     public:
@@ -47,9 +45,9 @@ namespace crsce::common::format {
 
         /**
          * @name kBlockPayloadBytes
-         * @brief Exact size of one serialized block in bytes (16,899 = 15,749 + 2 x 575 bytes).
+         * @brief Exact size of one serialized block in bytes (15,749).
          */
-        static constexpr std::size_t kBlockPayloadBytes = 16899;
+        static constexpr std::size_t kBlockPayloadBytes = 15749;
 
         /**
          * @name kDiagCount
@@ -212,86 +210,6 @@ namespace crsce::common::format {
          */
         [[nodiscard]] std::uint16_t getXSM(std::uint16_t k) const;
 
-        // -- HSM1 accessors (slope 256) --
-
-        /**
-         * @name setHSM1
-         * @brief Set the slope-256 (HSM1) sum at index k.
-         * @param k Index in [0, kS).
-         * @param value Sum value (max 511, fits in 9 bits).
-         * @throws std::out_of_range if k >= kS.
-         */
-        void setHSM1(std::uint16_t k, std::uint16_t value);
-
-        /**
-         * @name getHSM1
-         * @brief Get the slope-256 (HSM1) sum at index k.
-         * @param k Index in [0, kS).
-         * @return The stored sum value.
-         * @throws std::out_of_range if k >= kS.
-         */
-        [[nodiscard]] std::uint16_t getHSM1(std::uint16_t k) const;
-
-        // -- SFC1 accessors (slope 255) --
-
-        /**
-         * @name setSFC1
-         * @brief Set the slope-255 (SFC1) sum at index k.
-         * @param k Index in [0, kS).
-         * @param value Sum value (max 511, fits in 9 bits).
-         * @throws std::out_of_range if k >= kS.
-         */
-        void setSFC1(std::uint16_t k, std::uint16_t value);
-
-        /**
-         * @name getSFC1
-         * @brief Get the slope-255 (SFC1) sum at index k.
-         * @param k Index in [0, kS).
-         * @return The stored sum value.
-         * @throws std::out_of_range if k >= kS.
-         */
-        [[nodiscard]] std::uint16_t getSFC1(std::uint16_t k) const;
-
-        // -- HSM2 accessors (slope 2) --
-
-        /**
-         * @name setHSM2
-         * @brief Set the slope-2 (HSM2) sum at index k.
-         * @param k Index in [0, kS).
-         * @param value Sum value (max 511, fits in 9 bits).
-         * @throws std::out_of_range if k >= kS.
-         */
-        void setHSM2(std::uint16_t k, std::uint16_t value);
-
-        /**
-         * @name getHSM2
-         * @brief Get the slope-2 (HSM2) sum at index k.
-         * @param k Index in [0, kS).
-         * @return The stored sum value.
-         * @throws std::out_of_range if k >= kS.
-         */
-        [[nodiscard]] std::uint16_t getHSM2(std::uint16_t k) const;
-
-        // -- SFC2 accessors (slope 509) --
-
-        /**
-         * @name setSFC2
-         * @brief Set the slope-509 (SFC2) sum at index k.
-         * @param k Index in [0, kS).
-         * @param value Sum value (max 511, fits in 9 bits).
-         * @throws std::out_of_range if k >= kS.
-         */
-        void setSFC2(std::uint16_t k, std::uint16_t value);
-
-        /**
-         * @name getSFC2
-         * @brief Get the slope-509 (SFC2) sum at index k.
-         * @param k Index in [0, kS).
-         * @return The stored sum value.
-         * @throws std::out_of_range if k >= kS.
-         */
-        [[nodiscard]] std::uint16_t getSFC2(std::uint16_t k) const;
-
         // -- LTP1SM accessors (LTP1 partition) --
 
         /**
@@ -331,6 +249,46 @@ namespace crsce::common::format {
          * @throws std::out_of_range if k >= kS.
          */
         [[nodiscard]] std::uint16_t getLTP2SM(std::uint16_t k) const;
+
+        // -- LTP3SM accessors (LTP3 partition) --
+
+        /**
+         * @name setLTP3SM
+         * @brief Set the LTP3 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setLTP3SM(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getLTP3SM
+         * @brief Get the LTP3 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getLTP3SM(std::uint16_t k) const;
+
+        // -- LTP4SM accessors (LTP4 partition) --
+
+        /**
+         * @name setLTP4SM
+         * @brief Set the LTP4 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setLTP4SM(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getLTP4SM
+         * @brief Get the LTP4 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getLTP4SM(std::uint16_t k) const;
 
         // -- Serialization --
 
@@ -395,30 +353,6 @@ namespace crsce::common::format {
         std::vector<std::uint16_t> xsm_;
 
         /**
-         * @name hsm1_
-         * @brief Slope-256 (HSM1) sum vector: kS elements, each in [0, kS].
-         */
-        std::vector<std::uint16_t> hsm1_;
-
-        /**
-         * @name sfc1_
-         * @brief Slope-255 (SFC1) sum vector: kS elements, each in [0, kS].
-         */
-        std::vector<std::uint16_t> sfc1_;
-
-        /**
-         * @name hsm2_
-         * @brief Slope-2 (HSM2) sum vector: kS elements, each in [0, kS].
-         */
-        std::vector<std::uint16_t> hsm2_;
-
-        /**
-         * @name sfc2_
-         * @brief Slope-509 (SFC2) sum vector: kS elements, each in [0, kS].
-         */
-        std::vector<std::uint16_t> sfc2_;
-
-        /**
          * @name ltp1sm_
          * @brief LTP1 partition sum vector: kS elements, each in [0, kS].
          */
@@ -429,6 +363,18 @@ namespace crsce::common::format {
          * @brief LTP2 partition sum vector: kS elements, each in [0, kS].
          */
         std::vector<std::uint16_t> ltp2sm_;
+
+        /**
+         * @name ltp3sm_
+         * @brief LTP3 partition sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> ltp3sm_;
+
+        /**
+         * @name ltp4sm_
+         * @brief LTP4 partition sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> ltp4sm_;
 
         // -- Private bit-packing helpers --
 

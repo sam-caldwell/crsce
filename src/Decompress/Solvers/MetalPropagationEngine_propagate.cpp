@@ -15,6 +15,7 @@
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/LineID.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
     namespace {
@@ -66,21 +67,29 @@ namespace crsce::decompress::solvers {
                     break;
                 }
 
-                case LineType::Slope256:
-                case LineType::Slope255:
-                case LineType::Slope2:
-                case LineType::Slope509: {
-                    static constexpr std::array<std::uint16_t, 4> slopes = {256, 255, 2, 509};
-                    const auto slopeIdx = static_cast<std::size_t>(line.type) - static_cast<std::size_t>(LineType::Slope256);
-                    const auto p = static_cast<std::int32_t>(slopes.at(slopeIdx));
-                    const auto k = static_cast<std::int32_t>(line.index);
-                    for (std::uint16_t t = 0; t < kS; ++t) {
-                        const auto c = static_cast<std::uint16_t>(
-                            ((k + (p * static_cast<std::int32_t>(t))) % kS + kS) % kS);
-                        callback(t, c);
+                case LineType::LTP1:
+                    for (const auto &cell : ltp1CellsForLine(line.index)) {
+                        callback(cell.r, cell.c);
                     }
                     break;
-                }
+
+                case LineType::LTP2:
+                    for (const auto &cell : ltp2CellsForLine(line.index)) {
+                        callback(cell.r, cell.c);
+                    }
+                    break;
+
+                case LineType::LTP3:
+                    for (const auto &cell : ltp3CellsForLine(line.index)) {
+                        callback(cell.r, cell.c);
+                    }
+                    break;
+
+                case LineType::LTP4:
+                    for (const auto &cell : ltp4CellsForLine(line.index)) {
+                        callback(cell.r, cell.c);
+                    }
+                    break;
             }
         }
     } // anonymous namespace

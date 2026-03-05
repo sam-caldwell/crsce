@@ -22,12 +22,10 @@ namespace crsce::common::format {
           vsm_(kS, 0),
           dsm_(kDiagCount, 0),
           xsm_(kDiagCount, 0),
-          hsm1_(kS, 0),
-          sfc1_(kS, 0),
-          hsm2_(kS, 0),
-          sfc2_(kS, 0),
           ltp1sm_(kS, 0),
-          ltp2sm_(kS, 0) {
+          ltp2sm_(kS, 0),
+          ltp3sm_(kS, 0),
+          ltp4sm_(kS, 0) {
     }
 
 } // namespace crsce::common::format

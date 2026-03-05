@@ -17,7 +17,7 @@ namespace crsce::decompress::solvers {
      * @name tryPropagateCell
      * @brief Fast-path propagation for a single-cell assignment.
      *
-     * Computes the 10 flat stats indices directly and checks feasibility/forcing inline.
+     * Computes the 8 flat stats indices directly and checks feasibility/forcing inline.
      * Returns immediately if no forcing is needed (the common case ~80% of iterations).
      * Falls back to full propagate() only when forcing is required.
      *
@@ -30,26 +30,21 @@ namespace crsce::decompress::solvers {
 
         auto &cs = static_cast<ConstraintStore &>(store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
 
-        // Compute 4 original flat indices (same arithmetic as assign())
+        // Compute 4 basic flat indices (same arithmetic as assign())
         const auto ri = static_cast<std::uint32_t>(r);
         const auto ci = static_cast<std::uint32_t>(kS) + c;
         const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
         const auto xi = (2U * kS) + ConstraintStore::kNumDiags + static_cast<std::uint32_t>(r + c);
 
-        // Precomputed flat indices for the 4 slope lines (eliminates expensive % 511)
-        const auto &sl = ConstraintStore::slopeFlatIndices(r, c);
-        const auto si0 = static_cast<std::uint32_t>(sl[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto si1 = static_cast<std::uint32_t>(sl[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto si2 = static_cast<std::uint32_t>(sl[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto si3 = static_cast<std::uint32_t>(sl[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-
-        // Precomputed flat indices for the 2 LTP lines
+        // Precomputed flat indices for the 4 LTP lines
         const auto &ltp = ltpFlatIndices(r, c);
         const auto li0 = static_cast<std::uint32_t>(ltp[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         const auto li1 = static_cast<std::uint32_t>(ltp[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const auto li2 = static_cast<std::uint32_t>(ltp[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const auto li3 = static_cast<std::uint32_t>(ltp[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-        // Check all 10 lines for feasibility and forcing
-        const std::array<std::uint32_t, 10> indices = {ri, ci, di, xi, si0, si1, si2, si3, li0, li1};
+        // Check all 8 lines for feasibility and forcing
+        const std::array<std::uint32_t, 8> indices = {ri, ci, di, xi, li0, li1, li2, li3};
         bool needsForcing = false;
 
         for (const auto idx : indices) {
@@ -70,7 +65,7 @@ namespace crsce::decompress::solvers {
 
         // Rare path: fall through to full propagation for forcing.
         // Pass only the 4 basic lines (row, col, diag, anti-diag) to limit
-        // cascade depth. Slope feasibility is already checked above.
+        // cascade depth. LTP feasibility is already checked above.
         const std::array<LineID, 4> basicLines = {{
             {.type = LineType::Row, .index = r},
             {.type = LineType::Column, .index = c},

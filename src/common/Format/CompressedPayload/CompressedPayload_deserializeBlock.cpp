@@ -68,34 +68,24 @@ namespace crsce::common::format {
             xsm_[k] = unpackBits(data, bitOffset, n);
         }
 
-        // 8. HSM1: 511 x 9 bits
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            hsm1_[k] = unpackBits(data, bitOffset, 9);
-        }
-
-        // 9. SFC1: 511 x 9 bits
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            sfc1_[k] = unpackBits(data, bitOffset, 9);
-        }
-
-        // 10. HSM2: 511 x 9 bits
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            hsm2_[k] = unpackBits(data, bitOffset, 9);
-        }
-
-        // 11. SFC2: 511 x 9 bits
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            sfc2_[k] = unpackBits(data, bitOffset, 9);
-        }
-
-        // 12. LTP1SM: 511 x 9 bits
+        // 8. LTP1SM: 511 x 9 bits
         for (std::uint16_t k = 0; k < kS; ++k) {
             ltp1sm_[k] = unpackBits(data, bitOffset, 9);
         }
 
-        // 13. LTP2SM: 511 x 9 bits
+        // 9. LTP2SM: 511 x 9 bits
         for (std::uint16_t k = 0; k < kS; ++k) {
             ltp2sm_[k] = unpackBits(data, bitOffset, 9);
+        }
+
+        // 10. LTP3SM: 511 x 9 bits
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            ltp3sm_[k] = unpackBits(data, bitOffset, 9);
+        }
+
+        // 11. LTP4SM: 511 x 9 bits
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            ltp4sm_[k] = unpackBits(data, bitOffset, 9);
         }
     }
 

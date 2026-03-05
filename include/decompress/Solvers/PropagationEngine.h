@@ -62,7 +62,7 @@ namespace crsce::decompress::solvers {
     private:
         /**
          * @name kPropTotalLines
-         * @brief Total number of constraint lines: 10s - 2 = 5108.
+         * @brief Total number of constraint lines: 10s - 2 = 5108 (4 basic + 4 LTP).
          */
         static constexpr std::size_t kPropTotalLines = (10 * kS) - 2;
 

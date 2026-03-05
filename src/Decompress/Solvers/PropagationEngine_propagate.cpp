@@ -14,6 +14,7 @@
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/LineID.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
     namespace {
@@ -65,42 +66,34 @@ namespace crsce::decompress::solvers {
                     break;
                 }
 
-                case LineType::Slope256: {
-                    constexpr std::uint16_t slope = 256;
-                    const auto k = static_cast<std::uint32_t>(line.index);
-                    for (std::uint16_t t = 0; t < kS; ++t) {
-                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
-                        callback(t, c);
+                case LineType::LTP1: {
+                    const auto &cells = ltp1CellsForLine(line.index);
+                    for (const auto &cell : cells) {
+                        callback(cell.r, cell.c);
                     }
                     break;
                 }
 
-                case LineType::Slope255: {
-                    constexpr std::uint16_t slope = 255;
-                    const auto k = static_cast<std::uint32_t>(line.index);
-                    for (std::uint16_t t = 0; t < kS; ++t) {
-                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
-                        callback(t, c);
+                case LineType::LTP2: {
+                    const auto &cells = ltp2CellsForLine(line.index);
+                    for (const auto &cell : cells) {
+                        callback(cell.r, cell.c);
                     }
                     break;
                 }
 
-                case LineType::Slope2: {
-                    constexpr std::uint16_t slope = 2;
-                    const auto k = static_cast<std::uint32_t>(line.index);
-                    for (std::uint16_t t = 0; t < kS; ++t) {
-                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
-                        callback(t, c);
+                case LineType::LTP3: {
+                    const auto &cells = ltp3CellsForLine(line.index);
+                    for (const auto &cell : cells) {
+                        callback(cell.r, cell.c);
                     }
                     break;
                 }
 
-                case LineType::Slope509: {
-                    constexpr std::uint16_t slope = 509;
-                    const auto k = static_cast<std::uint32_t>(line.index);
-                    for (std::uint16_t t = 0; t < kS; ++t) {
-                        const auto c = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope) * t) % kS);
-                        callback(t, c);
+                case LineType::LTP4: {
+                    const auto &cells = ltp4CellsForLine(line.index);
+                    for (const auto &cell : cells) {
+                        callback(cell.r, cell.c);
                     }
                     break;
                 }
@@ -166,7 +159,7 @@ namespace crsce::decompress::solvers {
                 forced_.push_back({.r = r, .c = c, .value = forceValue});
 
                 // Cascade through 4 basic lines only (row, col, diag, anti-diag).
-                // Slope stats are maintained via assign() and checked for feasibility
+                // LTP stats are maintained via assign() and checked for feasibility
                 // in tryPropagateCell, but cascading through all 8 lines causes
                 // exponential propagation blowup that dominates iteration cost.
                 const auto affected = cs.getLinesForCell(r, c);

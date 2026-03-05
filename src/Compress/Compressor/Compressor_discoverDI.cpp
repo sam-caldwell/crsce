@@ -47,22 +47,18 @@ namespace crsce::compress {
         std::vector<std::uint16_t> colSums(kS);
         std::vector<std::uint16_t> diagSums(kDiagCount);
         std::vector<std::uint16_t> antiDiagSums(kDiagCount);
-        std::vector<std::uint16_t> slope256Sums(kS);
-        std::vector<std::uint16_t> slope255Sums(kS);
-        std::vector<std::uint16_t> slope2Sums(kS);
-        std::vector<std::uint16_t> slope509Sums(kS);
         std::vector<std::uint16_t> ltp1Sums(kS);
         std::vector<std::uint16_t> ltp2Sums(kS);
+        std::vector<std::uint16_t> ltp3Sums(kS);
+        std::vector<std::uint16_t> ltp4Sums(kS);
 
         for (std::uint16_t k = 0; k < kS; ++k) {
             rowSums[k] = payload.getLSM(k);
             colSums[k] = payload.getVSM(k);
-            slope256Sums[k] = payload.getHSM1(k);
-            slope255Sums[k] = payload.getSFC1(k);
-            slope2Sums[k] = payload.getHSM2(k);
-            slope509Sums[k] = payload.getSFC2(k);
             ltp1Sums[k] = payload.getLTP1SM(k);
             ltp2Sums[k] = payload.getLTP2SM(k);
+            ltp3Sums[k] = payload.getLTP3SM(k);
+            ltp4Sums[k] = payload.getLTP4SM(k);
         }
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             diagSums[k] = payload.getDSM(k);
@@ -72,8 +68,7 @@ namespace crsce::compress {
         // Create solver components as unique_ptrs.
         auto store = std::make_unique<decompress::solvers::ConstraintStore>(
             rowSums, colSums, diagSums, antiDiagSums,
-            slope256Sums, slope255Sums, slope2Sums, slope509Sums,
-            ltp1Sums, ltp2Sums);
+            ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
         auto propagator = std::make_unique<decompress::solvers::PropagationEngine>(*store);
         auto brancher = std::make_unique<decompress::solvers::BranchingController>(*store, *propagator);
         auto hasher = std::make_unique<decompress::solvers::Sha1HashVerifier>(kS);

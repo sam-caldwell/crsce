@@ -19,6 +19,7 @@
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/EnumerationController.h"
 #include "decompress/Solvers/LineID.h"
+#include "decompress/Solvers/LtpTable.h"
 #include "decompress/Solvers/PropagationEngine.h"
 #include "decompress/Solvers/Sha256HashVerifier.h"
 
@@ -30,6 +31,11 @@ using crsce::decompress::solvers::LineID;
 using crsce::decompress::solvers::LineType;
 using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
+using crsce::decompress::solvers::kLtp1Base;
+using crsce::decompress::solvers::kLtp2Base;
+using crsce::decompress::solvers::kLtp3Base;
+using crsce::decompress::solvers::kLtp4Base;
+using crsce::decompress::solvers::ltpFlatIndices;
 
 namespace {
     constexpr std::uint16_t kS = 511;
@@ -44,12 +50,8 @@ namespace {
         const std::vector<std::uint16_t> colSums(kS, 0);
         const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-        const std::vector<std::uint16_t> slope256Sums(kS, 0);
-        const std::vector<std::uint16_t> slope255Sums(kS, 0);
-        const std::vector<std::uint16_t> slope2Sums(kS, 0);
-        const std::vector<std::uint16_t> slope509Sums(kS, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
@@ -69,12 +71,8 @@ namespace {
         const std::vector<std::uint16_t> colSums(kS, colVal);
         const std::vector<std::uint16_t> diagSums(kNumDiags, diagVal);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, antiDiagVal);
-        const std::vector<std::uint16_t> slope256Sums(kS, 0);
-        const std::vector<std::uint16_t> slope255Sums(kS, 0);
-        const std::vector<std::uint16_t> slope2Sums(kS, 0);
-        const std::vector<std::uint16_t> slope509Sums(kS, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 } // namespace
@@ -613,8 +611,6 @@ TEST(EnumerationControllerTest, ResetIsNoOp) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0)
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -642,8 +638,6 @@ TEST(EnumerationControllerTest, EnumerateAllZerosSingleSolution) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -697,8 +691,6 @@ TEST(EnumerationControllerTest, EnumerateStopsOnCallbackFalse) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0)
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -734,8 +726,6 @@ TEST(EnumerationControllerTest, EnumerateSolutionsLexAllZeros) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -778,18 +768,14 @@ TEST(EnumerationControllerTest, EnumerateSolutionsLexInfeasible) {
     const std::vector<std::uint16_t> colSums(kS, 0);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-    const std::vector<std::uint16_t> slope256Sums(kS, 0);
-    const std::vector<std::uint16_t> slope255Sums(kS, 0);
-    const std::vector<std::uint16_t> slope2Sums(kS, 0);
-    const std::vector<std::uint16_t> slope509Sums(kS, 0);
-
     // Row 0 target = kS (need all cells in row 0 to be 1)
     rowSums[0] = kS;
     // But column 0 target = 0 (need all cells in column 0 to be 0)
     // This is contradictory for cell (0, 0).
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                                    std::vector<std::uint16_t>(kS, 0),
+                                                    std::vector<std::uint16_t>(kS, 0),
                                                     std::vector<std::uint16_t>(kS, 0),
                                                     std::vector<std::uint16_t>(kS, 0));
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -817,16 +803,12 @@ TEST(EnumerationControllerTest, EnumerateInfeasibleNoCallback) {
     const std::vector<std::uint16_t> colSums(kS, 0);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-    const std::vector<std::uint16_t> slope256Sums(kS, 0);
-    const std::vector<std::uint16_t> slope255Sums(kS, 0);
-    const std::vector<std::uint16_t> slope2Sums(kS, 0);
-    const std::vector<std::uint16_t> slope509Sums(kS, 0);
-
     // Create a contradiction: row 0 needs kS ones, column 0 needs 0 ones.
     rowSums[0] = kS;
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                                    std::vector<std::uint16_t>(kS, 0),
+                                                    std::vector<std::uint16_t>(kS, 0),
                                                     std::vector<std::uint16_t>(kS, 0),
                                                     std::vector<std::uint16_t>(kS, 0));
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -871,18 +853,18 @@ void fillTwoByTwoCorner(std::vector<std::uint16_t> &rowSums,
                          std::vector<std::uint16_t> &colSums,
                          std::vector<std::uint16_t> &diagSums,
                          std::vector<std::uint16_t> &antiDiagSums,
-                         std::vector<std::uint16_t> &slope256Sums,
-                         std::vector<std::uint16_t> &slope255Sums,
-                         std::vector<std::uint16_t> &slope2Sums,
-                         std::vector<std::uint16_t> &slope509Sums) {
+                         std::vector<std::uint16_t> &ltp1Sums,
+                         std::vector<std::uint16_t> &ltp2Sums,
+                         std::vector<std::uint16_t> &ltp3Sums,
+                         std::vector<std::uint16_t> &ltp4Sums) {
     rowSums.assign(kS, 0);
     colSums.assign(kS, 0);
     diagSums.assign(kNumDiags, 0);
     antiDiagSums.assign(kNumDiags, 0);
-    slope256Sums.assign(kS, 0);
-    slope255Sums.assign(kS, 0);
-    slope2Sums.assign(kS, 0);
-    slope509Sums.assign(kS, 0);
+    ltp1Sums.assign(kS, 0);
+    ltp2Sums.assign(kS, 0);
+    ltp3Sums.assign(kS, 0);
+    ltp4Sums.assign(kS, 0);
 
     rowSums[0] = 1;
     rowSums[1] = 1;
@@ -895,21 +877,25 @@ void fillTwoByTwoCorner(std::vector<std::uint16_t> &rowSums,
     // (0,0) → anti-diag 0, (1,1) → anti-diag 2
     antiDiagSums[0] = 1;
     antiDiagSums[2] = 1;
-    // Slope index for (r,c) with slope p: k = ((c - p*r) % 511 + 511) % 511
-    // Cell (0,0): k = 0 for all slopes
-    // Cell (1,1): k = ((1 - p) % 511 + 511) % 511
-    //   slope 256: (1-256) mod 511 = 256
-    //   slope 255: (1-255) mod 511 = 257
-    //   slope 2:   (1-2)   mod 511 = 510
-    //   slope 509: (1-509) mod 511 = 3
-    slope256Sums[0] = 1;
-    slope256Sums[256] = 1;
-    slope255Sums[0] = 1;
-    slope255Sums[257] = 1;
-    slope2Sums[0] = 1;
-    slope2Sums[510] = 1;
-    slope509Sums[0] = 1;
-    slope509Sums[3] = 1;
+    // Set LTP targets for cells (0,0) and (1,1) using precomputed partition tables.
+    const auto &idx00 = ltpFlatIndices(0, 0);
+    const auto &idx11 = ltpFlatIndices(1, 1);
+    const auto l1_00 = static_cast<std::uint16_t>(idx00[0] - static_cast<std::uint16_t>(kLtp1Base));
+    const auto l1_11 = static_cast<std::uint16_t>(idx11[0] - static_cast<std::uint16_t>(kLtp1Base));
+    ltp1Sums[l1_00] = (l1_00 == l1_11) ? 2U : 1U;
+    if (l1_00 != l1_11) { ltp1Sums[l1_11] = 1; }
+    const auto l2_00 = static_cast<std::uint16_t>(idx00[1] - static_cast<std::uint16_t>(kLtp2Base));
+    const auto l2_11 = static_cast<std::uint16_t>(idx11[1] - static_cast<std::uint16_t>(kLtp2Base));
+    ltp2Sums[l2_00] = (l2_00 == l2_11) ? 2U : 1U;
+    if (l2_00 != l2_11) { ltp2Sums[l2_11] = 1; }
+    const auto l3_00 = static_cast<std::uint16_t>(idx00[2] - static_cast<std::uint16_t>(kLtp3Base));
+    const auto l3_11 = static_cast<std::uint16_t>(idx11[2] - static_cast<std::uint16_t>(kLtp3Base));
+    ltp3Sums[l3_00] = (l3_00 == l3_11) ? 2U : 1U;
+    if (l3_00 != l3_11) { ltp3Sums[l3_11] = 1; }
+    const auto l4_00 = static_cast<std::uint16_t>(idx00[3] - static_cast<std::uint16_t>(kLtp4Base));
+    const auto l4_11 = static_cast<std::uint16_t>(idx11[3] - static_cast<std::uint16_t>(kLtp4Base));
+    ltp4Sums[l4_00] = (l4_00 == l4_11) ? 2U : 1U;
+    if (l4_00 != l4_11) { ltp4Sums[l4_11] = 1; }
 }
 
 } // namespace
@@ -926,17 +912,15 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFindsUniqueSolution) {
     std::vector<std::uint16_t> colSums;
     std::vector<std::uint16_t> diagSums;
     std::vector<std::uint16_t> antiDiagSums;
-    std::vector<std::uint16_t> slope256Sums;
-    std::vector<std::uint16_t> slope255Sums;
-    std::vector<std::uint16_t> slope2Sums;
-    std::vector<std::uint16_t> slope509Sums;
+    std::vector<std::uint16_t> ltp1Sums;
+    std::vector<std::uint16_t> ltp2Sums;
+    std::vector<std::uint16_t> ltp3Sums;
+    std::vector<std::uint16_t> ltp4Sums;
     fillTwoByTwoCorner(rowSums, colSums, diagSums, antiDiagSums,
-                        slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                        ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0));
+                                                    ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
@@ -995,17 +979,15 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFullyDetermined) {
     std::vector<std::uint16_t> colSums;
     std::vector<std::uint16_t> diagSums;
     std::vector<std::uint16_t> antiDiagSums;
-    std::vector<std::uint16_t> slope256Sums;
-    std::vector<std::uint16_t> slope255Sums;
-    std::vector<std::uint16_t> slope2Sums;
-    std::vector<std::uint16_t> slope509Sums;
+    std::vector<std::uint16_t> ltp1Sums;
+    std::vector<std::uint16_t> ltp2Sums;
+    std::vector<std::uint16_t> ltp3Sums;
+    std::vector<std::uint16_t> ltp4Sums;
     fillTwoByTwoCorner(rowSums, colSums, diagSums, antiDiagSums,
-                        slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                        ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0));
+                                                    ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);

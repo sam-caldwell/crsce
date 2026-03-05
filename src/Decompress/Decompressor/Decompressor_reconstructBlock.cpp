@@ -60,29 +60,21 @@ namespace crsce::decompress {
             xsm[k] = payload.getXSM(k);
         }
 
-        // Build the four toroidal-slope sum vectors from the payload.
-        std::vector<std::uint16_t> slope256(kS);
-        std::vector<std::uint16_t> slope255(kS);
-        std::vector<std::uint16_t> slope2(kS);
-        std::vector<std::uint16_t> slope509(kS);
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            slope256[k] = payload.getHSM1(k);
-            slope255[k] = payload.getSFC1(k);
-            slope2[k] = payload.getHSM2(k);
-            slope509[k] = payload.getSFC2(k);
-        }
-
-        // Build the LTP1 and LTP2 sum vectors from the payload.
+        // Build the four LTP partition sum vectors from the payload.
         std::vector<std::uint16_t> ltp1(kS);
         std::vector<std::uint16_t> ltp2(kS);
+        std::vector<std::uint16_t> ltp3(kS);
+        std::vector<std::uint16_t> ltp4(kS);
         for (std::uint16_t k = 0; k < kS; ++k) {
             ltp1[k] = payload.getLTP1SM(k);
             ltp2[k] = payload.getLTP2SM(k);
+            ltp3[k] = payload.getLTP3SM(k);
+            ltp4[k] = payload.getLTP4SM(k);
         }
 
         // Create solver components.
         auto store = std::make_unique<solvers::ConstraintStore>(
-            lsm, vsm, dsm, xsm, slope256, slope255, slope2, slope509, ltp1, ltp2);
+            lsm, vsm, dsm, xsm, ltp1, ltp2, ltp3, ltp4);
 
         // Select propagation engine: Metal GPU or CPU-only.
         std::unique_ptr<solvers::IPropagationEngine> propagator;

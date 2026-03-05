@@ -25,6 +25,8 @@ using crsce::decompress::solvers::ConstraintStore;
 using crsce::decompress::solvers::FailedLiteralProber;
 using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
+using crsce::decompress::solvers::kLtp3Base;
+using crsce::decompress::solvers::kLtp4Base;
 using crsce::decompress::solvers::ltpFlatIndices;
 using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
@@ -42,15 +44,11 @@ namespace {
                               const std::vector<std::uint16_t> &colSums,
                               const std::vector<std::uint16_t> &diagSums,
                               const std::vector<std::uint16_t> &antiDiagSums,
-                              const std::vector<std::uint16_t> &slope256Sums,
-                              const std::vector<std::uint16_t> &slope255Sums,
-                              const std::vector<std::uint16_t> &slope2Sums,
-                              const std::vector<std::uint16_t> &slope509Sums,
                               const std::vector<std::uint16_t> &ltp1Sums = std::vector<std::uint16_t>(kS, 0),
-                              const std::vector<std::uint16_t> &ltp2Sums = std::vector<std::uint16_t>(kS, 0)) {
-        return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
-                ltp1Sums, ltp2Sums};
+                              const std::vector<std::uint16_t> &ltp2Sums = std::vector<std::uint16_t>(kS, 0),
+                              const std::vector<std::uint16_t> &ltp3Sums = std::vector<std::uint16_t>(kS, 0),
+                              const std::vector<std::uint16_t> &ltp4Sums = std::vector<std::uint16_t>(kS, 0)) {
+        return {rowSums, colSums, diagSums, antiDiagSums, ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums};
     }
 
     /**
@@ -61,11 +59,7 @@ namespace {
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kNumDiags, 0),
-            std::vector<std::uint16_t>(kNumDiags, 0),
-            std::vector<std::uint16_t>(kS, 0),
-            std::vector<std::uint16_t>(kS, 0),
-            std::vector<std::uint16_t>(kS, 0),
-            std::vector<std::uint16_t>(kS, 0)
+            std::vector<std::uint16_t>(kNumDiags, 0)
         );
     }
 
@@ -87,8 +81,6 @@ namespace {
             std::vector<std::uint16_t>(kS, 255),
             diagSums,
             antiDiagSums,
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
@@ -182,31 +174,26 @@ TEST(FailedLiteralProberTest, ProbeCellForcesOne) {
     std::vector<std::uint16_t> colSums(kS, 0);
     std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-    std::vector<std::uint16_t> slope256Sums(kS, 0);
-    std::vector<std::uint16_t> slope255Sums(kS, 0);
-    std::vector<std::uint16_t> slope2Sums(kS, 0);
-    std::vector<std::uint16_t> slope509Sums(kS, 0);
-
     // Anti-diagonal 0 = cell (0,0) only, target = 1
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
     diagSums[510] = 1; // diagonal for (0,0)
-    slope256Sums[0] = 1;
-    slope255Sums[0] = 1;
-    slope2Sums[0] = 1;
-    slope509Sums[0] = 1;
-
     // Set LTP targets for cell (0,0): each LTP line containing (0,0) needs target 1.
     std::vector<std::uint16_t> ltp1Sums(kS, 0);
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
-    const auto &ltpIdx = ltpFlatIndices(0, 0);
-    ltp1Sums[static_cast<std::size_t>(ltpIdx[0] - static_cast<std::uint16_t>(kLtp1Base))] = 1;
-    ltp2Sums[static_cast<std::size_t>(ltpIdx[1] - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+    std::vector<std::uint16_t> ltp3Sums(kS, 0);
+    std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    {
+        const auto &ltpIdx = ltpFlatIndices(0, 0);
+        ltp1Sums[ltpIdx[0] - static_cast<std::uint16_t>(kLtp1Base)] = 1;
+        ltp2Sums[ltpIdx[1] - static_cast<std::uint16_t>(kLtp2Base)] = 1;
+        ltp3Sums[ltpIdx[2] - static_cast<std::uint16_t>(kLtp3Base)] = 1;
+        ltp4Sums[ltpIdx[3] - static_cast<std::uint16_t>(kLtp4Base)] = 1;
+    }
 
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           slope256Sums, slope255Sums, slope2Sums, slope509Sums,
-                           ltp1Sums, ltp2Sums);
+                           ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
     PropagationEngine propagator(store);
     BranchingController brancher(store, propagator);
     Sha256HashVerifier hasher(kS);
@@ -244,16 +231,10 @@ TEST(FailedLiteralProberTest, ProbeCellBothInfeasible) {
     const std::vector<std::uint16_t> colSums(kS, 0);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-    const std::vector<std::uint16_t> slope256Sums(kS, 0);
-    const std::vector<std::uint16_t> slope255Sums(kS, 0);
-    const std::vector<std::uint16_t> slope2Sums(kS, 0);
-    const std::vector<std::uint16_t> slope509Sums(kS, 0);
-
     // Row 0 target = 0 contradicts anti-diagonal 0 target = 1 for cell (0,0)
     antiDiagSums[0] = 1;
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
     PropagationEngine propagator(store);
     BranchingController brancher(store, propagator);
     Sha256HashVerifier hasher(kS);
@@ -301,16 +282,10 @@ TEST(FailedLiteralProberTest, ProbeToFixpointContradiction) {
     const std::vector<std::uint16_t> colSums(kS, 0);
     const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
-    const std::vector<std::uint16_t> slope256Sums(kS, 0);
-    const std::vector<std::uint16_t> slope255Sums(kS, 0);
-    const std::vector<std::uint16_t> slope2Sums(kS, 0);
-    const std::vector<std::uint16_t> slope509Sums(kS, 0);
-
     // Row 0 target = 0 contradicts anti-diagonal 0 target = 1
     antiDiagSums[0] = 1;
 
-    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+    auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
     PropagationEngine propagator(store);
     BranchingController brancher(store, propagator);
     Sha256HashVerifier hasher(kS);

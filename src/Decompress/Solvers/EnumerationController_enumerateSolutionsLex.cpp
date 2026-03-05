@@ -80,16 +80,16 @@ namespace crsce::decompress::solvers {
             allLines.push_back({.type = LineType::AntiDiagonal, .index = i});
         }
         for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::Slope256, .index = i});
+            allLines.push_back({.type = LineType::LTP1, .index = i});
         }
         for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::Slope255, .index = i});
+            allLines.push_back({.type = LineType::LTP2, .index = i});
         }
         for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::Slope2, .index = i});
+            allLines.push_back({.type = LineType::LTP3, .index = i});
         }
         for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::Slope509, .index = i});
+            allLines.push_back({.type = LineType::LTP4, .index = i});
         }
 
         (*propagator_).reset();

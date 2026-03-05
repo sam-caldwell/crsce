@@ -1,7 +1,7 @@
 /**
- * @file CompressedPayload_setSFC1.cpp
+ * @file CompressedPayload_setLTP2SM.cpp
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
- * @brief CompressedPayload::setSFC1() implementation.
+ * @brief CompressedPayload::setLTP2SM() implementation.
  */
 #include "common/Format/CompressedPayload/CompressedPayload.h"
 
@@ -11,17 +11,17 @@
 namespace crsce::common::format {
 
     /**
-     * @name setSFC1
-     * @brief Set the slope-255 (SFC1) sum at index k.
+     * @name setLTP2SM
+     * @brief Set the LTP2 partition sum at index k.
      * @param k Index in [0, kS).
      * @param value Sum value (max 511, fits in 9 bits).
      * @throws std::out_of_range if k >= kS.
      */
-    void CompressedPayload::setSFC1(const std::uint16_t k, const std::uint16_t value) {
+    void CompressedPayload::setLTP2SM(const std::uint16_t k, const std::uint16_t value) {
         if (k >= kS) {
-            throw std::out_of_range("CompressedPayload::setSFC1: index out of range");
+            throw std::out_of_range("CompressedPayload::setLTP2SM: index out of range");
         }
-        sfc1_[k] = value;
+        ltp2sm_[k] = value; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 
 } // namespace crsce::common::format

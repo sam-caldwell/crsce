@@ -5,6 +5,13 @@
  *
  * Used by PropagationEngine (forcing) and ConflictAnalyzer (reason-graph traversal)
  * to avoid duplicating the geometry-specific cell enumeration logic.
+ *
+ * B.20: removed 4 toroidal-slope cases; added LTP3 and LTP4 cases.
+ * // B.20 disabled slope cases (retained for reference):
+ * // case LineType::Slope256: { constexpr slope=256; ... }
+ * // case LineType::Slope255: { constexpr slope=255; ... }
+ * // case LineType::Slope2:   { constexpr slope=2;   ... }
+ * // case LineType::Slope509: { constexpr slope=509; ... }
  */
 #pragma once
 
@@ -71,50 +78,6 @@ namespace crsce::decompress::solvers {
                 break;
             }
 
-            case LineType::Slope256: {
-                constexpr std::uint16_t slope = 256;
-                const auto k = static_cast<std::uint32_t>(line.index);
-                for (std::uint16_t t = 0; t < kS; ++t) {
-                    const auto c = static_cast<std::uint16_t>(
-                        (k + static_cast<std::uint32_t>(slope) * t) % kS);
-                    callback(t, c);
-                }
-                break;
-            }
-
-            case LineType::Slope255: {
-                constexpr std::uint16_t slope = 255;
-                const auto k = static_cast<std::uint32_t>(line.index);
-                for (std::uint16_t t = 0; t < kS; ++t) {
-                    const auto c = static_cast<std::uint16_t>(
-                        (k + static_cast<std::uint32_t>(slope) * t) % kS);
-                    callback(t, c);
-                }
-                break;
-            }
-
-            case LineType::Slope2: {
-                constexpr std::uint16_t slope = 2;
-                const auto k = static_cast<std::uint32_t>(line.index);
-                for (std::uint16_t t = 0; t < kS; ++t) {
-                    const auto c = static_cast<std::uint16_t>(
-                        (k + static_cast<std::uint32_t>(slope) * t) % kS);
-                    callback(t, c);
-                }
-                break;
-            }
-
-            case LineType::Slope509: {
-                constexpr std::uint16_t slope = 509;
-                const auto k = static_cast<std::uint32_t>(line.index);
-                for (std::uint16_t t = 0; t < kS; ++t) {
-                    const auto c = static_cast<std::uint16_t>(
-                        (k + static_cast<std::uint32_t>(slope) * t) % kS);
-                    callback(t, c);
-                }
-                break;
-            }
-
             case LineType::LTP1: {
                 const auto &cells = ltp1CellsForLine(line.index);
                 for (const auto &cell : cells) {
@@ -125,6 +88,22 @@ namespace crsce::decompress::solvers {
 
             case LineType::LTP2: {
                 const auto &cells = ltp2CellsForLine(line.index);
+                for (const auto &cell : cells) {
+                    callback(cell.r, cell.c);
+                }
+                break;
+            }
+
+            case LineType::LTP3: {
+                const auto &cells = ltp3CellsForLine(line.index);
+                for (const auto &cell : cells) {
+                    callback(cell.r, cell.c);
+                }
+                break;
+            }
+
+            case LineType::LTP4: {
+                const auto &cells = ltp4CellsForLine(line.index);
                 for (const auto &cell : cells) {
                     callback(cell.r, cell.c);
                 }

@@ -4725,7 +4725,7 @@ to balance exploration (trying new interventions) with exploitation (repeating i
 determinism requirement constrains the bandit: the selection policy must be a deterministic function of the search
 history to preserve DI.
 
-### B.20 LTP Substitution Experiment: Geometry versus Position
+### B.20 LTP Substitution Experiment: Geometry versus Position (Implemented)
 
 B.9 proposes adding one or more non-linear lookup-table partition (LTP) pairs *alongside* the existing 8 partitions,
 increasing the per-cell constraint count from 8 to 10 at a storage cost of 9,198 bits per pair (reducing $C_r$ from
@@ -4930,6 +4930,317 @@ potentially breaking the positional barrier that uniform lines cannot.
 (different slope parameters, still algebraic)? This would test whether the slopes' underperformance is specific to
 the chosen parameters $\{2, 255, 256, 509\}$ or inherent to the algebraic family. If alternative slope parameters
 perform equally poorly, the algebraic family is exhausted and only non-linear alternatives remain.
+
+#### B.20.9 Observed Results (Implemented)
+
+B.20 Configuration C was implemented: 4 geometric partitions + 4 uniform-length LTP partitions (seeds
+`"CRSCLTP1"`--`"CRSCLTP4"`, Fisher--Yates baseline, no hill-climbing optimization). The toroidal slopes
+(HSM1/SFC1/HSM2/SFC2) were removed. The total line count decreased from 6,130 (B.9) to 5,108, and the block
+payload reverted to 15,749 bytes (identical to the pre-B.9 format). The implementation used `constexpr` lookup
+tables built at compile time from the fixed seeds.
+
+**Telemetry (useless-machine.mp4, block 0, ~14M iterations):**
+
+| Metric | B.8/B.9 Baseline | B.20 (Config C) | Change |
+|--------|-----------------|-----------------|--------|
+| Sustained plateau depth | ~87,500 | ~88,503 | +1,003 (+1.1%) |
+| Hash mismatch rate | 37.0% | 25.2% | $-11.8$ pp |
+| Avg iterations/sec | ~200K | ~198K | $\approx 0$% |
+| Block payload bytes | 16,899 | 15,749 | $-1,150$ ($-6.8\%$) |
+
+The plateau depth improved by $+1{,}003$ cells ($+1.1\%$), a modest but consistent gain. The hash mismatch rate
+dropped from $37\%$ to $25.2\%$ --- a reduction of 11.8 percentage points --- indicating that the LTP partitions
+generate substantially more propagation in the plateau band than the toroidal slopes did. The iteration rate was
+unchanged ($\approx 198{,}000$/sec), confirming that the LTP table lookup imposes no measurable per-iteration
+overhead relative to the slope modular-arithmetic formula.
+
+**Outcome classification:** The result falls between Outcome 1 and Outcome 2 from B.20.4. The depth improvement
+($+1.1\%$) is far below the $2\times$ backtrack reduction threshold of Outcome 2, but the $-12$ pp reduction in
+hash mismatch rate is material. The positional hypothesis is partially supported: uniform-length-511 lines (both
+slopes and LTP) cannot break the plateau, but LTP's non-linear structure provides a qualitatively better
+constraint signal within the plateau --- evidenced by the mismatch rate falling --- without changing the depth
+ceiling.
+
+**Interpretation:** The toroidal slopes were providing weak constraint power in the plateau band. LTP partitions
+provide modestly stronger constraint power (fewer dead-end explorations per iteration), but not enough to push
+through the fundamental depth barrier at $\approx 88{,}500$. This suggests both families share the same positional
+weakness: at plateau entry (row $\approx 170$), every uniform-length-511 line has $u \approx 341$ and
+$\rho \approx 170$, placing it in the forcing dead zone. The LTP lines' non-linear structure reduces the fraction
+of explorations that terminate in hash failure --- perhaps by providing slightly tighter cross-line bounds --- but
+cannot generate the forcing events necessary to push the solver past row $\approx 173$.
+
+**Recommendation:** Proceed to B.21 (joint-tiled variable-length LTP partitions). The B.20 result rules out
+uniform-length supplementary lines as a plateau-breaking mechanism; variable-length lines with the triangular
+length distribution of DSM/XSM may escape the dead zone by allowing short lines ($\ll 511$ cells) to reach
+forcing thresholds earlier in the plateau.
+
+## B.21 Joint-Tiled Variable-Length LTP Partitions
+
+B.20 replaced four toroidal-slope partitions with four uniform-length LTP partitions, each containing
+511 lines of 511 cells. Every cell belongs to all four LTP partitions, yielding 8 constraint lines per
+cell (4 basic + 4 LTP). The uniform line length, however, forces a fixed 9-bit encoding for every
+cross-sum element, and the large line size means that the ratio $\rho / u$ stays near 0.5 for most of
+the solve, suppressing forcing events on LTP lines past the first ~50 rows. This section proposes
+a *joint-tiled* LTP architecture in which the four LTP partitions collectively tile the matrix once,
+each partition contains variable-length lines following the DSM/XSM triangular distribution, and each
+cell belongs to exactly one LTP partition. The result is fewer but *stronger* LTP constraints per cell,
+a naturally lossless variable-length encoding, and a modest reduction in block payload size.
+
+#### B.21.1 Motivation
+
+The DSM and XSM families encode cross-sums with variable bit widths because their line lengths vary
+from 1 to $s$. The encoding cost for one diagonal family over $2s - 1$ lines totals $B_d(s) = 8{,}185$
+bits (Section 1), far less than the $s \times b = 4{,}599$ bits that a hypothetical 511-element
+fixed-width diagonal family would require. The savings arise because short lines have small maximum
+sums, requiring fewer bits.
+
+Uniform-length LTP partitions cannot exploit this structure: every line has $s = 511$ cells, so every
+cross-sum ranges $[0, 511]$ and requires $b = 9$ bits. If instead each LTP partition contained lines
+of varying length---some with 1 cell, some with 256, some with 511---the encoding would mirror the
+DSM/XSM scheme, with short lines encoded cheaply and only the longest lines requiring the full 9 bits.
+
+The challenge is arithmetic: a single partition with 511 lines whose lengths sum to $s^2 = 261{,}121$
+must average 511 cells per line. A symmetric triangular distribution peaking at 511 sums to only
+65,536---approximately one quarter of the matrix. No symmetric distribution ranging from 1 to 511
+can average 511 over 511 elements; the only such distribution is the degenerate uniform case. The
+resolution is to abandon per-partition completeness: each LTP partition covers approximately one
+quarter of the matrix, and the four partitions jointly tile the full $s \times s$ grid.
+
+#### B.21.2 Partition Structure
+
+Each of the four LTP sub-tables $T_k$ ($k \in \{0, 1, 2, 3\}$) contains 511 lines indexed
+$i \in [0, 510]$ with prescribed lengths:
+
+$$
+    \text{len}_k(i) = \min(i + 1, \; 511 - i)
+$$
+
+This is the left half of the DSM length function: $\text{len}(0) = 1$, $\text{len}(255) = 256$,
+$\text{len}(510) = 1$. The total cells per sub-table is:
+
+$$
+    \sum_{i=0}^{510} \min(i+1, \; 511-i) = 2 \sum_{j=1}^{255} j + 256 = 2 \cdot \frac{255 \cdot 256}{2} + 256 = 65{,}536
+$$
+
+Four sub-tables total $4 \times 65{,}536 = 262{,}144$ cell assignments. The matrix has $511^2 = 261{,}121$
+cells, leaving $262{,}144 - 261{,}121 = 1{,}023$ surplus assignments. Exactly 1,023 cells are therefore
+assigned to two sub-tables, and the remaining $261{,}121 - 1{,}023 = 260{,}098$ cells to exactly one.
+Equivalently, every cell belongs to at least one LTP sub-table, and 1,023 privileged cells belong to two.
+
+The per-cell constraint line count is:
+
+- 260,098 cells: 4 basic lines + 1 LTP line = 5 constraint lines.
+- 1,023 cells: 4 basic lines + 2 LTP lines = 6 constraint lines.
+
+#### B.21.3 Encoding and Payload Impact
+
+Each sub-table encodes identically to a DSM or XSM family truncated to 511 elements. The bit cost
+per sub-table is:
+
+$$
+    B_{\text{LTP}}(s) = \sum_{i=0}^{510} \lceil \log_2(\min(i+1, \; 511 - i) + 1) \rceil
+$$
+
+By symmetry and the identity with the DSM sum's first half:
+
+$$
+    B_{\text{LTP}}(s) = \frac{B_d(s) + \lceil \log_2(s+1) \rceil}{2} = \frac{8{,}185 + 9}{2} = 4{,}097 \text{ bits}
+$$
+
+Four sub-tables total $4 \times 4{,}097 = 16{,}388$ bits. Under the uniform B.20 encoding, four LTP
+partitions at $s \times b = 4{,}599$ bits each total 18,396 bits. The savings are $18{,}396 - 16{,}388
+= 2{,}008$ bits = 251 bytes per block.
+
+Updated block payload:
+
+| Field | Elements | Encoding | Total Bits |
+|-------|----------|----------|------------|
+| LH    | 511      | 160 bits each | 81,760 |
+| BH    | 1        | 256 bits | 256 |
+| DI    | 1        | 8 bits   | 8   |
+| LSM   | 511      | 9 bits each | 4,599 |
+| VSM   | 511      | 9 bits each | 4,599 |
+| DSM   | 1,021    | variable | 8,185 |
+| XSM   | 1,021    | variable | 8,185 |
+| LTP0  | 511      | variable (1--9 bits) | 4,097 |
+| LTP1  | 511      | variable (1--9 bits) | 4,097 |
+| LTP2  | 511      | variable (1--9 bits) | 4,097 |
+| LTP3  | 511      | variable (1--9 bits) | 4,097 |
+| **Total** | | | **123,980** |
+
+Block payload size: $\lceil 123{,}980 / 8 \rceil = 15{,}498$ bytes. Compression ratio:
+$15{,}498 / 32{,}641 \approx 47.5\%$, down from 48.3% under uniform LTP (B.20) and 51.8% under
+the original toroidal-slope format.
+
+#### B.21.4 Constraint Strength Analysis
+
+Reducing from 4 LTP lines per cell to 1 appears to weaken the constraint system, but the analysis
+is more nuanced. Under B.20's uniform design, each of the 4 LTP lines has 511 cells. During the
+DFS solve, a 511-cell line's $\rho / u$ ratio stays near 0.5 until the line is nearly complete,
+meaning it almost never triggers forcing ($\rho = 0$ or $\rho = u$). Empirically, the LTP lines
+contribute no forcing events past approximately row 50---well before the plateau at row ~170 where
+the solver stalls.
+
+Under joint tiling, a cell's single LTP line may be as short as 1 cell (immediately forced) or as
+long as 256 cells (reaching forcing thresholds much earlier than a 511-cell line). The distribution
+of line lengths follows the triangular pattern: half of all LTP lines have 128 cells or fewer.
+A 10-cell line reaches $\rho = 0$ or $\rho = u$ after just 10 assignments---an event that occurs
+in the first few rows. A 50-cell line forces within the first 50 assignments to that line. These
+short-line forcing events propagate through the basic constraint lines (rows, columns, diagonals),
+creating cascading reductions that the uniform 511-cell LTP lines never produce.
+
+The trade-off is therefore not "8 lines down to 5" but rather "4 weak lines replaced by 1 strong
+line." The net propagation yield per cell assignment may increase if the short LTP lines' frequent
+forcing events outweigh the loss of three long, inert constraint lines. The 1,023 cells assigned to
+two sub-tables receive a sixth constraint line, and these privileged cells should be placed
+deliberately at the matrix corners where diagonal coverage is weakest (see B.21.5).
+
+#### B.21.5 Spatial Layout: Center-Cross / Corner-Long Distribution
+
+The joint-tiled architecture enables a deliberate spatial arrangement of line lengths across the
+matrix. The design principle is *complementarity*: place short LTP lines where the basic partitions
+are already strong, and long LTP lines where they are weakest.
+
+Diagonal and anti-diagonal line lengths vary with position. A cell at $(r, c)$ lies on diagonal
+$d = c - r + (s-1)$ of length $\min(d+1, 2s-1-d)$ and anti-diagonal $x = r + c$ of length
+$\min(x+1, 2s-1-x)$. Cells near the matrix center (row $\approx 255$, column $\approx 255$) lie on
+diagonals and anti-diagonals of length $\approx 511$, providing maximum constraint coverage from the
+basic partitions. Cells in the corners---$(0,0)$, $(0,510)$, $(510,0)$, $(510,510)$---lie on
+diagonals and anti-diagonals of length 1, the weakest possible basic coverage.
+
+The spatial layout therefore assigns:
+
+*Short LTP lines (indices near 0 and 510, length 1--64) along the center cross.* The center cross
+comprises cells near row 255 (horizontal axis) and column 255 (vertical axis). These cells already
+have full-length diagonal and anti-diagonal coverage, so short LTP lines sacrifice little. The LTP
+constraint on these cells is minimal but also unnecessary: the basic partitions already constrain
+them heavily.
+
+*Long LTP lines (indices near 255, length 192--256) toward the corners.* Corner cells have length-1
+diagonals and benefit most from long LTP lines. A 256-cell LTP line connecting corner-region cells
+provides cross-cutting constraint information that no basic partition supplies for those cells.
+
+*Privileged dual-covered cells (the 1,023 cells in two sub-tables) at the extreme corners.* These
+cells have the weakest basic coverage (length-1 diagonals and anti-diagonals) and receive a sixth
+constraint line as partial compensation.
+
+The construction algorithm for each sub-table $T_k$ proceeds as follows. First, compute a spatial
+priority score for each unassigned cell: $\text{score}(r, c) = \text{len}(\text{diag}(r,c)) +
+\text{len}(\text{antidiag}(r,c))$. Cells with low scores (corners) have high priority for long LTP
+lines; cells with high scores (center cross) have high priority for short lines. Second, for each
+line index $i$ in order of decreasing $\text{len}_k(i)$, select $\text{len}_k(i)$ cells from the
+unassigned pool, biased toward cells with the lowest spatial priority scores. The bias is implemented
+via a seeded LCG shuffle (as in B.9) restricted to the candidate pool, with the first
+$\text{len}_k(i)$ cells after shuffling assigned to line $i$. The seed for sub-table $T_k$ is
+derived from the string "CRSCLTP$k$" to ensure deterministic, reproducible assignments.
+
+After $T_0$ is constructed, $T_1$ is built from the remaining unassigned cells (plus a portion of
+the 1,023 dual-assigned cells), then $T_2$ from the next remainder, and $T_3$ from the final
+remainder. The sequential construction ensures joint tiling with exactly 1,023 overlapping cells.
+
+#### B.21.6 Table Construction Protocol
+
+The four sub-tables must be constructed in a fixed order ($T_0, T_1, T_2, T_3$) so that both
+compressor and decompressor produce identical cell-to-line mappings. The protocol is:
+
+*Step 1.* Initialize a 511 $\times$ 511 assignment matrix $A$ where $A[r][c] = \emptyset$ (unassigned).
+
+*Step 2.* For each sub-table $T_k$ ($k = 0, 1, 2, 3$):
+
+  (a) Compute the candidate pool: all cells $(r, c)$ where $|A[r][c]| < 1$ (for $k < 3$) or
+      $|A[r][c]| < 2$ (for $k = 3$, which absorbs the 1,023 dual assignments).
+
+  (b) Compute the spatial priority score for each candidate cell:
+      $\text{score}(r, c) = \min(d+1, 2s-1-d) + \min(x+1, 2s-1-x)$ where $d = c - r + 510$
+      and $x = r + c$.
+
+  (c) For each line index $i$ sorted by decreasing $\text{len}_k(i)$ (longest lines first):
+      seed an LCG with $\text{hash}(\text{"CRSCLTP"} \| k \| i)$, shuffle the candidate pool,
+      stable-sort by ascending spatial priority score with ties broken by the shuffle,
+      and assign the first $\text{len}_k(i)$ cells to line $i$ of sub-table $T_k$.
+      Mark assigned cells in $A$.
+
+*Step 3.* Verify: every cell $(r, c)$ satisfies $1 \leq |A[r][c]| \leq 2$, with exactly 1,023
+cells having $|A[r][c]| = 2$.
+
+The entire construction is deterministic ($O(s^2)$ per sub-table, $O(s^2)$ total) and depends only on
+$s$ and the four seed strings. Both compressor and decompressor execute the identical construction at
+startup, requiring no table data in the payload.
+
+#### B.21.7 Implications for the Solver
+
+The solver's `ConstraintStore` changes as follows:
+
+*Line count.* Each sub-table contributes 511 lines, but only the sub-table that owns a given cell
+is active for that cell. The total number of distinct constraint lines remains $4 \times 511 = 2{,}044$
+for the LTP component, plus the $4 \times 511 - 2 = 2{,}042$ diagonal/anti-diagonal lines and
+$2 \times 511 = 1{,}022$ row/column lines, totaling $1{,}022 + 2{,}042 + 2{,}044 = 5{,}108$. This
+matches the B.20 line count; only the line *lengths* change, not the line *count*.
+
+*`getLinesForCell()`.* For the 260,098 cells in exactly one sub-table, this returns 5 `LineID`s
+(row, column, diagonal, anti-diagonal, and one LTP). For the 1,023 dual-covered cells, it returns 6.
+The return type changes from `std::array<LineID, 8>` to a small vector or to `std::array<LineID, 6>`
+with a valid-count field. Alternatively, all cells can return 6 entries, with 260,098 cells having one
+sentinel `LineID::None` value that the propagator ignores.
+
+*Propagation impact.* With fewer lines per cell, each cell assignment enqueues fewer lines for
+constraint checking. This reduces per-assignment overhead from 8 line updates to 5 or 6, a modest
+speedup of $\approx 30\%$ in the inner propagation loop. The reduced overhead partially compensates
+for any loss in propagation yield from fewer constraints.
+
+*LTP line statistics.* Each LTP line's $(\text{assigned}, \text{unknown}, \rho)$ triple behaves
+differently from the uniform case. A line of length $\ell$ starts with $u = \ell$ unknowns and
+$\rho = \text{sum}$. For short lines ($\ell \leq 10$), the forcing conditions $\rho = 0$ (force all
+unknowns to 0) and $\rho = u$ (force all unknowns to 1) are reached within the first few
+assignments to that line. This produces immediate propagation cascades during the early rows of the
+solve---exactly the region where propagation is currently most effective.
+
+#### B.21.8 Comparison with B.20 Uniform LTP
+
+| Metric | B.20 (Uniform) | B.21 (Joint-Tiled) |
+|--------|---------------|--------------------|
+| LTP lines per cell | 4 | 1 (or 2 for 1,023 cells) |
+| Constraint lines per cell | 8 | 5 or 6 |
+| LTP line lengths | 511 (uniform) | 1--256 (triangular) |
+| LTP encoding bits (4 partitions) | 18,396 | 16,388 |
+| Block payload bytes | 15,749 | 15,498 |
+| Compression ratio | 48.3% | 47.5% |
+| Forcing events from LTP (est.) | Rare past row 50 | Frequent through row 256 |
+| Propagation inner-loop cost | 8 line updates/cell | 5--6 line updates/cell |
+| Spatial adaptivity | None | Center-cross / corner-long |
+
+The joint-tiled design trades breadth of coverage (fewer LTP lines per cell) for depth of coverage
+(shorter, more forceful lines) and encoding efficiency (variable-width sums). The spatial layout
+further optimizes coverage by concentrating long LTP lines where the basic partitions are weakest.
+
+#### B.21.9 Open Questions
+
+(a) What is the optimal distribution of the 1,023 dual-covered cells? Placing them at extreme corners
+maximizes complementarity with diagonal coverage, but other strategies (e.g., distributing them along
+the anti-diagonal extremes) may yield better propagation cascades. Empirical testing with the existing
+solver can compare strategies by measuring depth-to-backtrack statistics.
+
+(b) Does the sequential sub-table construction introduce ordering bias? $T_0$ gets first pick of the
+cell pool and may receive a higher-quality spatial layout than $T_3$, which operates on the residual.
+An iterative refinement step (re-constructing $T_0$ after $T_1$--$T_3$ exist, then repeating) could
+equalize quality across sub-tables, at the cost of construction complexity.
+
+(c) Is the triangular length distribution optimal, or would a different distribution (e.g., quadratic,
+logarithmic) better match the solver's propagation dynamics? The triangular distribution mirrors
+DSM/XSM for encoding simplicity, but the solver's performance depends on the distribution of short
+lines relative to the DFS traversal order. A distribution with more short lines and fewer long ones
+might increase early forcing at the cost of weaker mid-solve constraints.
+
+(d) How does joint tiling interact with the belief-propagation-guided branching heuristic (Section 7)?
+The BP estimator currently assumes each cell participates in 8 factor nodes (one per constraint line).
+Reducing to 5--6 factors changes the BP update equations and convergence properties. The BP estimator
+must be updated to handle variable factor counts per cell.
+
+(e) Can the joint-tiling principle extend to the basic partitions? If diagonal and anti-diagonal
+families were jointly tiled (each cell on exactly one of the two), the total constraint count would
+drop further but diagonal encoding would change. This is unlikely to be beneficial because DSM and XSM
+provide qualitatively different constraint information (different slope directions), whereas the four
+LTP sub-tables are qualitatively interchangeable.
 
 ## References
 
