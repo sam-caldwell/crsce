@@ -6,7 +6,9 @@
 #include "decompress/Solvers/PropagationEngine.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/LineID.h"
@@ -17,9 +19,9 @@ namespace crsce::decompress::solvers {
      * @name tryPropagateCell
      * @brief Fast-path propagation for a single-cell assignment.
      *
-     * Computes the 8 flat stats indices directly and checks feasibility/forcing inline.
-     * Returns immediately if no forcing is needed (the common case ~80% of iterations).
-     * Falls back to full propagate() only when forcing is required.
+     * Computes the 4 basic flat stat indices plus 1-2 LTP indices (B.21) and checks
+     * feasibility/forcing inline. Returns immediately if no forcing is needed (the
+     * common case ~80% of iterations). Falls back to full propagate() when forcing required.
      *
      * @param r Row index.
      * @param c Column index.
@@ -36,19 +38,21 @@ namespace crsce::decompress::solvers {
         const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
         const auto xi = (2U * kS) + ConstraintStore::kNumDiags + static_cast<std::uint32_t>(r + c);
 
-        // Precomputed flat indices for the 4 LTP lines
-        const auto &ltp = ltpFlatIndices(r, c);
-        const auto li0 = static_cast<std::uint32_t>(ltp[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto li1 = static_cast<std::uint32_t>(ltp[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto li2 = static_cast<std::uint32_t>(ltp[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto li3 = static_cast<std::uint32_t>(ltp[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        // B.21: LTP membership is 1 or 2 sub-tables
+        const auto &mem = ltpMembership(r, c);
 
-        // Check all 8 lines for feasibility and forcing
-        const std::array<std::uint32_t, 8> indices = {ri, ci, di, xi, li0, li1, li2, li3};
+        // Check all lines (4 basic + 1-2 LTP) for feasibility and forcing
+        // Use a fixed 6-element array; only first (4 + mem.count) are valid
+        const std::array<std::uint32_t, 6> indices = {  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            ri, ci, di, xi,
+            static_cast<std::uint32_t>(mem.flat[0]),
+            static_cast<std::uint32_t>(mem.count > 1 ? mem.flat[1] : mem.flat[0])
+        };
+        const auto numLines = static_cast<std::size_t>(4U + mem.count);
         bool needsForcing = false;
 
-        for (const auto idx : indices) {
-            const auto &stat = cs.getStatDirect(idx);
+        for (std::size_t n = 0; n < numLines; ++n) {
+            const auto &stat = cs.getStatDirect(indices[n]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             const auto rho = static_cast<std::int32_t>(stat.target) - static_cast<std::int32_t>(stat.assigned);
             const auto u = static_cast<std::int32_t>(stat.unknown);
             if (rho < 0 || rho > u) {
@@ -64,14 +68,9 @@ namespace crsce::decompress::solvers {
         }
 
         // Rare path: fall through to full propagation for forcing.
-        // Pass only the 4 basic lines (row, col, diag, anti-diag) to limit
-        // cascade depth. LTP feasibility is already checked above.
-        const std::array<LineID, 4> basicLines = {{
-            {.type = LineType::Row, .index = r},
-            {.type = LineType::Column, .index = c},
-            {.type = LineType::Diagonal, .index = static_cast<std::uint16_t>(c - r + (kS - 1))},
-            {.type = LineType::AntiDiagonal, .index = static_cast<std::uint16_t>(r + c)}
-        }};
-        return propagate(basicLines);
+        // Pass all active lines so LTP lines cascade too.
+        const auto linesForCell = cs.getLinesForCell(r, c);
+        return propagate(std::span<const LineID>{linesForCell.lines.data(),
+                                                 static_cast<std::size_t>(linesForCell.count)});
     }
 } // namespace crsce::decompress::solvers

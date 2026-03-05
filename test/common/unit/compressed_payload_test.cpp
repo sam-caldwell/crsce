@@ -404,7 +404,7 @@ TEST(CompressedPayloadTest, DiagonalVariableWidthEncodingRoundTrip) {
 TEST(CompressedPayloadTest, ConstantsAreCorrect) {
     EXPECT_EQ(CompressedPayload::kS, 511);
     EXPECT_EQ(CompressedPayload::kDiagCount, 1021);
-    EXPECT_EQ(CompressedPayload::kBlockPayloadBytes, 15749);
+    EXPECT_EQ(CompressedPayload::kBlockPayloadBytes, 15247);
 }
 
 } // namespace

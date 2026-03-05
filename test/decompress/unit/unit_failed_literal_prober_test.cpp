@@ -27,7 +27,9 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
-using crsce::decompress::solvers::ltpFlatIndices;
+using crsce::decompress::solvers::kLtpNumLines;
+using crsce::decompress::solvers::ltpLineLen;
+using crsce::decompress::solvers::ltpMembership;
 using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
 
@@ -76,15 +78,18 @@ namespace {
             diagSums[d] = static_cast<std::uint16_t>(len / 2);
             antiDiagSums[d] = static_cast<std::uint16_t>(len / 2);
         }
+        // LTP line lengths are variable: ltp_len(k) = min(k+1, 511-k), max 256.
+        // Use ltp_len(k)/2 as mid-range target so no line starts infeasible.
+        std::vector<std::uint16_t> ltpSums(kLtpNumLines);
+        for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+            ltpSums[k] = static_cast<std::uint16_t>(ltpLineLen(k) / 2U);
+        }
         return makeStore(
             std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
             diagSums,
             antiDiagSums,
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255)
+            ltpSums, ltpSums, ltpSums, ltpSums
         );
     }
 
@@ -185,11 +190,19 @@ TEST(FailedLiteralProberTest, ProbeCellForcesOne) {
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
     {
-        const auto &ltpIdx = ltpFlatIndices(0, 0);
-        ltp1Sums[ltpIdx[0] - static_cast<std::uint16_t>(kLtp1Base)] = 1;
-        ltp2Sums[ltpIdx[1] - static_cast<std::uint16_t>(kLtp2Base)] = 1;
-        ltp3Sums[ltpIdx[2] - static_cast<std::uint16_t>(kLtp3Base)] = 1;
-        ltp4Sums[ltpIdx[3] - static_cast<std::uint16_t>(kLtp4Base)] = 1;
+        const auto &mem = ltpMembership(0, 0);
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (f < static_cast<std::uint16_t>(kLtp2Base)) {
+                ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
+                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
+            } else {
+                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            }
+        }
     }
 
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,

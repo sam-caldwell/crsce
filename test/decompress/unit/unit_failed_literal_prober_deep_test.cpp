@@ -14,6 +14,7 @@
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/FailedLiteralProber.h"
+#include "decompress/Solvers/LtpTable.h"
 #include "decompress/Solvers/PropagationEngine.h"
 #include "decompress/Solvers/Sha256HashVerifier.h"
 
@@ -21,6 +22,8 @@ using crsce::decompress::solvers::BranchingController;
 using crsce::decompress::solvers::CellState;
 using crsce::decompress::solvers::ConstraintStore;
 using crsce::decompress::solvers::FailedLiteralProber;
+using crsce::decompress::solvers::kLtpNumLines;
+using crsce::decompress::solvers::ltpLineLen;
 using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
 
@@ -65,12 +68,17 @@ namespace {
             diagSums[d] = static_cast<std::uint16_t>(len / 2);
             antiDiagSums[d] = static_cast<std::uint16_t>(len / 2);
         }
-        return makeStore(
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255),
-            diagSums,
-            antiDiagSums
-        );
+        // LTP line lengths are variable: ltp_len(k) = min(k+1, 511-k), max 256.
+        // Use ltp_len(k)/2 as mid-range target so no line starts infeasible.
+        std::vector<std::uint16_t> ltpSums(kLtpNumLines);
+        for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+            ltpSums[k] = static_cast<std::uint16_t>(ltpLineLen(k) / 2U);
+        }
+        return {std::vector<std::uint16_t>(kS, 255),
+                std::vector<std::uint16_t>(kS, 255),
+                diagSums,
+                antiDiagSums,
+                ltpSums, ltpSums, ltpSums, ltpSums};
     }
 
     /**

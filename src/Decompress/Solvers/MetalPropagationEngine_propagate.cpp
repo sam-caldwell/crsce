@@ -163,10 +163,10 @@ namespace crsce::decompress::solvers {
                         cs.assign(r, c, forceValue);
                         forced_.push_back({.r = r, .c = c, .value = forceValue});
 
-                        // Cascade through 4 basic lines only (row, col, diag, anti-diag).
+                        // B.21: cascade through all active lines (5 or 6), including LTP.
                         const auto affected = cs.getLinesForCell(r, c);
-                        for (std::size_t i = 0; i < 4; ++i) {
-                            const auto &affLine = affected[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                        for (std::size_t i = 0; i < static_cast<std::size_t>(affected.count); ++i) {
+                            const auto &affLine = affected.lines[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                             const auto idx = ConstraintStore::lineIndex(affLine);
                             if (!queued_.test(idx)) {
                                 queued_.set(idx);
@@ -200,8 +200,8 @@ namespace crsce::decompress::solvers {
                     for (auto idx = forcedBefore; idx < forced_.size(); ++idx) {
                         const auto &a = forced_[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                         const auto affected = cs.getLinesForCell(a.r, a.c);
-                        for (std::size_t i = 0; i < 4; ++i) {
-                            const auto &affLine = affected[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                        for (std::size_t i = 0; i < static_cast<std::size_t>(affected.count); ++i) {
+                            const auto &affLine = affected.lines[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                             const auto li = ConstraintStore::lineIndex(affLine);
                             if (!queued_.test(li)) {
                                 queued_.set(li);

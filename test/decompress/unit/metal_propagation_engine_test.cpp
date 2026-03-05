@@ -28,7 +28,7 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
-using crsce::decompress::solvers::ltpFlatIndices;
+using crsce::decompress::solvers::ltpMembership;
 
 namespace {
     constexpr std::uint16_t kS = 511;
@@ -109,11 +109,19 @@ TEST(MetalPropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     diagSums[510] = 1;
     // Set LTP targets for cell (0,0) using precomputed partition tables.
     {
-        const auto &idx = ltpFlatIndices(0, 0);
-        ltp1Sums[static_cast<std::uint16_t>(idx[0] - static_cast<std::uint16_t>(kLtp1Base))] = 1;
-        ltp2Sums[static_cast<std::uint16_t>(idx[1] - static_cast<std::uint16_t>(kLtp2Base))] = 1;
-        ltp3Sums[static_cast<std::uint16_t>(idx[2] - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-        ltp4Sums[static_cast<std::uint16_t>(idx[3] - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+        const auto &mem = ltpMembership(0, 0);
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (f < static_cast<std::uint16_t>(kLtp2Base)) {
+                ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
+                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
+            } else {
+                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            }
+        }
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
@@ -160,11 +168,19 @@ TEST(MetalPropagationEngineTest, ResetClearsForcedAssignments) {
     diagSums[510] = 1;
     // Set LTP targets for cell (0,0) using precomputed partition tables.
     {
-        const auto &idx = ltpFlatIndices(0, 0);
-        ltp1Sums[static_cast<std::uint16_t>(idx[0] - static_cast<std::uint16_t>(kLtp1Base))] = 1;
-        ltp2Sums[static_cast<std::uint16_t>(idx[1] - static_cast<std::uint16_t>(kLtp2Base))] = 1;
-        ltp3Sums[static_cast<std::uint16_t>(idx[2] - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-        ltp4Sums[static_cast<std::uint16_t>(idx[3] - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+        const auto &mem = ltpMembership(0, 0);
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (f < static_cast<std::uint16_t>(kLtp2Base)) {
+                ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
+                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
+            } else {
+                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            }
+        }
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,

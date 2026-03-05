@@ -39,24 +39,19 @@ namespace crsce::decompress::solvers {
         const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
         const auto xi = (2U * kS) + kNumDiags + static_cast<std::uint32_t>(r + c);
 
-        // Precomputed flat indices for the 4 LTP lines
-        const auto &ltp = ltpFlatIndices(r, c);
-        const auto li0 = static_cast<std::uint32_t>(ltp[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto li1 = static_cast<std::uint32_t>(ltp[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto li2 = static_cast<std::uint32_t>(ltp[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const auto li3 = static_cast<std::uint32_t>(ltp[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        // B.21: LTP membership is 1 or 2 sub-tables (not always 4)
+        const auto &mem = ltpMembership(r, c);
 
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 
-        // Decrement unknown counts for all 8 lines
+        // Decrement unknown counts for all lines
         stats_[ri].unknown--;
         stats_[ci].unknown--;
         stats_[di].unknown--;
         stats_[xi].unknown--;
-        stats_[li0].unknown--;
-        stats_[li1].unknown--;
-        stats_[li2].unknown--;
-        stats_[li3].unknown--;
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            stats_[mem.flat[j]].unknown--;
+        }
 
         // Increment assigned counts if value is 1
         if (v != 0) {
@@ -64,10 +59,9 @@ namespace crsce::decompress::solvers {
             stats_[ci].assigned++;
             stats_[di].assigned++;
             stats_[xi].assigned++;
-            stats_[li0].assigned++;
-            stats_[li1].assigned++;
-            stats_[li2].assigned++;
-            stats_[li3].assigned++;
+            for (std::uint8_t j = 0; j < mem.count; ++j) {
+                stats_[mem.flat[j]].assigned++;
+            }
         }
 
         // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)

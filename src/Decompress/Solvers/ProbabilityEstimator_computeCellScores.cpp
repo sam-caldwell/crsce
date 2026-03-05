@@ -19,10 +19,9 @@ namespace crsce::decompress::solvers {
      * @name computeCellScores
      * @brief Compute probability-guided scores for all unassigned cells in row r.
      *
-     * For each unassigned cell, reads the 7 non-row line statistics (col, diag,
-     * anti-diag, LTP1–LTP4) to compute score1 (P(1) proxy) and score0 (P(0) proxy).
-     * Products are bounded by 511^7 < 2^63, fitting uint64_t. Sorts by confidence
-     * (|score1 - score0|) descending so most-constrained cells branch first.
+     * For each unassigned cell, reads the non-row line statistics (col, diag, anti-diag,
+     * and 1-2 LTP lines per B.21) to compute score1 (P(1) proxy) and score0 (P(0) proxy).
+     * Sorts by confidence (|score1 - score0|) descending so most-constrained cells branch first.
      *
      * @param r Row index in [0, kS).
      * @return Vector of CellScore sorted by confidence descending.
@@ -44,46 +43,35 @@ namespace crsce::decompress::solvers {
             const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
             const auto xi = (2U * kS) + kNumDiags + static_cast<std::uint32_t>(r + c);
 
-            // Precomputed flat indices for the 4 LTP lines
-            const auto &ltp = ltpFlatIndices(r, c);
-            const auto li0 = static_cast<std::uint32_t>(ltp[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            const auto li1 = static_cast<std::uint32_t>(ltp[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            const auto li2 = static_cast<std::uint32_t>(ltp[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            const auto li3 = static_cast<std::uint32_t>(ltp[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            // B.21: 1 or 2 LTP lines
+            const auto &mem = ltpMembership(r, c);
 
-            // Read all 7 non-row line stats
-            const auto &colStat = store_.getStatDirect(ci);
+            const auto &colStat  = store_.getStatDirect(ci);
             const auto &diagStat = store_.getStatDirect(di);
             const auto &antiStat = store_.getStatDirect(xi);
-            const auto &l0Stat = store_.getStatDirect(li0);
-            const auto &l1Stat = store_.getStatDirect(li1);
-            const auto &l2Stat = store_.getStatDirect(li2);
-            const auto &l3Stat = store_.getStatDirect(li3);
+            const auto &l0Stat   = store_.getStatDirect(static_cast<std::uint32_t>(mem.flat[0])); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-            // rho = target - assigned (remaining ones needed)
-            const auto rhoCol = static_cast<std::uint64_t>(colStat.target - colStat.assigned);
+            const auto rhoCol  = static_cast<std::uint64_t>(colStat.target  - colStat.assigned);
             const auto rhoDiag = static_cast<std::uint64_t>(diagStat.target - diagStat.assigned);
             const auto rhoAnti = static_cast<std::uint64_t>(antiStat.target - antiStat.assigned);
-            const auto rhoL0 = static_cast<std::uint64_t>(l0Stat.target - l0Stat.assigned);
-            const auto rhoL1 = static_cast<std::uint64_t>(l1Stat.target - l1Stat.assigned);
-            const auto rhoL2 = static_cast<std::uint64_t>(l2Stat.target - l2Stat.assigned);
-            const auto rhoL3 = static_cast<std::uint64_t>(l3Stat.target - l3Stat.assigned);
+            const auto rhoL0   = static_cast<std::uint64_t>(l0Stat.target   - l0Stat.assigned);
 
-            // unknowns remaining on each line
-            const auto uCol = static_cast<std::uint64_t>(colStat.unknown);
+            const auto uCol  = static_cast<std::uint64_t>(colStat.unknown);
             const auto uDiag = static_cast<std::uint64_t>(diagStat.unknown);
             const auto uAnti = static_cast<std::uint64_t>(antiStat.unknown);
-            const auto uL0 = static_cast<std::uint64_t>(l0Stat.unknown);
-            const auto uL1 = static_cast<std::uint64_t>(l1Stat.unknown);
-            const auto uL2 = static_cast<std::uint64_t>(l2Stat.unknown);
-            const auto uL3 = static_cast<std::uint64_t>(l3Stat.unknown);
+            const auto uL0   = static_cast<std::uint64_t>(l0Stat.unknown);
 
-            // score1 = product of 7 rho values (proportional to P(1))
-            const std::uint64_t s1 = rhoCol * rhoDiag * rhoAnti * rhoL0 * rhoL1 * rhoL2 * rhoL3;
+            std::uint64_t s1 = rhoCol * rhoDiag * rhoAnti * rhoL0;
+            std::uint64_t s0 = (uCol - rhoCol) * (uDiag - rhoDiag) * (uAnti - rhoAnti) * (uL0 - rhoL0);
 
-            // score0 = product of 7 (u - rho) values
-            const std::uint64_t s0 = (uCol - rhoCol) * (uDiag - rhoDiag) * (uAnti - rhoAnti)
-                                   * (uL0 - rhoL0) * (uL1 - rhoL1) * (uL2 - rhoL2) * (uL3 - rhoL3);
+            // If cell belongs to a second LTP sub-table, factor it in
+            if (mem.count > 1) {
+                const auto &l1Stat = store_.getStatDirect(static_cast<std::uint32_t>(mem.flat[1])); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const auto rhoL1   = static_cast<std::uint64_t>(l1Stat.target - l1Stat.assigned);
+                const auto uL1     = static_cast<std::uint64_t>(l1Stat.unknown);
+                s1 *= rhoL1;
+                s0 *= (uL1 - rhoL1);
+            }
 
             const auto preferred = static_cast<std::uint8_t>(s1 > s0 ? 1 : 0);
             const std::uint64_t confidence = (s1 > s0) ? (s1 - s0) : (s0 - s1);

@@ -9,11 +9,15 @@
 #include <cstdint>
 
 #include "decompress/Solvers/LineID.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
     /**
      * @name lineLen
      * @brief Compute the length of a line (number of cells).
+     *
+     * B.21: LTP lines have variable length ltp_len(k) = min(k+1, kS-k), not always kS.
+     *
      * @param line The line identifier.
      * @return Number of cells on the line.
      * @throws None
@@ -22,11 +26,12 @@ namespace crsce::decompress::solvers {
         switch (line.type) {
             case LineType::Row:
             case LineType::Column:
+                return kS;
             case LineType::LTP1:
             case LineType::LTP2:
             case LineType::LTP3:
             case LineType::LTP4:
-                return kS;
+                return ltpLineLen(line.index);
             case LineType::Diagonal:
             case LineType::AntiDiagonal: {
                 const auto k = static_cast<int>(line.index);

@@ -156,15 +156,14 @@ namespace crsce::decompress::solvers {
                     return;
                 }
                 cs.assign(r, c, forceValue);
-                forced_.push_back({.r = r, .c = c, .value = forceValue});
+                forced_.push_back({.r = r, .c = c, .value = forceValue,
+                                   .antecedentLine = ConstraintStore::lineIndex(line)});
 
-                // Cascade through 4 basic lines only (row, col, diag, anti-diag).
-                // LTP stats are maintained via assign() and checked for feasibility
-                // in tryPropagateCell, but cascading through all 8 lines causes
-                // exponential propagation blowup that dominates iteration cost.
+                // B.21: cascade through all active lines (5 or 6), including LTP lines.
+                // Short LTP lines (1-64 cells) force immediately, enabling early propagation.
                 const auto affected = cs.getLinesForCell(r, c);
-                for (std::size_t i = 0; i < 4; ++i) {
-                    const auto &affLine = affected[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                for (std::size_t i = 0; i < static_cast<std::size_t>(affected.count); ++i) {
+                    const auto &affLine = affected.lines[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                     const auto idx = ConstraintStore::lineIndex(affLine);
                     if (!isQueued(idx)) {
                         markQueued(idx);

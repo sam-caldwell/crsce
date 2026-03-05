@@ -25,7 +25,7 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
-using crsce::decompress::solvers::ltpFlatIndices;
+using crsce::decompress::solvers::ltpMembership;
 
 namespace {
     constexpr std::uint16_t kS = 511;
@@ -111,11 +111,19 @@ TEST(PropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
     {
-        const auto &idx = ltpFlatIndices(0, 0);
-        ltp1Sums[idx[0] - static_cast<std::uint16_t>(kLtp1Base)] = 1;
-        ltp2Sums[idx[1] - static_cast<std::uint16_t>(kLtp2Base)] = 1;
-        ltp3Sums[idx[2] - static_cast<std::uint16_t>(kLtp3Base)] = 1;
-        ltp4Sums[idx[3] - static_cast<std::uint16_t>(kLtp4Base)] = 1;
+        const auto &mem = ltpMembership(0, 0);
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (f < static_cast<std::uint16_t>(kLtp2Base)) {
+                ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
+                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
+            } else {
+                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            }
+        }
     }
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
                            ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
@@ -159,11 +167,19 @@ TEST(PropagationEngineTest, GetForcedAssignmentsReturnsList) {
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
     {
-        const auto &idx = ltpFlatIndices(0, 0);
-        ltp1Sums[idx[0] - static_cast<std::uint16_t>(kLtp1Base)] = 1;
-        ltp2Sums[idx[1] - static_cast<std::uint16_t>(kLtp2Base)] = 1;
-        ltp3Sums[idx[2] - static_cast<std::uint16_t>(kLtp3Base)] = 1;
-        ltp4Sums[idx[3] - static_cast<std::uint16_t>(kLtp4Base)] = 1;
+        const auto &mem = ltpMembership(0, 0);
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (f < static_cast<std::uint16_t>(kLtp2Base)) {
+                ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
+                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
+            } else {
+                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            }
+        }
     }
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
                            ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
@@ -199,11 +215,19 @@ TEST(PropagationEngineTest, ResetClearsForcedAssignments) {
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
     {
-        const auto &idx = ltpFlatIndices(0, 0);
-        ltp1Sums[idx[0] - static_cast<std::uint16_t>(kLtp1Base)] = 1;
-        ltp2Sums[idx[1] - static_cast<std::uint16_t>(kLtp2Base)] = 1;
-        ltp3Sums[idx[2] - static_cast<std::uint16_t>(kLtp3Base)] = 1;
-        ltp4Sums[idx[3] - static_cast<std::uint16_t>(kLtp4Base)] = 1;
+        const auto &mem = ltpMembership(0, 0);
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (f < static_cast<std::uint16_t>(kLtp2Base)) {
+                ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
+                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
+            } else {
+                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            }
+        }
     }
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
                            ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);

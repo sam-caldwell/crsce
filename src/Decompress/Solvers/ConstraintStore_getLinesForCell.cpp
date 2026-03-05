@@ -5,33 +5,41 @@
  */
 #include "decompress/Solvers/ConstraintStore.h"
 
-#include <array>
 #include <cstdint>
 
+#include "decompress/Solvers/IConstraintStore.h"
 #include "decompress/Solvers/LineID.h"
 #include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
     /**
      * @name getLinesForCell
-     * @brief Get the eight LineIDs (row, col, diag, anti-diag, LTP1–LTP4) that cell (r, c) participates in.
+     * @brief Get the LineIDs (row, col, diag, anti-diag, LTP1–LTP4) that cell (r, c) participates in.
+     *
+     * B.21: returns 5 lines for cells in 1 LTP sub-table, 6 lines for corner cells in 2.
+     *
      * @param r Row index.
      * @param c Column index.
-     * @return Array of 8 LineIDs.
+     * @return CellLines with 5 or 6 valid LineIDs.
      * @throws None
      */
     auto ConstraintStore::getLinesForCell(const std::uint16_t r,
-                                          const std::uint16_t c) const -> std::array<LineID, 8> {
-        const auto &ltp = ltpFlatIndices(r, c);
-        return {{
-            {.type = LineType::Row, .index = r},
-            {.type = LineType::Column, .index = c},
-            {.type = LineType::Diagonal, .index = static_cast<std::uint16_t>(c - r + (kS - 1))},
-            {.type = LineType::AntiDiagonal, .index = static_cast<std::uint16_t>(r + c)},
-            {.type = LineType::LTP1, .index = static_cast<std::uint16_t>(ltp[0] - kLTP1Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::LTP2, .index = static_cast<std::uint16_t>(ltp[1] - kLTP2Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::LTP3, .index = static_cast<std::uint16_t>(ltp[2] - kLTP3Base)}, // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            {.type = LineType::LTP4, .index = static_cast<std::uint16_t>(ltp[3] - kLTP4Base)}  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        }};
+                                          const std::uint16_t c) const -> CellLines {
+        const auto &mem = ltpMembership(r, c);
+
+        CellLines result;
+        result.lines[0] = {.type = LineType::Row,          .index = r};
+        result.lines[1] = {.type = LineType::Column,        .index = c};
+        result.lines[2] = {.type = LineType::Diagonal,      .index = static_cast<std::uint16_t>(c - r + (kS - 1))};
+        result.lines[3] = {.type = LineType::AntiDiagonal,  .index = static_cast<std::uint16_t>(r + c)};
+
+        // B.21: 1 or 2 LTP lines depending on membership
+        for (std::uint8_t j = 0; j < mem.count; ++j) {
+            const auto flatIdx = static_cast<std::uint32_t>(mem.flat[j]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            result.lines[4 + j] = flatIndexToLineID(flatIdx); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+        result.count = static_cast<std::uint8_t>(4U + mem.count);
+
+        return result;
     }
 } // namespace crsce::decompress::solvers

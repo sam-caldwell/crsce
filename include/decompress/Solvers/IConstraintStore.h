@@ -81,14 +81,37 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] virtual std::uint16_t getAssignedCount(LineID line) const = 0;
 
         /**
+         * @struct CellLines
+         * @name CellLines
+         * @brief Set of LineIDs that a cell participates in (5 or 6 lines in B.21).
+         *
+         * Contains 4 basic lines (row, col, diag, anti-diag) plus 1–2 LTP lines.
+         */
+        // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+        struct CellLines {
+            /**
+             * @name lines
+             * @brief The LineIDs; only the first count entries are valid.
+             */
+            std::array<LineID, 6> lines{};
+
+            /**
+             * @name count
+             * @brief Number of valid entries in lines (5 or 6).
+             */
+            std::uint8_t count{0};
+        };
+        // NOLINTEND(misc-non-private-member-variables-in-classes)
+
+        /**
          * @name getLinesForCell
-         * @brief Get the eight LineIDs (row, col, diag, anti-diag, LTP1–LTP4) that cell (r, c) participates in.
+         * @brief Get the LineIDs (row, col, diag, anti-diag, LTP1–LTP4) that cell (r, c) participates in.
          * @param r Row index.
          * @param c Column index.
-         * @return Array of 8 LineIDs.
+         * @return CellLines with 5 or 6 valid LineIDs.
          * @throws None
          */
-        [[nodiscard]] virtual std::array<LineID, 8> getLinesForCell(std::uint16_t r, std::uint16_t c) const = 0;
+        [[nodiscard]] virtual CellLines getLinesForCell(std::uint16_t r, std::uint16_t c) const = 0;
 
         /**
          * @name getCellState

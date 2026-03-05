@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "decompress/Solvers/CellState.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
     /**
@@ -75,30 +76,31 @@ namespace crsce::decompress::solvers {
         }
 
         // Initialize LTP1 partition stats: stats_[kLTP1Base .. kLTP1Base + kS)
+        // B.21: each line k has ltp_len(k) = min(k+1, kS-k) cells (not kS)
         for (std::uint16_t k = 0; k < kS; ++k) {
             stats_[kLTP1Base + k].target = ltp1Sums[k];
-            stats_[kLTP1Base + k].unknown = kS; // LTP lines always have s cells
+            stats_[kLTP1Base + k].unknown = ltpLineLen(k);
             stats_[kLTP1Base + k].assigned = 0;
         }
 
         // Initialize LTP2 partition stats: stats_[kLTP2Base .. kLTP2Base + kS)
         for (std::uint16_t k = 0; k < kS; ++k) {
             stats_[kLTP2Base + k].target = ltp2Sums[k];
-            stats_[kLTP2Base + k].unknown = kS;
+            stats_[kLTP2Base + k].unknown = ltpLineLen(k);
             stats_[kLTP2Base + k].assigned = 0;
         }
 
         // Initialize LTP3 partition stats: stats_[kLTP3Base .. kLTP3Base + kS)
         for (std::uint16_t k = 0; k < kS; ++k) {
             stats_[kLTP3Base + k].target = ltp3Sums[k];
-            stats_[kLTP3Base + k].unknown = kS;
+            stats_[kLTP3Base + k].unknown = ltpLineLen(k);
             stats_[kLTP3Base + k].assigned = 0;
         }
 
         // Initialize LTP4 partition stats: stats_[kLTP4Base .. kLTP4Base + kS)
         for (std::uint16_t k = 0; k < kS; ++k) {
             stats_[kLTP4Base + k].target = ltp4Sums[k];
-            stats_[kLTP4Base + k].unknown = kS;
+            stats_[kLTP4Base + k].unknown = ltpLineLen(k);
             stats_[kLTP4Base + k].assigned = 0;
         }
 

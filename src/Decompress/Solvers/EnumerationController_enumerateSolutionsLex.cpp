@@ -7,8 +7,10 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -174,7 +176,8 @@ namespace crsce::decompress::solvers {
                 // MetalPropagationEngine fallback: original virtual dispatch
                 const auto lines = cs.getLinesForCell(frame.r, frame.c);
                 (*propagator_).reset();
-                feasible = propagator_->propagate(lines);
+                feasible = propagator_->propagate(
+                    std::span<const LineID>{lines.lines.data(), static_cast<std::size_t>(lines.count)});
             }
 
             if (!feasible) {

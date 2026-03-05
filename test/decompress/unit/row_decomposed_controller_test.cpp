@@ -30,7 +30,9 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
-using crsce::decompress::solvers::ltpFlatIndices;
+using crsce::decompress::solvers::kLtpNumLines;
+using crsce::decompress::solvers::ltpLineLen;
+using crsce::decompress::solvers::ltpMembership;
 
 namespace {
     constexpr std::uint16_t kS = 511;
@@ -269,24 +271,21 @@ TEST(RowDecomposedControllerTest, TwoByTwoCornerFindsUniqueSolution) {
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
     {
-        const auto &idx00 = ltpFlatIndices(0, 0);
-        const auto &idx11 = ltpFlatIndices(1, 1);
-        const auto l1_00 = static_cast<std::uint16_t>(idx00[0] - static_cast<std::uint16_t>(kLtp1Base));
-        const auto l1_11 = static_cast<std::uint16_t>(idx11[0] - static_cast<std::uint16_t>(kLtp1Base));
-        ltp1Sums[l1_00] = (l1_00 == l1_11) ? 2U : 1U;
-        if (l1_00 != l1_11) { ltp1Sums[l1_11] = 1; }
-        const auto l2_00 = static_cast<std::uint16_t>(idx00[1] - static_cast<std::uint16_t>(kLtp2Base));
-        const auto l2_11 = static_cast<std::uint16_t>(idx11[1] - static_cast<std::uint16_t>(kLtp2Base));
-        ltp2Sums[l2_00] = (l2_00 == l2_11) ? 2U : 1U;
-        if (l2_00 != l2_11) { ltp2Sums[l2_11] = 1; }
-        const auto l3_00 = static_cast<std::uint16_t>(idx00[2] - static_cast<std::uint16_t>(kLtp3Base));
-        const auto l3_11 = static_cast<std::uint16_t>(idx11[2] - static_cast<std::uint16_t>(kLtp3Base));
-        ltp3Sums[l3_00] = (l3_00 == l3_11) ? 2U : 1U;
-        if (l3_00 != l3_11) { ltp3Sums[l3_11] = 1; }
-        const auto l4_00 = static_cast<std::uint16_t>(idx00[3] - static_cast<std::uint16_t>(kLtp4Base));
-        const auto l4_11 = static_cast<std::uint16_t>(idx11[3] - static_cast<std::uint16_t>(kLtp4Base));
-        ltp4Sums[l4_00] = (l4_00 == l4_11) ? 2U : 1U;
-        if (l4_00 != l4_11) { ltp4Sums[l4_11] = 1; }
+        auto incLtpFlat = [&](std::uint16_t f) {
+            if (f < static_cast<std::uint16_t>(kLtp2Base)) {
+                ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))]++;
+            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))]++;
+            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
+                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))]++;
+            } else {
+                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))]++;
+            }
+        };
+        const auto &mem00 = ltpMembership(0, 0);
+        const auto &mem11 = ltpMembership(1, 1);
+        for (std::uint8_t j = 0; j < mem00.count; ++j) { incLtpFlat(mem00.flat[j]); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        for (std::uint8_t j = 0; j < mem11.count; ++j) { incLtpFlat(mem11.flat[j]); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 
     auto store = std::make_unique<ConstraintStore>(
@@ -393,13 +392,14 @@ TEST(RowDecomposedControllerTest, AllOnesYieldsSingleSolution) {
         diagSums.at(d) = len;
         antiDiagSums.at(d) = len;
     }
-    // All cells are 1: every LTP line has exactly kS ones → LTP sums = kS.
+    // All cells are 1: every LTP line k has ltpLineLen(k) ones (variable-length lines in B.21).
+    std::vector<std::uint16_t> ltpSums(kLtpNumLines);
+    for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+        ltpSums[k] = ltpLineLen(k);
+    }
     auto store = std::make_unique<ConstraintStore>(
         rowSums, colSums, diagSums, antiDiagSums,
-        std::vector<std::uint16_t>(kS, kS),
-        std::vector<std::uint16_t>(kS, kS),
-        std::vector<std::uint16_t>(kS, kS),
-        std::vector<std::uint16_t>(kS, kS)
+        ltpSums, ltpSums, ltpSums, ltpSums
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);

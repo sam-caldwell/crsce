@@ -92,7 +92,7 @@ bool validate_container(const std::filesystem::path &cx_path, std::string &err) 
     }
 
     // File size must match header + blocks * block_bytes
-    static constexpr std::size_t kBlockBytes = 15749; // CompressedPayload::kBlockPayloadBytes
+    static constexpr std::size_t kBlockBytes = 15247; // CompressedPayload::kBlockPayloadBytes
     const std::uint64_t expect_size = static_cast<std::uint64_t>(kHeaderSize)
                                       + (block_count * static_cast<std::uint64_t>(kBlockBytes));
     if (fsz != static_cast<std::uintmax_t>(expect_size)) {

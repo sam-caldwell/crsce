@@ -6,12 +6,15 @@
 #include "decompress/Solvers/EnumerationController.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/IBranchingController.h"
 #include "decompress/Solvers/IPropagationEngine.h"
+#include "decompress/Solvers/LineID.h"
 #include "decompress/Solvers/PropagationEngine.h"
 
 namespace crsce::decompress::solvers {
@@ -102,7 +105,8 @@ namespace crsce::decompress::solvers {
                 // MetalPropagationEngine fallback: original virtual dispatch
                 const auto lines = cs.getLinesForCell(frame.r, frame.c);
                 (*propagator_).reset();
-                feasible = propagator_->propagate(lines);
+                feasible = propagator_->propagate(
+                    std::span<const LineID>{lines.lines.data(), static_cast<std::size_t>(lines.count)});
             }
 
             if (!feasible) {

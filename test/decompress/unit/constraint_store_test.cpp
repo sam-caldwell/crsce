@@ -208,16 +208,17 @@ TEST(ConstraintStoreTest, GetRowSetsBitsCorrectly) {
 }
 
 /**
- * @brief getLinesForCell returns exactly 8 lines (row, col, diag, anti-diag, LTP1-4).
+ * @brief getLinesForCell returns 5 or 6 lines (row, col, diag, anti-diag, 1-2 LTP) per B.21.
  */
-TEST(ConstraintStoreTest, GetLinesForCellReturnsEightLines) {
+TEST(ConstraintStoreTest, GetLinesForCellReturnsFiveOrSixLines) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(0, 0);
-    EXPECT_EQ(lines.size(), 8U);
+    EXPECT_GE(lines.count, static_cast<std::uint8_t>(5));
+    EXPECT_LE(lines.count, static_cast<std::uint8_t>(6));
 }
 
 /**
- * @brief getLinesForCell returns the correct line types and indices for cell (0, 0).
+ * @brief getLinesForCell returns the correct basic line types and indices for cell (0, 0).
  *
  * For cell (0,0):
  *   Row index = 0
@@ -229,21 +230,21 @@ TEST(ConstraintStoreTest, GetLinesForCellCorrectForOrigin) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(0, 0);
 
-    EXPECT_EQ(lines[0].type, LineType::Row);
-    EXPECT_EQ(lines[0].index, 0);
+    EXPECT_EQ(lines.lines[0].type, LineType::Row); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[0].index, 0);            // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-    EXPECT_EQ(lines[1].type, LineType::Column);
-    EXPECT_EQ(lines[1].index, 0);
+    EXPECT_EQ(lines.lines[1].type, LineType::Column); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[1].index, 0);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-    EXPECT_EQ(lines[2].type, LineType::Diagonal);
-    EXPECT_EQ(lines[2].index, 510);
+    EXPECT_EQ(lines.lines[2].type, LineType::Diagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[2].index, 510);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-    EXPECT_EQ(lines[3].type, LineType::AntiDiagonal);
-    EXPECT_EQ(lines[3].index, 0);
+    EXPECT_EQ(lines.lines[3].type, LineType::AntiDiagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[3].index, 0);                     // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 /**
- * @brief getLinesForCell returns the correct indices for cell (5, 10).
+ * @brief getLinesForCell returns the correct basic indices for cell (5, 10).
  *
  * For cell (5,10):
  *   Row = 5, Column = 10
@@ -254,17 +255,17 @@ TEST(ConstraintStoreTest, GetLinesForCellCorrectForArbitraryCell) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(5, 10);
 
-    EXPECT_EQ(lines[0].type, LineType::Row);
-    EXPECT_EQ(lines[0].index, 5);
+    EXPECT_EQ(lines.lines[0].type, LineType::Row); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[0].index, 5);            // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-    EXPECT_EQ(lines[1].type, LineType::Column);
-    EXPECT_EQ(lines[1].index, 10);
+    EXPECT_EQ(lines.lines[1].type, LineType::Column); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[1].index, 10);              // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-    EXPECT_EQ(lines[2].type, LineType::Diagonal);
-    EXPECT_EQ(lines[2].index, 515);
+    EXPECT_EQ(lines.lines[2].type, LineType::Diagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[2].index, 515);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-    EXPECT_EQ(lines[3].type, LineType::AntiDiagonal);
-    EXPECT_EQ(lines[3].index, 15);
+    EXPECT_EQ(lines.lines[3].type, LineType::AntiDiagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[3].index, 15);                    // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 /**

@@ -5,11 +5,13 @@
  */
 #include "decompress/Solvers/RowDecomposedController.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <queue>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,8 +19,10 @@
 #include "common/Csm/Csm.h"
 #include "common/Generator/Generator.h"
 #include "common/O11y/O11y.h"
+#include "decompress/Solvers/BackjumpTarget.h"
 #include "decompress/Solvers/BeliefPropagator.h"
 #include "decompress/Solvers/CellState.h"
+#include "decompress/Solvers/ConflictAnalyzer.h"
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/FailedLiteralProber.h"
 #include "decompress/Solvers/IBranchingController.h"
@@ -26,6 +30,7 @@
 #include "decompress/Solvers/LineID.h"
 #include "decompress/Solvers/ProbabilityEstimator.h"
 #include "decompress/Solvers/PropagationEngine.h"
+#include "decompress/Solvers/ReasonGraph.h"
 #include "decompress/Solvers/StallDetector.h"
 
 namespace crsce::decompress::solvers {
@@ -50,44 +55,51 @@ namespace crsce::decompress::solvers {
              * @name orderIdx
              * @brief Index into the global cellOrder vector.
              */
-            std::uint32_t orderIdx;
+            std::uint32_t orderIdx{0};
 
             /**
              * @name nextValue
              * @brief Next value to try: 0 (first), 1 (second), or 2 (exhausted).
              */
-            std::uint8_t nextValue;
+            std::uint8_t nextValue{0};
 
             /**
              * @name token
              * @brief Undo save point before this frame's assignment.
              */
-            IBranchingController::UndoToken token;
+            IBranchingController::UndoToken token{0};
 
             /**
              * @name row
              * @brief Row index of the cell at orderIdx (cached for hash checks).
              */
-            std::uint16_t row;
+            std::uint16_t row{0};
 
             /**
              * @name col
              * @brief Column index of the cell at orderIdx (cached for assignment).
              */
-            std::uint16_t col;
+            std::uint16_t col{0};
 
             /**
              * @name preferred
              * @brief Preferred branch value from probability estimate.
              */
-            std::uint8_t preferred;
+            std::uint8_t preferred{0};
 
             /**
              * @name fromHeap
              * @brief True if this cell was selected from the row-completion
              *        priority queue rather than the static ordering.
              */
-            bool fromHeap;
+            bool fromHeap{false};
+
+            /**
+             * @name cdclSavePoint
+             * @brief Index into the flat CDCL assignment stack immediately before
+             *        this frame's current trial.  Used to unrecord on undo.
+             */
+            std::uint32_t cdclSavePoint{0};
         };
 
     } // anonymous namespace
@@ -182,6 +194,15 @@ namespace crsce::decompress::solvers {
         FailedLiteralProber prober(cs, probeProp, *brancher_, *hasher_);
         StallDetector detector;
 
+        // --- CDCL: reason graph and conflict analyzer (B.21.11 Candidate 1) ---
+        ReasonGraph reasonGraph;
+        const ConflictAnalyzer conflictAnalyzer(reasonGraph);
+        std::vector<std::pair<std::uint16_t, std::uint16_t>> cdclStack;
+        cdclStack.reserve(261121U);
+        std::uint64_t cdclBackjumps     = 0;
+        std::uint64_t cdclJumpDistMax   = 0;
+        std::uint64_t cdclJumpDistTotal = 0;
+
         // --- B.12 checkpoint belief propagation ---
         // Triggered at each StallDetector escalation. Provides global marginal estimates
         // for branch-value guidance. Warm-starts from previous messages.
@@ -238,6 +259,12 @@ namespace crsce::decompress::solvers {
 
             // Undo previous value's assignment before trying the next
             if (frame.nextValue > 0) {
+                // CDCL: unrecord this frame's previous trial from the reason graph
+                while (cdclStack.size() > frame.cdclSavePoint) {
+                    const auto [r2, c2] = cdclStack.back();
+                    cdclStack.pop_back();
+                    reasonGraph.unrecord(r2, c2);
+                }
                 brancher_->undoToSavePoint(frame.token);
             }
 
@@ -273,11 +300,17 @@ namespace crsce::decompress::solvers {
                 }
             }
 
+            // CDCL: capture assignment save point for this trial
+            frame.cdclSavePoint = static_cast<std::uint32_t>(cdclStack.size());
             frame.token = brancher_->saveUndoPoint();
 
             // Assign and record
             cs.assign(frame.row, frame.col, v);
             brancher_->recordAssignment(frame.row, frame.col);
+            // CDCL: record this branching decision
+            cdclStack.emplace_back(frame.row, frame.col);
+            reasonGraph.recordDecision(frame.row, frame.col,
+                static_cast<std::uint32_t>(stack.size()) - 1U);
 
             // Propagate constraints
             bool feasible = false;
@@ -286,19 +319,25 @@ namespace crsce::decompress::solvers {
             } else {
                 const auto lines = cs.getLinesForCell(frame.row, frame.col);
                 (*propagator_).reset();
-                feasible = propagator_->propagate(lines);
+                feasible = propagator_->propagate(
+                    std::span<const LineID>{lines.lines.data(), static_cast<std::size_t>(lines.count)});
             }
 
             if (!feasible) {
                 continue;
             }
 
-            // Record forced assignments on the undo stack
+            // Record forced assignments on the undo stack and reason graph
             const auto &forced = (cpuProp != nullptr)
                 ? cpuProp->getForcedAssignments()
                 : propagator_->getForcedAssignments();
             for (const auto &a : forced) {
                 brancher_->recordAssignment(a.r, a.c);
+                // CDCL: record forced cell with its antecedent line
+                cdclStack.emplace_back(a.r, a.c);
+                reasonGraph.recordPropagated(a.r, a.c,
+                    static_cast<std::uint32_t>(stack.size()) - 1U,
+                    a.antecedentLine);
             }
 
             // Check rows affected by this assignment wave for heap eligibility
@@ -315,11 +354,13 @@ namespace crsce::decompress::solvers {
 
             // --- Cross-row hash verification ---
             bool hashFailed = false;
+            std::uint16_t failedRow = 0;
 
             // Check the directly-assigned cell's row
             if (cs.getStatDirect(frame.row).unknown == 0) {
                 if (!hasher_->verifyRow(frame.row, cs.getRow(frame.row))) {
                     hashFailed = true;
+                    failedRow  = frame.row;
                     ++hashMismatches;
                 }
             }
@@ -330,6 +371,7 @@ namespace crsce::decompress::solvers {
                     if (a.r != frame.row && cs.getStatDirect(a.r).unknown == 0) {
                         if (!hasher_->verifyRow(a.r, cs.getRow(a.r))) {
                             hashFailed = true;
+                            failedRow  = a.r;
                             ++hashMismatches;
                             break;
                         }
@@ -338,6 +380,30 @@ namespace crsce::decompress::solvers {
             }
 
             if (hashFailed) {
+                // CDCL: attempt non-chronological backjump
+                const std::uint32_t conflictDepth = static_cast<std::uint32_t>(stack.size()) - 1U;
+                const auto backjump = conflictAnalyzer.analyzeHashFailure(failedRow, conflictDepth);
+
+                if (backjump.valid && backjump.targetDepth + 1U < conflictDepth) {
+                    const std::uint64_t jumpDist = conflictDepth - backjump.targetDepth;
+                    cdclJumpDistTotal += jumpDist;
+                    cdclJumpDistMax = std::max(jumpDist, cdclJumpDistMax);
+                    ++cdclBackjumps;
+
+                    // Unrecord CDCL assignments for frames targetDepth+1 through conflictDepth
+                    const std::uint32_t unwindTo =
+                        stack[backjump.targetDepth + 1U].cdclSavePoint; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    while (cdclStack.size() > unwindTo) {
+                        const auto [r2, c2] = cdclStack.back();
+                        cdclStack.pop_back();
+                        reasonGraph.unrecord(r2, c2);
+                    }
+                    // Undo BranchingController assignments for frames targetDepth+1..conflictDepth
+                    brancher_->undoToSavePoint(
+                        stack[backjump.targetDepth + 1U].token); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    // Trim DFS stack; frame[targetDepth] retries its alternate on next iteration
+                    stack.resize(backjump.targetDepth + 1U);
+                }
                 continue;
             }
 
@@ -396,7 +462,9 @@ namespace crsce::decompress::solvers {
                     {"stall_escalations",   detector.escalations(),
                                                                  ::crsce::o11y::O11y::MetricKind::Gauge},
                     {"stall_deescalations", detector.deescalations(),
-                                                                 ::crsce::o11y::O11y::MetricKind::Gauge}});
+                                                                 ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"cdcl_backjumps",      cdclBackjumps,   ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"cdcl_jump_dist_max",  cdclJumpDistMax, ::crsce::o11y::O11y::MetricKind::Gauge}});
             }
 
             // --- Cell selection: heap-first, then static ordering ---
@@ -479,7 +547,11 @@ namespace crsce::decompress::solvers {
                  {"total_heap_selections",     std::to_string(heapSelections)},
                  {"total_stall_escalations",   std::to_string(detector.escalations())},
                  {"total_stall_deescalations", std::to_string(detector.deescalations())},
-                 {"total_bp_checkpoints",      std::to_string(bpCheckpoints)}});
+                 {"total_bp_checkpoints",      std::to_string(bpCheckpoints)},
+                 {"total_cdcl_backjumps",      std::to_string(cdclBackjumps)},
+                 {"cdcl_jump_dist_max",        std::to_string(cdclJumpDistMax)},
+                 {"cdcl_jump_dist_avg",        std::to_string(
+                     cdclBackjumps > 0U ? cdclJumpDistTotal / cdclBackjumps : 0U)}});
         }
     }
 

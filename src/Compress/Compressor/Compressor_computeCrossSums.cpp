@@ -3,8 +3,8 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  * @brief Compressor::computeCrossSums -- compute all eight cross-sum families and fill the payload.
  *
- * B.20: removed 4 toroidal-slope sums (HSM1/SFC1/HSM2/SFC2); replaced with 4 LTP partition
- * sums (LTP1SM–LTP4SM). Payload size reverts to 15,749 bytes.
+ * B.21: 4 joint-tiled variable-length LTP partition sums (LTP1SM–LTP4SM). Each cell belongs to
+ * 1 or 2 LTP sub-tables depending on its membership.
  */
 #include "compress/Compressor/Compressor.h"
 
@@ -50,21 +50,21 @@ namespace crsce::compress {
                 dsm.set(r, c, v);
                 xsm.set(r, c, v);
 
-                // LTP sums: look up the line index for each partition and add v.
+                // LTP sums: look up the 1-2 sub-table memberships (B.21) and accumulate.
                 if (v != 0) {
-                    const auto &ltp = decompress::solvers::ltpFlatIndices(r, c);
-                    const auto ltp1Line = static_cast<std::uint16_t>(
-                        ltp[0] - static_cast<std::uint16_t>(decompress::solvers::kLtp1Base)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                    const auto ltp2Line = static_cast<std::uint16_t>(
-                        ltp[1] - static_cast<std::uint16_t>(decompress::solvers::kLtp2Base)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                    const auto ltp3Line = static_cast<std::uint16_t>(
-                        ltp[2] - static_cast<std::uint16_t>(decompress::solvers::kLtp3Base)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                    const auto ltp4Line = static_cast<std::uint16_t>(
-                        ltp[3] - static_cast<std::uint16_t>(decompress::solvers::kLtp4Base)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                    ltp1Sums[ltp1Line]++; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                    ltp2Sums[ltp2Line]++; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                    ltp3Sums[ltp3Line]++; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                    ltp4Sums[ltp4Line]++; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    const auto &mem = decompress::solvers::ltpMembership(r, c);
+                    for (std::uint8_t j = 0; j < mem.count; ++j) {
+                        const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                        if (f < static_cast<std::uint16_t>(decompress::solvers::kLtp2Base)) {
+                            ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(decompress::solvers::kLtp1Base))]++; // NOLINT
+                        } else if (f < static_cast<std::uint16_t>(decompress::solvers::kLtp3Base)) {
+                            ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(decompress::solvers::kLtp2Base))]++; // NOLINT
+                        } else if (f < static_cast<std::uint16_t>(decompress::solvers::kLtp4Base)) {
+                            ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(decompress::solvers::kLtp3Base))]++; // NOLINT
+                        } else {
+                            ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(decompress::solvers::kLtp4Base))]++; // NOLINT
+                        }
+                    }
                 }
             }
         }

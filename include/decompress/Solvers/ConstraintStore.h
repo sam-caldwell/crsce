@@ -204,7 +204,7 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] std::int32_t getResidual(LineID line) const override;
         [[nodiscard]] std::uint16_t getUnknownCount(LineID line) const override;
         [[nodiscard]] std::uint16_t getAssignedCount(LineID line) const override;
-        [[nodiscard]] std::array<LineID, 8> getLinesForCell(std::uint16_t r, std::uint16_t c) const override;
+        [[nodiscard]] CellLines getLinesForCell(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] CellState getCellState(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint8_t getCellValue(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint16_t getRowUnknownCount(std::uint16_t r) const override;

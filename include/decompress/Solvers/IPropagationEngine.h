@@ -37,6 +37,14 @@ namespace crsce::decompress::solvers {
          */
         std::uint8_t value{0};
 
+        /**
+         * @name antecedentLine
+         * @brief Flat ConstraintStore line index of the forcing line.
+         *        Meaningful only for propagated (non-decision) assignments.
+         *        Zero for decision assignments or when not tracked.
+         */
+        std::uint32_t antecedentLine{0};
+
     };
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 

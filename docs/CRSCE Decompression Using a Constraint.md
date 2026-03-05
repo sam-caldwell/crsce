@@ -1991,6 +1991,30 @@ directly to the earliest responsible decision --- provides exponential savings w
    failed row, indicating the coarse stack scan is insufficient) or `backjump_dist_avg` remains low after B.1.7 is
    confirmed not to break the plateau.
 
+#### B.1.10. CDCL Outcome
+
+The initial CDCL integration produced no measurable improvement in plateau depth or iteration throughput. The
+`ConflictAnalyzer`, `ReasonGraph`, `CellAntecedent`, and `BackjumpTarget` classes are fully implemented and unit-tested
+but remain disconnected from the main DFS loop in `EnumerationController`, which continues to use chronological
+backtracking.
+
+The B.20.9 experimental results (Configuration C: 4 geometric + 4 uniform-length LTP partitions) provide a
+retrospective explanation for CDCL's failure. At the plateau ($\text{depth} \approx 88{,}500$, row $\approx 170$),
+every uniform-length-511 constraint line has $u \approx 341$ unknowns and $\rho \approx 170$, placing it in the
+forcing dead zone ($\rho / u \approx 0.5$). Non-chronological backjumping identifies *which* decision caused a
+conflict via the reason graph, but when all constraint lines are equally inert --- none generating forcing events ---
+every decision level is equally stuck. There is nowhere productive to jump to, so CDCL degenerates to chronological
+backtracking with additional bookkeeping overhead.
+
+B.21 (joint-tiled variable-length LTP partitions) may change this calculus. Variable-length LTP lines (1--256 cells)
+generate forcing events deep in the plateau where no 511-cell line can. A hash failure at row 172 might trace back
+through a 10-cell LTP forcing event to a decision at row 90, giving the reason graph a meaningful antecedent chain
+that CDCL could exploit for non-chronological backjumping. The two mechanisms are complementary: B.21 creates forcing
+events, and CDCL exploits the structure those events reveal. CDCL should be revisited after B.21 telemetry is
+available; if B.21's short LTP lines produce forcing cascades in the plateau band (indicated by a hash mismatch rate
+below 20% per B.21.9), the reason graph will contain the rich antecedent structure that CDCL requires to outperform
+chronological backtracking.
+
 ### B.2 Auxiliary Cross-Sum Partitions as Solver Accelerators (Implemented)
 
 This appendix originally proposed adding auxiliary cross-sum partitions to increase constraint density and accelerate
@@ -3828,301 +3852,9 @@ instance $B$ could benefit from the same nogood if it encounters the same row co
 requires inter-instance communication but could provide the clause-sharing benefit of parallel CDCL without the
 full CDCL machinery.
 
-### B.15 Loopy Belief Propagation as Integrated Inference
+### B.15 DELETED
 
-B.12 proposes belief propagation (BP) as a periodic reordering oracle: the solver pauses DFS at checkpoint rows,
-runs BP to convergence on the residual subproblem, and uses the resulting marginals to guide cell ordering or
-batch decimation. This appendix examines a more aggressive alternative: *loopy belief propagation* (LBP)
-embedded directly into the propagation loop, running continuously alongside constraint propagation rather than
-at discrete checkpoints. The question is whether LBP can provide sufficiently accurate marginal estimates on the
-CRSCE factor graph to break the 87K-depth stalling barrier, and whether the computational cost can be amortized
-to a tolerable level.
-
-#### B.15.1 Background and Theoretical Foundations
-
-Belief propagation computes exact marginal distributions on tree-structured factor graphs by passing messages between
-variable nodes and factor nodes until convergence (Pearl, 1988). Each variable-to-factor message summarizes the
-variable's belief about its own state given all constraints *except* the recipient factor, and each factor-to-variable
-message summarizes the factor's constraint on the variable given messages from all other variables in the factor's
-scope. On trees, BP converges in a number of iterations equal to the graph diameter, and the resulting marginals are
-exact (Kschischang, Frey, & Loeliger, 2001).
-
-When the factor graph contains cycles --- as the CRSCE graph invariably does, since every cell participates in 8
-constraint lines and those lines share cells --- BP is no longer guaranteed to converge, and the marginals it
-produces are approximations. This regime is called *loopy belief propagation*. Despite the lack of formal
-convergence guarantees on loopy graphs, LBP has achieved remarkable empirical success in several domains: turbo
-decoding and LDPC codes in communications (McEliece, MacKay, & Cheng, 1998), stereo vision and image segmentation
-in computer vision (Sun, Zheng, & Shum, 2003), and random satisfiability near the phase transition (Mézard, Parisi,
-& Zecchina, 2002).
-
-The theoretical justification for LBP's empirical success rests on two results. First, Yedidia, Freeman, and Weiss
-(2001) showed that fixed points of LBP correspond to stationary points of the Bethe free energy, a variational
-approximation to the true log-partition function. The Bethe approximation is exact on trees and typically accurate
-when the factor graph has long cycles (low density of short loops). Second, Tatikonda and Jordan (2002) proved that
-LBP converges to a unique fixed point when the spectral radius of the dependency matrix is less than one --- a
-condition related to the graph's coupling strength and cycle structure.
-
-#### B.15.2 The CRSCE Factor Graph: Structural Analysis
-
-The CRSCE factor graph has specific structural properties that bear directly on LBP's applicability. The graph
-contains $s^2 = 261{,}121$ binary variable nodes and $10s - 2 = 5{,}108$ factor nodes (with an additional $s = 511$
-LH verification factors). Each variable participates in exactly 8 factors (one per constraint-line family: row,
-column, diagonal, anti-diagonal, and four toroidal slopes), and each factor connects to exactly $s = 511$ variables
-(all lines in the 8 standard families are length $s$; DSM/XSM lines near the matrix boundary are shorter, ranging
-from 1 to 511).
-
-The shortest cycles in this graph are length 4: any two cells that share both a row and a column form a 4-cycle
-through the row factor and column factor. Since every pair of cells in the same row shares a row factor, and many
-pairs share a column or diagonal factor, the CRSCE graph is densely loopy. The average cycle density can be
-quantified: for each cell at position $(r, c)$, the 8 factors it participates in collectively touch approximately
-$8 \times 511 - 7 = 4{,}081$ other cells (subtracting the 7 redundant counts of the cell itself). Pairs among those
-4,081 cells that share a second factor with each other create 4-cycles through the original cell's factors. The
-expected number of such 4-cycles per cell is $O(s)$, yielding a total 4-cycle count of $O(s^3) \approx 1.3 \times
-10^8$.
-
-This high density of short cycles is the central concern for LBP in CRSCE. The Bethe approximation assumes that the
-factor graph's neighborhood is locally tree-like --- that the subgraph reachable from any node within $k$ hops
-contains few cycles. With $O(s)$ 4-cycles per cell, this assumption is violated at $k = 2$. The practical
-consequence is that LBP's marginal estimates will overcount correlations: a cell's belief will incorporate the same
-constraint information multiple times through different cycle paths, producing overconfident (polarized) marginals.
-
-#### B.15.3 The Case for LBP in CRSCE
-
-Despite the structural concerns, several arguments favor LBP for CRSCE plateau-breaking.
-
-*Argument 1: Marginal accuracy need not be high.* LBP is proposed not as an exact inference engine but as a
-heuristic guide for branching decisions. The solver needs only a *ranking* of cells by how constrained they are, not
-precise probabilities. If LBP's marginals are monotonically correlated with true marginals --- even with substantial
-absolute error --- the resulting ordering will be superior to the current static `ProbabilityEstimator`. Empirical
-studies in SAT solving have shown that even crude BP approximations improve branching heuristics relative to purely
-local measures (Hsu & McIlraith, 2006).
-
-*Argument 2: LBP captures long-range correlations that local propagation misses.* The 87K-depth stalling barrier
-arises because cardinality forcing becomes inactive in the plateau band (rows ~100--300): residuals are neither 0 nor
-equal to the unknown count, so the propagation engine cannot force any cells. The information needed to break the
-stalemate exists in the constraint system --- distant cells' assignments constrain the residuals of lines passing
-through the plateau --- but the current propagator does not transmit this information because it operates only on
-individual lines. LBP's message-passing iterates through the entire factor graph, propagating constraints across
-multiple hops. After $t$ iterations, each cell's belief incorporates information from cells up to $t$ hops away in
-the factor graph. At $t = 10$, a cell's belief reflects constraints from cells up to 80 constraint lines distant
-($10 \times 8$ lines per hop), potentially spanning the entire matrix. This global view is precisely what the solver
-lacks at depth 87K.
-
-*Argument 3: Incremental LBP amortizes cost across assignments.* Rather than running BP from scratch at checkpoints
-(as B.12 proposes), incremental LBP updates only the messages affected by each new assignment. When cell $(r, c)$ is
-assigned, only the 8 factors containing $(r, c)$ receive new information. Those 8 factors send updated messages to
-their $\sim 4{,}000$ neighboring variables, which update their beliefs and propagate outward. If the solver limits
-propagation to $\delta$ hops from the assigned cell (a "message-passing wavefront"), the per-assignment cost is
-$O(\delta \cdot s)$ multiply-add operations. At $\delta = 3$ and $s = 511$, this is $\sim 1{,}500$ operations per
-assignment --- approximately $10\times$ the cost of the current constraint-propagation step, but far cheaper than
-a full BP computation ($\sim 50$ ms).
-
-*Argument 4: Warm-starting preserves convergence quality.* Because LBP runs continuously, each new assignment
-perturbs the message state only slightly. The messages are already close to the fixed point of the previous
-subproblem, so convergence to the new fixed point (given the new assignment) requires only a few iterations of the
-affected messages. This warm-start property is well-established in the graphical models literature (Murphy, Weiss,
-& Jordan, 1999) and is the key to making continuous LBP computationally feasible.
-
-#### B.15.4 The Case Against LBP in CRSCE
-
-The arguments against LBP are substantial and grounded in both theory and the specific structure of the CRSCE
-problem.
-
-*Objection 1: Non-convergence on densely loopy graphs.* Tatikonda and Jordan's (2002) convergence condition requires
-that the spectral radius of the graph's dependency matrix be less than one. For the CRSCE factor graph, each factor
-connects to $s = 511$ variables, and each variable participates in 8 factors. The coupling strength is directly
-related to the factor's constraint tightness: a cardinality constraint with residual $\rho$ and $u$ unknowns has
-coupling strength proportional to $|\rho / u - 0.5|$ (how far the constraint is from maximum entropy). In the
-plateau band, $\rho / u \approx 0.5$ (the constraint is maximally uninformative), so coupling is weak and LBP may
-converge. But at the matrix edges (early and late rows), constraints are tight and coupling is strong. The spectral
-radius condition may be satisfied only in the plateau band --- exactly where LBP is needed but also where the
-marginals carry the least information. This creates a paradox: LBP converges where it is least useful and diverges
-where it could provide the strongest guidance.
-
-*Objection 2: Overconfident marginals from short cycles.* The $O(s^3)$ 4-cycles in the CRSCE graph cause LBP to
-double-count constraint evidence. A cell $(r, c)$ receives a message from its row factor and a message from its
-column factor, but these messages are not independent: they share information about cells in the same row-column
-intersection. The result is overconfident marginals --- beliefs close to 0 or 1 even when the true marginal is near
-0.5. Overconfident marginals produce aggressive branching decisions that frequently lead to conflicts, increasing
-rather than decreasing the backtrack count. Wainwright and Jordan (2008, Section 4.2) document this failure mode
-extensively and show that it is intrinsic to the Bethe approximation on graphs with dense short cycles.
-
-Mitigation strategies exist. Tree-reweighted BP (TRW-BP) (Wainwright, Jaakkola, & Willsky, 2005) assigns
-edge-appearance probabilities that correct for double-counting, guaranteeing an upper bound on the log-partition
-function. However, TRW-BP requires computing edge-appearance probabilities from a set of spanning trees, which is
-$O(|E|^2)$ for the CRSCE graph ($|E| \approx 2 \times 10^6$, so $O(4 \times 10^{12})$) --- prohibitively
-expensive. Fractional BP (Wiegerinck & Heskes, 2003) and convex variants (Globerson & Jaakkola, 2007) similarly
-incur overhead that exceeds the computational budget.
-
-*Objection 3: Cardinality factors are expensive.* Standard BP message computation for a factor with $k$ variables
-requires summing over $2^k$ joint configurations. For CRSCE's cardinality constraints (each connecting $s = 511$
-binary variables), the naive cost is $2^{511}$ --- clearly intractable. Efficient message computation for cardinality
-factors is possible using the convolution trick: the sum-product messages for a cardinality constraint on $k$ binary
-variables with target sum $\sigma$ can be computed in $O(k^2)$ time using dynamic programming (Darwiche, 2009,
-Section 12.4). At $k = 511$, this is $\sim 261{,}000$ operations per factor per iteration. With 5,108 factors and
-10 iterations, the total cost is $\sim 1.3 \times 10^{10}$ operations ($\sim 13$ seconds on Apple Silicon) ---
-orders of magnitude slower than the current solver's throughput of $\sim 500{,}000$ assignments/second.
-
-The incremental approach (B.15.3, Argument 3) mitigates this by updating only 8 factors per assignment rather than
-all 5,108, but each factor update still costs $O(s^2) \approx 261{,}000$ operations. At 8 factors per assignment,
-the incremental cost is $\sim 2 \times 10^6$ operations per assignment --- a $4{,}000\times$ overhead relative to
-the current propagation step ($\sim 500$ operations per assignment). Even with Apple Silicon's throughput, this
-reduces the solver from 500K assignments/second to $\sim 125$ assignments/second, extending block solve times from
-minutes to weeks.
-
-*Objection 4: LBP provides no pruning, only ordering.* Unlike constraint propagation (which prunes infeasible
-assignments) or CDCL (which prunes infeasible subtrees), LBP provides only soft guidance: a ranking of cells and
-value preferences. The solver still explores the same search tree; it merely traverses it in a different order. If
-the search tree's branching factor is dominated by the 87K-depth plateau (where $\sim 111$ cells per row are
-unconstrained), reordering the traversal cannot reduce the tree's exponential size --- it can only improve the
-constant factor in front of the exponential. The fundamental problem is that the plateau's combinatorial explosion
-requires *pruning* (eliminating subtrees) rather than *reordering* (visiting subtrees in a better sequence). LBP
-does not prune.
-
-This objection does not apply if LBP's marginals enable other pruning mechanisms to activate. For example, if LBP
-reveals that a cell is near-forced ($p \approx 0.01$), the solver can treat it as forced and propagate, triggering
-constraint-propagation cascades that genuinely prune. But this amounts to using LBP as a soft forcing heuristic ---
-converting approximate beliefs into hard assignments --- which risks correctness violations if the marginal is wrong.
-The solver would need a verification mechanism (e.g., backtracking on LBP-guided forced assignments that lead to
-conflicts), eroding much of the computational savings.
-
-*Objection 5: DI determinism is fragile under floating-point LBP.* LBP's messages are real-valued quantities
-updated by iterative multiplication and normalization. Floating-point arithmetic is not associative, and message
-update order can affect the converged values. If the compressor and decompressor execute LBP with different message
-scheduling (e.g., due to parallelism or platform-specific optimizations), the resulting marginals may differ,
-producing different cell orderings and different search trajectories, violating DI determinism. B.12.4 addresses
-this for checkpoint-based BP by proposing fixed-point arithmetic or a fixed iteration count. For *continuous* LBP
-integrated into the propagation loop, the determinism requirement is stricter: every incremental message update after
-every assignment must produce bitwise-identical results on both compressor and decompressor. This requires either
-(a) fixed-point arithmetic with specified precision and rounding mode, or (b) a deterministic message schedule
-(e.g., always process the 8 affected factors in a fixed order, then propagate outward in breadth-first order from
-the assigned cell). Both approaches constrain the implementation and prevent performance optimizations (e.g.,
-parallel message updates on GPU) that would violate the deterministic schedule.
-
-#### B.15.5 Quantitative Cost-Benefit Estimate
-
-To evaluate LBP's net value, consider a concrete scenario. Assume the solver spends $T_{\text{base}} = 600$ seconds
-on a block without LBP, with 90\% of the time ($540$s) consumed in the plateau band (rows 100--300). The plateau
-generates $\sim 10^{10}$ backtracks.
-
-*Optimistic case.* LBP's improved ordering reduces the backtrack count by $100\times$ (from $10^{10}$ to $10^8$).
-The per-assignment cost increases $4{,}000\times$ due to LBP overhead (Objection 3). The net effect: plateau time
-changes from $10^{10} \times 2\,\mu\text{s} = 540$s to $10^8 \times 8{,}000\,\mu\text{s} = 800{,}000$s ($\approx
-9.3$ days). LBP is a net loss despite a $100\times$ reduction in backtracks, because the per-node overhead
-overwhelms the savings.
-
-*Break-even analysis.* For LBP to be net-positive, the backtrack reduction must exceed the overhead ratio. At
-$4{,}000\times$ per-node overhead, LBP must reduce backtracks by more than $4{,}000\times$ to improve on the
-baseline. A $4{,}000\times$ backtrack reduction (from $10^{10}$ to $2.5 \times 10^6$) would reduce plateau time to
-$2.5 \times 10^6 \times 8{,}000\,\mu\text{s} = 20{,}000$s ($\approx 5.6$ hours) --- still slower than the 540s
-baseline, because the LBP overhead applies to all $\sim 100{,}000$ assignments in the plateau, not just to the
-$2.5 \times 10^6$ backtracks. The full accounting: $100{,}000$ assignments $\times$ $8{,}000\,\mu\text{s/assignment}
-= 800$s for the forward pass, plus $2.5 \times 10^6$ backtracks $\times$ $8{,}000\,\mu\text{s} = 20{,}000$s for
-backtracking. Total: $20{,}800$s. The LBP overhead on the forward pass alone ($800$s) exceeds the $540$s baseline.
-
-*Reduced-overhead scenario.* If the incremental wavefront is limited to $\delta = 1$ hop (only the 8 directly
-affected factors, with no outward propagation), the per-assignment cost drops to $\sim 8 \times 261{,}000 \approx
-2 \times 10^6$ operations ($\sim 2$ms). At $100{,}000$ forward assignments: $200$s. At a $100\times$ backtrack
-reduction ($10^8$ backtracks $\times$ $2$ms): $200{,}000$s. Still a net loss. Even at $\delta = 1$ and a
-$10{,}000\times$ backtrack reduction: $100{,}000 \times 2\text{ms} + 10^6 \times 2\text{ms} = 200\text{s} +
-2{,}000\text{s} = 2{,}200$s --- roughly $4\times$ worse than baseline.
-
-The arithmetic is unforgiving. LBP's per-node cost on length-511 cardinality factors is fundamentally too high for
-integration into a DFS loop that processes hundreds of thousands of nodes.
-
-#### B.15.6 Comparison with B.12's Checkpoint Approach
-
-B.12 avoids LBP's per-node overhead by running BP only at checkpoints (every 50 rows, or at plateau entry). The
-amortized cost is $\sim 50$ms per $25{,}000$ assignments ($\sim 2\,\mu\text{s/assignment}$) --- nearly identical to
-the baseline per-assignment cost. The tradeoff is that BP's marginals become stale between checkpoints: after
-$25{,}000$ assignments, the factor graph has changed substantially, and the checkpoint marginals may no longer
-reflect the current constraint state.
-
-LBP's theoretical advantage over checkpoint BP is freshness: by updating messages after every assignment, LBP
-always reflects the current constraint state. But as Section B.15.5 shows, the cost of freshness is prohibitive. The
-checkpoint approach trades marginal accuracy for computational feasibility, and this trade is overwhelmingly
-favorable. If the solver needs more accurate marginals between checkpoints, the natural remedy is to increase the
-checkpoint frequency (e.g., every 10 rows) rather than to switch to continuous LBP. Even at 1 checkpoint per row,
-the amortized cost is $\sim 50\text{ms} / 511 \approx 100\,\mu\text{s/assignment}$ --- a $50\times$ overhead rather
-than $4{,}000\times$.
-
-#### B.15.7 Mitigation Strategies and Their Limitations
-
-Several techniques could reduce LBP's overhead, though none sufficiently to change the fundamental cost-benefit
-calculus.
-
-*Approximate message updates.* Rather than computing exact sum-product messages for cardinality factors ($O(s^2)$
-per factor), the solver could use Gaussian approximation: approximate the binomial distribution of the cardinality
-factor's output with a Gaussian and compute messages in $O(s)$ time. This reduces the per-factor cost from
-$\sim 261{,}000$ to $\sim 511$ operations, yielding a per-assignment cost of $\sim 4{,}000$ operations ($8\times$
-overhead). However, the Gaussian approximation is poor for binary cardinality factors when the residual is small
-($\rho \ll s$) or large ($\rho \approx u$) --- precisely the regime where the constraint is informative and LBP
-would be most useful.
-
-*Selective LBP.* Run LBP only in the plateau band (rows 100--300) and use standard propagation elsewhere. This
-limits the overhead to $\sim 100{,}000$ assignments (the plateau portion) rather than all $261{,}121$. At $8\times$
-overhead with Gaussian approximation: $100{,}000 \times 16\,\mu\text{s} = 1.6$s for the forward pass. The
-backtracking overhead depends on the backtrack reduction, but the forward pass alone is tolerable. The concern is
-that selective LBP introduces a discontinuity at the plateau boundary: the solver switches from propagation-only
-to propagation-plus-LBP at row 100, potentially causing the message state to be cold (uninitialized) at exactly
-the point where it is needed. Warm-starting from a checkpoint BP computation (B.12) at row 100 mitigates this.
-
-*GPU-accelerated message updates.* Apple Silicon's Metal GPU can parallelize the message computation across factors
-and variables. The cardinality-factor DP is inherently sequential within a factor (each step depends on the
-previous), but the 8 factor updates per assignment are independent and can run in parallel. At 8-way parallelism,
-the per-assignment cost drops by $\sim 8\times$, but the GPU kernel launch overhead ($\sim 10\,\mu\text{s}$) and
-data transfer cost may exceed the computation savings for such small workloads.
-
-#### B.15.8 Verdict
-
-The weight of evidence is against continuous LBP as an integrated propagation mechanism for CRSCE. The core problem
-is the mismatch between LBP's computational cost and the DFS solver's throughput requirements. The CRSCE solver
-processes $\sim 500{,}000$ nodes/second in the fast regime and needs to maintain high throughput even in the plateau
-band to solve blocks within practical time bounds. LBP's per-node overhead on length-511 cardinality factors ---
-even with Gaussian approximation and selective application --- reduces throughput by at least an order of magnitude.
-The backtrack reduction LBP provides (improved ordering but no pruning) cannot compensate for this throughput loss
-except under implausibly optimistic assumptions ($> 4{,}000\times$ backtrack reduction).
-
-B.12's checkpoint approach captures most of LBP's benefit (global marginal information for branching guidance)
-at a fraction of the cost (one BP computation every $N$ rows, amortized across thousands of assignments). The
-marginal-staleness cost of checkpoint BP is small relative to the computational savings, and can be reduced by
-increasing checkpoint frequency.
-
-If future solver development reveals that checkpoint BP's marginal estimates are critically stale between
-checkpoints --- causing branching decisions that are actively worse than the current `ProbabilityEstimator` ---
-then selective LBP with Gaussian approximation in the plateau band (B.15.7) merits empirical evaluation. But this
-scenario is unlikely: checkpoint BP with fresh marginals at plateau entry should outperform the static estimator
-over the entire plateau span, and the incremental degradation over 50 rows is unlikely to be catastrophic.
-
-The recommendation is to pursue B.12's checkpoint BP approach and to treat continuous LBP as a theoretical
-alternative that is dominated on cost-benefit grounds.
-
-#### B.15.9 Open Questions
-
-(a) What is the empirical convergence behavior of LBP on the CRSCE factor graph at various depths? If LBP converges
-rapidly in the plateau band (where coupling is weak) but slowly at the edges, the selective-LBP strategy (B.15.7)
-may be more viable than the quantitative estimates suggest, because the plateau is where the solver spends most of
-its time.
-
-(b) Can the cardinality-factor message computation be restructured to exploit SIMD on Apple Silicon? The $O(s^2)$
-dynamic programming has data dependencies that prevent naive vectorization, but the 8 independent factor updates per
-assignment could be pipelined across NEON lanes, potentially reducing the $8\times$ factor to $2$--$3\times$.
-
-(c) Does LBP's overconfidence (Objection 2) systematically harm branching in the CRSCE instance, or does the ranking
-correlation with true marginals (Argument 1) dominate? This is an empirical question that could be answered by
-running LBP on the CRSCE factor graph, comparing the resulting marginals with exact marginals (computed on small
-subproblems), and measuring the rank correlation.
-
-(d) Is there a hybrid approach where LBP runs asynchronously on a background thread, and the DFS solver queries the
-most recent marginal estimates without blocking? This decouples LBP's throughput from the DFS throughput, at the
-cost of using stale (but continuously improving) marginals. The determinism concern (Objection 5) is severe for
-this approach, as the asynchronous schedule is inherently non-deterministic.
-
-(e) Would region-based generalizations of BP --- such as generalized belief propagation (GBP) on Kikuchi clusters
-(Yedidia, Freeman, & Weiss, 2005) --- provide more accurate marginals on the densely-loopy CRSCE graph? GBP
-operates on clusters of variables rather than individual variables, explicitly accounting for short cycles within
-each cluster. The cost is $O(2^{|C|})$ per cluster of size $|C|$, which is tractable only for small clusters
-($|C| \leq 20$). Whether meaningful clusters exist in the CRSCE graph's regular structure is an open question.
+Content moved to Appendix C.1.
 
 ### B.16 Partial Row Constraint Tightening
 
@@ -4941,12 +4673,12 @@ tables built at compile time from the fixed seeds.
 
 **Telemetry (useless-machine.mp4, block 0, ~14M iterations):**
 
-| Metric | B.8/B.9 Baseline | B.20 (Config C) | Change |
-|--------|-----------------|-----------------|--------|
-| Sustained plateau depth | ~87,500 | ~88,503 | +1,003 (+1.1%) |
-| Hash mismatch rate | 37.0% | 25.2% | $-11.8$ pp |
-| Avg iterations/sec | ~200K | ~198K | $\approx 0$% |
-| Block payload bytes | 16,899 | 15,749 | $-1,150$ ($-6.8\%$) |
+| Metric                  | B.8/B.9 Baseline | B.20 (Config C) | Change              |
+|-------------------------|------------------|-----------------|---------------------|
+| Sustained plateau depth | ~87,500          | ~88,503         | +1,003 (+1.1%)      |
+| Hash mismatch rate      | 37.0%            | 25.2%           | $-11.8$ pp          |
+| Avg iterations/sec      | ~200K            | ~198K           | $\approx 0$%        |
+| Block payload bytes     | 16,899           | 15,749          | $-1,150$ ($-6.8\%$) |
 
 The plateau depth improved by $+1{,}003$ cells ($+1.1\%$), a modest but consistent gain. The hash mismatch rate
 dropped from $37\%$ to $25.2\%$ --- a reduction of 11.8 percentage points --- indicating that the LTP partitions
@@ -4986,7 +4718,7 @@ each partition contains variable-length lines following the DSM/XSM triangular d
 cell belongs to exactly one LTP partition. The result is fewer but *stronger* LTP constraints per cell,
 a naturally lossless variable-length encoding, and a modest reduction in block payload size.
 
-#### B.21.1 Motivation
+### B.21.1 Motivation
 
 The DSM and XSM families encode cross-sums with variable bit widths because their line lengths vary
 from 1 to $s$. The encoding cost for one diagonal family over $2s - 1$ lines totals $B_d(s) = 8{,}185$
@@ -5006,7 +4738,7 @@ can average 511 over 511 elements; the only such distribution is the degenerate 
 resolution is to abandon per-partition completeness: each LTP partition covers approximately one
 quarter of the matrix, and the four partitions jointly tile the full $s \times s$ grid.
 
-#### B.21.2 Partition Structure
+### B.21.2 Partition Structure
 
 Each of the four LTP sub-tables $T_k$ ($k \in \{0, 1, 2, 3\}$) contains 511 lines indexed
 $i \in [0, 510]$ with prescribed lengths:
@@ -5032,7 +4764,7 @@ The per-cell constraint line count is:
 - 260,098 cells: 4 basic lines + 1 LTP line = 5 constraint lines.
 - 1,023 cells: 4 basic lines + 2 LTP lines = 6 constraint lines.
 
-#### B.21.3 Encoding and Payload Impact
+### B.21.3 Encoding and Payload Impact
 
 Each sub-table encodes identically to a DSM or XSM family truncated to 511 elements. The bit cost
 per sub-table is:
@@ -5072,7 +4804,7 @@ Block payload size: $\lceil 123{,}980 / 8 \rceil = 15{,}498$ bytes. Compression 
 $15{,}498 / 32{,}641 \approx 47.5\%$, down from 48.3% under uniform LTP (B.20) and 51.8% under
 the original toroidal-slope format.
 
-#### B.21.4 Constraint Strength Analysis
+### B.21.4 Constraint Strength Analysis
 
 Reducing from 4 LTP lines per cell to 1 appears to weaken the constraint system, but the analysis
 is more nuanced. Under B.20's uniform design, each of the 4 LTP lines has 511 cells. During the
@@ -5095,7 +4827,7 @@ forcing events outweigh the loss of three long, inert constraint lines. The 1,02
 two sub-tables receive a sixth constraint line, and these privileged cells should be placed
 deliberately at the matrix corners where diagonal coverage is weakest (see B.21.5).
 
-#### B.21.5 Spatial Layout: Center-Cross / Corner-Long Distribution
+### B.21.5 Spatial Layout: Center-Cross / Corner-Long Distribution
 
 The joint-tiled architecture enables a deliberate spatial arrangement of line lengths across the
 matrix. The design principle is *complementarity*: place short LTP lines where the basic partitions
@@ -5138,7 +4870,7 @@ After $T_0$ is constructed, $T_1$ is built from the remaining unassigned cells (
 the 1,023 dual-assigned cells), then $T_2$ from the next remainder, and $T_3$ from the final
 remainder. The sequential construction ensures joint tiling with exactly 1,023 overlapping cells.
 
-#### B.21.6 Table Construction Protocol
+### B.21.6 Table Construction Protocol
 
 The four sub-tables must be constructed in a fixed order ($T_0, T_1, T_2, T_3$) so that both
 compressor and decompressor produce identical cell-to-line mappings. The protocol is:
@@ -5167,7 +4899,7 @@ The entire construction is deterministic ($O(s^2)$ per sub-table, $O(s^2)$ total
 $s$ and the four seed strings. Both compressor and decompressor execute the identical construction at
 startup, requiring no table data in the payload.
 
-#### B.21.7 Implications for the Solver
+### B.21.7 Implications for the Solver
 
 The solver's `ConstraintStore` changes as follows:
 
@@ -5195,25 +4927,235 @@ unknowns to 0) and $\rho = u$ (force all unknowns to 1) are reached within the f
 assignments to that line. This produces immediate propagation cascades during the early rows of the
 solve---exactly the region where propagation is currently most effective.
 
-#### B.21.8 Comparison with B.20 Uniform LTP
+### B.21.8 Comparison with B.20 Uniform LTP
 
-| Metric | B.20 (Uniform) | B.21 (Joint-Tiled) |
-|--------|---------------|--------------------|
-| LTP lines per cell | 4 | 1 (or 2 for 1,023 cells) |
-| Constraint lines per cell | 8 | 5 or 6 |
-| LTP line lengths | 511 (uniform) | 1--256 (triangular) |
-| LTP encoding bits (4 partitions) | 18,396 | 16,388 |
-| Block payload bytes | 15,749 | 15,498 |
-| Compression ratio | 48.3% | 47.5% |
-| Forcing events from LTP (est.) | Rare past row 50 | Frequent through row 256 |
-| Propagation inner-loop cost | 8 line updates/cell | 5--6 line updates/cell |
-| Spatial adaptivity | None | Center-cross / corner-long |
+| Metric                           | B.20 (Uniform)      | B.21 (Joint-Tiled)         |
+|----------------------------------|---------------------|----------------------------|
+| LTP lines per cell               | 4                   | 1 (or 2 for 1,023 cells)   |
+| Constraint lines per cell        | 8                   | 5 or 6                     |
+| LTP line lengths                 | 511 (uniform)       | 1--256 (triangular)        |
+| LTP encoding bits (4 partitions) | 18,396              | 16,388                     |
+| Block payload bytes              | 15,749              | 15,498                     |
+| Compression ratio                | 48.3%               | 47.5%                      |
+| Forcing events from LTP (est.)   | Rare past row 50    | Frequent through row 256   |
+| Propagation inner-loop cost.     | 8 line updates/cell | 5--6 line updates/cell     |
+| Spatial adaptivity               | None                | Center-cross / corner-long |
 
 The joint-tiled design trades breadth of coverage (fewer LTP lines per cell) for depth of coverage
 (shorter, more forceful lines) and encoding efficiency (variable-width sums). The spatial layout
 further optimizes coverage by concentrating long LTP lines where the basic partitions are weakest.
 
-#### B.21.9 Open Questions
+### B.21.9 Predicted Telemetry Targets
+
+B.20.9 established the Configuration C baseline: plateau depth ~88,503, hash mismatch rate 25.2%,
+iteration rate ~198K/sec, block payload 15,749 bytes. Three telemetry indicators should be monitored
+during B.21 implementation to determine whether joint-tiled variable-length LTP partitions address
+the forcing dead zone that uniform-length lines cannot escape.
+
+*Indicator 1: Iteration rate (leading, mechanical).* Under B.20, each cell assignment updates 8
+constraint lines. Under B.21, each assignment updates 5 or 6 lines (4 basic + 1 or 2 LTP). The
+inner propagation loop should therefore speed up by approximately 30%, pushing the iteration rate
+from ~198K/sec toward ~257K/sec. If the observed rate does not increase, the joint-tiling lookup
+(determining which sub-table owns each cell) is adding overhead that offsets the line-count savings.
+A rate below 198K/sec would indicate a regression in the table-lookup implementation and should be
+investigated before interpreting depth or mismatch metrics.
+
+*Indicator 2: Hash mismatch rate (leading, qualitative).* The mismatch rate is the most sensitive
+indicator of constraint quality within the plateau band. B.20 reduced it from 37.0% (toroidal
+slopes) to 25.2% (uniform LTP), demonstrating that non-linear structure provides qualitatively
+better constraint signal even when the depth ceiling barely moves. If B.21 drops the mismatch rate
+below 20%, the short LTP lines are converting that constraint signal into tighter subtree pruning
+--- fewer dead-end explorations per iteration. If it remains at ~25% despite variable line lengths,
+the non-linear structure was already providing all available constraint power and line length is
+irrelevant. A mismatch rate above 30% would indicate that the loss of three LTP lines per cell
+(from 4 to 1) outweighs the benefit of shorter, more forceful lines.
+
+*Indicator 3: Plateau depth (lagging, definitive).* The depth ceiling is the ultimate success
+metric but moves only when forcing events push the solver into previously unreachable territory.
+A jump from 88,503 to 90,000 or above would be a qualitative breakthrough --- the first time any
+partition-level change has moved the depth ceiling by more than ~1%. This would confirm that short
+LTP lines ($\ell \leq 50$) generate forcing events deep in the plateau where no 511-cell line ever
+could. If the depth remains at ~88,500, the positional barrier is deeper than line-length alone can
+address, and the research program should pivot decisively toward non-partition approaches: B.1
+(conflict-driven learning), B.11 (randomized restarts), and B.16--B.19 (row-completion look-ahead,
+failure-biased branching, stall detection).
+
+### B.21.10 Outcome
+
+B.21 was fully implemented and all 30 unit and integration tests pass with lint clean. The 30-minute
+`uselessTest` depth run (same random binary block used for all prior comparisons) produced the
+following telemetry against the B.20.9 baseline.
+
+**Observed results (B.21, 30-minute run):**
+
+| Indicator | B.20.9 Baseline | B.21 Observed | Direction |
+|-----------|----------------|---------------|-----------|
+| Plateau depth | 88,503 | **50,272** | −43% regression |
+| Hash mismatch rate | 25.2% | **0.20%** | 93% improvement |
+| Avg iteration rate | ~750K/sec | ~687K/sec | −8% regression |
+| Max probe depth reached | 4 | 4 (stuck) | no improvement |
+| Stall escalations | — | 3 (no deescalations) | maxed out |
+| Min row unknowns at plateau | — | 123 (frozen) | depth wall |
+| Total iterations at end | — | ~1.2B | — |
+
+**Interpretation of the depth regression.**  The solver entered a hard plateau at depth 50,272
+(approximately row 98 of 511) and never exceeded that value throughout the entire 30-minute run.
+The row with fewest remaining unknowns was frozen at 123 for the entire run; the DFS oscillated
+within a tight band around the same frontier without making forward progress.  Three stall
+escalations brought the lookahead probe depth to its maximum of 4, and no deescalations occurred,
+confirming the solver was genuinely stuck rather than transiently paused.
+
+The root cause is architectural.  B.21 reduces the number of LTP lines per cell from 4 (B.20) to
+1--2, a 50--75% reduction in LTP-derived coupling.  B.20's four toroidal-slope lines each spanned
+all 511 rows (one cell per row), providing global cross-row coupling.  B.21's spatially-partitioned
+lines are clustered by spatial score: each line's cells are drawn from the same spatial region
+rather than distributed across rows.  At row 98, the LTP lines containing those cells carry little
+information about the assignment state of rows 0--97, eliminating the inter-row signal that
+stabilized B.20's descent to row 170.
+
+**Interpretation of the hash mismatch improvement.**  The 0.20% hash mismatch rate (vs. 25.2% for
+B.20) is the most dramatic constraint-quality improvement recorded in this research program.  It
+demonstrates conclusively that variable-length LTP lines ($\ell = 1$--$256$) generate qualitatively
+stronger row-level pruning than uniform-511-cell lines.  When a row does complete under B.21, it
+almost always satisfies the SHA-256 lateral hash.  The constraint signal is excellent; the problem
+is that the stronger constraints create a hard barrier the chronological DFS cannot cross.
+
+**The paradox.**  B.21 simultaneously achieves the best constraint quality and the worst depth in
+the experiment history.  This is not contradictory.  Shorter LTP lines commit cells earlier and
+more forcefully.  Early commitments that are wrong propagate deeply into the search tree before the
+contradiction surfaces at row ~98.  Chronological backtracking must then unwind all 50,272 branching
+choices to reach the actual source of the conflict, which may lie at row 10--20.  Without
+non-chronological backjumping, the adaptive lookahead (B.8) at probe depth 4 cannot reach far
+enough back to identify and prune the bad decision.
+
+**Implication for CDCL (B.1).**  B.21.9 predicted that CDCL would benefit if B.21 dropped the hash
+mismatch rate below 20%, because a low mismatch rate implies that the reason graph contains rich
+antecedent chains tracing hash failures back to early decisions.  The observed 0.20% rate satisfies
+this condition by a wide margin.  However, B.21 also imposes a 43% depth penalty that CDCL alone
+cannot recover; re-adding the fourth LTP line per cell (restoring cross-row coupling) while
+preserving variable line lengths is a prerequisite for CDCL to operate in the plateau band rather
+than below it.  A hybrid design --- four variable-length LTP lines per cell, each spanning multiple
+rows, with triangular length distribution --- is the logical B.22 candidate.
+
+**Disposition.**  B.21 is retained in the codebase as a correct, complete implementation.  The
+variable-length encoding it introduces (saving 502 bytes per block relative to B.20) is a permanent
+improvement regardless of the partition topology.  The plateau regression requires a new partition
+design before the depth ceiling can be attacked further.
+
+### B.21.11 Next Iteration Improvement
+
+B.21 established three empirical facts that constrain the design space for the next iteration.
+
+*Fact 1: Variable line lengths work.* The 0.20% hash mismatch rate is the strongest constraint-quality
+signal recorded in this project.  The triangular length distribution $\ell(k) = \min(k+1, 511-k)$,
+$k = 0 \ldots 510$ generates short lines that force cells early and deeply enough to match the
+correct assignment on virtually every row completion.  This distribution, or the variable-length
+encoding mechanism it implies, should be preserved in any successor design.
+
+*Fact 2: Lines per cell cannot fall below 4.* Reducing from 4 LTP lines per cell (B.20) to 1--2
+(B.21) caused a 43% depth regression.  The regression is not offset by the stronger per-line
+constraint quality.  Four LTP lines per cell is a hard floor: going below it removes more
+cross-family coupling than any improvement in individual line informativeness can restore.
+
+*Fact 3: Cross-row span is load-bearing.* B.20's toroidal lines each visited one cell in every
+row, providing global inter-row coupling at every depth.  B.21's spatially-partitioned lines
+cluster in the same region of the matrix, cutting off coupling past the cluster boundary.  The
+depth wall at row $\approx 98$ corresponds precisely to the point where B.21's LTP lines stop
+carrying information about the rows above.  Any replacement must ensure that each LTP line visits
+cells from a wide range of rows, not a contiguous spatial region.
+
+The three candidate next steps are ordered by implementation cost and expected confidence in
+outcome.
+
+---
+
+**Candidate 1: Reactivate CDCL (B.1) against B.21's constraint graph (immediate, low cost)**
+
+The B.1 CDCL implementation is complete and correct.  It was shelved after initial experiments
+showed no depth improvement under B.20's uniform-511-cell lines, because the reason graph lacked
+the short forcing chains CDCL requires to identify non-trivial backjump targets.  B.21 has
+eliminated that limitation: a 0.20% hash mismatch rate implies that virtually every row completion
+reflects a deterministic forcing cascade rooted at an early decision, and the antecedent table
+will contain meaningful 1-UIP backjump targets.
+
+The experiment is: re-enable the CDCL path in `RowDecomposedController_enumerateSolutionsLex.cpp`
+using the existing `ConflictAnalyzer` and `ReasonGraph` infrastructure and run `uselessTest`.
+**Success criterion:** depth exceeds 50,272 consistently.  **Failure criterion:** depth remains
+at or below 50,272, indicating that the antecedent chains under B.21's partition structure still
+resolve to targets too close to the conflict site for CDCL to produce useful backjumps ($< 1{,}000$
+frame gain).
+
+If CDCL pushes depth to 70K or above under B.21, the combination of variable-length forcing and
+non-chronological backtracking may achieve the research goal without redesigning the partition.  If
+CDCL fails to move the depth needle, the depth wall at row 98 is structural --- the partial
+assignment at depth 50K is globally inconsistent with the LTP sums but no single early decision
+is singularly responsible --- and a new partition design is required.
+
+---
+
+**Candidate 2: Full-coverage variable-length partitions (B.22, medium cost)**
+
+The root cause of B.21's depth regression is the joint-tiling constraint: covering all 261,121
+cells with only $4 \times 65{,}536 = 262{,}144$ cell-slots forces each cell into at most 1--2
+sub-tables, destroying the 4-line-per-cell coupling B.20 provided.  The fix is to restore full
+coverage: each sub-table assigns every cell to exactly one line, giving $\sum_k \ell(k) = 261{,}121$
+per sub-table and exactly 4 LTP lines per cell.
+
+The construction must enforce row diversity.  Rather than sorting cells by spatial score (which
+clusters spatial neighbours together), cells should be ordered by a row-interleaving key before
+assignment to lines --- for example, column-major order $(c, r)$ rather than row-major $(r, c)$.
+Under column-major ordering, consecutive cells in the sorted pool alternate rows, so every LTP
+line of any length receives cells from a broad cross-section of rows.  The first $\ell(0) = 1$
+cell (line 0, length 1) comes from row 0; the first $\ell(255) = 256$ cells (the peak line) span
+rows 0 through 255 in column order; the last short lines near $k = 510$ draw from the same
+column-wise cross-section as $k = 0$.
+
+The length distribution must sum to 261,121.  A natural choice is to scale the triangular
+distribution by a factor of $\lceil 261{,}121 / 65{,}536 \rceil \approx 4$ and adjust the
+remainder:
+
+$$\ell'(k) = 4 \cdot \min(k+1,\, 511-k) + \epsilon_k$$
+
+where $\epsilon_k \in \{0, 1\}$ is a correction term distributed to bring the total to exactly
+261,121.  The maximum line length under this distribution is $4 \times 256 = 1{,}024$, requiring
+at most 10 bits per LTP sum element (vs. 9 bits for B.20 and 1--9 bits for B.21).  Total encoding
+per sub-table is $\sum_{k=0}^{510} \lceil \log_2(\ell'(k)+1) \rceil$ bits; a rough estimate gives
+$\approx 4{,}200$--$5{,}000$ bits per sub-table, comparable to B.20's $511 \times 9 = 4{,}599$
+bits.
+
+The variable-length encoding infrastructure from B.21 (`CompressedPayload_serializeBlock.cpp`,
+`CompressedPayload_deserializeBlock.cpp`) requires only a change to the length function; no
+structural changes to the serialization pipeline are needed.
+
+**Success criterion:** depth exceeds 88,503 (the B.20 plateau) with hash mismatch rate remaining
+below 10%.  **Failure criterion:** depth regresses below B.20 despite restoring 4 LTP lines per
+cell, indicating that the triangular length distribution is fundamentally incompatible with the
+solver's row-traversal order.
+
+---
+
+**Candidate 3: CDCL first, then B.22 if needed (recommended sequencing)**
+
+Candidates 1 and 2 are not mutually exclusive, but Candidate 1 should be attempted first because
+it requires no partition redesign.  If CDCL restores or exceeds B.20 depth under B.21's current
+structure, it also validates the short-line forcing hypothesis and the variable-length encoding
+savings are free.  If CDCL fails, Candidate 2 provides the definitive structural fix, and CDCL
+can then be layered on top of B.22 once the depth regression is resolved.
+
+The two experiments are sequential and non-overlapping in code paths.  Attempting both
+simultaneously would obscure which mechanism is responsible for any observed improvement.
+
+| Step | Action | Code change | Expected outcome | Termination criterion |
+|------|--------|-------------|------------------|-----------------------|
+| 1 | Re-enable B.1 CDCL with B.21 | ~50 lines in DFS loop | depth > 50K | 30-min uselessTest |
+| 2 | If step 1 fails: implement B.22 column-major full-coverage partition | LtpTable.cpp constructor rewrite | depth > 88K | 30-min uselessTest |
+| 3 | Layer CDCL on B.22 | No additional code if B.1 is already enabled | depth > 90K | 30-min uselessTest |
+
+If step 1 achieves depth $\geq 90{,}000$, steps 2--3 become optional optimizations rather than
+required fixes, and the research program can pivot to compression-ratio improvements or the
+parallel-restart strategy (B.11).
+
+### B.21.13 Open Questions
 
 (a) What is the optimal distribution of the 1,023 dual-covered cells? Placing them at extreme corners
 maximizes complementarity with diagonal coverage, but other strategies (e.g., distributing them along
@@ -5242,6 +5184,308 @@ drop further but diagonal encoding would change. This is unlikely to be benefici
 provide qualitatively different constraint information (different slope directions), whereas the four
 LTP sub-tables are qualitatively interchangeable.
 
+## Appendix C: Abandoned Ideas
+
+This appendix collects research directions that were explored in detail but ultimately abandoned on
+cost-benefit grounds. Each section is preserved in full for archival purposes: the analysis may become
+relevant if future architectural changes alter the assumptions that led to abandonment.
+
+### C.1 Loopy Belief Propagation as Integrated Inference (formerly B.15)
+
+B.12 proposes belief propagation (BP) as a periodic reordering oracle: the solver pauses DFS at checkpoint rows,
+runs BP to convergence on the residual subproblem, and uses the resulting marginals to guide cell ordering or
+batch decimation. This appendix examines a more aggressive alternative: *loopy belief propagation* (LBP)
+embedded directly into the propagation loop, running continuously alongside constraint propagation rather than
+at discrete checkpoints. The question is whether LBP can provide sufficiently accurate marginal estimates on the
+CRSCE factor graph to break the 87K-depth stalling barrier, and whether the computational cost can be amortized
+to a tolerable level.
+
+#### C.1.1 Background and Theoretical Foundations
+
+Belief propagation computes exact marginal distributions on tree-structured factor graphs by passing messages between
+variable nodes and factor nodes until convergence (Pearl, 1988). Each variable-to-factor message summarizes the
+variable's belief about its own state given all constraints *except* the recipient factor, and each factor-to-variable
+message summarizes the factor's constraint on the variable given messages from all other variables in the factor's
+scope. On trees, BP converges in a number of iterations equal to the graph diameter, and the resulting marginals are
+exact (Kschischang, Frey, & Loeliger, 2001).
+
+When the factor graph contains cycles --- as the CRSCE graph invariably does, since every cell participates in 8
+constraint lines and those lines share cells --- BP is no longer guaranteed to converge, and the marginals it
+produces are approximations. This regime is called *loopy belief propagation*. Despite the lack of formal
+convergence guarantees on loopy graphs, LBP has achieved remarkable empirical success in several domains: turbo
+decoding and LDPC codes in communications (McEliece, MacKay, & Cheng, 1998), stereo vision and image segmentation
+in computer vision (Sun, Zheng, & Shum, 2003), and random satisfiability near the phase transition (Mézard, Parisi,
+& Zecchina, 2002).
+
+The theoretical justification for LBP's empirical success rests on two results. First, Yedidia, Freeman, and Weiss
+(2001) showed that fixed points of LBP correspond to stationary points of the Bethe free energy, a variational
+approximation to the true log-partition function. The Bethe approximation is exact on trees and typically accurate
+when the factor graph has long cycles (low density of short loops). Second, Tatikonda and Jordan (2002) proved that
+LBP converges to a unique fixed point when the spectral radius of the dependency matrix is less than one --- a
+condition related to the graph's coupling strength and cycle structure.
+
+#### C.1.2 The CRSCE Factor Graph: Structural Analysis
+
+The CRSCE factor graph has specific structural properties that bear directly on LBP's applicability. The graph
+contains $s^2 = 261{,}121$ binary variable nodes and $10s - 2 = 5{,}108$ factor nodes (with an additional $s = 511$
+LH verification factors). Each variable participates in exactly 8 factors (one per constraint-line family: row,
+column, diagonal, anti-diagonal, and four toroidal slopes), and each factor connects to exactly $s = 511$ variables
+(all lines in the 8 standard families are length $s$; DSM/XSM lines near the matrix boundary are shorter, ranging
+from 1 to 511).
+
+The shortest cycles in this graph are length 4: any two cells that share both a row and a column form a 4-cycle
+through the row factor and column factor. Since every pair of cells in the same row shares a row factor, and many
+pairs share a column or diagonal factor, the CRSCE graph is densely loopy. The average cycle density can be
+quantified: for each cell at position $(r, c)$, the 8 factors it participates in collectively touch approximately
+$8 \times 511 - 7 = 4{,}081$ other cells (subtracting the 7 redundant counts of the cell itself). Pairs among those
+4,081 cells that share a second factor with each other create 4-cycles through the original cell's factors. The
+expected number of such 4-cycles per cell is $O(s)$, yielding a total 4-cycle count of $O(s^3) \approx 1.3 \times
+10^8$.
+
+This high density of short cycles is the central concern for LBP in CRSCE. The Bethe approximation assumes that the
+factor graph's neighborhood is locally tree-like --- that the subgraph reachable from any node within $k$ hops
+contains few cycles. With $O(s)$ 4-cycles per cell, this assumption is violated at $k = 2$. The practical
+consequence is that LBP's marginal estimates will overcount correlations: a cell's belief will incorporate the same
+constraint information multiple times through different cycle paths, producing overconfident (polarized) marginals.
+
+#### C.1.3 The Case for LBP in CRSCE
+
+Despite the structural concerns, several arguments favor LBP for CRSCE plateau-breaking.
+
+*Argument 1: Marginal accuracy need not be high.* LBP is proposed not as an exact inference engine but as a
+heuristic guide for branching decisions. The solver needs only a *ranking* of cells by how constrained they are, not
+precise probabilities. If LBP's marginals are monotonically correlated with true marginals --- even with substantial
+absolute error --- the resulting ordering will be superior to the current static `ProbabilityEstimator`. Empirical
+studies in SAT solving have shown that even crude BP approximations improve branching heuristics relative to purely
+local measures (Hsu & McIlraith, 2006).
+
+*Argument 2: LBP captures long-range correlations that local propagation misses.* The 87K-depth stalling barrier
+arises because cardinality forcing becomes inactive in the plateau band (rows ~100--300): residuals are neither 0 nor
+equal to the unknown count, so the propagation engine cannot force any cells. The information needed to break the
+stalemate exists in the constraint system --- distant cells' assignments constrain the residuals of lines passing
+through the plateau --- but the current propagator does not transmit this information because it operates only on
+individual lines. LBP's message-passing iterates through the entire factor graph, propagating constraints across
+multiple hops. After $t$ iterations, each cell's belief incorporates information from cells up to $t$ hops away in
+the factor graph. At $t = 10$, a cell's belief reflects constraints from cells up to 80 constraint lines distant
+($10 \times 8$ lines per hop), potentially spanning the entire matrix. This global view is precisely what the solver
+lacks at depth 87K.
+
+*Argument 3: Incremental LBP amortizes cost across assignments.* Rather than running BP from scratch at checkpoints
+(as B.12 proposes), incremental LBP updates only the messages affected by each new assignment. When cell $(r, c)$ is
+assigned, only the 8 factors containing $(r, c)$ receive new information. Those 8 factors send updated messages to
+their $\sim 4{,}000$ neighboring variables, which update their beliefs and propagate outward. If the solver limits
+propagation to $\delta$ hops from the assigned cell (a "message-passing wavefront"), the per-assignment cost is
+$O(\delta \cdot s)$ multiply-add operations. At $\delta = 3$ and $s = 511$, this is $\sim 1{,}500$ operations per
+assignment --- approximately $10\times$ the cost of the current constraint-propagation step, but far cheaper than
+a full BP computation ($\sim 50$ ms).
+
+*Argument 4: Warm-starting preserves convergence quality.* Because LBP runs continuously, each new assignment
+perturbs the message state only slightly. The messages are already close to the fixed point of the previous
+subproblem, so convergence to the new fixed point (given the new assignment) requires only a few iterations of the
+affected messages. This warm-start property is well-established in the graphical models literature (Murphy, Weiss,
+& Jordan, 1999) and is the key to making continuous LBP computationally feasible.
+
+#### C.1.4 The Case Against LBP in CRSCE
+
+The arguments against LBP are substantial and grounded in both theory and the specific structure of the CRSCE
+problem.
+
+*Objection 1: Non-convergence on densely loopy graphs.* Tatikonda and Jordan's (2002) convergence condition requires
+that the spectral radius of the graph's dependency matrix be less than one. For the CRSCE factor graph, each factor
+connects to $s = 511$ variables, and each variable participates in 8 factors. The coupling strength is directly
+related to the factor's constraint tightness: a cardinality constraint with residual $\rho$ and $u$ unknowns has
+coupling strength proportional to $|\rho / u - 0.5|$ (how far the constraint is from maximum entropy). In the
+plateau band, $\rho / u \approx 0.5$ (the constraint is maximally uninformative), so coupling is weak and LBP may
+converge. But at the matrix edges (early and late rows), constraints are tight and coupling is strong. The spectral
+radius condition may be satisfied only in the plateau band --- exactly where LBP is needed but also where the
+marginals carry the least information. This creates a paradox: LBP converges where it is least useful and diverges
+where it could provide the strongest guidance.
+
+*Objection 2: Overconfident marginals from short cycles.* The $O(s^3)$ 4-cycles in the CRSCE graph cause LBP to
+double-count constraint evidence. A cell $(r, c)$ receives a message from its row factor and a message from its
+column factor, but these messages are not independent: they share information about cells in the same row-column
+intersection. The result is overconfident marginals --- beliefs close to 0 or 1 even when the true marginal is near
+0.5. Overconfident marginals produce aggressive branching decisions that frequently lead to conflicts, increasing
+rather than decreasing the backtrack count. Wainwright and Jordan (2008, Section 4.2) document this failure mode
+extensively and show that it is intrinsic to the Bethe approximation on graphs with dense short cycles.
+
+Mitigation strategies exist. Tree-reweighted BP (TRW-BP) (Wainwright, Jaakkola, & Willsky, 2005) assigns
+edge-appearance probabilities that correct for double-counting, guaranteeing an upper bound on the log-partition
+function. However, TRW-BP requires computing edge-appearance probabilities from a set of spanning trees, which is
+$O(|E|^2)$ for the CRSCE graph ($|E| \approx 2 \times 10^6$, so $O(4 \times 10^{12})$) --- prohibitively
+expensive. Fractional BP (Wiegerinck & Heskes, 2003) and convex variants (Globerson & Jaakkola, 2007) similarly
+incur overhead that exceeds the computational budget.
+
+*Objection 3: Cardinality factors are expensive.* Standard BP message computation for a factor with $k$ variables
+requires summing over $2^k$ joint configurations. For CRSCE's cardinality constraints (each connecting $s = 511$
+binary variables), the naive cost is $2^{511}$ --- clearly intractable. Efficient message computation for cardinality
+factors is possible using the convolution trick: the sum-product messages for a cardinality constraint on $k$ binary
+variables with target sum $\sigma$ can be computed in $O(k^2)$ time using dynamic programming (Darwiche, 2009,
+Section 12.4). At $k = 511$, this is $\sim 261{,}000$ operations per factor per iteration. With 5,108 factors and
+10 iterations, the total cost is $\sim 1.3 \times 10^{10}$ operations ($\sim 13$ seconds on Apple Silicon) ---
+orders of magnitude slower than the current solver's throughput of $\sim 500{,}000$ assignments/second.
+
+The incremental approach (C.1.3, Argument 3) mitigates this by updating only 8 factors per assignment rather than
+all 5,108, but each factor update still costs $O(s^2) \approx 261{,}000$ operations. At 8 factors per assignment,
+the incremental cost is $\sim 2 \times 10^6$ operations per assignment --- a $4{,}000\times$ overhead relative to
+the current propagation step ($\sim 500$ operations per assignment). Even with Apple Silicon's throughput, this
+reduces the solver from 500K assignments/second to $\sim 125$ assignments/second, extending block solve times from
+minutes to weeks.
+
+*Objection 4: LBP provides no pruning, only ordering.* Unlike constraint propagation (which prunes infeasible
+assignments) or CDCL (which prunes infeasible subtrees), LBP provides only soft guidance: a ranking of cells and
+value preferences. The solver still explores the same search tree; it merely traverses it in a different order. If
+the search tree's branching factor is dominated by the 87K-depth plateau (where $\sim 111$ cells per row are
+unconstrained), reordering the traversal cannot reduce the tree's exponential size --- it can only improve the
+constant factor in front of the exponential. The fundamental problem is that the plateau's combinatorial explosion
+requires *pruning* (eliminating subtrees) rather than *reordering* (visiting subtrees in a better sequence). LBP
+does not prune.
+
+This objection does not apply if LBP's marginals enable other pruning mechanisms to activate. For example, if LBP
+reveals that a cell is near-forced ($p \approx 0.01$), the solver can treat it as forced and propagate, triggering
+constraint-propagation cascades that genuinely prune. But this amounts to using LBP as a soft forcing heuristic ---
+converting approximate beliefs into hard assignments --- which risks correctness violations if the marginal is wrong.
+The solver would need a verification mechanism (e.g., backtracking on LBP-guided forced assignments that lead to
+conflicts), eroding much of the computational savings.
+
+*Objection 5: DI determinism is fragile under floating-point LBP.* LBP's messages are real-valued quantities
+updated by iterative multiplication and normalization. Floating-point arithmetic is not associative, and message
+update order can affect the converged values. If the compressor and decompressor execute LBP with different message
+scheduling (e.g., due to parallelism or platform-specific optimizations), the resulting marginals may differ,
+producing different cell orderings and different search trajectories, violating DI determinism. B.12.4 addresses
+this for checkpoint-based BP by proposing fixed-point arithmetic or a fixed iteration count. For *continuous* LBP
+integrated into the propagation loop, the determinism requirement is stricter: every incremental message update after
+every assignment must produce bitwise-identical results on both compressor and decompressor. This requires either
+(a) fixed-point arithmetic with specified precision and rounding mode, or (b) a deterministic message schedule
+(e.g., always process the 8 affected factors in a fixed order, then propagate outward in breadth-first order from
+the assigned cell). Both approaches constrain the implementation and prevent performance optimizations (e.g.,
+parallel message updates on GPU) that would violate the deterministic schedule.
+
+#### C.1.5 Quantitative Cost-Benefit Estimate
+
+To evaluate LBP's net value, consider a concrete scenario. Assume the solver spends $T_{\text{base}} = 600$ seconds
+on a block without LBP, with 90\% of the time ($540$s) consumed in the plateau band (rows 100--300). The plateau
+generates $\sim 10^{10}$ backtracks.
+
+*Optimistic case.* LBP's improved ordering reduces the backtrack count by $100\times$ (from $10^{10}$ to $10^8$).
+The per-assignment cost increases $4{,}000\times$ due to LBP overhead (Objection 3). The net effect: plateau time
+changes from $10^{10} \times 2\,\mu\text{s} = 540$s to $10^8 \times 8{,}000\,\mu\text{s} = 800{,}000$s ($\approx
+9.3$ days). LBP is a net loss despite a $100\times$ reduction in backtracks, because the per-node overhead
+overwhelms the savings.
+
+*Break-even analysis.* For LBP to be net-positive, the backtrack reduction must exceed the overhead ratio. At
+$4{,}000\times$ per-node overhead, LBP must reduce backtracks by more than $4{,}000\times$ to improve on the
+baseline. A $4{,}000\times$ backtrack reduction (from $10^{10}$ to $2.5 \times 10^6$) would reduce plateau time to
+$2.5 \times 10^6 \times 8{,}000\,\mu\text{s} = 20{,}000$s ($\approx 5.6$ hours) --- still slower than the 540s
+baseline, because the LBP overhead applies to all $\sim 100{,}000$ assignments in the plateau, not just to the
+$2.5 \times 10^6$ backtracks. The full accounting: $100{,}000$ assignments $\times$ $8{,}000\,\mu\text{s/assignment}
+= 800$s for the forward pass, plus $2.5 \times 10^6$ backtracks $\times$ $8{,}000\,\mu\text{s} = 20{,}000$s for
+backtracking. Total: $20{,}800$s. The LBP overhead on the forward pass alone ($800$s) exceeds the $540$s baseline.
+
+*Reduced-overhead scenario.* If the incremental wavefront is limited to $\delta = 1$ hop (only the 8 directly
+affected factors, with no outward propagation), the per-assignment cost drops to $\sim 8 \times 261{,}000 \approx
+2 \times 10^6$ operations ($\sim 2$ms). At $100{,}000$ forward assignments: $200$s. At a $100\times$ backtrack
+reduction ($10^8$ backtracks $\times$ $2$ms): $200{,}000$s. Still a net loss. Even at $\delta = 1$ and a
+$10{,}000\times$ backtrack reduction: $100{,}000 \times 2\text{ms} + 10^6 \times 2\text{ms} = 200\text{s} +
+2{,}000\text{s} = 2{,}200$s --- roughly $4\times$ worse than baseline.
+
+The arithmetic is unforgiving. LBP's per-node cost on length-511 cardinality factors is fundamentally too high for
+integration into a DFS loop that processes hundreds of thousands of nodes.
+
+#### C.1.6 Comparison with B.12's Checkpoint Approach
+
+B.12 avoids LBP's per-node overhead by running BP only at checkpoints (every 50 rows, or at plateau entry). The
+amortized cost is $\sim 50$ms per $25{,}000$ assignments ($\sim 2\,\mu\text{s/assignment}$) --- nearly identical to
+the baseline per-assignment cost. The tradeoff is that BP's marginals become stale between checkpoints: after
+$25{,}000$ assignments, the factor graph has changed substantially, and the checkpoint marginals may no longer
+reflect the current constraint state.
+
+LBP's theoretical advantage over checkpoint BP is freshness: by updating messages after every assignment, LBP
+always reflects the current constraint state. But as Section C.1.5 shows, the cost of freshness is prohibitive. The
+checkpoint approach trades marginal accuracy for computational feasibility, and this trade is overwhelmingly
+favorable. If the solver needs more accurate marginals between checkpoints, the natural remedy is to increase the
+checkpoint frequency (e.g., every 10 rows) rather than to switch to continuous LBP. Even at 1 checkpoint per row,
+the amortized cost is $\sim 50\text{ms} / 511 \approx 100\,\mu\text{s/assignment}$ --- a $50\times$ overhead rather
+than $4{,}000\times$.
+
+#### C.1.7 Mitigation Strategies and Their Limitations
+
+Several techniques could reduce LBP's overhead, though none sufficiently to change the fundamental cost-benefit
+calculus.
+
+*Approximate message updates.* Rather than computing exact sum-product messages for cardinality factors ($O(s^2)$
+per factor), the solver could use Gaussian approximation: approximate the binomial distribution of the cardinality
+factor's output with a Gaussian and compute messages in $O(s)$ time. This reduces the per-factor cost from
+$\sim 261{,}000$ to $\sim 511$ operations, yielding a per-assignment cost of $\sim 4{,}000$ operations ($8\times$
+overhead). However, the Gaussian approximation is poor for binary cardinality factors when the residual is small
+($\rho \ll s$) or large ($\rho \approx u$) --- precisely the regime where the constraint is informative and LBP
+would be most useful.
+
+*Selective LBP.* Run LBP only in the plateau band (rows 100--300) and use standard propagation elsewhere. This
+limits the overhead to $\sim 100{,}000$ assignments (the plateau portion) rather than all $261{,}121$. At $8\times$
+overhead with Gaussian approximation: $100{,}000 \times 16\,\mu\text{s} = 1.6$s for the forward pass. The
+backtracking overhead depends on the backtrack reduction, but the forward pass alone is tolerable. The concern is
+that selective LBP introduces a discontinuity at the plateau boundary: the solver switches from propagation-only
+to propagation-plus-LBP at row 100, potentially causing the message state to be cold (uninitialized) at exactly
+the point where it is needed. Warm-starting from a checkpoint BP computation (B.12) at row 100 mitigates this.
+
+*GPU-accelerated message updates.* Apple Silicon's Metal GPU can parallelize the message computation across factors
+and variables. The cardinality-factor DP is inherently sequential within a factor (each step depends on the
+previous), but the 8 independent factor updates per assignment are independent and can run in parallel. At 8-way
+parallelism, the per-assignment cost drops by $\sim 8\times$, but the GPU kernel launch overhead ($\sim
+10\,\mu\text{s}$) and data transfer cost may exceed the computation savings for such small workloads.
+
+#### C.1.8 Verdict
+
+The weight of evidence is against continuous LBP as an integrated propagation mechanism for CRSCE. The core problem
+is the mismatch between LBP's computational cost and the DFS solver's throughput requirements. The CRSCE solver
+processes $\sim 500{,}000$ nodes/second in the fast regime and needs to maintain high throughput even in the plateau
+band to solve blocks within practical time bounds. LBP's per-node overhead on length-511 cardinality factors ---
+even with Gaussian approximation and selective application --- reduces throughput by at least an order of magnitude.
+The backtrack reduction LBP provides (improved ordering but no pruning) cannot compensate for this throughput loss
+except under implausibly optimistic assumptions ($> 4{,}000\times$ backtrack reduction).
+
+B.12's checkpoint approach captures most of LBP's benefit (global marginal information for branching guidance)
+at a fraction of the cost (one BP computation every $N$ rows, amortized across thousands of assignments). The
+marginal-staleness cost of checkpoint BP is small relative to the computational savings, and can be reduced by
+increasing checkpoint frequency.
+
+If future solver development reveals that checkpoint BP's marginal estimates are critically stale between
+checkpoints --- causing branching decisions that are actively worse than the current `ProbabilityEstimator` ---
+then selective LBP with Gaussian approximation in the plateau band (C.1.7) merits empirical evaluation. But this
+scenario is unlikely: checkpoint BP with fresh marginals at plateau entry should outperform the static estimator
+over the entire plateau span, and the incremental degradation over 50 rows is unlikely to be catastrophic.
+
+The recommendation is to pursue B.12's checkpoint BP approach and to treat continuous LBP as a theoretical
+alternative that is dominated on cost-benefit grounds.
+
+#### C.1.9 Open Questions
+
+(a) What is the empirical convergence behavior of LBP on the CRSCE factor graph at various depths? If LBP converges
+rapidly in the plateau band (where coupling is weak) but slowly at the edges, the selective-LBP strategy (C.1.7)
+may be more viable than the quantitative estimates suggest, because the plateau is where the solver spends most of
+its time.
+
+(b) Can the cardinality-factor message computation be restructured to exploit SIMD on Apple Silicon? The $O(s^2)$
+dynamic programming has data dependencies that prevent naive vectorization, but the 8 independent factor updates per
+assignment could be pipelined across NEON lanes, potentially reducing the $8\times$ factor to $2$--$3\times$.
+
+(c) Does LBP's overconfidence (Objection 2) systematically harm branching in the CRSCE instance, or does the ranking
+correlation with true marginals (Argument 1) dominate? This is an empirical question that could be answered by
+running LBP on the CRSCE factor graph, comparing the resulting marginals with exact marginals (computed on small
+subproblems), and measuring the rank correlation.
+
+(d) Is there a hybrid approach where LBP runs asynchronously on a background thread, and the DFS solver queries the
+most recent marginal estimates without blocking? This decouples LBP's throughput from the DFS throughput, at the
+cost of using stale (but continuously improving) marginals. The determinism concern (Objection 5) is severe for
+this approach, as the asynchronous schedule is inherently non-deterministic.
+
+(e) Would region-based generalizations of BP --- such as generalized belief propagation (GBP) on Kikuchi clusters
+(Yedidia, Freeman, & Weiss, 2005) --- provide more accurate marginals on the densely-loopy CRSCE graph? GBP
+operates on clusters of variables rather than individual variables, explicitly accounting for short cycles within
+each cluster. The cost is $O(2^{|C|})$ per cluster of size $|C|$, which is tractable only for small clusters
+($|C| \leq 20$). Whether meaningful clusters exist in the CRSCE graph's regular structure is an open question.
+
 ## References
 
 Apple. (n.d.-a). Metal developer documentation.
@@ -5254,7 +5498,8 @@ Apple. (n.d.-d). Metal Performance Shaders: Overview and tuning hints.
 
 Bader, M. (2013). *Space-filling curves: An introduction with applications in scientific computing*. Springer.
 
-Bessière, C. (2006). Constraint propagation. In F. Rossi, P. van Beek, & T. Walsh (Eds.), *Handbook of constraint programming* (pp. 29--83). Elsevier.
+Bessière, C. (2006). Constraint propagation. In F. Rossi, P. van Beek, & T. Walsh (Eds.), *Handbook of constraint
+programming* (pp. 29--83). Elsevier.
 
 Braunstein, A., Mézard, M., & Zecchina, R. (2005). Survey propagation: An algorithm for satisfiability. *Random
 Structures & Algorithms, 27*(2), 201--226.
