@@ -4,8 +4,8 @@
  * @brief CompressedPayload class for CRSCE block serialization and deserialization.
  *
  * Each compressed block contains 511 lateral-hash digests (SHA-1, 20 bytes each),
- * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and eight cross-sum
- * vectors packed into a fixed-size 15,749-byte payload.
+ * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and ten cross-sum
+ * vectors packed into a fixed-size 16,899-byte payload.
  */
 #pragma once
 
@@ -18,7 +18,7 @@ namespace crsce::common::format {
     /**
      * @class CompressedPayload
      * @name CompressedPayload
-     * @brief Holds and serializes one CRSCE compressed block (15,749 bytes).
+     * @brief Holds and serializes one CRSCE compressed block (16,899 bytes).
      * @details
      * Block layout:
      *   Field   Elements  Bits/Element  Total Bits   Encoding
@@ -33,7 +33,9 @@ namespace crsce::common::format {
      *   SFC1    511       9             4,599        MSB-first packed (slope 255)
      *   HSM2    511       9             4,599        MSB-first packed (slope 2)
      *   SFC2    511       9             4,599        MSB-first packed (slope 509)
-     *   Total                           125,988 bits = 15,749 bytes
+     *   LTP1SM  511       9             4,599        MSB-first packed (LTP1 partition)
+     *   LTP2SM  511       9             4,599        MSB-first packed (LTP2 partition)
+     *   Total                           135,186 bits = 16,899 bytes
      */
     class CompressedPayload {
     public:
@@ -45,9 +47,9 @@ namespace crsce::common::format {
 
         /**
          * @name kBlockPayloadBytes
-         * @brief Exact size of one serialized block in bytes.
+         * @brief Exact size of one serialized block in bytes (16,899 = 15,749 + 2 x 575 bytes).
          */
-        static constexpr std::size_t kBlockPayloadBytes = 15749;
+        static constexpr std::size_t kBlockPayloadBytes = 16899;
 
         /**
          * @name kDiagCount
@@ -290,6 +292,46 @@ namespace crsce::common::format {
          */
         [[nodiscard]] std::uint16_t getSFC2(std::uint16_t k) const;
 
+        // -- LTP1SM accessors (LTP1 partition) --
+
+        /**
+         * @name setLTP1SM
+         * @brief Set the LTP1 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setLTP1SM(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getLTP1SM
+         * @brief Get the LTP1 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getLTP1SM(std::uint16_t k) const;
+
+        // -- LTP2SM accessors (LTP2 partition) --
+
+        /**
+         * @name setLTP2SM
+         * @brief Set the LTP2 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setLTP2SM(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getLTP2SM
+         * @brief Get the LTP2 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getLTP2SM(std::uint16_t k) const;
+
         // -- Serialization --
 
         /**
@@ -375,6 +417,18 @@ namespace crsce::common::format {
          * @brief Slope-509 (SFC2) sum vector: kS elements, each in [0, kS].
          */
         std::vector<std::uint16_t> sfc2_;
+
+        /**
+         * @name ltp1sm_
+         * @brief LTP1 partition sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> ltp1sm_;
+
+        /**
+         * @name ltp2sm_
+         * @brief LTP2 partition sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> ltp2sm_;
 
         // -- Private bit-packing helpers --
 

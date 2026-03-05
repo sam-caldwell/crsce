@@ -38,7 +38,8 @@ namespace {
         const std::vector<std::uint16_t> slope2Sums(kS, 0);
         const std::vector<std::uint16_t> slope509Sums(kS, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
     /**
@@ -64,7 +65,8 @@ namespace {
         const std::vector<std::uint16_t> slope2Sums(kS, slopeVal);
         const std::vector<std::uint16_t> slope509Sums(kS, slopeVal);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 } // namespace
 
@@ -144,7 +146,9 @@ TEST(ProbabilityEstimatorTest, ScoresSortedByConfidenceDescending) {
     // Make column 0 different to create varied confidence values
     colSums[0] = 1;
     const ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                                slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                std::vector<std::uint16_t>(kS, 0),
+                                std::vector<std::uint16_t>(kS, 0));
 
     const ProbabilityEstimator estimator(store);
     const auto scores = estimator.computeCellScores(0);

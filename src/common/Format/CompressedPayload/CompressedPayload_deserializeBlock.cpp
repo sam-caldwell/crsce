@@ -87,6 +87,16 @@ namespace crsce::common::format {
         for (std::uint16_t k = 0; k < kS; ++k) {
             sfc2_[k] = unpackBits(data, bitOffset, 9);
         }
+
+        // 12. LTP1SM: 511 x 9 bits
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            ltp1sm_[k] = unpackBits(data, bitOffset, 9);
+        }
+
+        // 13. LTP2SM: 511 x 9 bits
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            ltp2sm_[k] = unpackBits(data, bitOffset, 9);
+        }
     }
 
 } // namespace crsce::common::format

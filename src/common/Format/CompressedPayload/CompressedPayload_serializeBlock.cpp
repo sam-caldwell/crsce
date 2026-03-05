@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  * @brief CompressedPayload::serializeBlock() implementation.
  *
- * Serializes one compressed block into exactly kBlockPayloadBytes (15,749) bytes:
+ * Serializes one compressed block into exactly kBlockPayloadBytes (16,899) bytes:
  *   1. 511 x 20-byte LH digests (SHA-1)     (10,220 bytes)
  *   2. 32-byte BH digest (SHA-256)           (32 bytes)
  *   3. 1-byte DI                             (1 byte)
@@ -15,8 +15,10 @@
  *   9. SFC1: 511 x 9 bits, MSB-first packed  (4,599 bits)
  *  10. HSM2: 511 x 9 bits, MSB-first packed  (4,599 bits)
  *  11. SFC2: 511 x 9 bits, MSB-first packed  (4,599 bits)
- *   Total cross-sum region: 43,964 bits = 5,496 bytes (partial byte zero-padded)
- *   Grand total: 10,220 + 32 + 1 + 5,496 = 15,749 bytes
+ *  12. LTP1SM: 511 x 9 bits, MSB-first packed (4,599 bits)
+ *  13. LTP2SM: 511 x 9 bits, MSB-first packed (4,599 bits)
+ *   Total cross-sum region: 53,162 bits = 6,646 bytes (partial byte zero-padded)
+ *   Grand total: 10,220 + 32 + 1 + 6,646 = 16,899 bytes
  */
 #include "common/Format/CompressedPayload/CompressedPayload.h"
 
@@ -93,6 +95,16 @@ namespace crsce::common::format {
         // 11. SFC2: 511 x 9 bits
         for (std::uint16_t k = 0; k < kS; ++k) {
             packBits(buf, bitOffset, sfc2_[k], 9);
+        }
+
+        // 12. LTP1SM: 511 x 9 bits
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            packBits(buf, bitOffset, ltp1sm_[k], 9);
+        }
+
+        // 13. LTP2SM: 511 x 9 bits
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            packBits(buf, bitOffset, ltp2sm_[k], 9);
         }
 
         return buf;

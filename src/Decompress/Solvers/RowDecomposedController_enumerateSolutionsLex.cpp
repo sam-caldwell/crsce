@@ -17,6 +17,7 @@
 #include "common/Csm/Csm.h"
 #include "common/Generator/Generator.h"
 #include "common/O11y/O11y.h"
+#include "decompress/Solvers/BeliefPropagator.h"
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/FailedLiteralProber.h"
@@ -181,6 +182,13 @@ namespace crsce::decompress::solvers {
         FailedLiteralProber prober(cs, probeProp, *brancher_, *hasher_);
         StallDetector detector;
 
+        // --- B.12 checkpoint belief propagation ---
+        // Triggered at each StallDetector escalation. Provides global marginal estimates
+        // for branch-value guidance. Warm-starts from previous messages.
+        BeliefPropagator bpPropagator(cs);
+        std::uint64_t bpPrevEscalations = 0;
+        std::uint64_t bpCheckpoints     = 0;
+
         // --- Compute global cell ordering by probability confidence ---
         const ProbabilityEstimator estimator(cs);
         auto cellOrder = estimator.computeGlobalCellScores();
@@ -337,6 +345,23 @@ namespace crsce::decompress::solvers {
             ++iterations;
             detector.update(stack.size());
 
+            // B.12: run BP at each StallDetector escalation (warm-start from prior run)
+            if (detector.escalations() > bpPrevEscalations) {
+                bpPrevEscalations = detector.escalations();
+                ++bpCheckpoints;
+                constexpr float    kBpDamping    = 0.5F;
+                constexpr std::uint32_t kBpIters = 30U;
+                const auto bpResult = bpPropagator.run(kBpDamping, kBpIters);
+                ::crsce::o11y::O11y::instance().metric("solver_bp_checkpoint", {
+                    {"bp_checkpoint",  bpCheckpoints,
+                                                         ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"bp_max_delta",   static_cast<std::uint64_t>(bpResult.maxDelta  * 1000.0F),
+                                                         ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"bp_max_bias",    static_cast<std::uint64_t>(bpResult.maxBias   * 1000.0F),
+                                                         ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"bp_depth",       stack.size(),     ::crsce::o11y::O11y::MetricKind::Gauge}});
+            }
+
             // Re-seed the heap every ~4K iterations to catch rows that
             // drifted below threshold without a direct assignment in them.
             // Cost: 511 stat lookups (~1μs) every 4K iterations ≈ 0.01% overhead.
@@ -395,6 +420,12 @@ namespace crsce::decompress::solvers {
                     nextRow = rowCells[0].row;
                     nextCol = rowCells[0].col;
                     nextPreferred = rowCells[0].preferred;
+                    // B.12: override branch-value preference with BP belief when confident
+                    {
+                        const float bel = bpPropagator.belief(nextRow, nextCol);
+                        if (bel > 0.6F) { nextPreferred = 1; }
+                        else if (bel < 0.4F) { nextPreferred = 0; }
+                    }
                     selectedFromHeap = true;
                     ++heapSelections;
                     break;
@@ -417,6 +448,12 @@ namespace crsce::decompress::solvers {
                     nextRow = cellOrder[nextIdx].row;       // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                     nextCol = cellOrder[nextIdx].col;       // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                     nextPreferred = cellOrder[nextIdx].preferred; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    // B.12: override branch-value preference with BP belief when confident
+                    {
+                        const float bel = bpPropagator.belief(nextRow, nextCol);
+                        if (bel > 0.6F) { nextPreferred = 1; }
+                        else if (bel < 0.4F) { nextPreferred = 0; }
+                    }
                     nextOrderIdx = nextIdx;
                 }
             }
@@ -436,12 +473,13 @@ namespace crsce::decompress::solvers {
             const double avgRate = totalUs > 0
                 ? static_cast<double>(iterations) * 1e6 / static_cast<double>(totalUs) : 0.0;
             ::crsce::o11y::O11y::instance().event("solver_dfs_complete",
-                {{"total_iterations",         std::to_string(iterations)},
-                 {"avg_iter_per_sec",         std::to_string(static_cast<std::uint64_t>(avgRate))},
-                 {"total_hash_mismatches",    std::to_string(hashMismatches)},
-                 {"total_heap_selections",    std::to_string(heapSelections)},
-                 {"total_stall_escalations",  std::to_string(detector.escalations())},
-                 {"total_stall_deescalations",std::to_string(detector.deescalations())}});
+                {{"total_iterations",          std::to_string(iterations)},
+                 {"avg_iter_per_sec",          std::to_string(static_cast<std::uint64_t>(avgRate))},
+                 {"total_hash_mismatches",     std::to_string(hashMismatches)},
+                 {"total_heap_selections",     std::to_string(heapSelections)},
+                 {"total_stall_escalations",   std::to_string(detector.escalations())},
+                 {"total_stall_deescalations", std::to_string(detector.deescalations())},
+                 {"total_bp_checkpoints",      std::to_string(bpCheckpoints)}});
         }
     }
 

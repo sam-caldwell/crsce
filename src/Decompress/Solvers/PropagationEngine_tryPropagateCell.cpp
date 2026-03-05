@@ -10,13 +10,14 @@
 
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/LineID.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
     /**
      * @name tryPropagateCell
      * @brief Fast-path propagation for a single-cell assignment.
      *
-     * Computes the 8 flat stats indices directly and checks feasibility/forcing inline.
+     * Computes the 10 flat stats indices directly and checks feasibility/forcing inline.
      * Returns immediately if no forcing is needed (the common case ~80% of iterations).
      * Falls back to full propagate() only when forcing is required.
      *
@@ -42,8 +43,13 @@ namespace crsce::decompress::solvers {
         const auto si2 = static_cast<std::uint32_t>(sl[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         const auto si3 = static_cast<std::uint32_t>(sl[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
-        // Check all 8 lines for feasibility and forcing
-        const std::array<std::uint32_t, 8> indices = {ri, ci, di, xi, si0, si1, si2, si3};
+        // Precomputed flat indices for the 2 LTP lines
+        const auto &ltp = ltpFlatIndices(r, c);
+        const auto li0 = static_cast<std::uint32_t>(ltp[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const auto li1 = static_cast<std::uint32_t>(ltp[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+
+        // Check all 10 lines for feasibility and forcing
+        const std::array<std::uint32_t, 10> indices = {ri, ci, di, xi, si0, si1, si2, si3, li0, li1};
         bool needsForcing = false;
 
         for (const auto idx : indices) {

@@ -72,9 +72,17 @@ namespace crsce::decompress {
             slope509[k] = payload.getSFC2(k);
         }
 
+        // Build the LTP1 and LTP2 sum vectors from the payload.
+        std::vector<std::uint16_t> ltp1(kS);
+        std::vector<std::uint16_t> ltp2(kS);
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            ltp1[k] = payload.getLTP1SM(k);
+            ltp2[k] = payload.getLTP2SM(k);
+        }
+
         // Create solver components.
         auto store = std::make_unique<solvers::ConstraintStore>(
-            lsm, vsm, dsm, xsm, slope256, slope255, slope2, slope509);
+            lsm, vsm, dsm, xsm, slope256, slope255, slope2, slope509, ltp1, ltp2);
 
         // Select propagation engine: Metal GPU or CPU-only.
         std::unique_ptr<solvers::IPropagationEngine> propagator;

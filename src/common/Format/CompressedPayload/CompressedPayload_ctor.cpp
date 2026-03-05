@@ -25,7 +25,9 @@ namespace crsce::common::format {
           hsm1_(kS, 0),
           sfc1_(kS, 0),
           hsm2_(kS, 0),
-          sfc2_(kS, 0) {
+          sfc2_(kS, 0),
+          ltp1sm_(kS, 0),
+          ltp2sm_(kS, 0) {
     }
 
 } // namespace crsce::common::format

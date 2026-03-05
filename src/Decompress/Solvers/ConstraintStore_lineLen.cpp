@@ -26,6 +26,8 @@ namespace crsce::decompress::solvers {
             case LineType::Slope255:
             case LineType::Slope2:
             case LineType::Slope509:
+            case LineType::LTP1:
+            case LineType::LTP2:
                 return kS;
             case LineType::Diagonal:
             case LineType::AntiDiagonal: {

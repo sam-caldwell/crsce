@@ -82,13 +82,13 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name getLinesForCell
-         * @brief Get the eight LineIDs (row, col, diag, anti-diag, 4 slopes) that cell (r, c) participates in.
+         * @brief Get the ten LineIDs (row, col, diag, anti-diag, 4 slopes, 2 LTP) that cell (r, c) participates in.
          * @param r Row index.
          * @param c Column index.
-         * @return Array of 8 LineIDs.
+         * @return Array of 10 LineIDs.
          * @throws None
          */
-        [[nodiscard]] virtual std::array<LineID, 8> getLinesForCell(std::uint16_t r, std::uint16_t c) const = 0;
+        [[nodiscard]] virtual std::array<LineID, 10> getLinesForCell(std::uint16_t r, std::uint16_t c) const = 0;
 
         /**
          * @name getCellState

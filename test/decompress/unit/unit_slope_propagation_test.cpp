@@ -44,6 +44,8 @@ namespace {
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0),
+            std::vector<std::uint16_t>(kS, 0),
+            std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0)
         };
     }
@@ -111,7 +113,8 @@ namespace {
         }
 
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
     /**

@@ -25,6 +25,8 @@ namespace crsce::decompress::solvers {
      * @param slope255Sums Target slope-255 (SFC1) sums, size s.
      * @param slope2Sums Target slope-2 (HSM2) sums, size s.
      * @param slope509Sums Target slope-509 (SFC2) sums, size s.
+     * @param ltp1Sums Target LTP1 partition sums, size s.
+     * @param ltp2Sums Target LTP2 partition sums, size s.
      * @throws None
      */
     ConstraintStore::ConstraintStore(const std::vector<std::uint16_t> &rowSums,
@@ -34,7 +36,9 @@ namespace crsce::decompress::solvers {
                                      const std::vector<std::uint16_t> &slope256Sums,
                                      const std::vector<std::uint16_t> &slope255Sums,
                                      const std::vector<std::uint16_t> &slope2Sums,
-                                     const std::vector<std::uint16_t> &slope509Sums)
+                                     const std::vector<std::uint16_t> &slope509Sums,
+                                     const std::vector<std::uint16_t> &ltp1Sums,
+                                     const std::vector<std::uint16_t> &ltp2Sums)
         : cells_(static_cast<std::size_t>(kS) * kS, CellState::Unassigned),
           rowBits_(kS, std::array<std::uint64_t, 8>{}) {
 
@@ -86,6 +90,20 @@ namespace crsce::decompress::solvers {
                 stats_[base + k].unknown = kS; // toroidal lines always have s cells
                 stats_[base + k].assigned = 0;
             }
+        }
+
+        // Initialize LTP1 partition stats: stats_[kLTP1Base .. kLTP1Base + kNumSlope)
+        for (std::uint16_t k = 0; k < kNumSlope; ++k) {
+            stats_[kLTP1Base + k].target = ltp1Sums[k];
+            stats_[kLTP1Base + k].unknown = kS; // LTP lines always have s cells
+            stats_[kLTP1Base + k].assigned = 0;
+        }
+
+        // Initialize LTP2 partition stats: stats_[kLTP2Base .. kLTP2Base + kNumSlope)
+        for (std::uint16_t k = 0; k < kNumSlope; ++k) {
+            stats_[kLTP2Base + k].target = ltp2Sums[k];
+            stats_[kLTP2Base + k].unknown = kS; // LTP lines always have s cells
+            stats_[kLTP2Base + k].assigned = 0;
         }
 
         // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)

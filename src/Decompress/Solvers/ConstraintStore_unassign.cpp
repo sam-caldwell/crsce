@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "decompress/Solvers/CellState.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
     /**
@@ -45,9 +46,14 @@ namespace crsce::decompress::solvers {
         const auto si2 = static_cast<std::uint32_t>(sl[2]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         const auto si3 = static_cast<std::uint32_t>(sl[3]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
+        // Precomputed flat indices for the 2 LTP lines
+        const auto &ltp = ltpFlatIndices(r, c);
+        const auto li0 = static_cast<std::uint32_t>(ltp[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const auto li1 = static_cast<std::uint32_t>(ltp[1]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 
-        // Increment unknown counts for all 8 lines
+        // Increment unknown counts for all 10 lines
         stats_[ri].unknown++;
         stats_[ci].unknown++;
         stats_[di].unknown++;
@@ -56,6 +62,8 @@ namespace crsce::decompress::solvers {
         stats_[si1].unknown++;
         stats_[si2].unknown++;
         stats_[si3].unknown++;
+        stats_[li0].unknown++;
+        stats_[li1].unknown++;
 
         // Decrement assigned counts if was one
         if (wasOne) {
@@ -67,6 +75,8 @@ namespace crsce::decompress::solvers {
             stats_[si1].assigned--;
             stats_[si2].assigned--;
             stats_[si3].assigned--;
+            stats_[li0].assigned--;
+            stats_[li1].assigned--;
         }
 
         // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)

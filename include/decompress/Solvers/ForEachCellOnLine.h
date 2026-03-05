@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include "decompress/Solvers/LineID.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::decompress::solvers {
 
@@ -110,6 +111,22 @@ namespace crsce::decompress::solvers {
                     const auto c = static_cast<std::uint16_t>(
                         (k + static_cast<std::uint32_t>(slope) * t) % kS);
                     callback(t, c);
+                }
+                break;
+            }
+
+            case LineType::LTP1: {
+                const auto &cells = ltp1CellsForLine(line.index);
+                for (const auto &cell : cells) {
+                    callback(cell.r, cell.c);
+                }
+                break;
+            }
+
+            case LineType::LTP2: {
+                const auto &cells = ltp2CellsForLine(line.index);
+                for (const auto &cell : cells) {
+                    callback(cell.r, cell.c);
                 }
                 break;
             }

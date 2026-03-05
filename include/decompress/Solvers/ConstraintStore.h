@@ -70,6 +70,12 @@ namespace crsce::decompress::solvers {
         static constexpr std::uint16_t kNumSlopePartitions = 4;
 
         /**
+         * @name kNumLtpPartitions
+         * @brief Number of non-linear lookup-table partitions (2: LTP1, LTP2).
+         */
+        static constexpr std::uint16_t kNumLtpPartitions = 2;
+
+        /**
          * @name kBasicLines
          * @brief Number of original constraint lines: 6s - 2 = 3064.
          */
@@ -77,9 +83,10 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name kTotalLines
-         * @brief Total number of constraint lines: 6s - 2 + 4s = 10s - 2 = 5108.
+         * @brief Total number of constraint lines: 6s - 2 + 4s + 2s = 12s - 2 = 6130.
          */
-        static constexpr std::uint32_t kTotalLines = kBasicLines + (kNumSlopePartitions * kNumSlope);
+        static constexpr std::uint32_t kTotalLines =
+            kBasicLines + (kNumSlopePartitions * kNumSlope) + (kNumLtpPartitions * kNumSlope);
 
         /**
          * @name kSlopes
@@ -112,6 +119,18 @@ namespace crsce::decompress::solvers {
         static constexpr std::uint32_t kSlope509Base = kSlope2Base + kNumSlope;
 
         /**
+         * @name kLTP1Base
+         * @brief Flat index base for the LTP1 non-linear partition (10s-2 = 5108).
+         */
+        static constexpr std::uint32_t kLTP1Base = kSlope509Base + kNumSlope;
+
+        /**
+         * @name kLTP2Base
+         * @brief Flat index base for the LTP2 non-linear partition (11s-2 = 5619).
+         */
+        static constexpr std::uint32_t kLTP2Base = kLTP1Base + kNumSlope;
+
+        /**
          * @name kSlopeBases
          * @brief Flat index base offsets for each slope partition, indexed by partition ordinal.
          */
@@ -124,7 +143,7 @@ namespace crsce::decompress::solvers {
          * @brief Map a LineID to a flat index in [0, kTotalLines).
          *
          * Layout: rows [0, kS), cols [kS, 2*kS), diags [2*kS, 2*kS + kNumDiags),
-         * anti-diags [2*kS + kNumDiags, kTotalLines).
+         * anti-diags [2*kS + kNumDiags, kSlope256Base), slopes and LTP partitions follow.
          *
          * @param line The line identifier.
          * @return Flat index into the unified stats array.
@@ -139,6 +158,8 @@ namespace crsce::decompress::solvers {
                 case LineType::Slope255:     return kSlope255Base + line.index;
                 case LineType::Slope2:       return kSlope2Base + line.index;
                 case LineType::Slope509:     return kSlope509Base + line.index;
+                case LineType::LTP1:         return kLTP1Base + line.index;
+                case LineType::LTP2:         return kLTP2Base + line.index;
             }
             return 0; // unreachable
         }
@@ -155,7 +176,9 @@ namespace crsce::decompress::solvers {
          *   slope256   [kSlope256Base, kSlope255Base)
          *   slope255   [kSlope255Base, kSlope2Base)
          *   slope2     [kSlope2Base,   kSlope509Base)
-         *   slope509   [kSlope509Base, kTotalLines)
+         *   slope509   [kSlope509Base, kLTP1Base)
+         *   ltp1       [kLTP1Base,     kLTP2Base)
+         *   ltp2       [kLTP2Base,     kTotalLines)
          *
          * @param idx Flat index in [0, kTotalLines).
          * @return The corresponding LineID.
@@ -190,8 +213,16 @@ namespace crsce::decompress::solvers {
                 return {.type = LineType::Slope2,
                         .index = static_cast<std::uint16_t>(idx - kSlope2Base)};
             }
-            return {.type = LineType::Slope509,
-                    .index = static_cast<std::uint16_t>(idx - kSlope509Base)};
+            if (idx < kLTP1Base) {
+                return {.type = LineType::Slope509,
+                        .index = static_cast<std::uint16_t>(idx - kSlope509Base)};
+            }
+            if (idx < kLTP2Base) {
+                return {.type = LineType::LTP1,
+                        .index = static_cast<std::uint16_t>(idx - kLTP1Base)};
+            }
+            return {.type = LineType::LTP2,
+                    .index = static_cast<std::uint16_t>(idx - kLTP2Base)};
         }
 
         /**
@@ -205,6 +236,8 @@ namespace crsce::decompress::solvers {
          * @param slope255Sums Target slope-255 (SFC1) sums, size s.
          * @param slope2Sums Target slope-2 (HSM2) sums, size s.
          * @param slope509Sums Target slope-509 (SFC2) sums, size s.
+         * @param ltp1Sums Target LTP1 partition sums, size s.
+         * @param ltp2Sums Target LTP2 partition sums, size s.
          * @throws None
          */
         ConstraintStore(const std::vector<std::uint16_t> &rowSums,
@@ -214,14 +247,16 @@ namespace crsce::decompress::solvers {
                         const std::vector<std::uint16_t> &slope256Sums,
                         const std::vector<std::uint16_t> &slope255Sums,
                         const std::vector<std::uint16_t> &slope2Sums,
-                        const std::vector<std::uint16_t> &slope509Sums);
+                        const std::vector<std::uint16_t> &slope509Sums,
+                        const std::vector<std::uint16_t> &ltp1Sums,
+                        const std::vector<std::uint16_t> &ltp2Sums);
 
         void assign(std::uint16_t r, std::uint16_t c, std::uint8_t v) override;
         void unassign(std::uint16_t r, std::uint16_t c) override;
         [[nodiscard]] std::int32_t getResidual(LineID line) const override;
         [[nodiscard]] std::uint16_t getUnknownCount(LineID line) const override;
         [[nodiscard]] std::uint16_t getAssignedCount(LineID line) const override;
-        [[nodiscard]] std::array<LineID, 8> getLinesForCell(std::uint16_t r, std::uint16_t c) const override;
+        [[nodiscard]] std::array<LineID, 10> getLinesForCell(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] CellState getCellState(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint8_t getCellValue(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint16_t getRowUnknownCount(std::uint16_t r) const override;

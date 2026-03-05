@@ -118,7 +118,9 @@ TEST(MetalLineStatAuditTest, AllZerosStoreMatchesCpu) {
     const std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     const ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                                slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                std::vector<std::uint16_t>(kS, 0),
+                                std::vector<std::uint16_t>(kS, 0));
     const auto gpuStats = runGpuAudit(store, rowSums, colSums, diagSums, antiDiagSums,
                                       slope256Sums, slope255Sums, slope2Sums, slope509Sums);
     ASSERT_EQ(gpuStats.size(), kTotalLines);
@@ -167,7 +169,9 @@ TEST(MetalLineStatAuditTest, PartialAssignmentMatchesCpu) {
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                          slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                          std::vector<std::uint16_t>(kS, 0),
+                          std::vector<std::uint16_t>(kS, 0));
 
     // Assign first 10 cells on row 0
     for (std::uint16_t c = 0; c < 10; ++c) {

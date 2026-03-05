@@ -57,7 +57,9 @@ TEST(MetalPropagationEngineTest, RhoZeroForcesAllUnknownsToZero) {
     const std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                          slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                          std::vector<std::uint16_t>(kS, 0),
+                          std::vector<std::uint16_t>(kS, 0));
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {{.type = LineType::Row, .index = 0}};
@@ -107,7 +109,9 @@ TEST(MetalPropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     slope509Sums[0] = 1;
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                          slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                          std::vector<std::uint16_t>(kS, 0),
+                          std::vector<std::uint16_t>(kS, 0));
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {
@@ -154,7 +158,9 @@ TEST(MetalPropagationEngineTest, ResetClearsForcedAssignments) {
     slope509Sums[0] = 1;
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                          slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                          std::vector<std::uint16_t>(kS, 0),
+                          std::vector<std::uint16_t>(kS, 0));
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {
@@ -183,7 +189,9 @@ TEST(MetalPropagationEngineTest, InfeasibleWhenRhoNegative) {
     const std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                          slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                          std::vector<std::uint16_t>(kS, 0),
+                          std::vector<std::uint16_t>(kS, 0));
     store.assign(0, 0, 1);
 
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
@@ -209,7 +217,9 @@ TEST(MetalPropagationEngineTest, EmptyQueueIsFeasible) {
     const std::vector<std::uint16_t> slope509Sums(kS, 0);
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                          slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                          std::vector<std::uint16_t>(kS, 0),
+                          std::vector<std::uint16_t>(kS, 0));
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue;
@@ -242,7 +252,9 @@ TEST(MetalPropagationEngineTest, NoForcingWhenRhoBetweenZeroAndU) {
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                          slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                          std::vector<std::uint16_t>(kS, 0),
+                          std::vector<std::uint16_t>(kS, 0));
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {{.type = LineType::Row, .index = 0}};

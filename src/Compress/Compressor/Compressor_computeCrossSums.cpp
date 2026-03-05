@@ -6,6 +6,7 @@
 #include "compress/Compressor/Compressor.h"
 
 #include <cstdint>
+#include <vector>
 
 #include "common/CrossSum/AntiDiagSum.h"
 #include "common/CrossSum/ColSum.h"
@@ -14,6 +15,7 @@
 #include "common/CrossSum/ToroidalSlopeSum.h"
 #include "common/Csm/Csm.h"
 #include "common/Format/CompressedPayload/CompressedPayload.h"
+#include "decompress/Solvers/LtpTable.h"
 
 namespace crsce::compress {
 
@@ -35,7 +37,11 @@ namespace crsce::compress {
         common::ToroidalSlopeSum hsm2(kS, 2);
         common::ToroidalSlopeSum sfc2(kS, 509);
 
-        // Accumulate each cell's value into all eight cross-sum vectors.
+        // LTP partition sums: one per LTP line (kS lines each).
+        std::vector<std::uint16_t> ltp1Sums(kS, 0);
+        std::vector<std::uint16_t> ltp2Sums(kS, 0);
+
+        // Accumulate each cell's value into all cross-sum families.
         for (std::uint16_t r = 0; r < kS; ++r) {
             for (std::uint16_t c = 0; c < kS; ++c) {
                 const auto v = csm.get(r, c);
@@ -47,6 +53,17 @@ namespace crsce::compress {
                 sfc1.set(r, c, v);
                 hsm2.set(r, c, v);
                 sfc2.set(r, c, v);
+
+                // LTP sums: look up the line index for this cell and add v.
+                if (v != 0) {
+                    const auto &ltp = decompress::solvers::ltpFlatIndices(r, c);
+                    const auto ltp1Line = static_cast<std::uint16_t>(
+                        ltp[0] - static_cast<std::uint16_t>(decompress::solvers::kLtp1Base)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    const auto ltp2Line = static_cast<std::uint16_t>(
+                        ltp[1] - static_cast<std::uint16_t>(decompress::solvers::kLtp2Base)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    ltp1Sums[ltp1Line]++; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    ltp2Sums[ltp2Line]++; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                }
             }
         }
 
@@ -69,6 +86,12 @@ namespace crsce::compress {
             payload.setSFC1(k, sfc1.getByIndex(k));
             payload.setHSM2(k, hsm2.getByIndex(k));
             payload.setSFC2(k, sfc2.getByIndex(k));
+        }
+
+        // Fill the payload with LTP1SM and LTP2SM.
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            payload.setLTP1SM(k, ltp1Sums[k]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            payload.setLTP2SM(k, ltp2Sums[k]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
     }
 

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
 #include "decompress/Solvers/FailedLiteralProber.h"
+#include "decompress/Solvers/LtpTable.h"
 #include "decompress/Solvers/PropagationEngine.h"
 #include "decompress/Solvers/Sha256HashVerifier.h"
 
@@ -21,6 +23,9 @@ using crsce::decompress::solvers::BranchingController;
 using crsce::decompress::solvers::CellState;
 using crsce::decompress::solvers::ConstraintStore;
 using crsce::decompress::solvers::FailedLiteralProber;
+using crsce::decompress::solvers::kLtp1Base;
+using crsce::decompress::solvers::kLtp2Base;
+using crsce::decompress::solvers::ltpFlatIndices;
 using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
 
@@ -30,6 +35,8 @@ namespace {
 
     /**
      * @brief Build a ConstraintStore with customizable sum vectors.
+     *
+     * LTP targets default to 0 unless overridden.
      */
     ConstraintStore makeStore(const std::vector<std::uint16_t> &rowSums,
                               const std::vector<std::uint16_t> &colSums,
@@ -38,9 +45,12 @@ namespace {
                               const std::vector<std::uint16_t> &slope256Sums,
                               const std::vector<std::uint16_t> &slope255Sums,
                               const std::vector<std::uint16_t> &slope2Sums,
-                              const std::vector<std::uint16_t> &slope509Sums) {
+                              const std::vector<std::uint16_t> &slope509Sums,
+                              const std::vector<std::uint16_t> &ltp1Sums = std::vector<std::uint16_t>(kS, 0),
+                              const std::vector<std::uint16_t> &ltp2Sums = std::vector<std::uint16_t>(kS, 0)) {
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                ltp1Sums, ltp2Sums};
     }
 
     /**
@@ -77,6 +87,8 @@ namespace {
             std::vector<std::uint16_t>(kS, 255),
             diagSums,
             antiDiagSums,
+            std::vector<std::uint16_t>(kS, 255),
+            std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
             std::vector<std::uint16_t>(kS, 255),
@@ -185,8 +197,16 @@ TEST(FailedLiteralProberTest, ProbeCellForcesOne) {
     slope2Sums[0] = 1;
     slope509Sums[0] = 1;
 
+    // Set LTP targets for cell (0,0): each LTP line containing (0,0) needs target 1.
+    std::vector<std::uint16_t> ltp1Sums(kS, 0);
+    std::vector<std::uint16_t> ltp2Sums(kS, 0);
+    const auto &ltpIdx = ltpFlatIndices(0, 0);
+    ltp1Sums[static_cast<std::size_t>(ltpIdx[0] - static_cast<std::uint16_t>(kLtp1Base))] = 1;
+    ltp2Sums[static_cast<std::size_t>(ltpIdx[1] - static_cast<std::uint16_t>(kLtp2Base))] = 1;
+
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                           slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                           ltp1Sums, ltp2Sums);
     PropagationEngine propagator(store);
     BranchingController brancher(store, propagator);
     Sha256HashVerifier hasher(kS);

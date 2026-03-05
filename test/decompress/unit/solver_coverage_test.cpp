@@ -49,7 +49,8 @@ namespace {
         const std::vector<std::uint16_t> slope2Sums(kS, 0);
         const std::vector<std::uint16_t> slope509Sums(kS, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
     /**
@@ -73,7 +74,8 @@ namespace {
         const std::vector<std::uint16_t> slope2Sums(kS, 0);
         const std::vector<std::uint16_t> slope509Sums(kS, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 } // namespace
 
@@ -611,6 +613,8 @@ TEST(EnumerationControllerTest, ResetIsNoOp) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0)
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -638,6 +642,8 @@ TEST(EnumerationControllerTest, EnumerateAllZerosSingleSolution) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -691,6 +697,8 @@ TEST(EnumerationControllerTest, EnumerateStopsOnCallbackFalse) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0)
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -726,6 +734,8 @@ TEST(EnumerationControllerTest, EnumerateSolutionsLexAllZeros) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -779,7 +789,9 @@ TEST(EnumerationControllerTest, EnumerateSolutionsLexInfeasible) {
     // This is contradictory for cell (0, 0).
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                                    std::vector<std::uint16_t>(kS, 0),
+                                                    std::vector<std::uint16_t>(kS, 0));
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
@@ -814,7 +826,9 @@ TEST(EnumerationControllerTest, EnumerateInfeasibleNoCallback) {
     rowSums[0] = kS;
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                                    std::vector<std::uint16_t>(kS, 0),
+                                                    std::vector<std::uint16_t>(kS, 0));
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
@@ -920,7 +934,9 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFindsUniqueSolution) {
                         slope256Sums, slope255Sums, slope2Sums, slope509Sums);
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                                    std::vector<std::uint16_t>(kS, 0),
+                                                    std::vector<std::uint16_t>(kS, 0));
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
@@ -987,7 +1003,9 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFullyDetermined) {
                         slope256Sums, slope255Sums, slope2Sums, slope509Sums);
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums);
+                                                    slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                                                    std::vector<std::uint16_t>(kS, 0),
+                                                    std::vector<std::uint16_t>(kS, 0));
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);

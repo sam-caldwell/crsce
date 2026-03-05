@@ -36,7 +36,8 @@ namespace {
         const std::vector<std::uint16_t> slope2Sums(kS, 0);
         const std::vector<std::uint16_t> slope509Sums(kS, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
     /**
@@ -55,7 +56,8 @@ namespace {
         const std::vector<std::uint16_t> slope2Sums(kS, 0);
         const std::vector<std::uint16_t> slope509Sums(kS, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
-                slope256Sums, slope255Sums, slope2Sums, slope509Sums};
+                slope256Sums, slope255Sums, slope2Sums, slope509Sums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 } // namespace
 
@@ -214,12 +216,12 @@ TEST(ConstraintStoreTest, GetRowSetsBitsCorrectly) {
 }
 
 /**
- * @brief getLinesForCell returns exactly 8 lines (row, col, diag, anti-diag, 4 slopes).
+ * @brief getLinesForCell returns exactly 10 lines (row, col, diag, anti-diag, 4 slopes, 2 LTP).
  */
-TEST(ConstraintStoreTest, GetLinesForCellReturnsEightLines) {
+TEST(ConstraintStoreTest, GetLinesForCellReturnsTenLines) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(0, 0);
-    EXPECT_EQ(lines.size(), 8U);
+    EXPECT_EQ(lines.size(), 10U);
 }
 
 /**
