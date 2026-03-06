@@ -47,8 +47,9 @@ namespace crsce::common::format {
          * @name kBlockPayloadBytes
          * @brief Exact size of one serialized block in bytes (15,749).
          *
-         * B.22: LTP sums use variable-width encoding (bit_width(ltp_len(k)) bits per element).
-         * Fixed: 10,253 bytes (LH+BH+DI) + 5,496 bytes (bit-packed cross-sums) = 15,749.
+         * B.25: LTP sums use 9-bit encoding (bit_width(511) = 9 bits per element).
+         * Fixed 107,592 bits (LH+BH+DI+LSM+VSM+DSM+XSM) + 18,396 LTP bits = 125,988 bits.
+         * ceil(125,988 / 8) = 15,749 bytes (rounded up from 15,748.5).
          */
         static constexpr std::size_t kBlockPayloadBytes = 15749;
 

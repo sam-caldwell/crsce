@@ -1,9 +1,9 @@
 /**
  * @file unit_ltp_table_test.cpp
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt.
- * @brief Unit tests for LtpTable: B.23 full-coverage uniform-511 LTP partitions.
+ * @brief Unit tests for LtpTable: B.25 full-coverage uniform-511 LTP partitions.
  *
- * B.23 invariants verified:
+ * B.25 invariants verified:
  *   Axiom 1 (Full coverage): sum of all line lengths per sub-table = 261,121 = 511*511.
  *   Axiom 2 (No duplicates): each cell appears exactly once per sub-table.
  *   Axiom 3 (Uniform lengths): ltp_len(k) = 511 for all k in [0, 510].
@@ -44,7 +44,7 @@ namespace {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief ltpLineLen(k) = kLtpS (511) for all k in [0, 510] (B.23 uniform-511).
+ * @brief ltpLineLen(k) = kLtpS (511) for all k in [0, 510] (B.25 uniform-511).
  *
  * All 511 lines have exactly 511 cells, independent of k.
  */
@@ -60,7 +60,7 @@ TEST(LtpTableTest, LtpLineLenBoundaryAndPeak) {
 }
 
 /**
- * @brief Sum of all ltpLineLen values = 261,121 (511 lines * 511 cells each, B.23 uniform).
+ * @brief Sum of all ltpLineLen values = 261,121 (511 lines * 511 cells each, B.25 uniform).
  */
 TEST(LtpTableTest, LtpLineLenSumEqualsMatrixSize) {
     std::uint32_t total = 0;
@@ -221,7 +221,7 @@ TEST(LtpTableTest, Ltp4AxiomTwoNoDuplicatesInLine) {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Every cell (r,c) belongs to exactly 4 LTP sub-tables (B.22 full coverage).
+ * @brief Every cell (r,c) belongs to exactly 4 LTP sub-tables (B.25 full coverage).
  *
  * Iterates all 261,121 cells. Verifies ltpMembership(r,c).count == 4.
  */

@@ -1,20 +1,19 @@
 /**
  * @file LtpTable.h
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt.
- * @brief Full-coverage uniform-511 LTP partitions LTP1–LTP4 for B.23.
+ * @brief Full-coverage uniform-511 LTP partitions LTP1–LTP4 (B.25).
  *
- * Four independent sub-tables, each assigning all 261,121 cells to exactly one of 511
- * uniform-length lines.  Every line has exactly 511 cells (ltp_len(k) = kLtpS for all k);
- * total per sub-table = 511 * 511 = 261,121.
+ * Four independent sub-tables, each covering all 261,121 cells exactly once.
+ * Every line has exactly 511 cells (ltp_len(k) = kLtpS for all k).
+ * Sum per sub-table = 511 * 511 = 261,121.
  * Each cell belongs to exactly one line in each of the four sub-tables (count always 4).
  * Sub-tables use independent LCG shuffles so each line spans a diverse cross-section of rows.
  * Forward table: cell → LtpMembership (count=4, flat[0..3]).
- * Reverse table: line → span of LtpCell.
+ * Reverse table: line → span of kLtpS LtpCell entries.
  *
- * B.23 hypothesis: uniform-511 lines (same structure as B.20) combined with the CDCL
- * backjumping infrastructure (B.1) should isolate the effect of CDCL on a known-good
- * partition.  Compare to B.20 (88,503 depth, no CDCL) and B.22 (80,300 depth, CDCL,
- * triangular 2–1021 distribution).
+ * B.22 seed search: seeds are runtime-overridable via CRSCE_LTP_SEED_1..4 env vars.
+ * B.23 clipped-triangular experiment (TESTED, ABANDONED): partial coverage caused severe
+ * regression (~46K depth vs ~86K for uniform-511); see B.23 section in spec.
  */
 #pragma once
 
@@ -107,7 +106,7 @@ namespace crsce::decompress::solvers {
 
     /**
      * @name ltpLineLen
-     * @brief Return the length of LTP line k under B.23: always kLtpS (511).
+     * @brief Return the length of LTP line k: always kLtpS (511) under B.25.
      *
      * All 511 lines are uniform-length.  Sum over k=0..510 equals kLtpS*kLtpS = 261,121
      * (full matrix coverage).

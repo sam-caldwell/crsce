@@ -1,7 +1,7 @@
 /**
  * @file LtpTable.cpp
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt.
- * @brief Full-coverage uniform-511 LTP partitions (B.23).
+ * @brief Full-coverage uniform-511 LTP partitions (B.25/B.22).
  *
  * Builds four independent sub-tables, each covering all 261,121 cells exactly once.
  * Every line has exactly 511 cells (ltp_len(k) = kLtpS for all k).
@@ -12,8 +12,13 @@
  * random shuffle (no spatial sort) ensures each line draws cells from a broad cross-
  * section of all rows, providing strong cross-row constraint coupling.
  *
- * B.23 goal: isolate the effect of CDCL (B.1) on B.20's uniform-511 partition.
- * Compare B.20 (88,503 depth, no CDCL) vs B.23 (depth TBD, with CDCL).
+ * B.22 seed search: seeds are runtime-overridable via environment variables
+ * CRSCE_LTP_SEED_1 through CRSCE_LTP_SEED_4 (decimal or 0x-prefixed hex uint64).
+ * Optimized defaults (4-phase independent search, 45s/candidate):
+ *   kSeed1 = CRSCLTPR (phase-1 winner; depth 89,672)
+ *   kSeed2 = CRSCLTPG (phase-2 winner; depth 90,448)
+ *   kSeed3 = CRSCLTP3 (phase-3: all 36 candidates tie at 90,448 — invariant)
+ *   kSeed4 = CRSCLTP4 (phase-4: all 36 candidates tie at 90,448 — invariant)
  *
  * Tables are computed once on first access and shared via function-local statics.
  */
@@ -22,6 +27,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <span>
 #include <vector>
 
@@ -43,25 +49,25 @@ namespace {
 
     /**
      * @name kSeed1
-     * @brief LCG seed for pass 0 ("CRSCLTP1").
+     * @brief LCG seed for pass 0 ("CRSCLTPR" — B.22 phase-1 winner; depth 89,672).
      */
-    constexpr std::uint64_t kSeed1 = 0x4352'5343'4C54'5031ULL;
+    constexpr std::uint64_t kSeed1 = 0x4352'5343'4C54'5052ULL;
 
     /**
      * @name kSeed2
-     * @brief LCG seed for pass 1 ("CRSCLTP2").
+     * @brief LCG seed for pass 1 ("CRSCLTPG" — B.22 phase-2 winner; depth 90,448).
      */
-    constexpr std::uint64_t kSeed2 = 0x4352'5343'4C54'5032ULL;
+    constexpr std::uint64_t kSeed2 = 0x4352'5343'4C54'5047ULL;
 
     /**
      * @name kSeed3
-     * @brief LCG seed for pass 2 ("CRSCLTP3").
+     * @brief LCG seed for pass 2 ("CRSCLTP3" — phase-3 search: all 36 candidates tie at 90,448).
      */
     constexpr std::uint64_t kSeed3 = 0x4352'5343'4C54'5033ULL;
 
     /**
      * @name kSeed4
-     * @brief LCG seed for pass 3 ("CRSCLTP4").
+     * @brief LCG seed for pass 3 ("CRSCLTP4" — phase-4 search: all 36 candidates tie at 90,448).
      */
     constexpr std::uint64_t kSeed4 = 0x4352'5343'4C54'5034ULL;
 
@@ -76,6 +82,28 @@ namespace {
      * @brief LCG additive constant (Knuth).
      */
     constexpr std::uint64_t kLcgC = 1442695040888963407ULL;
+
+    /**
+     * @name parseOptEnvSeed
+     * @brief Read an optional uint64 seed from an environment variable.
+     *
+     * Used by B.22 (partition seed search) to allow runtime seed override without
+     * rebuilding.  Format: decimal (e.g. "4702111234474983473") or 0x-prefixed hex
+     * (e.g. "0x4352534C54503031").  Returns defaultVal when the variable is absent
+     * or unparseable.
+     *
+     * @param envName   Environment variable name (e.g. "CRSCE_LTP_SEED_1").
+     * @param defaultVal Default seed value when the variable is absent.
+     * @return Parsed seed, or defaultVal.
+     */
+    [[nodiscard]] std::uint64_t parseOptEnvSeed(const char *const envName,
+                                                 const std::uint64_t defaultVal) noexcept {
+        const char *const v = std::getenv(envName); // NOLINT(concurrency-mt-unsafe)
+        if (v == nullptr || *v == '\0') { return defaultVal; }
+        // strtoull with base=0 handles decimal, 0x-hex, 0-octal.
+        // Returns 0 for unparseable input; seed=0 is accepted (not the default check).
+        return static_cast<std::uint64_t>(std::strtoull(v, nullptr, 0));
+    }
 
     /**
      * @struct LtpData
@@ -146,8 +174,13 @@ namespace {
         std::array<std::uint16_t, kLtpNumLines> sortedLines{};
         { std::uint16_t v = 0; for (auto &e : sortedLines) { e = v++; } }
 
-        // Per-pass LCG seeds
-        const std::array<std::uint64_t, 4> seeds = {kSeed1, kSeed2, kSeed3, kSeed4};
+        // Per-pass LCG seeds (B.22: runtime-overridable via CRSCE_LTP_SEED_1..4)
+        const std::array<std::uint64_t, 4> seeds = {
+            parseOptEnvSeed("CRSCE_LTP_SEED_1", kSeed1),
+            parseOptEnvSeed("CRSCE_LTP_SEED_2", kSeed2),
+            parseOptEnvSeed("CRSCE_LTP_SEED_3", kSeed3),
+            parseOptEnvSeed("CRSCE_LTP_SEED_4", kSeed4),
+        };
         // Flat stat bases for each sub-table
         const std::array<std::uint32_t, 4> bases = {kLtp1Base, kLtp2Base, kLtp3Base, kLtp4Base};
 

@@ -208,7 +208,7 @@ TEST(ConstraintStoreTest, GetRowSetsBitsCorrectly) {
 }
 
 /**
- * @brief getLinesForCell returns exactly 8 lines (row, col, diag, anti-diag, 4 LTP) per B.22.
+ * @brief getLinesForCell returns exactly 8 lines (row, col, diag, anti-diag, 4 LTP) per B.25.
  */
 TEST(ConstraintStoreTest, GetLinesForCellReturnsEightLines) {
     auto store = makeAllZeroStore();
