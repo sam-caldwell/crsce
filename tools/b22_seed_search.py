@@ -49,11 +49,14 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_PRESET = "llvm-release"
 DEFAULT_SECS = 45
 
-# Default seeds: ASCII-encoded "CRSCLTPx" packed as big-endian uint64
+# Default seeds: current best from B.22 independent search (correct re-compress methodology).
+# Phase-1 winner: CRSCLTPR (0x435253434c545052) — depth 87,725 with matched .crsce
+# Phase-2 winner: CRSCLTPG (0x435253434c545047) — yet to be confirmed with correct methodology
+# Seeds 3/4: unchanged from original (phases 3/4 invariant under the flawed search; TBD)
 _PREFIX = b"CRSCLTP"  # 7 bytes → 0x43 52 53 43 4C 54 50
 DEFAULT_SEEDS = [
-    int.from_bytes(_PREFIX + bytes([0x31]), "big"),  # CRSCLTP1
-    int.from_bytes(_PREFIX + bytes([0x32]), "big"),  # CRSCLTP2
+    int.from_bytes(_PREFIX + bytes([0x52]), "big"),  # CRSCLTPR (phase-1 winner)
+    int.from_bytes(_PREFIX + bytes([0x47]), "big"),  # CRSCLTPG (phase-2 winner, to re-verify)
     int.from_bytes(_PREFIX + bytes([0x33]), "big"),  # CRSCLTP3
     int.from_bytes(_PREFIX + bytes([0x34]), "big"),  # CRSCLTP4
 ]
@@ -84,38 +87,67 @@ def find_binary(preset: str, name: str) -> pathlib.Path:
     sys.exit(f"Binary not found in build/{preset}/{name}\nRun: make build PRESET={preset}")
 
 
-def find_crsce_file() -> pathlib.Path:
-    """Find the pre-compressed .crsce file in build/uselessTest/."""
-    p = REPO_ROOT / "build" / "uselessTest" / "useless-machine.crsce"
-    if not p.exists():
-        sys.exit(f".crsce file not found: {p}\nRun: make test/uselessMachine first to compress")
-    return p
+SOURCE_VIDEO = REPO_ROOT / "docs" / "testData" / "useless-machine.mp4"
+
+
+def find_source_video() -> pathlib.Path:
+    """Return path to the test video (must exist)."""
+    if not SOURCE_VIDEO.exists():
+        sys.exit(f"Source video not found: {SOURCE_VIDEO}")
+    return SOURCE_VIDEO
 
 
 # ---------------------------------------------------------------------------
 # Single candidate evaluation
 # ---------------------------------------------------------------------------
 def run_candidate(
+    compress_bin: pathlib.Path,
     decompress_bin: pathlib.Path,
-    crsce_path: pathlib.Path,
+    source_video: pathlib.Path,
     seeds: list[int],
     secs: int,
     tmp_dir: pathlib.Path,
     run_id: str,
 ) -> int:
     """
-    Run decompress with the given seeds for `secs` seconds.
+    Re-compress source_video with the given seeds, then decompress for `secs` seconds.
+
+    Re-compressing ensures the stored LTP sums match the seeds used during decompress.
+    Without this step, the decompressor would use a partition defined by the new seeds
+    but the stored sums would come from a different partition, inflating depth artificially.
+
     Returns the peak depth observed in the telemetry log, or 0 on failure.
     """
     events_path = tmp_dir / f"events_{run_id}.jsonl"
-    out_path = tmp_dir / f"out_{run_id}.bin"
+    crsce_path  = tmp_dir / f"compressed_{run_id}.crsce"
+    out_path    = tmp_dir / f"out_{run_id}.bin"
 
-    env = os.environ.copy()
+    seed_env = {}
     for i, seed in enumerate(seeds):
-        env[f"CRSCE_LTP_SEED_{i + 1}"] = str(seed)
-    env["CRSCE_EVENTS_PATH"] = str(events_path)
-    env["CRSCE_METRICS_FLUSH"] = "1"
-    env["CRSCE_WATCHDOG_SECS"] = str(secs + 10)  # +10s grace period
+        seed_env[f"CRSCE_LTP_SEED_{i + 1}"] = str(seed)
+
+    # --- Step 1: compress (fast, DI=0) ---
+    compress_env = os.environ.copy()
+    compress_env.update(seed_env)
+    compress_env["DISABLE_COMPRESS_DI"] = "1"
+    compress_env["CRSCE_DISABLE_GPU"]   = "1"
+    compress_env["CRSCE_WATCHDOG_SECS"] = "60"
+    cx_proc = subprocess.run(
+        [str(compress_bin), "-in", str(source_video), "-out", str(crsce_path)],
+        env=compress_env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=60,
+    )
+    if cx_proc.returncode != 0 or not crsce_path.exists():
+        return 0
+
+    # --- Step 2: decompress for `secs` seconds, measure depth ---
+    env = os.environ.copy()
+    env.update(seed_env)
+    env["CRSCE_EVENTS_PATH"]    = str(events_path)
+    env["CRSCE_METRICS_FLUSH"]  = "1"
+    env["CRSCE_WATCHDOG_SECS"]  = str(secs + 10)
 
     proc = subprocess.Popen(
         [str(decompress_bin), "-in", str(crsce_path), "-out", str(out_path)],
@@ -148,6 +180,7 @@ def run_candidate(
         events_path.unlink(missing_ok=True)
 
     out_path.unlink(missing_ok=True)
+    crsce_path.unlink(missing_ok=True)
     return peak_depth
 
 
@@ -157,8 +190,9 @@ def run_candidate(
 def run_phase(
     phase: int,
     fixed_seeds: list[int],
+    compress_bin: pathlib.Path,
     decompress_bin: pathlib.Path,
-    crsce_path: pathlib.Path,
+    source_video: pathlib.Path,
     secs: int,
     tmp_dir: pathlib.Path,
     all_results: list[dict],
@@ -169,13 +203,17 @@ def run_phase(
     `fixed_seeds` is the 4-seed list with the phase's sub-table seed set to
     the default (it will be overridden by each candidate).  Returns the best
     seed found for this sub-table.
+
+    Each candidate re-compresses the source video so that the stored LTP sums
+    correctly match the candidate's partition (avoids spurious depth inflation
+    from mismatched sums).
     """
     sub_idx = phase - 1  # 0-based
     print(f"\n{'='*60}")
     print(f"Phase {phase}: optimizing CRSCE_LTP_SEED_{phase}")
     print(f"  Fixed seeds: {[hex(s) for i, s in enumerate(fixed_seeds) if i != sub_idx]}")
     print(f"  Candidates: {len(CANDIDATE_SEEDS)}")
-    print(f"  Seconds per test: {secs}")
+    print(f"  Seconds per test: {secs} (+ ~2s compress per candidate)")
     print(f"{'='*60}")
 
     phase_results = []
@@ -189,7 +227,7 @@ def run_phase(
         seed_str = f"CRSCLTP{suffix_char}={hex(candidate)}"
 
         print(f"  [{idx+1:2d}/{len(CANDIDATE_SEEDS)}] seed_{phase}={seed_str} ... ", end="", flush=True)
-        depth = run_candidate(decompress_bin, crsce_path, seeds, secs, tmp_dir, label)
+        depth = run_candidate(compress_bin, decompress_bin, source_video, seeds, secs, tmp_dir, label)
         phase_results.append({"phase": phase, "sub_idx": sub_idx, "candidate": hex(candidate),
                                "seeds": [hex(s) for s in seeds], "depth": depth})
         all_results.append(phase_results[-1])
@@ -218,16 +256,18 @@ def main() -> None:
     else:
         phases_to_run = [int(args.phase)]
 
+    compress_bin   = find_binary(args.preset, "compress")
     decompress_bin = find_binary(args.preset, "decompress")
-    crsce_path = find_crsce_file()
+    source_video   = find_source_video()
 
-    print(f"B.22 Seed Search")
+    print(f"B.22 Seed Search (re-compress per candidate — correct LTP sums)")
+    print(f"  compress:   {compress_bin}")
     print(f"  decompress: {decompress_bin}")
-    print(f"  .crsce:     {crsce_path}")
-    print(f"  secs/test:  {args.secs}")
+    print(f"  source:     {source_video}")
+    print(f"  secs/test:  {args.secs} (+~2s compress per candidate)")
     print(f"  phases:     {phases_to_run}")
     print(f"  candidates: {len(CANDIDATE_SEEDS)} per phase")
-    estimated = len(phases_to_run) * len(CANDIDATE_SEEDS) * (args.secs + 3)
+    estimated = len(phases_to_run) * len(CANDIDATE_SEEDS) * (args.secs + 5)
     print(f"  est. time:  ~{estimated // 60}m {estimated % 60}s")
 
     all_results: list[dict] = []
@@ -237,7 +277,7 @@ def main() -> None:
         tmp_dir = pathlib.Path(tmp_str)
         for phase in phases_to_run:
             best_seed = run_phase(
-                phase, best_seeds, decompress_bin, crsce_path,
+                phase, best_seeds, compress_bin, decompress_bin, source_video,
                 args.secs, tmp_dir, all_results
             )
             best_seeds[phase - 1] = best_seed
