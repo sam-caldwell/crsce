@@ -5345,6 +5345,40 @@ joint-tiling)? If the flat "all 4 sub-tables" model is retained (as in B.23), ca
 construction protocol be extended to allow joint-tiling within the clipped-triangular length
 distribution for a future experiment?
 
+#### B.23.9 Experimental Results (ABANDONED)
+
+B.23 was implemented and tested with $L_{\min} = 64$ on 2026-03-05.
+
+**Implementation:** Changed `ltpLineLen(k)` to `max(64, min(k+1, 511-k))` in `LtpTable.h`.
+The construction assigns cells in decreasing-length order.  **Critical finding discovered during
+implementation:** sum of `ltp_len(k)` over $k=0..510$ equals **69,568** (not 261,121).  With
+261,121 cells in the pool and only 69,568 assigned per sub-table, coverage is 26.7% per sub-table.
+Expected LTP memberships per cell: $4 \times 0.267 \approx 1.07$ (mostly 0 or 1).
+
+**Result:** Depth peaked at **~46,022** (vs 86,123 for B.25 uniform-511). This is a **46%
+regression**, far worse than B.22's 7% regression.
+
+**Root cause:** The spec's claim that B.23 "retains B.25's 'every cell in all 4 sub-tables'
+ownership model" is mathematically impossible for the given `ltp_len` formula — the total
+cell budget is 4 × 69,568 = 278,272, covering 261,121 cells an average of **1.07 times** (not 4).
+73% fewer LTP constraints than B.25 cripples propagation quality.
+
+**Conclusion:** The simple "change `ltpLineLen(k)`" implementation is fundamentally broken for
+any clip value where `sum(ltp_len(k)) < 261,121`.  B.23 as specified requires the full B.21-style
+joint-tiling construction to achieve meaningful cell coverage.  Since B.21's joint-tiling was
+already considered too complex and produced a regression itself (50,272 depth), B.23 is abandoned.
+
+| Metric | B.25 (baseline) | B.23 kLtpClip=64 |
+|:-------|:---------------:|:----------------:|
+| Peak depth | ~86,123 | ~46,022 |
+| Cells/sub-table | 261,121 | 69,568 |
+| Avg LTP memberships/cell | 4.0 | ~1.07 |
+| Depth regression | — | −46% |
+
+**Abandonment verdict:** B.23 clipped-triangular (as a drop-in `ltpLineLen` substitution) is
+abandoned.  The correct follow-on is B.22 seed search within the uniform-511 architecture (B.25),
+which preserves full coverage while varying partition topology.
+
 ## Appendix C: Open Questions Consolidated
 
 This appendix consolidates all open questions from Appendices A and B into a single reference. Each question is reproduced from its original context, followed by a *Discovered Data* subsection summarizing relevant experimental evidence gathered during the research program, and a *Conclusions* subsection stating what can be inferred. Questions are grouped by their source section to preserve traceability. The principal data sources are: B.8 telemetry (depth plateau ~87,500, 37% hash mismatch, min_nz_row_unknown = 1); B.20.9 Configuration C results (depth ~88,503, mismatch 25.2%, iter/sec ~198K); B.21 observed results (depth 50,272, mismatch 0.20%, iter/sec ~687K); the B.12.6(a) BP convergence experiment; and the CDCL infrastructure assessment (B.1.10).
