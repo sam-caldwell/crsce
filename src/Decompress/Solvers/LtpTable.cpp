@@ -14,11 +14,11 @@
  *
  * B.22 seed search: seeds are runtime-overridable via environment variables
  * CRSCE_LTP_SEED_1 through CRSCE_LTP_SEED_4 (decimal or 0x-prefixed hex uint64).
- * Optimized defaults (4-phase independent search, 45s/candidate):
- *   kSeed1 = CRSCLTPR (phase-1 winner; depth 89,672)
- *   kSeed2 = CRSCLTPG (phase-2 winner; depth 90,448)
- *   kSeed3 = CRSCLTP3 (phase-3: all 36 candidates tie at 90,448 — invariant)
- *   kSeed4 = CRSCLTP4 (phase-4: all 36 candidates tie at 90,448 — invariant)
+ * Optimized defaults (4-phase independent search, 45s/candidate, re-compress per candidate):
+ *   kSeed1 = CRSCLTP0 (phase-1 winner; depth 89,331)
+ *   kSeed2 = CRSCLTPG (phase-2 winner; depth 89,331)
+ *   kSeed3 = CRSCLTP3 (phase-3: all 36 candidates tie at 89,331 — invariant)
+ *   kSeed4 = CRSCLTP4 (phase-4: all 36 candidates tie at 89,331 — invariant)
  *
  * Tables are computed once on first access and shared via function-local statics.
  */
@@ -49,13 +49,18 @@ namespace {
 
     /**
      * @name kSeed1
-     * @brief LCG seed for pass 0 ("CRSCLTPR" — B.22 phase-1 winner; depth 89,672).
+     * @brief LCG seed for pass 0 ("CRSCLTP0" — B.22 phase-1 winner; depth 89,331).
+     *
+     * Correct-methodology search (re-compress per candidate): CRSCLTP0 wins phase 1
+     * with seeds 2/3/4 fixed to CRSCLTPG/CRSCLTP3/CRSCLTP4.
      */
-    constexpr std::uint64_t kSeed1 = 0x4352'5343'4C54'5052ULL;
+    constexpr std::uint64_t kSeed1 = 0x4352'5343'4C54'5030ULL;
 
     /**
      * @name kSeed2
-     * @brief LCG seed for pass 1 ("CRSCLTPG" — B.22 phase-2 winner; depth 90,448).
+     * @brief LCG seed for pass 1 ("CRSCLTPG" — B.22 phase-2 winner; depth 89,331).
+     *
+     * With seed_1=CRSCLTP0 fixed, CRSCLTPG achieves 89,331 peak depth.
      */
     constexpr std::uint64_t kSeed2 = 0x4352'5343'4C54'5047ULL;
 
