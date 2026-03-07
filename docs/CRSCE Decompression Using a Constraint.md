@@ -11,7 +11,8 @@ date: "28 February 2026"
 
 Cross-Sums Compression and Expansion (CRSCE) compresses a fixed-size two-dimensional binary matrix---the Cross-Sum
 Matrix (CSM)---by replacing it with eight families of exact-sum projections (row, column, diagonal, anti-diagonal, and
-four toroidal-slope families) together with independent per-row SHA-1 digests and a single per-block SHA-256 digest.
+four pseudorandom lookup-table partitions) together with independent per-row SHA-1 digests and a single per-block
+SHA-256 digest.
 Decompression is a constrained reconstruction problem: recover a matrix consistent with all projections and hashes.
 Although the combined hash constraints make non-uniqueness
 astronomically unlikely under standard cryptographic assumptions, non-uniqueness is not logically impossible. This paper
@@ -27,13 +28,13 @@ branching heuristics.
 
 In the CRSCE scheme, an input bitstream is subdivided into blocks of approximately 32 KB. Each block is placed into $CSM
 \in \{0,1\}^{s \times s}$ with fixed size $s = 511$. Four cross-sum vectors are computed from $CSM$: row sums (LSM),
-column sums (VSM), diagonal sums (DSM), and anti-diagonal sums (XSM). Four toroidal-slope partitions (HSM1, SFC1,
-HSM2, SFC2) provide additional constraint lines using modular-arithmetic line families on the $s \times s$ torus.
+column sums (VSM), diagonal sums (DSM), and anti-diagonal sums (XSM). Four pseudorandom lookup-table partitions (LTP1,
+LTP2, LTP3, LTP4) provide additional constraint lines via Fisher--Yates shuffles of the cell index space (see B.20).
 An independent SHA-1 digest is computed for each row, producing the lateral hash vector (LH), and a single SHA-256
 digest of the entire block produces the block hash (BH). A disambiguation index (DI) is appended to handle the rare
 case of non-unique reconstruction. The compressed representation of each block is therefore the tuple $(\text{LH},
-\text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1}, \text{HSM2},
-\text{SFC2})$.
+\text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{LTP1}, \text{LTP2}, \text{LTP3},
+\text{LTP4})$.
 
 Compression is realized because the cross-sum vectors and hash vector are smaller than the original matrix. LSM and VSM
 each contain $s$ elements and each element requires $b = \lceil \log_2(s+1) \rceil$ bits. DSM and XSM each contain $2s -
@@ -45,8 +46,8 @@ $$
     B_d(s) = \lceil \log_2(s+1) \rceil + 2 \sum_{l=1}^{s-1} \lceil \log_2(l+1) \rceil
 $$
 
-LH consists of $s$ SHA-1 digests of 160 bits each. BH is a single SHA-256 digest of 256 bits. HSM1, SFC1, HSM2, and
-SFC2 each contain $s$ elements of $b = 9$ bits. The disambiguation index (DI) is encoded as a fixed 8-bit unsigned
+LH consists of $s$ SHA-1 digests of 160 bits each. BH is a single SHA-256 digest of 256 bits. LTP1, LTP2, LTP3, and
+LTP4 each contain $s$ elements of $b = 9$ bits. The disambiguation index (DI) is encoded as a fixed 8-bit unsigned
 integer per block, permitting up to 256 feasible reconstructions before the compressor must fail. The per-block
 compression ratio is therefore:
 
@@ -221,12 +222,12 @@ dominating SHA-1's broken collision resistance ($\sim 2^{63}$; Stevens et al., 2
 
 ### 2.4 Decompression Objective
 
-Given the constraint set $\mathcal{C} = (s, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1},
-\text{HSM2}, \text{SFC2}, \text{LH}, \text{BH})$, decompression seeks a $CSM$ satisfying all constraints. The premise
+Given the constraint set $\mathcal{C} = (s, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{LTP1}, \text{LTP2},
+\text{LTP3}, \text{LTP4}, \text{LH}, \text{BH})$, decompression seeks a $CSM$ satisfying all constraints. The premise
 that $\mathcal{C}$ admits exactly one feasible matrix is a design intent, not a mathematical guarantee; the cross-sum
 and hash constraints make non-uniqueness astronomically unlikely but cannot logically exclude it. The full compressed
-payload $\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1},
-\text{SFC1}, \text{HSM2}, \text{SFC2})$ therefore includes an 8-bit disambiguation index (DI) that selects the intended
+payload $\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{LTP1},
+\text{LTP2}, \text{LTP3}, \text{LTP4})$ therefore includes an 8-bit disambiguation index (DI) that selects the intended
 reconstruction
 from the canonical enumeration of feasible solutions (Section 4). It is the DI that provides the "exactly one solution"
 guarantee: even if $\mathcal{C}$ admits multiple feasible matrices, $\mathcal{C}'$ identifies precisely one.
@@ -247,7 +248,7 @@ $$
     \underbrace{511}_{\text{column}} +
     \underbrace{1{,}021}_{\text{diagonal}} +
     \underbrace{1{,}021}_{\text{anti-diagonal}} +
-    \underbrace{4 \times 511}_{\text{toroidal-slope}} = 5{,}108 \text{ cardinality constraints}
+    \underbrace{4 \times 511}_{\text{LTP}} = 5{,}108 \text{ cardinality constraints}
 $$
 
 $$
@@ -259,7 +260,7 @@ $$
 $$
 
 This can also be represented as a factor graph: variable nodes for each $CSM_{r,c}$, factor nodes for each
-row/column/diagonal/anti-diagonal/toroidal-slope sum constraint, and factor nodes for each SHA-1 row constraint and
+row/column/diagonal/anti-diagonal/LTP sum constraint, and factor nodes for each SHA-1 row constraint and
 the SHA-256 block constraint. Factor graphs
 support message-passing interpretations (Kschischang et al., 2001).
 
@@ -422,7 +423,7 @@ where each $S_k$ is a feasible $CSM$ satisfying all constraints in $\mathcal{C}$
 
 The compressed representation is extended to:
 
-$$\mathcal{C}' = (\text{LH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}),$$
+$$\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{LTP1}, \text{LTP2}, \text{LTP3}, \text{LTP4}),$$
 
 where DI is an unsigned 8-bit integer, selecting the intended reconstruction:
 
@@ -465,7 +466,7 @@ allows the solver to detect infeasibility early, force deterministic assignments
 verify completed rows against their SHA-1 digests without recomputing from scratch.
 
 For each line $L$, the solver tracks four quantities: $u(L)$, the count of unknown cells on the line; $a(L)$, the count
-of assigned ones; the required sum $S(L)$ from the corresponding cross-sum vector (LSM, VSM, DSM, or XSM); and the
+of assigned ones; the required sum $S(L)$ from the corresponding cross-sum vector (LSM, VSM, DSM, XSM, or LTP); and the
 residual $\rho(L) = S(L) - a(L)$.
 
 A line is feasible iff
@@ -477,7 +478,7 @@ forced to $1$. These are standard feasibility rules for cardinality constraints,
 until reaching a fixpoint.
 
 Each assignment $CSM_{r,c} \leftarrow 0/1$ updates exactly eight lines' $(u, a, \rho)$ (one row, one column, one
-diagonal, one anti-diagonal, and four toroidal-slope lines), enabling incremental propagation.
+diagonal, one anti-diagonal, and four LTP lines), enabling incremental propagation.
 
 ### 5.2 Integrating Row Hash Checks Deterministically
 
@@ -528,7 +529,7 @@ digest check (Section 5.2).
 
 ```text
 Algorithm 1: EnumerateSolutionsLex(C)
-    Input:  constraints C = (s, LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2, LH, BH)
+    Input:  constraints C = (s, LSM, VSM, DSM, XSM, LTP1, LTP2, LTP3, LTP4, LH, BH)
     Output: stream of feasible matrices CSM in lex order
 
     Initialize all CSM[r,c] = UNASSIGNED
@@ -570,7 +571,7 @@ provides defense-in-depth against data corruption or truncation.
 
 ```text
 Algorithm 2: DecompressWithDI(C')
-Input:  C' = (LH, BH, DI, LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2)
+Input:  C' = (LH, BH, DI, LSM, VSM, DSM, XSM, LTP1, LTP2, LTP3, LTP4)
 Output: S_DI
 
 k <- 0
@@ -617,7 +618,7 @@ Output: compressed payload C' or FAIL
 
 StartTimer()
 
-Compute LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2 from CSM
+Compute LSM, VSM, DSM, XSM, LTP1, LTP2, LTP3, LTP4 from CSM
 Compute LH[r] = SHA1(row_r) for all r    // per FIPS 180-4
 Compute BH = SHA256(CSM_row_major)        // per FIPS 180-4
 
@@ -627,7 +628,7 @@ for Y in EnumerateSolutionsLex(C):
         return FAIL
     if Y == CSM:
         DI <- k
-        return (LH, BH, DI, LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2)
+        return (LH, BH, DI, LSM, VSM, DSM, XSM, LTP1, LTP2, LTP3, LTP4)
     k <- k + 1
 
 // If enumeration ends without finding CSM, the constraints are inconsistent
@@ -782,7 +783,7 @@ alternative implementations to be substituted without modifying the solver's con
 ### 9.2 Polymorphism as an Architectural Principle
 
 Polymorphism is not merely a stylistic preference; it is a structural requirement motivated by the algorithm's design.
-The solver operates over eight families of cross-sum constraints (LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, SFC2) that differ in their indexing
+The solver operates over eight families of cross-sum constraints (LSM, VSM, DSM, XSM, LTP1, LTP2, LTP3, LTP4) that differ in their indexing
 geometry but share identical residual-tracking and forcing logic. A polymorphic line-constraint interface allows all
 four families to be processed uniformly by the propagation engine, eliminating redundant code paths and reducing the
 surface area for implementation errors.
@@ -917,13 +918,15 @@ row message (511 data bits plus trailing zero) and `verify(r, digest)` to compar
 +----------------------------------------------+
 ```
 
-**`ToroidalSlopeSum`** is a cross-sum vector for toroidal modular-slope partitions. Each partition consists of $s = 511$
-lines defined by $L_k = \{(t, (k + pt) \bmod s) : t = 0, \ldots, s-1\}$ for a fixed slope $p$. The four partitions
-use slopes $p \in \{256, 255, 2, 509\}$ (corresponding to HSM1, SFC1, HSM2, SFC2). Line index mapping is
-$k = (c - pr) \bmod s$, computed by a single multiply-and-modulus operation.
+**`ToroidalSlopeSum`** *(legacy, retained for testing only)* is a cross-sum vector for toroidal modular-slope partitions.
+Each partition consists of $s = 511$ lines defined by $L_k = \{(t, (k + pt) \bmod s) : t = 0, \ldots, s-1\}$ for a
+fixed slope $p$. The four original slopes were $p \in \{256, 255, 2, 509\}$ (HSM1, SFC1, HSM2, SFC2). As of B.20,
+these four toroidal-slope partitions have been replaced in the production solver by four pseudorandom LTP partitions
+(LTP1--LTP4). The `ToroidalSlopeSum` class remains in the source tree for mathematical validation and unit testing but
+is never instantiated in the compress or decompress pipelines.
 
 **`CompressedPayload`** represents $\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM},
-\text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1}, \text{HSM2}, \text{SFC2})$ and provides serialization and
+\text{DSM}, \text{XSM}, \text{LTP1}, \text{LTP2}, \text{LTP3}, \text{LTP4})$ and provides serialization and
 deserialization methods that enforce the wire format byte-alignment convention (Section 12.4): LH (byte-aligned),
 BH (byte-aligned), DI (uint8), followed by the bit-packed cross-sum vectors.
 
@@ -1577,8 +1580,8 @@ implicit in the format.
 
 Each block payload is a fixed-length byte-aligned bitstream. The matrix dimension $s = 511$ is a format constant and is
 not stored per block. The fields appear in the following order, matching the wire format tuple $\mathcal{C}' =
-(\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{HSM1}, \text{SFC1},
-\text{HSM2}, \text{SFC2})$ defined in Section 4.2.
+(\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM}, \text{XSM}, \text{LTP1}, \text{LTP2},
+\text{LTP3}, \text{LTP4})$ defined in Section 4.2.
 
 ```text
 Field   Elements    Bits/Element   Total Bits   Total Bytes   Encoding
@@ -1590,10 +1593,10 @@ LSM     511         9              4,599        ---           MSB-first packed b
 VSM     511         9              4,599        ---           MSB-first packed bitstream
 DSM     2s-1=1,021  variable       8,185        ---           MSB-first, ceil(log2(len(d)+1))
 XSM     2s-1=1,021  variable       8,185        ---           MSB-first, ceil(log2(len(x)+1))
-HSM1    511         9              4,599        ---           MSB-first packed bitstream
-SFC1    511         9              4,599        ---           MSB-first packed bitstream
-HSM2    511         9              4,599        ---           MSB-first packed bitstream
-SFC2    511         9              4,599        ---           MSB-first packed bitstream
+LTP1    511         9              4,599        ---           MSB-first packed bitstream
+LTP2    511         9              4,599        ---           MSB-first packed bitstream
+LTP3    511         9              4,599        ---           MSB-first packed bitstream
+LTP4    511         9              4,599        ---           MSB-first packed bitstream
 ------  ----------  ------------   ----------   -----------   --------
 Total                              125,988      15,749
 ```
@@ -1621,21 +1624,23 @@ straight (non-wrapping) diagonals. Element $k$ requires $\lceil \log_2(\text{len
 $\text{len}(k) = \min(k + 1,\; s,\; 2s - 1 - k)$ as defined in Section 2.2. Elements are serialized MSB-first in index
 order ($k = 0, 1, \ldots, 2s - 2$), packed continuously into the bitstream.
 
-**HSM1, SFC1, HSM2, and SFC2 (Toroidal-Slope Sums).** Each vector contains $s = 511$ elements, one per toroidal line.
-Each element requires $b = 9$ bits and is serialized MSB-first, identical to LSM and VSM. The four partitions use
-slopes $p \in \{256, 255, 2, 509\}$ respectively, where line $k$ of slope $p$ covers cells
-$\{(t, (k + pt) \bmod 511) : t = 0, \ldots, 510\}$. At runtime, the solver maps $(r, c) \to k = (c - pr) \bmod 511$.
+**LTP1, LTP2, LTP3, and LTP4 (Lookup-Table Partition Sums).** Each vector contains $s = 511$ elements, one per LTP
+line. Each element requires $b = \lceil \log_2(\text{ltpLineLen}(k) + 1) \rceil$ bits and is serialized MSB-first. For
+the current uniform-511 partition, this equals 9 bits per element, identical to LSM and VSM. The four partitions are
+pseudorandom: each sub-table is constructed by a Fisher--Yates shuffle seeded with a deterministic 64-bit LCG constant,
+assigning every cell to exactly one of 511 lines per sub-table. At runtime, the solver maps $(r, c)$ to line indices
+via precomputed lookup tables (see B.20).
 
 ### 12.5 Cross-Sum Ranges and Validation
 
-Each LSM, VSM, HSM1, SFC1, HSM2, and SFC2 entry must be in the range $[0, s]$ where $s = 511$. Each DSM entry at index
+Each LSM, VSM, LTP1, LTP2, LTP3, and LTP4 entry must be in the range $[0, s]$ where $s = 511$. Each DSM entry at index
 $d$ must be in $[0, \text{len}(d)]$, and each XSM entry at index $x$ must be in $[0, \text{len}(x)]$. A decoder should
 reject any block containing out-of-range cross-sum values.
 
 ### 12.6 Block Acceptance Criteria
 
 A block is accepted if and only if the reconstructed CSM simultaneously satisfies all three conditions: it reproduces
-the stored LSM, VSM, DSM, XSM, HSM1, SFC1, HSM2, and SFC2 vectors exactly for all indices; it recomputes per-row LH
+the stored LSM, VSM, DSM, XSM, LTP1, LTP2, LTP3, and LTP4 vectors exactly for all indices; it recomputes per-row LH
 from the reconstructed rows exactly ($\text{digest} = \text{SHA-1}(\text{row}_{64})$) for all $r \in \{0, \ldots,
 510\}$; and it recomputes the block hash exactly ($\text{BH} = \text{SHA-256}(\text{CSM}_{\text{row-major}})$). Any
 mismatch results in rejection of that block. Decoders must fail hard by default and must not produce partial output.
@@ -1657,7 +1662,7 @@ set admits multiple feasible reconstructions. The key idea is *canonical solutio
 lexicographic order on feasible matrices, encode the zero-based DI of the intended solution as $S_{\text{DI}}$, and
 discover that DI at compression time by running the decompressor as an enumerator constrained by the known original
 matrix. The compressed payload $\mathcal{C}' = (\text{LH}, \text{BH}, \text{DI}, \text{LSM}, \text{VSM}, \text{DSM},
-\text{XSM}, \text{HSM1}, \text{SFC1}, \text{HSM2}, \text{SFC2})$ is ordered for byte-alignment efficiency, with all
+\text{XSM}, \text{LTP1}, \text{LTP2}, \text{LTP3}, \text{LTP4})$ is ordered for byte-alignment efficiency, with all
 fixed-width fields preceding the bit-packed cross-sum vectors. Because enumeration can be expensive, the design includes
 exactly one tolerance parameter --- `max_compression_time` --- beyond which compression fails, requiring a fallback to
 another algorithm.
@@ -1769,8 +1774,9 @@ See Appendix D.2
 
 This appendix originally proposed adding auxiliary cross-sum partitions to increase constraint density and accelerate
 decompression. Four toroidal-slope partitions --- HSM1 ($p = 256$), SFC1 ($p = 255$), HSM2 ($p = 2$), and SFC2
-($p = 509$) --- have been integrated into the main specification (Sections 2.4, 3.1, 10.2--10.3, and 12.4). The
-implementation uses the toroidal modular-slope construction described in B.5 rather than the Hilbert-curve geometry
+($p = 509$) --- were initially integrated, but were subsequently replaced by four pseudorandom lookup-table partitions
+(LTP1--LTP4) in B.20. The main specification (Sections 2.4, 3.1, 10.2--10.3, and 12.4) now reflects the LTP
+architecture. The original toroidal modular-slope construction described in B.5 rather than the Hilbert-curve geometry
 originally proposed here. The constraint store now manages $10s - 2 = 5{,}108$ lines (511 rows + 511 columns + 1,021
 diagonals + 1,021 anti-diagonals + $4 \times 511$ slope lines), each cell participates in 8 constraint lines, and the
 per-block payload is 125,988 bits (15,749 bytes) at a compression ratio of $C_r \approx 0.5175$ (51.8%).
@@ -1793,7 +1799,7 @@ The following table summarizes the current and hypothetical configurations:
 | Configuration                        | Cross-sum bits | Lines   | Lines/cell | $C_r$  |
 |--------------------------------------|----------------|---------|------------|--------|
 | 4 original (LSM/VSM/DSM/XSM)        | 25,568         | 3,064   | 4          | 0.6989 |
-| 8 implemented (+ HSM1/SFC1/HSM2/SFC2)| 43,982        | 5,108   | 8          | 0.5175 |
+| 8 implemented (+ LTP1/LTP2/LTP3/LTP4)| 43,982        | 5,108   | 8          | 0.5175 |
 | 10 partitions (+ 1 pair)            | 53,180         | 6,130   | 10         | 0.4823 |
 | 12 partitions (+ 2 pairs)           | 62,378         | 7,152   | 12         | 0.4471 |
 | 16 partitions (+ 4 pairs)           | 80,774         | 9,196   | 16         | 0.3768 |
@@ -2356,8 +2362,9 @@ Consolidated into Appendix C.4.
 ### B.5 Hash Alternatives to Improve Search Depth
 
 The changes originally proposed in this appendix --- replacing per-row SHA-256 with per-row SHA-1 plus a whole-block
-SHA-256 digest (BH), and adding four toroidal-slope partitions (HSM1/SFC1, HSM2/SFC2) --- have been integrated into
-the main specification (Sections 1, 2.3, 3.1--3.3, 5.1--5.6, 10.2--10.4, and 12.4--12.7). Subsections B.5.1 through
+SHA-256 digest (BH), and adding four additional partitions --- have been integrated into the main specification
+(Sections 1, 2.3, 3.1--3.3, 5.1--5.6, 10.2--10.4, and 12.4--12.7). The four toroidal-slope partitions originally
+proposed here (HSM1/SFC1, HSM2/SFC2) were subsequently replaced by four pseudorandom LTP partitions in B.20. Subsections B.5.1 through
 B.5.8 have been removed. The open questions below remain.
 
 #### B.5.1 Open Questions
@@ -4112,8 +4119,8 @@ uniform algebraic lines cannot replicate.
 The experiment consists of four solver configurations, benchmarked on a common test suite of $N \geq 50$ random
 $511 \times 511$ binary matrices:
 
-**Configuration A (baseline).** The current 8-partition solver: 4 geometric (LSM, VSM, DSM, XSM) + 4 toroidal
-slopes (HSM1, SFC1, HSM2, SFC2). This is the production configuration.
+**Configuration A (baseline).** The pre-B.20 8-partition solver: 4 geometric (LSM, VSM, DSM, XSM) + 4 toroidal
+slopes (HSM1, SFC1, HSM2, SFC2). This was the production configuration at the time of this experiment.
 
 **Configuration B (geometric only).** The 4 geometric partitions alone, with toroidal slopes removed. This
 establishes the baseline performance of the geometric partitions without any supplementary lines, quantifying the
@@ -5931,7 +5938,7 @@ condition related to the graph's coupling strength and cycle structure.
 The CRSCE factor graph has specific structural properties that bear directly on LBP's applicability. The graph
 contains $s^2 = 261{,}121$ binary variable nodes and $10s - 2 = 5{,}108$ factor nodes (with an additional $s = 511$
 LH verification factors). Each variable participates in exactly 8 factors (one per constraint-line family: row,
-column, diagonal, anti-diagonal, and four toroidal slopes), and each factor connects to exactly $s = 511$ variables
+column, diagonal, anti-diagonal, and four LTP partitions), and each factor connects to exactly $s = 511$ variables
 (all lines in the 8 standard families are length $s$; DSM/XSM lines near the matrix boundary are shorter, ranging
 from 1 to 511).
 
@@ -6317,6 +6324,101 @@ from the DFS loop.
 CDCL-style conflict learning with actual clause storage (not just backjumping) remains theoretically
 interesting but requires a fundamentally different conflict analysis adapted to global row constraints.
 This is a long-term research direction, not a near-term solver improvement.
+
+### D.2 Toroidal-Slope Partitions (formerly HSM1/SFC1/HSM2/SFC2)
+
+#### D.2.1 Original Design
+
+The four toroidal-slope partitions were proposed in B.2 and implemented as the first auxiliary constraint
+families added beyond the four geometric partitions (LSM, VSM, DSM, XSM). Each partition consisted of
+$s = 511$ lines defined on the $s \times s$ torus by a fixed modular slope $p$:
+
+$$
+L_k^{(p)} = \{(t,\; (k + pt) \bmod s) : t = 0, \ldots, s-1\}, \quad k \in \{0, \ldots, s-1\}.
+$$
+
+Because $s = 511$ is prime and $\gcd(p, s) = 1$ for each implemented slope, every line contained exactly
+$s$ cells and every (slope-line, row) pair intersected in exactly one cell. The four slopes and their
+designations were:
+
+| Designation | Slope $p$ | Line index formula |
+|-------------|-----------|-------------------|
+| HSM1        | 256       | $k = (c - 256r) \bmod 511$ |
+| SFC1        | 255       | $k = (c - 255r) \bmod 511$ |
+| HSM2        | 2         | $k = (c - 2r) \bmod 511$   |
+| SFC2        | 509       | $k = (c - 509r) \bmod 511$ |
+
+The slopes were chosen so that each pair of partitions was mutually 1-cell orthogonal with respect to
+rows and columns: any two distinct slope lines from different slope families intersected in at most one
+cell. This property ensured that all four families contributed maximally independent constraints.
+
+Each partition's cross-sum vector contained $s = 511$ elements, each encoded in $b = 9$ bits (MSB-first
+packed bitstream), for a per-partition storage cost of $sb = 4{,}599$ bits. Adding all four toroidal-slope
+partitions increased the per-block payload from 25,568 bits (geometric only) to 43,964 bits, raising the
+total to 125,988 bits after LH and BH.
+
+The implementation used a `ToroidalSlopeSum` class (deriving from `CrossSumVector`) with $O(1)$ line-index
+computation via a single multiply-and-modulus operation. The class remains in the source tree
+(`include/common/CrossSum/ToroidalSlopeSum.h`) for mathematical validation and unit testing.
+
+#### D.2.2 Observed Performance
+
+Doubling the per-cell constraint count from 4 to 8 was expected to substantially increase forcing-event
+frequency in the plateau band (rows 100--300). In practice, the toroidal slopes provided marginal
+propagation benefit. The core limitation was algebraic: all eight partitions (four geometric + four
+toroidal-slope) are linear functionals of the cell coordinates. The set of matrices indistinguishable from
+a given matrix under any collection of linear partitions forms a coset of a lattice in $\mathbb{Z}^{s^2}$,
+and swap-invisible patterns can be constructed by solving for the null space. Adding more linear partitions
+reduces the null-space dimension but cannot eliminate it entirely; the marginal information contributed by
+each additional slope pair diminishes because new slopes partially overlap with existing ones in the same
+algebraic family.
+
+Concretely, at the solver's plateau entry depth (~row 170), each toroidal-slope line had approximately 170
+of its 511 cells assigned, leaving $u \approx 341$ unknowns and a residual $\rho$ in the range 80--170.
+The forcing conditions ($\rho = 0$ or $\rho = u$) were far from triggering. The slopes progressed at the
+same rate as the geometric lines because their uniform, regular spacing distributed cells evenly across all
+rows. No slope line became tighter than any other at a given DFS depth.
+
+#### D.2.3 Replacement by LTP Partitions
+
+B.20 tested a direct substitution: replace the four toroidal-slope partitions with four pseudorandom
+lookup-table partitions (LTPs) while holding the total partition count at 8 and the storage budget at
+125,988 bits. Each LTP sub-table assigns cells to lines via a Fisher--Yates shuffle seeded by a
+deterministic 64-bit LCG constant. The resulting partition has no algebraic relationship to the cell
+coordinates, breaking the lattice structure that limited the toroidal slopes.
+
+B.20 Configuration C (4 geometric + 4 LTP) achieved depth ~88,503, representing the best performance
+observed at that point. The LTP partitions' non-linear cell-to-line assignment produced heterogeneous
+line composition: some LTP lines concentrated cells in early rows, reaching forcing thresholds by the
+plateau entry depth, while others scattered cells across the full matrix. This heterogeneity injected
+forcing events into the plateau band where the uniform toroidal slopes could not.
+
+#### D.2.4 Reason for Abandonment
+
+The toroidal-slope partitions were abandoned on the following grounds:
+
+1. **Algebraic redundancy.** All toroidal slopes belong to the same family of linear modular-arithmetic
+   partitions. Their null-space contribution overlaps with the existing geometric partitions, providing
+   diminishing marginal constraint information per additional slope pair.
+
+2. **Uniform progression rate.** Because every slope line visits cells at regular modular intervals
+   across all rows, all slope lines progress at the same rate during DFS. No slope line becomes tight
+   before any other at a given search depth, preventing early forcing events in the plateau band.
+
+3. **Strict dominance by LTP.** The B.20 experiment demonstrated that pseudorandom LTPs using identical
+   storage budget (4,599 bits per partition, 8 lines per cell) achieved strictly higher depth than the
+   toroidal slopes. The LTP architecture was subsequently validated across multiple research campaigns
+   (B.21--B.25), culminating in the B.22 seed optimization that established the current production
+   configuration.
+
+4. **No loss of generality.** The LTP partitions satisfy the same three cross-sum partition axioms
+   (Conservation, Uniqueness, Non-repetition) as the toroidal slopes. The wire-format field sizes are
+   identical (511 elements at 9 bits each). Switching from toroidal slopes to LTPs required only
+   semantic reinterpretation of the four payload fields, not a format change.
+
+The `ToroidalSlopeSum` class and its unit tests are retained in the codebase as mathematical reference
+implementations. Should future architectural changes reintroduce algebraic partitions (e.g., as part
+of a hybrid LTP + slope configuration), the implementation is available without modification.
 
 ## References
 
