@@ -9,7 +9,7 @@ date: "March 2026"
 
 ## Abstract
 
-The Cross-Sums Compression and Expansion (CRSCE) decompressor reconstructs a $511 \times 511$ binary matrix from four cross-sum projections, cryptographic hash constraints, and four lookup-table partitions (LTPs). Each LTP sub-table is constructed via a Fisher–Yates shuffle seeded by a 64-bit linear congruential generator (LCG) constant, and the choice of seed determines the cell-to-line assignment topology that governs constraint propagation effectiveness. This paper describes the theory of operation and expected outcomes of `b26c_joint_seed_search.py`, a tool that performs an exhaustive pairwise search over $36 \times 36 = 1{,}296$ candidate seed combinations for LTP sub-tables $T_0$ and $T_1$ while holding sub-tables $T_2$ and $T_3$ fixed. The script addresses a fundamental limitation of the prior greedy sequential search (Appendix B.22): the possibility that independently optimized seeds constitute a local rather than global optimum in the joint seed space. The document formalizes the combinatorial structure of the search, explains the re-compression methodology required for valid evaluation, describes the telemetry-based fitness metric, and analyzes the expected distribution of outcomes under both optimistic and pessimistic assumptions (Caldwell, 2026).
+The Cross-Sums Compression and Expansion (CRSCE) decompressor reconstructs a $511 \times 511$ binary matrix from four cross-sum projections, cryptographic hash constraints, and four lookup-table partitions (LTPs). Each LTP sub-table is constructed via a Fisher–Yates shuffle seeded by a 64-bit linear congruential generator (LCG) constant, and the choice of seed determines the cell-to-line assignment topology that governs constraint propagation effectiveness. This paper describes the theory of operation and results of `b26c_joint_seed_search.py`, a tool that performs an exhaustive pairwise search over $36 \times 36 = 1{,}296$ candidate seed combinations for LTP sub-tables $T_0$ and $T_1$ while holding sub-tables $T_2$ and $T_3$ fixed. The script addresses a fundamental limitation of the prior greedy sequential search (Appendix B.22): the possibility that independently optimized seeds constitute a local rather than global optimum in the joint seed space. The document formalizes the combinatorial structure of the search, explains the re-compression methodology required for valid evaluation, describes the telemetry-based fitness metric, and reports the experimental outcome. The exhaustive joint search identified the seed pair $(\texttt{CRSCLTPV}, \texttt{CRSCLTPP})$ with a peak depth of 91,090, surpassing the greedy sequential result of 89,331 by 1,759 cells (+1.97%), confirming the presence of significant inter-sub-table interaction effects and demonstrating that coordinate-wise seed optimization is insufficient for this problem (Caldwell, 2026).
 
 ## 1. Introduction
 
@@ -360,17 +360,120 @@ as simulated annealing or evolutionary strategies could efficiently explore larg
 seed changes produce large depth swings), exhaustive enumeration or random sampling may be the only reliable
 approaches.
 
-## 8. Conclusion
+## 8. Experimental Results
 
-The `b26c_joint_seed_search.py` script represents a principled escalation from coordinate-wise to pairwise exhaustive
-optimization of LTP partition seeds in the CRSCE decompressor. By enumerating all 1,296 combinations of sub-table
-seeds $s_1$ and $s_2$ with matched re-compression, the script provides definitive evidence about the joint optimality
-of the greedy sequential result, quantifies the interaction between the first two sub-tables, and produces a
-two-dimensional fitness landscape that informs future partition design decisions. The methodological contribution—
-re-compressing the source file for each candidate pair to ensure LTP sum consistency—is essential for measurement
-validity and distinguishes this search from a naive parameter sweep. Whether the joint search discovers a superior
-seed pair or confirms the greedy result, the data it produces advances the empirical understanding of how LTP seed
-selection governs solver performance in the CRSCE constraint satisfaction framework.
+### 8.1 Search Execution
+
+The joint search completed all 1,296 candidate pairs in approximately 9 hours using the `llvm-release` preset on an
+Apple Silicon host. Per-pair wall time averaged approximately 23–25 seconds: approximately 3–5 seconds for
+re-compression and 20 seconds for decompression. Results were written progressively to `tools/b26c_results.json`
+after each pair evaluation, providing a full record of the depth landscape.
+
+### 8.2 Winner: CRSCLTPV + CRSCLTPP at Depth 91,090
+
+The exhaustive search identified the seed pair $(\sigma_1, \sigma_2) = (\texttt{CRSCLTPV}, \texttt{CRSCLTPP})$ as
+the joint optimum, achieving a peak DFS depth of **91,090**. This surpasses the greedy sequential baseline of 89,331
+by **1,759 cells**, an improvement of **+1.97%**. The result confirms the optimistic scenario described in Section 7.2:
+significant interaction effects exist between sub-tables $T_0$ and $T_1$, and the coordinate-wise greedy search was
+trapped at a local optimum in the joint seed space.
+
+The winning pair uses a seed1 value (`CRSCLTPV`, suffix byte `0x56`) that does not appear in the greedy sequential
+Phase-1 ranking: when seed2 was fixed to the default `CRSCLTP1`–`CRSCLTP4` values, `CRSCLTPV` performed below the
+observed Phase-1 winner `CRSCLTP0`. The joint search recovered it because `CRSCLTPV` is synergistic with
+`CRSCLTPP`—a combination that the greedy search, conditioned on the Phase-1 winner, could not discover.
+
+### 8.3 Depth Landscape Statistics
+
+The full 1,296-pair landscape has the following structure:
+
+| Metric                    | Value            |
+|---------------------------|------------------|
+| Total pairs evaluated     | 1,296            |
+| Mean depth                | 86,941           |
+| Minimum depth             | 84,265           |
+| Maximum depth (winner)    | 91,090           |
+| Pairs ≥ 89,331 (baseline) | 29 (2.2%)        |
+| Pairs ≥ 90,000            | 7 (0.54%)        |
+| Pairs ≥ 91,000            | 1 (0.08%)        |
+
+The landscape is highly non-uniform: 97.8% of pairs fall below the greedy baseline, and only 2.2% exceed it. This
+confirms the rugged landscape hypothesis from Section 7.4—small changes in seed suffix produce large depth swings,
+making gradient-free exhaustive search the appropriate strategy for this problem. The winner at 91,090 is a clear
+outlier at the top of the distribution.
+
+### 8.4 Top-10 Pairs
+
+The ten highest-performing pairs identified by the search are:
+
+| Rank | Seed 1      | Seed 2      | Depth  |
+|------|-------------|-------------|--------|
+| 1    | CRSCLTPV    | CRSCLTPP    | 91,090 |
+| 2    | CRSCLTPH    | CRSCLTPR    | 90,826 |
+| 3    | CRSCLTPG    | CRSCLTPK    | 90,244 |
+| 4    | CRSCLTPX    | CRSCLTPB    | 90,139 |
+| 5    | CRSCLTPZ    | CRSCLTPZ    | 90,031 |
+| 6    | CRSCLTPP    | CRSCLTPQ    | 90,027 |
+| 7    | CRSCLTPJ    | CRSCLTP9    | 90,013 |
+| 8    | CRSCLTPB    | CRSCLTPA    | 89,875 |
+| 9    | CRSCLTPV    | CRSCLTPY    | 89,874 |
+| 10   | CRSCLTPZ    | CRSCLTPC    | 89,853 |
+
+The greedy sequential pair `(CRSCLTP0, CRSCLTPG)` scored 89,331 and does not appear in the top 10. Seven pairs
+exceed 90,000, and the top pair exceeds second place by 264 cells—a gap comparable to the entire improvement seen
+in the B.22 greedy search campaign.
+
+### 8.5 Confirmed Interaction Effects
+
+The results definitively confirm that seed1 and seed2 are not independent. Under the separability assumption, the
+greedy sequential optimum would be the joint optimum, and the distribution of joint pair scores would be
+approximately the product of the independent marginals. Instead:
+
+1. **The greedy sequential pair ranks 29th** (89,331 depth) out of 1,296 pairs evaluated — it is not the joint
+   optimum.
+2. **The joint winner (CRSCLTPV) was not the greedy Phase-1 winner** (CRSCLTP0). The value of seed1 is
+   context-dependent: `CRSCLTPV` is superior when paired with `CRSCLTPP`, but this combination was invisible
+   to the greedy search which fixed seed2 at the wrong default during Phase 1.
+3. **The landscape is rugged**: the coefficient of variation across depths is approximately 1.4%, but the
+   range is 6,825 cells (84,265 to 91,090) — a 7.6% spread relative to the mean.
+
+These findings validate the local optimum hypothesis from Section 3.2 and establish that joint optimization of
+the $(s_1, s_2)$ pair provides a material gain that coordinate descent cannot achieve.
+
+### 8.6 Deployment and Validation
+
+The new seeds were deployed in `src/Decompress/Solvers/LtpTable.cpp`:
+
+```cpp
+constexpr std::uint64_t kSeed1 = 0x4352'5343'4C54'5056ULL;  // CRSCLTPV
+constexpr std::uint64_t kSeed2 = 0x4352'5343'4C54'5050ULL;  // CRSCLTPP
+```
+
+End-to-end validation via the 30-minute `uselessMachine` test confirmed the depth of **91,090** under real workload
+conditions, matching the 20-second B.26c search result. The existing test suite (30 unit and integration tests)
+passed without modification; the new seeds change the DI values for stored `.crsce` archives but the round-trip test
+re-compresses and re-decompresses end-to-end, making it self-consistent under any seed configuration.
+
+## 9. Conclusion
+
+The `b26c_joint_seed_search.py` script provided definitive evidence that the B.22 greedy sequential search for LTP
+partition seeds was trapped at a local optimum. By exhaustively enumerating all 1,296 combinations of sub-table seeds
+$s_1$ and $s_2$ with matched re-compression, the search identified the pair $(\texttt{CRSCLTPV}, \texttt{CRSCLTPP})$
+achieving depth 91,090—a 1,759-cell (1.97%) improvement over the prior greedy result of 89,331.
+
+Three conclusions follow from this work. First, the depth function $D(s_1, s_2)$ over the 36-element candidate set
+is non-separable: the optimal seed1 depends on the choice of seed2, and vice versa. Coordinate-wise optimization
+missed the global optimum because the winning seed1 value (`CRSCLTPV`) ranked poorly when paired with the defaults
+used during Phase 1. Second, the landscape is rugged: the 7.6% depth range (84,265–91,090) across 1,296 pairs
+precludes gradient-based or local search strategies; exhaustive enumeration is necessary to guarantee optimality
+within the candidate set. Third, the re-compression methodology introduced in B.22 is essential for measurement
+validity—naive parameter sweeps without re-compression would produce artificially inflated or deflated depth scores
+due to LTP sum mismatch between the stored payload and the active partition.
+
+The methodological lesson generalizes: any system that optimizes structured parameters via coordinate descent over a
+non-smooth objective should verify the result with a pairwise (or higher-order) exhaustive check in the most
+sensitive dimensions, even at significant computational cost. In the CRSCE case, the 18× cost increase from $4K=144$
+greedy evaluations to $K^2=1{,}296$ joint evaluations produced a 1.97% solver improvement that would otherwise have
+been permanently foregone.
 
 ## References
 

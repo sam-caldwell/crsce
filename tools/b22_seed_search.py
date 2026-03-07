@@ -49,16 +49,16 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_PRESET = "llvm-release"
 DEFAULT_SECS = 45
 
-# Default seeds: current best from B.22 independent search (correct re-compress methodology).
-# Phase-1 winner: CRSCLTPR (0x435253434c545052) — depth 87,725 with matched .crsce
-# Phase-2 winner: CRSCLTPG (0x435253434c545047) — yet to be confirmed with correct methodology
-# Seeds 3/4: unchanged from original (phases 3/4 invariant under the flawed search; TBD)
+# Default seeds: B.26c joint search winners (see tools/b26c_joint_seed_search.py).
+# B.26c exhaustive 36×36 search found CRSCLTPV+CRSCLTPP = 91,090 depth (+1.97% over B.22 result).
+# B.22 greedy result (CRSCLTP0 + CRSCLTPG = 89,331) was a local optimum.
+# Seeds 3/4: invariant — all 36 candidates tied at 89,331 in phases 3+4.
 _PREFIX = b"CRSCLTP"  # 7 bytes → 0x43 52 53 43 4C 54 50
 DEFAULT_SEEDS = [
-    int.from_bytes(_PREFIX + bytes([0x52]), "big"),  # CRSCLTPR (phase-1 winner)
-    int.from_bytes(_PREFIX + bytes([0x47]), "big"),  # CRSCLTPG (phase-2 winner, to re-verify)
-    int.from_bytes(_PREFIX + bytes([0x33]), "big"),  # CRSCLTP3
-    int.from_bytes(_PREFIX + bytes([0x34]), "big"),  # CRSCLTP4
+    int.from_bytes(_PREFIX + bytes([0x56]), "big"),  # CRSCLTPV (B.26c joint winner)
+    int.from_bytes(_PREFIX + bytes([0x50]), "big"),  # CRSCLTPP (B.26c joint winner)
+    int.from_bytes(_PREFIX + bytes([0x33]), "big"),  # CRSCLTP3 (invariant)
+    int.from_bytes(_PREFIX + bytes([0x34]), "big"),  # CRSCLTP4 (invariant)
 ]
 
 # Candidate suffix bytes: '0'-'9' + 'A'-'Z' (36 options)

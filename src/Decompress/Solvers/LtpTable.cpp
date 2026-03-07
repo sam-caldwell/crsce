@@ -14,11 +14,15 @@
  *
  * B.22 seed search: seeds are runtime-overridable via environment variables
  * CRSCE_LTP_SEED_1 through CRSCE_LTP_SEED_4 (decimal or 0x-prefixed hex uint64).
- * Optimized defaults (4-phase independent search, 45s/candidate, re-compress per candidate):
- *   kSeed1 = CRSCLTP0 (phase-1 winner; depth 89,331)
- *   kSeed2 = CRSCLTPG (phase-2 winner; depth 89,331)
- *   kSeed3 = CRSCLTP3 (phase-3: all 36 candidates tie at 89,331 — invariant)
- *   kSeed4 = CRSCLTP4 (phase-4: all 36 candidates tie at 89,331 — invariant)
+ * Optimized defaults (B.26c joint 2-seed exhaustive search, 20s/candidate, 1,296 pairs):
+ *   kSeed1 = CRSCLTPV (B.26c joint winner; depth 91,090)
+ *   kSeed2 = CRSCLTPP (B.26c joint winner; depth 91,090)
+ *   kSeed3 = CRSCLTP3 (all 36 candidates tie at 89,331 — invariant)
+ *   kSeed4 = CRSCLTP4 (all 36 candidates tie at 89,331 — invariant)
+ *
+ * Prior B.22 greedy sequential result: CRSCLTP0 + CRSCLTPG = 89,331 (local optimum).
+ * B.26c exhaustive joint search over 36x36=1,296 pairs found CRSCLTPV+CRSCLTPP = 91,090
+ * (+1,759 improvement, +1.97%).
  *
  * Tables are computed once on first access and shared via function-local statics.
  */
@@ -49,20 +53,20 @@ namespace {
 
     /**
      * @name kSeed1
-     * @brief LCG seed for pass 0 ("CRSCLTP0" — B.22 phase-1 winner; depth 89,331).
+     * @brief LCG seed for pass 0 ("CRSCLTPV" — B.26c joint winner; depth 91,090).
      *
-     * Correct-methodology search (re-compress per candidate): CRSCLTP0 wins phase 1
-     * with seeds 2/3/4 fixed to CRSCLTPG/CRSCLTP3/CRSCLTP4.
+     * B.26c exhaustive joint search over all 36×36=1,296 pairs (seeds 3/4 fixed).
+     * CRSCLTPV+CRSCLTPP achieves 91,090, beating the B.22 greedy result of 89,331.
      */
-    constexpr std::uint64_t kSeed1 = 0x4352'5343'4C54'5030ULL;
+    constexpr std::uint64_t kSeed1 = 0x4352'5343'4C54'5056ULL;
 
     /**
      * @name kSeed2
-     * @brief LCG seed for pass 1 ("CRSCLTPG" — B.22 phase-2 winner; depth 89,331).
+     * @brief LCG seed for pass 1 ("CRSCLTPP" — B.26c joint winner; depth 91,090).
      *
-     * With seed_1=CRSCLTP0 fixed, CRSCLTPG achieves 89,331 peak depth.
+     * Jointly optimal with kSeed1=CRSCLTPV. B.26c result: +1,759 over B.22 baseline.
      */
-    constexpr std::uint64_t kSeed2 = 0x4352'5343'4C54'5047ULL;
+    constexpr std::uint64_t kSeed2 = 0x4352'5343'4C54'5050ULL;
 
     /**
      * @name kSeed3
