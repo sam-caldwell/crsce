@@ -374,8 +374,8 @@ selection governs solver performance in the CRSCE constraint satisfaction framew
 
 ## References
 
-Caldwell, S. (2026). CRSCE decompression using a constraint-based graph-theoretical approach. Champlain College,
-    CMIT-450 Senior Seminar.
+Caldwell, S. (2026). CRSCE decompression using a constraint-based graph-theoretical approach.
+    Champlain College, CMIT-450 Senior Seminar. https://github.com/sam-caldwell/crsce/docs/CRSCE Decompression Using a Constraint.md
 
 Knuth, D. E. (2005). *The art of computer programming, volume 4, fascicle 2: Generating all tuples and
     permutations*. Addison-Wesley.
