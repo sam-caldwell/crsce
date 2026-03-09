@@ -4327,7 +4327,7 @@ uniform-length supplementary lines as a plateau-breaking mechanism; variable-len
 length distribution of DSM/XSM may escape the dead zone by allowing short lines ($\ll 511$ cells) to reach
 forcing thresholds earlier in the plateau.
 
-## B.21 Joint-Tiled Variable-Length LTP Partitions
+### B.21 Joint-Tiled Variable-Length LTP Partitions
 
 B.20 replaced four toroidal-slope partitions with four uniform-length LTP partitions, each containing
 511 lines of 511 cells. Every cell belongs to all four LTP partitions, yielding 8 constraint lines per
@@ -4339,7 +4339,7 @@ each partition contains variable-length lines following the DSM/XSM triangular d
 cell belongs to exactly one LTP partition. The result is fewer but *stronger* LTP constraints per cell,
 a naturally lossless variable-length encoding, and a modest reduction in block payload size.
 
-### B.21.1 Motivation
+#### B.21.1 Motivation
 
 The DSM and XSM families encode cross-sums with variable bit widths because their line lengths vary
 from 1 to $s$. The encoding cost for one diagonal family over $2s - 1$ lines totals $B_d(s) = 8{,}185$
@@ -4359,7 +4359,7 @@ can average 511 over 511 elements; the only such distribution is the degenerate 
 resolution is to abandon per-partition completeness: each LTP partition covers approximately one
 quarter of the matrix, and the four partitions jointly tile the full $s \times s$ grid.
 
-### B.21.2 Partition Structure
+#### B.21.2 Partition Structure
 
 Each of the four LTP sub-tables $T_k$ ($k \in \{0, 1, 2, 3\}$) contains 511 lines indexed
 $i \in [0, 510]$ with prescribed lengths:
@@ -4385,7 +4385,7 @@ The per-cell constraint line count is:
 - 260,098 cells: 4 basic lines + 1 LTP line = 5 constraint lines.
 - 1,023 cells: 4 basic lines + 2 LTP lines = 6 constraint lines.
 
-### B.21.3 Encoding and Payload Impact
+#### B.21.3 Encoding and Payload Impact
 
 Each sub-table encodes identically to a DSM or XSM family truncated to 511 elements. The bit cost
 per sub-table is:
@@ -4425,7 +4425,7 @@ Block payload size: $\lceil 123{,}980 / 8 \rceil = 15{,}498$ bytes. Compression 
 $15{,}498 / 32{,}641 \approx 47.5\%$, down from 48.3% under uniform LTP (B.20) and 51.8% under
 the original toroidal-slope format.
 
-### B.21.4 Constraint Strength Analysis
+#### B.21.4 Constraint Strength Analysis
 
 Reducing from 4 LTP lines per cell to 1 appears to weaken the constraint system, but the analysis
 is more nuanced. Under B.20's uniform design, each of the 4 LTP lines has 511 cells. During the
@@ -4448,7 +4448,7 @@ forcing events outweigh the loss of three long, inert constraint lines. The 1,02
 two sub-tables receive a sixth constraint line, and these privileged cells should be placed
 deliberately at the matrix corners where diagonal coverage is weakest (see B.21.5).
 
-### B.21.5 Spatial Layout: Center-Cross / Corner-Long Distribution
+#### B.21.5 Spatial Layout: Center-Cross / Corner-Long Distribution
 
 The joint-tiled architecture enables a deliberate spatial arrangement of line lengths across the
 matrix. The design principle is *complementarity*: place short LTP lines where the basic partitions
@@ -4491,7 +4491,7 @@ After $T_0$ is constructed, $T_1$ is built from the remaining unassigned cells (
 the 1,023 dual-assigned cells), then $T_2$ from the next remainder, and $T_3$ from the final
 remainder. The sequential construction ensures joint tiling with exactly 1,023 overlapping cells.
 
-### B.21.6 Table Construction Protocol
+#### B.21.6 Table Construction Protocol
 
 The four sub-tables must be constructed in a fixed order ($T_0, T_1, T_2, T_3$) so that both
 compressor and decompressor produce identical cell-to-line mappings. The protocol is:
@@ -4520,7 +4520,7 @@ The entire construction is deterministic ($O(s^2)$ per sub-table, $O(s^2)$ total
 $s$ and the four seed strings. Both compressor and decompressor execute the identical construction at
 startup, requiring no table data in the payload.
 
-### B.21.7 Implications for the Solver
+#### B.21.7 Implications for the Solver
 
 The solver's `ConstraintStore` changes as follows:
 
@@ -4548,7 +4548,7 @@ unknowns to 0) and $\rho = u$ (force all unknowns to 1) are reached within the f
 assignments to that line. This produces immediate propagation cascades during the early rows of the
 solve---exactly the region where propagation is currently most effective.
 
-### B.21.8 Comparison with B.20 Uniform LTP
+#### B.21.8 Comparison with B.20 Uniform LTP
 
 | Metric                           | B.20 (Uniform)      | B.21 (Joint-Tiled)         |
 |----------------------------------|---------------------|----------------------------|
@@ -4566,7 +4566,7 @@ The joint-tiled design trades breadth of coverage (fewer LTP lines per cell) for
 (shorter, more forceful lines) and encoding efficiency (variable-width sums). The spatial layout
 further optimizes coverage by concentrating long LTP lines where the basic partitions are weakest.
 
-### B.21.9 Predicted Telemetry Targets
+#### B.21.9 Predicted Telemetry Targets
 
 B.20.9 established the Configuration C baseline: plateau depth ~88,503, hash mismatch rate 25.2%,
 iteration rate ~198K/sec, block payload 15,749 bytes. Three telemetry indicators should be monitored
@@ -4601,7 +4601,7 @@ address, and the research program should pivot decisively toward non-partition a
 (conflict-driven learning), B.11 (randomized restarts), and B.16--B.19 (row-completion look-ahead,
 failure-biased branching, stall detection).
 
-### B.21.10 Outcome
+#### B.21.10 Outcome
 
 B.21 was fully implemented and all 30 unit and integration tests pass with lint clean. The 30-minute
 `uselessTest` depth run (same random binary block used for all prior comparisons) produced the
@@ -4663,7 +4663,7 @@ variable-length encoding it introduces (saving 502 bytes per block relative to B
 improvement regardless of the partition topology.  The plateau regression requires a new partition
 design before the depth ceiling can be attacked further.
 
-### B.21.11 Next Iteration Improvement
+#### B.21.11 Next Iteration Improvement
 
 B.21 established three empirical facts that constrain the design space for the next iteration.
 
@@ -4776,7 +4776,7 @@ If step 1 achieves depth $\geq 90{,}000$, steps 2--3 become optional optimizatio
 required fixes, and the research program can pivot to compression-ratio improvements or the
 parallel-restart strategy (B.11).
 
-### B.21.12 Final Outcomes (CDCL + B.22)
+#### B.21.12 Final Outcomes (CDCL + B.22)
 
 Both Candidate 1 (CDCL) and Candidate 2 (B.22) from B.21.11 were executed sequentially and
 then combined.
@@ -4875,7 +4875,7 @@ the gap:
   per cell.  A quadratic distribution, a uniform-511 distribution with random shuffle (repeating
   B.20 to validate parity), or a clipped triangular (minimum length 64) are candidate targets.
 
-### B.21.13 CDCL Interaction Study (B.23 and B.24)
+#### B.21.13 CDCL Interaction Study (B.23 and B.24)
 
 Following B.22's conclusion that CDCL "should be retained," B.23 tested uniform-511 + CDCL to
 isolate whether CDCL benefits a known-good partition. B.24 then disabled CDCL entirely to measure
@@ -4960,7 +4960,7 @@ The remaining ~2,400-frame gap is attributed to:
   per-assignment record/unrecord calls) to recover B.20's ~198K iter/sec and close the 2K depth
   gap.  Expected outcome: depth ≥ 88,503 (or reveal remaining structural differences).
 
-### B.21.14 Open Questions
+#### B.21.14 Open Questions
 
 (a) What is the optimal distribution of the 1,023 dual-covered cells? Placing them at extreme corners
 maximizes complementarity with diagonal coverage, but other strategies (e.g., distributing them along
@@ -5386,9 +5386,9 @@ already considered too complex and produced a regression itself (50,272 depth), 
 abandoned.  The correct follow-on is B.22 seed search within the uniform-511 architecture (B.25),
 which preserves full coverage while varying partition topology.
 
-#### B.24. Reserved
+### B.24. Reserved
 
-#### B.25. Reserved
+### B.25. Reserved
 
 ### B.26 Joint Seed Search for LTP Sub-Tables (Implemented)
 
@@ -5687,7 +5687,601 @@ evaluated seed pairs during idle time and updated the production seed set when i
 are found, the depth ceiling would continuously improve as a function of accumulated compute
 without manual intervention.
 
-#### B.27. Reserved
+### B.27 Increasing Constraint Density via LTP5 and LTP6 (Implemented)
+
+#### B.27.1 Motivation
+
+The B.26c joint seed search confirmed that the depth plateau at 91,090 cells (row ≈178) is
+governed by the partition topology of LTP1–LTP4. Each cell belongs to exactly one line in each
+of the four sub-tables, giving eight constraint lines per cell (row, column, diagonal,
+anti-diagonal, LTP1, LTP2, LTP3, LTP4). At the plateau boundary, propagation stalls because no
+forcing rule fires: every active line has $\rho > 0$ and $u > 0$. The number of cells that can
+be in this "underdetermined interior" depends directly on how many independent constraint families
+bound each cell. Adding two additional uniform-511 sub-tables raises the per-cell constraint
+count from 8 to 10, increasing the probability that at least one line forces a cell at each DFS
+level.
+
+#### B.27.2 Architecture Changes
+
+**New sub-tables.** LTP5 and LTP6 are constructed by the same Fisher-Yates LCG shuffle used for
+LTP1–LTP4, seeded by two new 64-bit constants:
+
+$$k_{\text{seed5}} = \texttt{0x4352'5343'4C54'5035}
+  \quad (\text{"CRSCLTP5"}),
+  \qquad
+  k_{\text{seed6}} = \texttt{0x4352'5343'4C54'5036}
+  \quad (\text{"CRSCLTP6"}).$$
+
+These are the default alphanumeric seeds for sub-tables 5 and 6 — identical in construction
+method to the pre-B.22 seeds for LTP1–LTP4. They were **not jointly optimized** at the time of
+this experiment; joint optimization is the subject of future work (§B.27.5).
+
+**Constraint store.** `ConstraintStore` is extended from 8 to 10 constructor parameters,
+adding `ltp5Sums` and `ltp6Sums`. The total tracked line count increases from $10s - 2 = 5{,}108$
+to $12s - 2 = 6{,}130$ (where $s = 511$). New constants `kLtp5Base = 5108` and
+`kLtp6Base = 5619` index into the flat line array.
+
+**Wire format.** Each block payload grows by $2 \times 511 \times 9 = 9{,}198$ bits:
+
+| Field | B.26c | B.27 |
+|-------|-------|------|
+| LTP sub-tables | 4 | 6 |
+| LTP payload bits | $4 \times 4{,}599 = 18{,}396$ | $6 \times 4{,}599 = 27{,}594$ |
+| Total block bits | 125,988 | 135,186 |
+| Block bytes | **15,749** | **16,899** |
+
+**GPU integration.** `MetalPropagationEngine` and `ForEachCellOnLine` are updated to handle
+`LineType::LTP5` and `LineType::LTP6`. `kMetalPropTotalLines` changes from $(10 \times 511) - 2$
+to $(12 \times 511) - 2 = 6{,}130$.
+
+#### B.27.3 Experimental Parameters
+
+- **Seed5, Seed6:** `CRSCLTP5`, `CRSCLTP6` (default, unoptimized)
+- **Seeds 1–4:** Fixed at B.26c winner: `CRSCLTPV` + `CRSCLTPP` (+ `CRSCLTP3`, `CRSCLTP4`)
+- **Test input:** `useless-machine.mp4` (same as all prior experiments)
+- **Decompress runtime:** 30 minutes
+- **Comparison baseline:** B.26c depth 91,090, avg iter/sec ~411K
+
+#### B.27.4 Results
+
+| Metric | B.26c (4-LTP) | B.27 (6-LTP, default seeds) | Change |
+|--------|:---:|:---:|:---:|
+| Max depth (cells) | 91,090 | **91,090** | 0 (0.00%) |
+| Plateau row | ≈178 | ≈178 | unchanged |
+| `min_nz_row_unknown` | 161 | 161 | unchanged |
+| Avg iter/sec | ~411K | ~399K | −3.0% |
+| Stall escalations | 3 | 3 | unchanged |
+
+The 6-LTP solver matches the B.26c depth ceiling exactly over 30 minutes and ~800M DFS
+iterations. The depth-versus-time trace oscillates between 91,078 and 91,090, identical in
+character to B.26c. No new maximum was observed.
+
+**Throughput.** The 3% reduction in iteration rate is consistent with the cost of 25% more
+constraint-line updates per cell assignment (10 lines instead of 8). The overhead is sublinear
+because propagation is dominated by the fast-path `tryPropagateCell()` branch, which exits
+early before iterating all lines in most cases.
+
+#### B.27.5 Conclusions
+
+1. **Additional LTP sub-tables are neutral at default seeds.** Adding LTP5 and LTP6 with
+   unoptimized seeds preserves the depth ceiling (91,090) and plateau location (row 178)
+   precisely. The extra constraint density does not spontaneously improve DFS performance —
+   the seed selection governs which cells are co-constrained at the plateau boundary, and
+   default seeds reproduce the same underdetermined interior.
+
+2. **The 3% throughput penalty is acceptable.** At ~399K iter/sec the 6-LTP solver
+   remains faster than B.20 (~198K), B.22 greedy (~329K), and approaches the B.26c rate.
+   If seed optimization yields a depth improvement, the slowdown is justified.
+
+3. **Seed optimization is the critical next step.** The B.26c experiment demonstrated
+   that greedy sequential seed selection ranked 29th out of 1,296 pairs, and the true
+   winner was non-separable (CRSCLTPV only wins when paired with CRSCLTPP). The same
+   landscape ruggedness is expected for seeds 5 and 6. Optimization proceeds via
+   **coordinate-descent staging**: fix $s_6$ at its default (`CRSCLTP6`), sweep all 256
+   suffix-byte candidates for $s_5$; freeze the best $s_5$ and sweep all 256 candidates
+   for $s_6$; iterate until convergence. Cost per sweep: $256 \times 23\,\text{s} \div 4
+   \approx 26$ minutes; a full round (two sweeps) completes in under one hour. This is
+   strictly cheaper than exhaustive joint search ($256^2 = 65{,}536$ pairs at ~105 hours
+   wall time) while converging to the same optimum in non-pathological landscapes.
+
+4. **Wire-format breakage is real.** Any container produced under the 4-LTP format
+   (15,749 bytes/block) is incompatible with the 6-LTP reader (16,899 bytes/block) and
+   vice versa. `ValidateContainer` was updated to enforce the new size. This is expected
+   behavior for a research format with no versioning guarantee between branches.
+
+#### B.27.6 Open Questions
+
+(a) Does coordinate-descent over the full 256-byte suffix space (sweep $s_5$, freeze, sweep
+$s_6$, iterate) yield a depth improvement beyond the B.26c ceiling of 91,090? The B.26c
+landscape was rugged (greedy ranked 29th of 1,296); the landscape for $s_5$ and $s_6$ may
+be similarly non-separable and require multiple coordinate-descent rounds to converge to the
+true per-pair optimum. The B.22 observation (seeds 3 and 4 invariant within the alphanumeric
+set) may not generalize to the full 256-byte space or to the 10-line-per-cell operating point.
+
+(b) After $(s_5, s_6)$ are optimized, should $(s_1, s_2)$ be re-optimized at the new
+operating point? A full 4D joint search over $(s_1, s_2, s_5, s_6)$ is infeasible
+($256^4 \approx 4.3 \times 10^9$ pairs at 23 seconds each, $\approx$3,100 years).
+Alternating coordinate descent — sweep $s_1$ (all 256), freeze best; sweep $s_2$, freeze;
+sweep $s_5$, freeze; sweep $s_6$, freeze; repeat — is tractable at $\approx$26 minutes per
+axis sweep but risks local optima. The B.26c non-separability result makes this risk concrete:
+the greedy sequential winner differed from the joint winner.
+
+(c) Is there a structural maximum to the benefit of additional LTP sub-tables? As more
+sub-tables are added, each cell becomes over-constrained before the plateau row, potentially
+reducing the backtracking freedom that enables deeper search. An empirical sweep of
+$k \in \{4, 6, 8, 10\}$ LTP sub-tables (with jointly optimized seeds at each $k$) would
+characterize the optimal constraint density.
+
+### B.28 Interior-Byte Variant: `CRSC[X]LTP` (Proposed)
+
+#### B.28.1 Motivation
+
+B.26d and B.27 vary the trailing byte (byte 8, LSB, bits 7..0) of the 8-byte seed, holding the
+first 7 bytes fixed as `CRSCLTP`. B.29 varies the leading byte (byte 1, MSB, bits 63..56).
+Both probe the *extremes* of the 64-bit seed integer.
+
+B.28 tests the **interior**. It fixes the first 4 bytes (`CRSC`) and the last 3 bytes (`LTP`),
+and sweeps a single variable byte in position 5 — the byte that has always been fixed to `L`
+in all prior seeds. The word `CRSCLTP` is split in the middle:
+
+$$\underbrace{C R S C}_{4\text{ fixed}} \underbrace{[X]}_{1\text{ var}} \underbrace{L T P}_{3\text{ fixed}}$$
+
+This tests whether the constraint that anchors the seed family is the four-letter prefix `CRSC`
+(bytes 0–3), or the full seven-letter string `CRSCLTP`. It also probes bit positions 31..24 —
+the center of the 64-bit integer — which neither B.26d/B.27 nor B.29 covers. Together with
+B.27 (LSB) and B.29 (MSB), these three 1-byte sweeps bracket the 64-bit seed space at three
+independent positions and are each tractable in under one hour per axis with 4 workers.
+
+**Hypothesis.** The Fisher-Yates LCG shuffle is sensitive to all 64 bits of its seed. The
+convention of fixing byte 5 to `L` (0x4C) may be silently suboptimal. Seeds of the form
+`CRSC[X]LTP` where $X \neq \texttt{0x4C}$ may produce partition layouts with higher depth.
+
+#### B.28.2 Seed Structure
+
+| Role | Bytes | Bit positions | Fixed value |
+|------|-------|---------------|-------------|
+| High prefix (fixed) | bytes 0–3 | 63..32 | `CRSC` = `0x43525343` |
+| Middle (variable) | byte 4 | 31..24 | `0x00`–`0xFF` |
+| Low suffix (fixed) | bytes 5–7 | 23..0 | `LTP` = `0x4C5450` |
+
+The 256 B.28 seeds per axis are:
+
+$$s(X) = (\texttt{0x43525343} \ll 32) \mid (X \ll 24) \mid \texttt{0x004C5450}, \quad X \in \{0, 1, \ldots, 255\}$$
+
+When $X = \texttt{0x4C}$ (`L`), the seed is `0x435253434C4C5450` — not a valid B.26d/B.27
+seed (`CRSCL`**`L`**`TP`). The B.26d/B.27 `CRSCLTP?` seeds have byte 4 = `0x4C` and byte 5 =
+`0x54` (`T`); in B.28 notation byte 5 is fixed to `T` already, so this is consistent.
+
+The four seed families now systematically probe three bit zones of the 64-bit integer:
+
+| Experiment | Seed form | Variable bit zone | Space/axis |
+|-----------|-----------|-------------------|-----------|
+| B.26c | `CRSCLTP` + alphanum | bits 7..0, restricted | 36 |
+| B.26d / B.27 | `CRSCLTP` + any byte | bits 7..0 | 256 |
+| **B.28** | **`CRSC[X]LTP`** | **bits 31..24** | **256** |
+| B.29 | `[X]CRSCLTP` | bits 63..56 | 256 |
+
+#### B.28.3 Coordinate-Descent Staging
+
+**Per-axis sweep.** Fix all other seeds at their current best values; sweep all 256 $X$-byte
+values for the target axis. Cost: $256 \times 23\,\text{s} \div 4\,\text{workers} \approx 26$
+minutes per axis — identical to a B.27 or B.29 sweep.
+
+**Convergence round.** Sweep seed5 (hold seed6 at default), freeze best seed5; sweep seed6,
+freeze best seed6; repeat until no improvement. Typical convergence: 2–3 rounds, $\approx 2$
+hours total.
+
+**Cross-family restart.** After B.28 converges on both axes, re-run B.27 (LSB) and B.29 (MSB)
+sweeps with seeds fixed at the B.28 winner to verify no other bit zone can improve further.
+Repeat across families until no axis yields improvement.
+
+#### B.28.4 Tooling
+
+A new script `tools/b28_seed_search.py`, structured identically to `tools/b27_seed_search.py`
+with one change in seed construction:
+
+```python
+_HIGH = 0x43525343  # "CRSC" (bytes 0–3)
+_LOW  = 0x004C5450  # "\x00LTP" (bytes 5–7, zero-padded for OR)
+
+def make_seed(x_byte: int) -> int:
+    return (_HIGH << 32) | (x_byte << 24) | _LOW
+```
+
+```bash
+# Sweep seed5 B.28 axis (hold seeds 1-4 at B.26c winner, seed6 at default):
+python3 tools/b28_seed_search.py --worker 0 --workers 4 --target-seed 5
+
+# Merge and rank after completion:
+python3 tools/b28_merge_results.py --out-dir tools/b28_results --workers 4
+```
+
+A companion `tools/b28_merge_results.py` mirrors `tools/b27_merge_results.py`.
+
+#### B.28.5 Expected Outcomes
+
+**Optimistic.** A byte value other than `0x4C` (`L`) yields meaningfully higher depth for one
+or more seeds. This would confirm that the `CRSCLTP` prefix is not optimal in full and that
+the interior byte space offers genuine gains, motivating further 2-byte interior sweeps.
+
+**Likely.** Depth is approximately flat across most of the 256 values, with `0x4C` (`L`) being
+near-optimal — similar to the B.22 observation that seeds 3 and 4 were invariant within the
+alphanumeric set. The plateau at 91,090 is insensitive to the interior byte.
+
+**Pessimistic.** Depth degrades sharply for $X \neq \texttt{0x4C}$ (`L`), confirming that the
+specific byte sequence `CRSCLTP` matters structurally and cannot be perturbed at byte 5.
+
+#### B.28.6 Relationship to Other Proposals
+
+*B.26d / B.27.* B.28 tests bit positions 31..24 (byte 5), whereas B.26d/B.27 test bit
+positions 7..0 (byte 8). Together these two experiments probe opposite halves of the 64-bit
+integer. A flat response in both zones would strongly indicate that depth is insensitive to
+individual seed byte values within the `CRSC??LTP`-style family.
+
+*B.29.* B.29 tests bit positions 63..56 (byte 1). Together B.28 and B.29 cover the interior
+and the MSB, while B.26d/B.27 cover the LSB. All three are 256-candidate, sub-hour-per-axis
+sweeps — a consistent methodology that avoids the infeasibility of 2-byte joint searches.
+
+*B.22.* B.22 used greedy coordinate descent within the 36-element alphanumeric set. B.28
+extends that strategy to all 256 byte values at an interior seed byte position, testing
+coordinate-descent in a new bit zone at the same per-evaluation cost.
+
+### B.29 Single-Byte Prefix with `CRSCLTP` Suffix (Proposed)
+
+#### B.29.1 Motivation
+
+B.26d and B.27 search seeds of the form `CRSCLTP` + one variable byte: the high 7 bytes are
+fixed and byte 8 (the LSB, big-endian) varies. B.28 extends that to `CRSCLT` + two variable
+bytes. Both families share the property that the *leading* bytes of the 64-bit seed are fixed
+and the *trailing* bytes vary.
+
+B.29 inverts this structure. It fixes `CRSCLTP` as the trailing 7 bytes (the suffix) and
+sweeps a single variable byte in the leading position (the MSB):
+
+$$\text{B.26d/B.27:}\quad \underbrace{C R S C L T P}_{7\text{ fixed}} \underbrace{X}_{1\text{ var}}
+\qquad
+\text{B.29:}\quad \underbrace{X}_{1\text{ var}} \underbrace{C R S C L T P}_{7\text{ fixed}}$$
+
+The seed values (big-endian uint64):
+
+$$\text{B.26d seed}(X) = \texttt{0x435253434C5450}\lVert X
+\qquad
+\text{B.29 seed}(X) = X \lVert \texttt{0x435253434C5450}$$
+
+where $\lVert$ denotes byte concatenation and $X \in [0\text{x}00, 0\text{x}FF]$.
+
+These two families are **disjoint**: no seed value is reachable by both. The B.26d family fixes
+bits 63..8 at `0x435253434C5450` and varies bits 7..0. The B.29 family fixes bits 55..0 at
+`0x435253434C5450` and varies bits 63..56. The only potential overlap would require simultaneously
+fixing and varying the same bits, which is impossible.
+
+**Hypothesis.** The Fisher-Yates LCG shuffle is sensitive to all 64 bits of its seed; there is
+no reason to expect the high byte to be irrelevant. Seeds where the low 7 bytes spell `CRSCLTP`
+but the high byte differs from `C` (0x43) may produce partition layouts with tighter line
+co-residency at the plateau boundary, yielding higher depth.
+
+#### B.29.2 Seed Structure
+
+| Role | Bytes | Bit positions | Value |
+|------|-------|---------------|-------|
+| Prefix (variable) | byte 0 | 63..56 | `0x00`–`0xFF` |
+| Suffix (fixed) | bytes 1–7 | 55..0 | `0x435253434C5450` (`CRSCLTP`) |
+
+The 256 B.29 seeds per axis are:
+
+$$s(X) = (X \ll 56) \mid \texttt{0x435253434C5450}, \quad X \in \{0, 1, \ldots, 255\}$$
+
+When $X = \texttt{0x43}$ (`C`), the seed is `0x43435253434C5450` — note that this is **not** a
+valid B.26d seed; B.26d's `C`-prefixed seed with suffix `P` is `0x435253434C545050` (CRSCLTPP),
+which has a different bit layout.
+
+#### B.29.3 Coordinate-Descent Staging
+
+- **Seeds per axis:** 256 (same as B.26d/B.27 and B.28)
+- **Cost per axis sweep:** $256 \times 23\,\text{s} \div 4\,\text{workers} \approx 26$ minutes
+- **Convergence round (two axes):** $\approx 52$ minutes; 2–3 rounds typical ($\approx 2$ hours)
+
+**Procedure.** Fix $s_6$ at its default B.29 seed ($X = \texttt{0x43}$, i.e., prefix byte =
+`C`, yielding `0x43435253434C5450`); sweep all 256 prefix-byte values for $s_5$; freeze the
+best $s_5$; sweep all 256 prefix-byte values for $s_6$; freeze the best $s_6$; iterate until
+no axis improves. This is identical in structure to the B.27 and B.28 staging procedures.
+
+**Cross-family restart.** After B.29 converges, re-run B.27 (LSB) and B.28 (interior-byte)
+sweeps with seeds fixed at the B.29 winner to verify no other bit zone yields further
+improvement. All three families share the same per-axis cost and the same convergence criterion.
+
+#### B.29.4 Relationship to the Current Seed Families
+
+The four seed families explored across B.26c–B.29:
+
+| Experiment | Seed form | Variable bits | Space/axis |
+|-----------|-----------|---------------|-----------|
+| B.26c | `CRSCLTP` + alphanum suffix | bits 7..0, restricted | 36 |
+| B.26d / B.27 | `CRSCLTP` + any suffix | bits 7..0 | 256 |
+| B.28 | `CRSCLT` + 2-byte suffix | bits 15..0 | 65,536 |
+| **B.29** | **prefix + `CRSCLTP`** | **bits 63..56** | **256** |
+
+Together B.26d (vary LSB) and B.29 (vary MSB) probe both ends of the 64-bit integer, bracketing
+the seed space and testing whether the LCG trajectory is sensitive to the high-order byte. B.28
+probes the interior (the 7th byte, previously fixed to `P`).
+
+#### B.29.5 Tooling
+
+A new script `tools/b29_seed_search.py`, structured identically to `tools/b27_seed_search.py`
+with one change in seed construction:
+
+```python
+_SUFFIX = 0x435253434C5450  # "CRSCLTP" as a 56-bit integer (big-endian bytes 1..7)
+
+def make_seed(prefix_byte: int) -> int:
+    return (prefix_byte << 56) | _SUFFIX
+```
+
+The worker partitioning, run_candidate logic, progressive JSON output, and resume support are
+unchanged. A companion `tools/b29_merge_results.py` mirrors `tools/b27_merge_results.py`.
+
+#### B.29.6 Expected Outcomes
+
+**Optimistic.** A prefix byte other than `0x43` (`C`) yields a substantially higher depth for
+one or more seeds. This would prove that the convention of starting seeds with `C` (from
+`CRSCE`) has been silently constraining the search and that better partition layouts exist.
+
+**Likely.** Depth is approximately flat across all 256 prefix values for each seed, similar to
+the B.22 observation that seeds 3 and 4 were invariant within the alphanumeric set. The plateau
+at 91,090 cells is insensitive to the high byte of the seed, and the LCG high-bit sensitivity
+does not translate to partition-quality sensitivity.
+
+**Pessimistic.** Prefix `0x43` (`C`) is the best for every seed, confirming that the `CRSCLTP?`
+convention is not merely arbitrary — the high bits of the seed do matter, and the current
+family happens to be optimal (or near-optimal) within the tractable search space.
+
+#### B.29.7 Interpretation Combined with B.28 and B.26d
+
+The three experiments form a systematic decomposition of the 64-bit seed into three zones:
+
+- **B.26d** (bits 7..0 variable): the LSB was not constraining; the full byte range was searched.
+- **B.29** (bits 63..56 variable): tests whether the MSB is constraining.
+- **B.28** (bits 15..8 variable): tests whether the penultimate byte (`P` = 0x50) is constraining.
+
+If all three return the same depth ceiling (or confirm the current optimal as locally best),
+the strong inference is that depth is governed by the global topology of the partition rather
+than the specific seed value, and further seed search within the `CRSCLT??` family offers
+diminishing returns. At that point, architectural changes (more sub-tables, variable-length
+lines, or a different partition method) become the natural next direction.
+
+---
+
+### B.30 Pincer Decompression Hypothesis (Proposed)
+
+> *Inspired by the fictional "middle-out compression" algorithm of Pied Piper, Inc., as depicted
+> in* Silicon Valley *(Judge et al., 2014–2019). Unlike Richard Hendricks's middle-out approach,
+> Pincer attacks from both ends simultaneously — but the conceptual debt to the framing is
+> acknowledged.* How many times can I watch this show
+> and not be inspired?
+
+#### B.30.1 Motivation
+
+Every experiment from B.8 through B.29 attacks the decompression problem in one direction:
+top-down, row-major, DFS from row 0 to row 510. The propagation cascade terminates at plateau
+row $K_p \approx 178$ (= $91{,}090 / 511$), leaving $333 \times 511 \approx 170{,}000$ cells
+in an underdetermined band that requires exponential backtracking. Seed optimization (B.26c,
+B.27) extends the cascade by a few hundred rows; constraint density improvements (B.22, B.27)
+adjust the line geometry — but all are bounded by the same fundamental asymmetry:
+
+**The top-down solver uses only half the available constraint information.** The stored
+cross-sums (LSM, VSM, DSM, XSM, LTP1–6) are global: they constrain the *entire* matrix, not
+just the top half. An LTP line has 511 cells scattered across all 511 rows; at plateau entry,
+~333 of them are in unassigned rows. The solver knows their collective sum residual but has
+nothing forcing them individually, because no line is near $u = 1$. The bottom rows contribute
+exactly as much to these line budgets as the top rows — but the solver never uses that fact.
+
+The **Pincer** hypothesis: run a second DFS wavefront upward from row 510. When both
+wavefronts have completed their respective propagation cascades, the constraint lines carry
+contributions from *both* ends. The underdetermined middle band sees dramatically higher
+constraint density than either wavefront could produce alone, and the forcing cascade that
+stalled at $K_p$ can restart from a much more favorable initial state.
+
+#### B.30.2 The Pincer Structure
+
+Two DFS wavefronts operate on the same constraint system:
+
+| Wavefront | Direction | Rows assigned | Plateau depth |
+|-----------|-----------|---------------|---------------|
+| **Forward** | Top-down, row 0 → $K_p$ | 0 to $K_p - 1$ | $K_p \approx 178$ (empirical) |
+| **Reverse** | Bottom-up, row 510 → $K_r$ | 510 down to $K_r$ | $K_r \approx 332$ (by symmetry) |
+| **Meeting band** | — | $K_p$ to $K_r$ | ~154 rows, ~79K cells |
+
+The reverse wavefront uses the same solver architecture (ConstraintStore, PropagationEngine,
+SHA-1 row verification) with row traversal order inverted. SHA-1 is direction-agnostic: row $r$
+verifies when all 511 cells in row $r$ are assigned, regardless of whether the assignment
+proceeded top-down or bottom-up. The reverse solver draws from *residual* line budgets — for
+each constraint line $L$, the budget available to the reverse pass is:
+
+$$\rho_{\text{available}}(L) = \text{stored\_sum}(L) - \rho_{\text{forward}}(L)$$
+
+where $\rho_{\text{forward}}(L)$ is the sum accumulated by the forward pass over rows 0 to
+$K_p - 1$. This residual is computed from the ConstraintStore state at plateau entry and
+handed to the reverse wavefront as its initial line-sum targets.
+
+#### B.30.3 Constraint Density at the Meeting Frontier
+
+At forward plateau entry (row $K_p \approx 178$) with only the top-down pass:
+
+- Each LTP line: ~178 of 511 cells assigned (~35%), $u \approx 333$, $\rho/u \approx 0.5$
+- Each column: 178 of 511 cells assigned, $u = 333$
+- Forcing requires $u = 1$: all LTP and column lines are far from forcing
+
+After both wavefronts complete their cascades (forward to $K_p$, reverse to $K_r \approx 332$):
+
+- Each LTP line: ~178 + ~171 = ~349 of 511 cells assigned (~68%), $u \approx 162$
+- Each column: same — 178 top + 171 bottom = 349 assigned, $u = 162$
+- Crucially, **variance in $\rho/u$ across lines increases sharply**. A line whose combined top
+  and bottom contributions nearly exhaust its budget has $\rho_{\text{remaining}} \approx 0$ or
+  $\rho_{\text{remaining}} \approx u_{\text{remaining}}$ — forcing all remaining middle cells to
+  0 or 1 respectively. These forced cells cascade into neighboring lines, potentially restarting
+  the propagation mechanism that stalled at $K_p$.
+
+The meeting-band density improvement is not uniform — it is concentrated in the lines that
+happened to draw heavily from the bottom rows. By the B.26c landscape result (wide variation in
+depth with seed choice), partition geometry has a strong effect on which lines are heavily
+loaded in which row ranges. Seed optimization for the reverse wavefront is an independent axis:
+the seeds that produce good top-down propagation may not be the same ones that produce good
+bottom-up propagation, and joint optimization of forward+reverse seeds is a new search problem.
+
+#### B.30.4 Meet-in-the-Middle Complexity
+
+The classical meet-in-the-middle reduction (Diffie–Hellman, 1977) reduces an exhaustive search
+over $2^N$ states to $2 \times 2^{N/2}$ by splitting the search space in half and matching
+boundary states. The reduction applies when:
+
+1. The search space decomposes cleanly at a boundary
+2. The boundary state is compact enough to store and match
+3. The two halves are roughly equal in size
+
+For CRSCE decompression, the degrees of freedom concentrate in the plateau band. With only a
+top-down pass, $D \approx 170{,}000$ underdetermined cells drive the backtracking cost. With
+symmetric forward/reverse cascades:
+
+$$D_{\text{total}} = D_{\text{forward}} + D_{\text{reverse}} + D_{\text{meeting band}}$$
+
+If forward and reverse plateaus are symmetric ($K_p \approx K_r - K_p \approx 178$ rows from
+each end), then $D_{\text{forward}} \approx D_{\text{reverse}}$ and $D_{\text{meeting band}}$
+is the residual — ideally small due to heavy over-constraint from both sides. The exponential
+backtracking cost, dominated by $2^D$, reduces to roughly $2^{D/2}$ if the meeting band mostly
+propagates. This is not a polynomial improvement, but the exponent is halved.
+
+#### B.30.5 Boundary State Compatibility
+
+The forward and reverse partial assignments are **compatible** iff, for every constraint line
+$L$, their combined contribution does not exceed the stored sum and the remaining unknowns in
+the meeting band can supply the deficit:
+
+$$\rho_{\text{fwd}}(L) + \rho_{\text{rev}}(L) \leq \text{stored\_sum}(L)
+\quad \text{and} \quad
+\text{stored\_sum}(L) - \rho_{\text{fwd}}(L) - \rho_{\text{rev}}(L) \leq u_{\text{mid}}(L)$$
+
+where $u_{\text{mid}}(L)$ is the count of line $L$'s cells in the meeting band. Compatibility is
+a linear feasibility check — fast to verify. Incompatible pairs are pruned immediately without
+entering the meeting-band search.
+
+The **boundary state** at the meeting row is the ConstraintStore residual vector: one 9-bit
+integer per constraint line (~5,000 lines × 9 bits ≈ 45 Kbits). This is large enough that
+naive meet-in-the-middle table lookup is expensive, but it is far smaller than the full cell
+assignment ($261{,}121 \times 1\,\text{bit}$), making indexed or hashed matching feasible.
+
+#### B.30.6 The DI Ordering Challenge
+
+DI indexes the $\text{DI}$-th valid solution in lexicographic (row-major) order. Lexicographic
+order is strictly top-to-bottom: solution $A < B$ iff row 0 of $A$ is lexicographically smaller
+than row 0 of $B$, breaking ties by row 1, and so on. This order is well-defined for the
+forward wavefront but not for the reverse.
+
+For a given forward partial $T_i$ (rows 0 to $K_p - 1$), the set of complete solutions
+consistent with $T_i$ forms a contiguous lexicographic block. The DI-th complete solution
+either falls in this block or doesn't, and DI is determined by:
+
+$$\text{DI} = \sum_{T_j <_{\text{lex}} T_i} |\text{completions}(T_j)| + \text{rank within } T_i$$
+
+Counting $|\text{completions}(T_j)|$ for each prior forward partial is the hard subproblem.
+The current solver avoids this by never needing to count — it enumerates in lex order and stops
+at the DI-th solution. A Pincer implementation must either:
+
+- **Enumerate sequentially**: for each forward partial in lex order, enumerate compatible
+  (reverse, meeting-band) completions in lex order, stop at DI. This is correct but forfeits
+  the meet-in-the-middle speedup if DI is large.
+- **Count approximately**: use sampling or bounding to estimate the number of completions per
+  forward partial, seek directly to the block containing DI. Incorrect estimates require
+  re-enumeration.
+- **Restrict to DI = 0**: for the first valid solution only, the reverse search finds the
+  lex-smallest compatible reverse partial for each forward partial, which is well-defined and
+  avoids counting. This is a tractable special case.
+
+In practice, DI is a single byte (0–255) and is usually small. The lex-order enumeration of
+completions within a forward partial block is likely fast in practice, making the DI challenge
+manageable even without an exact counter.
+
+#### B.30.7 Proposed Implementation
+
+The Pincer approach layers on top of the existing solver without replacing it:
+
+**Phase 1 — Forward propagation** (existing solver): run top-down DFS to plateau $K_p$. Record
+the ConstraintStore state $\sigma_{\text{fwd}}$ at plateau entry. This is the current B.26c/B.27
+behavior.
+
+**Phase 2 — Reverse propagation**: instantiate a second ConstraintStore initialized with
+residual line sums $\text{stored\_sum}(L) - \rho_{\text{fwd}}(L)$ for each line $L$. Run
+bottom-up DFS from row 510 downward, verifying SHA-1 for each completed row in reverse order.
+Record the ConstraintStore state $\sigma_{\text{rev}}$ at reverse plateau $K_r$.
+
+**Phase 3 — Compatibility check**: verify the boundary states are compatible (no line
+over-committed; meeting-band residuals feasible). Prune incompatible pairs immediately.
+
+**Phase 4 — Meeting-band solve**: with both $\sigma_{\text{fwd}}$ and $\sigma_{\text{rev}}$
+available, initialize a third ConstraintStore for the meeting band (rows $K_p$ to $K_r$) with
+tightly constrained line residuals from both sides. Run propagation — many cells should be
+forced immediately. DFS on the remaining underdetermined meeting-band cells.
+
+**Phase 5 — Lex enumeration**: enumerate complete solutions in lex order; stop at DI.
+
+#### B.30.8 Expected Outcomes
+
+**Optimistic.** The reverse wavefront also achieves a propagation cascade to $K_r \approx 332$
+(symmetric with the forward plateau), leaving a meeting band of ~154 rows. Phase 4 propagation
+forces most meeting-band cells, reducing the effective backtracking space from ~170K cells to
+~20–40K. Wall-clock decompression time decreases by 1–2 orders of magnitude.
+
+**Likely.** The reverse plateau is shallower than the forward plateau (LTP partition geometry
+and row-hash structure are not top-bottom symmetric; SHA-1 input is row-major bit order).
+Meeting band is reduced but not to near-zero. Phase 4 propagation handles a meaningful fraction
+of meeting-band cells. Net speedup is real but less than the symmetric case predicts.
+
+**Pessimistic.** The reverse wavefront stalls quickly (few rows from the bottom) because the
+residual line budgets after the forward pass are poorly distributed — many lines have near-zero
+or near-full residuals that over-constrain the bottom rows, causing frequent SHA-1 failures and
+shallow reverse propagation. Meeting band is nearly as large as the current backtracking region.
+The DI ordering overhead dominates any Phase 4 propagation gain.
+
+#### B.30.9 Relationship to Prior Work
+
+*B.26c / B.27 seed optimization.* Seed optimization extends the **forward** propagation cascade.
+Pincer is orthogonal: it adds a **reverse** cascade using the same seed-optimized partition.
+The two approaches are independently beneficial and fully composable. An optimized forward seed
+may not be optimal for the reverse pass — a Pincer-specific seed search (optimizing both
+forward and reverse plateau depth jointly) is a new research direction.
+
+*B.22 variable-length LTP.* B.22 created short LTP lines to produce earlier forcing events.
+Short lines benefit the meeting-band Phase 4 solve disproportionately: a line with only 20
+cells in the meeting band reaches $u = 1$ (forcing) after just 19 of its meeting-band cells are
+assigned by propagation from the two sides. This synergy makes variable-length LTP a natural
+complement to Pincer even though B.22 regressed depth in isolation.
+
+*DAG reduction.* As discussed in the B.30 motivation, a full DAG (zero backtracking) would
+require the combined constraints to uniquely determine every cell. Pincer is a step toward this:
+it increases the constraint density at the meeting frontier, potentially pushing more cells into
+the forced regime. With sufficiently many sub-tables and well-optimized seeds, the meeting band
+may approach zero width — effectively a full DAG solution reachable through two convergent
+propagation cascades.
+
+#### B.30.10 Open Questions
+
+(a) Is the reverse wavefront's plateau depth symmetric with the forward plateau? Empirical
+measurement requires implementing the reverse DFS; the symmetry hypothesis is plausible but
+unverified. The LTP partition is symmetric in cell distribution across rows (Fisher-Yates does
+not prefer any row range), but SHA-1 is applied to rows in a fixed big-endian bit order, so
+the verification environment is not perfectly symmetric.
+
+(b) Can seeds be jointly optimized for forward and reverse plateau depth simultaneously?
+A seed that maximizes the forward cascade may actively harm the reverse cascade if its partition
+concentrates early-row cells on lines that then have unbalanced residuals for the bottom-up
+pass. This is a new objective function: $\text{depth}_{\text{fwd}}(s) +
+\text{depth}_{\text{rev}}(s \mid \sigma_{\text{fwd}}(s))$.
+
+(c) What is the practical DI enumeration cost within a forward-partial block? If the number of
+compatible completions per forward partial is small on average (consistent with DI being a
+single byte), the Phase 5 enumeration cost is negligible and the DI challenge dissolves. If it
+is large, a counting mechanism is required.
+
+---
 
 ## Appendix C: Open Questions Consolidated
 
@@ -6776,6 +7370,9 @@ Haverkort, H. J. (2017). How many three-dimensional Hilbert curves are there? *J
 
 Jerrum, M., Sinclair, A., & Vigoda, E. (2004). A polynomial-time approximation algorithm for the permanent of a matrix
 with nonnegative entries. *Journal of the ACM, 51*(4), 671--697.
+
+Judge, M., Altschuler, J., & Krinsky, D. (Executive Producers). (2014–2019). *Silicon Valley* [TV series].
+HBO Entertainment.
 
 Kelsey, J., & Schneier, B. (2005). Second preimages on $n$-bit hash functions for much less than $2^n$ work. In
 R. Cramer (Ed.), *Advances in Cryptology --- EUROCRYPT 2005* (LNCS 3494, pp. 474--490). Springer.
