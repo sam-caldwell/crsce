@@ -25,7 +25,9 @@ namespace crsce::common::format {
           ltp1sm_(kS, 0),
           ltp2sm_(kS, 0),
           ltp3sm_(kS, 0),
-          ltp4sm_(kS, 0) {
+          ltp4sm_(kS, 0),
+          ltp5sm_(kS, 0),
+          ltp6sm_(kS, 0) {
     }
 
 } // namespace crsce::common::format

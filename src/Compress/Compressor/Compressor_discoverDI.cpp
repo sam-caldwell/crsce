@@ -51,6 +51,8 @@ namespace crsce::compress {
         std::vector<std::uint16_t> ltp2Sums(kS);
         std::vector<std::uint16_t> ltp3Sums(kS);
         std::vector<std::uint16_t> ltp4Sums(kS);
+        std::vector<std::uint16_t> ltp5Sums(kS);
+        std::vector<std::uint16_t> ltp6Sums(kS);
 
         for (std::uint16_t k = 0; k < kS; ++k) {
             rowSums[k] = payload.getLSM(k);
@@ -59,6 +61,8 @@ namespace crsce::compress {
             ltp2Sums[k] = payload.getLTP2SM(k);
             ltp3Sums[k] = payload.getLTP3SM(k);
             ltp4Sums[k] = payload.getLTP4SM(k);
+            ltp5Sums[k] = payload.getLTP5SM(k);
+            ltp6Sums[k] = payload.getLTP6SM(k);
         }
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             diagSums[k] = payload.getDSM(k);
@@ -68,7 +72,7 @@ namespace crsce::compress {
         // Create solver components as unique_ptrs.
         auto store = std::make_unique<decompress::solvers::ConstraintStore>(
             rowSums, colSums, diagSums, antiDiagSums,
-            ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+            ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums);
         auto propagator = std::make_unique<decompress::solvers::PropagationEngine>(*store);
         auto brancher = std::make_unique<decompress::solvers::BranchingController>(*store, *propagator);
         auto hasher = std::make_unique<decompress::solvers::Sha1HashVerifier>(kS);

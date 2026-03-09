@@ -19,7 +19,7 @@ namespace crsce::decompress::solvers {
      * @name tryPropagateCell
      * @brief Fast-path propagation for a single-cell assignment.
      *
-     * Computes the 4 basic flat stat indices plus 4 LTP indices (B.22) and checks
+     * Computes the 4 basic flat stat indices plus 6 LTP indices (B.27) and checks
      * feasibility/forcing inline. Returns immediately if no forcing is needed (the
      * common case ~80% of iterations). Falls back to full propagate() when forcing required.
      *
@@ -38,16 +38,18 @@ namespace crsce::decompress::solvers {
         const auto di = (2U * kS) + static_cast<std::uint32_t>(c - r + (kS - 1));
         const auto xi = (2U * kS) + ConstraintStore::kNumDiags + static_cast<std::uint32_t>(r + c);
 
-        // B.22: LTP membership is always 4 sub-tables (full coverage)
+        // B.27: LTP membership is always 6 sub-tables (full coverage)
         const auto &mem = ltpMembership(r, c);
 
-        // Check all 8 lines (4 basic + 4 LTP) for feasibility and forcing
-        const std::array<std::uint32_t, 8> indices = {  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        // Check all 10 lines (4 basic + 6 LTP) for feasibility and forcing
+        const std::array<std::uint32_t, 10> indices = {  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             ri, ci, di, xi,
             static_cast<std::uint32_t>(mem.flat[0]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             static_cast<std::uint32_t>(mem.flat[1]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             static_cast<std::uint32_t>(mem.flat[2]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            static_cast<std::uint32_t>(mem.flat[3])  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            static_cast<std::uint32_t>(mem.flat[3]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            static_cast<std::uint32_t>(mem.flat[4]), // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            static_cast<std::uint32_t>(mem.flat[5])  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         };
         bool needsForcing = false;
 

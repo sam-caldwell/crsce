@@ -32,7 +32,7 @@ namespace {
         const std::vector<std::uint16_t> diags(kNumDiags, 0U);
         const std::vector<std::uint16_t> antis(kNumDiags, 0U);
         const std::vector<std::uint16_t> ltpZero(kS, 0U);
-        return {rows, cols, diags, antis, ltpZero, ltpZero, ltpZero, ltpZero};
+        return {rows, cols, diags, antis, ltpZero, ltpZero, ltpZero, ltpZero, ltpZero, ltpZero};
     }
 } // namespace
 

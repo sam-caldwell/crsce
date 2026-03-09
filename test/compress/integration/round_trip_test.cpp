@@ -92,9 +92,9 @@ TEST(RoundTrip, SingleByteRoundTrip) { // NOLINT(cert-err58-cpp,cppcoreguideline
     ASSERT_NO_THROW(compressor.compress(inputPath, compressedPath));
 
     // Verify compressed file exists and has expected size
-    // Header: 28 bytes, 1 block payload: 15,749 bytes → total 15,777 bytes
+    // Header: 28 bytes, 1 block payload: 16,899 bytes → total 16,927 bytes
     const auto compressedSize = std::filesystem::file_size(compressedPath);
-    EXPECT_EQ(compressedSize, 28U + 15749U) << "compressed file has unexpected size";
+    EXPECT_EQ(compressedSize, 28U + 16899U) << "compressed file has unexpected size";
 
     // Decompress
     crsce::decompress::Decompressor decompressor;

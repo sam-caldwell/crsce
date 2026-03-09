@@ -62,9 +62,9 @@ namespace crsce::decompress::solvers {
     private:
         /**
          * @name kPropTotalLines
-         * @brief Total number of constraint lines: 10s - 2 = 5108 (4 basic + 4 LTP).
+         * @brief Total number of constraint lines: 12s - 2 = 6130 (4 basic + 6 LTP).
          */
-        static constexpr std::size_t kPropTotalLines = (10 * kS) - 2;
+        static constexpr std::size_t kPropTotalLines = (12 * kS) - 2;
 
         /**
          * @name store_
@@ -86,7 +86,7 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name kQueuedWords
-         * @brief Number of 64-bit words needed for the queued bitset: ceil(5108/64) = 80.
+         * @brief Number of 64-bit words needed for the queued bitset: ceil(6130/64) = 96.
          */
         static constexpr std::size_t kQueuedWords = (kPropTotalLines + 63) / 64;
 

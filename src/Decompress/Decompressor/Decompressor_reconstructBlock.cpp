@@ -60,21 +60,25 @@ namespace crsce::decompress {
             xsm[k] = payload.getXSM(k);
         }
 
-        // Build the four LTP partition sum vectors from the payload.
+        // Build the six LTP partition sum vectors from the payload.
         std::vector<std::uint16_t> ltp1(kS);
         std::vector<std::uint16_t> ltp2(kS);
         std::vector<std::uint16_t> ltp3(kS);
         std::vector<std::uint16_t> ltp4(kS);
+        std::vector<std::uint16_t> ltp5(kS);
+        std::vector<std::uint16_t> ltp6(kS);
         for (std::uint16_t k = 0; k < kS; ++k) {
             ltp1[k] = payload.getLTP1SM(k);
             ltp2[k] = payload.getLTP2SM(k);
             ltp3[k] = payload.getLTP3SM(k);
             ltp4[k] = payload.getLTP4SM(k);
+            ltp5[k] = payload.getLTP5SM(k);
+            ltp6[k] = payload.getLTP6SM(k);
         }
 
         // Create solver components.
         auto store = std::make_unique<solvers::ConstraintStore>(
-            lsm, vsm, dsm, xsm, ltp1, ltp2, ltp3, ltp4);
+            lsm, vsm, dsm, xsm, ltp1, ltp2, ltp3, ltp4, ltp5, ltp6);
 
         // Select propagation engine: Metal GPU or CPU-only.
         std::unique_ptr<solvers::IPropagationEngine> propagator;

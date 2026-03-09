@@ -31,6 +31,8 @@ namespace crsce::decompress::solvers {
             case LineType::LTP2:
             case LineType::LTP3:
             case LineType::LTP4:
+            case LineType::LTP5:
+            case LineType::LTP6:
                 return static_cast<std::uint16_t>(ltpLineLen(line.index));
             case LineType::Diagonal:
             case LineType::AntiDiagonal: {

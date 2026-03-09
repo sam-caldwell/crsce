@@ -22,11 +22,11 @@ namespace crsce::decompress::solvers {
      * @brief Manages cell assignments and per-line statistics (u, a, rho) for the solver.
      *
      * Tracks the assignment state of all s^2 cells and maintains per-line statistics
-     * for all 10s-2 lines (s rows, s columns, 2s-1 diagonals, 2s-1 anti-diagonals,
-     * and 4 pseudorandom LTP partitions of s lines each).
+     * for all 12s-2 lines (s rows, s columns, 2s-1 diagonals, 2s-1 anti-diagonals,
+     * and 6 pseudorandom LTP partitions of s lines each).
      *
      * B.20: replaced 4 toroidal-slope partitions with 4 LTP pseudorandom partitions.
-     * Total lines: 10s-2 = 5108 (unchanged from pre-B.9 slope layout).
+     * B.27: added LTP5 and LTP6 (6 total LTP partitions, 12s-2 = 6130 lines total).
      */
     class ConstraintStore final : public IConstraintStore {
     public:
@@ -62,9 +62,9 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name kNumLtpPartitions
-         * @brief Number of non-linear lookup-table partitions (4: LTP1–LTP4).
+         * @brief Number of non-linear lookup-table partitions (6: LTP1–LTP6).
          */
-        static constexpr std::uint16_t kNumLtpPartitions = 4;
+        static constexpr std::uint16_t kNumLtpPartitions = 6;
 
         /**
          * @name kBasicLines
@@ -97,8 +97,20 @@ namespace crsce::decompress::solvers {
         static constexpr std::uint32_t kLTP4Base = kLTP3Base + kS;
 
         /**
+         * @name kLTP5Base
+         * @brief Flat index base for the LTP5 non-linear partition (10s-2 = 5108).
+         */
+        static constexpr std::uint32_t kLTP5Base = kLTP4Base + kS;
+
+        /**
+         * @name kLTP6Base
+         * @brief Flat index base for the LTP6 non-linear partition (11s-2 = 5619).
+         */
+        static constexpr std::uint32_t kLTP6Base = kLTP5Base + kS;
+
+        /**
          * @name kTotalLines
-         * @brief Total number of constraint lines: 10s - 2 = 5108.
+         * @brief Total number of constraint lines: 12s - 2 = 6130.
          */
         static constexpr std::uint32_t kTotalLines = kBasicLines + (kNumLtpPartitions * kS);
 
@@ -107,7 +119,7 @@ namespace crsce::decompress::solvers {
          * @brief Map a LineID to a flat index in [0, kTotalLines).
          *
          * Layout: rows [0, kS), cols [kS, 2*kS), diags [2*kS, 2*kS + kNumDiags),
-         * anti-diags [2*kS + kNumDiags, kBasicLines), LTP1–LTP4 partitions follow.
+         * anti-diags [2*kS + kNumDiags, kBasicLines), LTP1–LTP6 partitions follow.
          *
          * @param line The line identifier.
          * @return Flat index into the unified stats array.
@@ -122,6 +134,8 @@ namespace crsce::decompress::solvers {
                 case LineType::LTP2:         return kLTP2Base + line.index;
                 case LineType::LTP3:         return kLTP3Base + line.index;
                 case LineType::LTP4:         return kLTP4Base + line.index;
+                case LineType::LTP5:         return kLTP5Base + line.index;
+                case LineType::LTP6:         return kLTP6Base + line.index;
             }
             return 0; // unreachable
         }
@@ -138,7 +152,9 @@ namespace crsce::decompress::solvers {
          *   ltp1       [kLTP1Base, kLTP2Base)
          *   ltp2       [kLTP2Base, kLTP3Base)
          *   ltp3       [kLTP3Base, kLTP4Base)
-         *   ltp4       [kLTP4Base, kTotalLines)
+         *   ltp4       [kLTP4Base, kLTP5Base)
+         *   ltp5       [kLTP5Base, kLTP6Base)
+         *   ltp6       [kLTP6Base, kTotalLines)
          *
          * @param idx Flat index in [0, kTotalLines).
          * @return The corresponding LineID.
@@ -173,8 +189,16 @@ namespace crsce::decompress::solvers {
                 return {.type = LineType::LTP3,
                         .index = static_cast<std::uint16_t>(idx - kLTP3Base)};
             }
-            return {.type = LineType::LTP4,
-                    .index = static_cast<std::uint16_t>(idx - kLTP4Base)};
+            if (idx < kLTP5Base) {
+                return {.type = LineType::LTP4,
+                        .index = static_cast<std::uint16_t>(idx - kLTP4Base)};
+            }
+            if (idx < kLTP6Base) {
+                return {.type = LineType::LTP5,
+                        .index = static_cast<std::uint16_t>(idx - kLTP5Base)};
+            }
+            return {.type = LineType::LTP6,
+                    .index = static_cast<std::uint16_t>(idx - kLTP6Base)};
         }
 
         /**
@@ -188,6 +212,8 @@ namespace crsce::decompress::solvers {
          * @param ltp2Sums Target LTP2 partition sums, size s.
          * @param ltp3Sums Target LTP3 partition sums, size s.
          * @param ltp4Sums Target LTP4 partition sums, size s.
+         * @param ltp5Sums Target LTP5 partition sums, size s.
+         * @param ltp6Sums Target LTP6 partition sums, size s.
          * @throws None
          */
         ConstraintStore(const std::vector<std::uint16_t> &rowSums,
@@ -197,7 +223,9 @@ namespace crsce::decompress::solvers {
                         const std::vector<std::uint16_t> &ltp1Sums,
                         const std::vector<std::uint16_t> &ltp2Sums,
                         const std::vector<std::uint16_t> &ltp3Sums,
-                        const std::vector<std::uint16_t> &ltp4Sums);
+                        const std::vector<std::uint16_t> &ltp4Sums,
+                        const std::vector<std::uint16_t> &ltp5Sums,
+                        const std::vector<std::uint16_t> &ltp6Sums);
 
         void assign(std::uint16_t r, std::uint16_t c, std::uint8_t v) override;
         void unassign(std::uint16_t r, std::uint16_t c) override;

@@ -40,6 +40,7 @@ namespace {
                               const std::vector<std::uint16_t> &antiDiagSums) {
         return {rowSums, colSums, diagSums, antiDiagSums,
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
@@ -78,7 +79,7 @@ namespace {
                 std::vector<std::uint16_t>(kS, 255),
                 diagSums,
                 antiDiagSums,
-                ltpSums, ltpSums, ltpSums, ltpSums};
+                ltpSums, ltpSums, ltpSums, ltpSums, ltpSums, ltpSums};
     }
 
     /**

@@ -33,6 +33,7 @@ namespace {
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
@@ -48,6 +49,7 @@ namespace {
         const std::vector<std::uint16_t> diagSums(kNumDiags, 0);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
@@ -208,12 +210,12 @@ TEST(ConstraintStoreTest, GetRowSetsBitsCorrectly) {
 }
 
 /**
- * @brief getLinesForCell returns exactly 8 lines (row, col, diag, anti-diag, 4 LTP) per B.25.
+ * @brief getLinesForCell returns exactly 10 lines (row, col, diag, anti-diag, 6 LTP) per B.27.
  */
-TEST(ConstraintStoreTest, GetLinesForCellReturnsEightLines) {
+TEST(ConstraintStoreTest, GetLinesForCellReturnsTenLines) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(0, 0);
-    EXPECT_EQ(lines.count, static_cast<std::uint8_t>(8));
+    EXPECT_EQ(lines.count, static_cast<std::uint8_t>(10));
 }
 
 /**

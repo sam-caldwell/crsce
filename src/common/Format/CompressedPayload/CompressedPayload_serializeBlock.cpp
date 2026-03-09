@@ -3,7 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  * @brief CompressedPayload::serializeBlock() implementation.
  *
- * Serializes one compressed block into exactly kBlockPayloadBytes (15,749) bytes:
+ * Serializes one compressed block into exactly kBlockPayloadBytes (16,899) bytes:
  *   1. 511 x 20-byte LH digests (SHA-1)     (10,220 bytes)
  *   2. 32-byte BH digest (SHA-256)           (32 bytes)
  *   3. 1-byte DI                             (1 byte)
@@ -104,6 +104,20 @@ namespace crsce::common::format {
             const auto n = static_cast<std::uint8_t>(
                 std::bit_width(decompress::solvers::ltpLineLen(k)));
             packBits(buf, bitOffset, ltp4sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        }
+
+        // 12. LTP5SM: variable-width
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            const auto n = static_cast<std::uint8_t>(
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
+            packBits(buf, bitOffset, ltp5sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        }
+
+        // 13. LTP6SM: variable-width
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            const auto n = static_cast<std::uint8_t>(
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
+            packBits(buf, bitOffset, ltp6sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
         return buf;

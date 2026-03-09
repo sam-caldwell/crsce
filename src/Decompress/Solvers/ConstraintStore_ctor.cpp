@@ -26,6 +26,8 @@ namespace crsce::decompress::solvers {
      * @param ltp2Sums Target LTP2 partition sums, size s.
      * @param ltp3Sums Target LTP3 partition sums, size s.
      * @param ltp4Sums Target LTP4 partition sums, size s.
+     * @param ltp5Sums Target LTP5 partition sums, size s.
+     * @param ltp6Sums Target LTP6 partition sums, size s.
      * @throws None
      */
     ConstraintStore::ConstraintStore(const std::vector<std::uint16_t> &rowSums,
@@ -35,7 +37,9 @@ namespace crsce::decompress::solvers {
                                      const std::vector<std::uint16_t> &ltp1Sums,
                                      const std::vector<std::uint16_t> &ltp2Sums,
                                      const std::vector<std::uint16_t> &ltp3Sums,
-                                     const std::vector<std::uint16_t> &ltp4Sums)
+                                     const std::vector<std::uint16_t> &ltp4Sums,
+                                     const std::vector<std::uint16_t> &ltp5Sums,
+                                     const std::vector<std::uint16_t> &ltp6Sums)
         : cells_(static_cast<std::size_t>(kS) * kS, CellState::Unassigned),
           rowBits_(kS, std::array<std::uint64_t, 8>{}) {
 
@@ -102,6 +106,20 @@ namespace crsce::decompress::solvers {
             stats_[kLTP4Base + k].target = ltp4Sums[k];
             stats_[kLTP4Base + k].unknown = static_cast<std::uint16_t>(ltpLineLen(k));
             stats_[kLTP4Base + k].assigned = 0;
+        }
+
+        // Initialize LTP5 partition stats: stats_[kLTP5Base .. kLTP5Base + kS)
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            stats_[kLTP5Base + k].target = ltp5Sums[k];
+            stats_[kLTP5Base + k].unknown = static_cast<std::uint16_t>(ltpLineLen(k));
+            stats_[kLTP5Base + k].assigned = 0;
+        }
+
+        // Initialize LTP6 partition stats: stats_[kLTP6Base .. kLTP6Base + kS)
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            stats_[kLTP6Base + k].target = ltp6Sums[k];
+            stats_[kLTP6Base + k].unknown = static_cast<std::uint16_t>(ltpLineLen(k));
+            stats_[kLTP6Base + k].assigned = 0;
         }
 
         // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)

@@ -35,6 +35,7 @@ namespace {
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
+                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
     }
 
@@ -56,6 +57,7 @@ namespace {
         const std::vector<std::uint16_t> diagSums(kNumDiags, diagVal);
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, antiDiagVal);
         return {rowSums, colSums, diagSums, antiDiagSums,
+                std::vector<std::uint16_t>(kS, ltpVal), std::vector<std::uint16_t>(kS, ltpVal),
                 std::vector<std::uint16_t>(kS, ltpVal), std::vector<std::uint16_t>(kS, ltpVal),
                 std::vector<std::uint16_t>(kS, ltpVal), std::vector<std::uint16_t>(kS, ltpVal)};
     }
@@ -127,6 +129,7 @@ TEST(ProbabilityEstimatorTest, ScoresSortedByConfidenceDescending) {
     // Make column 0 different to create varied confidence values
     colSums[0] = 1;
     const ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
+                                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
                                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0));
 

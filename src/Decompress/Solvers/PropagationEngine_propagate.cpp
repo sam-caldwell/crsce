@@ -97,6 +97,22 @@ namespace crsce::decompress::solvers {
                     }
                     break;
                 }
+
+                case LineType::LTP5: {
+                    const auto &cells = ltp5CellsForLine(line.index);
+                    for (const auto &cell : cells) {
+                        callback(cell.r, cell.c);
+                    }
+                    break;
+                }
+
+                case LineType::LTP6: {
+                    const auto &cells = ltp6CellsForLine(line.index);
+                    for (const auto &cell : cells) {
+                        callback(cell.r, cell.c);
+                    }
+                    break;
+                }
             }
         }
     } // anonymous namespace

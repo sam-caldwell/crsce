@@ -42,6 +42,8 @@ namespace {
      * @param ltp2Sums LTP2 cross-sum targets.
      * @param ltp3Sums LTP3 cross-sum targets.
      * @param ltp4Sums LTP4 cross-sum targets.
+     * @param ltp5Sums LTP5 cross-sum targets.
+     * @param ltp6Sums LTP6 cross-sum targets.
      * @return GPU-computed line statistics.
      */
     std::vector<GpuLineStat> runGpuAudit(
@@ -53,7 +55,9 @@ namespace {
         const std::vector<std::uint16_t> &ltp1Sums,
         const std::vector<std::uint16_t> &ltp2Sums,
         const std::vector<std::uint16_t> &ltp3Sums,
-        const std::vector<std::uint16_t> &ltp4Sums) {
+        const std::vector<std::uint16_t> &ltp4Sums,
+        const std::vector<std::uint16_t> & /*ltp5Sums*/,
+        const std::vector<std::uint16_t> & /*ltp6Sums*/) {
 
         MetalContext ctx;
         if (!ctx.isAvailable()) {
@@ -116,11 +120,15 @@ TEST(MetalLineStatAuditTest, AllZerosStoreMatchesCpu) {
     const std::vector<std::uint16_t> ltp2Sums(kS, 0);
     const std::vector<std::uint16_t> ltp3Sums(kS, 0);
     const std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp6Sums(kS, 0);
 
     const ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                                ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                                ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     const auto gpuStats = runGpuAudit(store, rowSums, colSums, diagSums, antiDiagSums,
-                                      ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                                      ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     ASSERT_EQ(gpuStats.size(), kTotalLines);
 
     // Verify rows
@@ -156,6 +164,8 @@ TEST(MetalLineStatAuditTest, PartialAssignmentMatchesCpu) {
     const std::vector<std::uint16_t> ltp2Sums(kS, static_cast<std::uint16_t>(kS / 2));
     const std::vector<std::uint16_t> ltp3Sums(kS, static_cast<std::uint16_t>(kS / 2));
     const std::vector<std::uint16_t> ltp4Sums(kS, static_cast<std::uint16_t>(kS / 2));
+    const std::vector<std::uint16_t> ltp5Sums(kS, static_cast<std::uint16_t>(kS / 2));
+    const std::vector<std::uint16_t> ltp6Sums(kS, static_cast<std::uint16_t>(kS / 2));
 
     // Set reasonable diag/anti-diag targets
     for (std::uint16_t d = 0; d < kNumDiags; ++d) {
@@ -167,7 +177,8 @@ TEST(MetalLineStatAuditTest, PartialAssignmentMatchesCpu) {
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
 
     // Assign first 10 cells on row 0
     for (std::uint16_t c = 0; c < 10; ++c) {
@@ -179,7 +190,8 @@ TEST(MetalLineStatAuditTest, PartialAssignmentMatchesCpu) {
     }
 
     const auto gpuStats = runGpuAudit(store, rowSums, colSums, diagSums, antiDiagSums,
-                                      ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                                      ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     ASSERT_EQ(gpuStats.size(), kTotalLines);
 
     // Verify row 0

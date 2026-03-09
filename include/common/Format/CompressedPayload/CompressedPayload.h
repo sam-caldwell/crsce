@@ -4,8 +4,8 @@
  * @brief CompressedPayload class for CRSCE block serialization and deserialization.
  *
  * Each compressed block contains 511 lateral-hash digests (SHA-1, 20 bytes each),
- * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and eight cross-sum
- * vectors packed into a fixed-size 15,749-byte payload.
+ * a 32-byte block hash (SHA-256), a diagnostics/info byte (DI), and ten cross-sum
+ * vectors packed into a fixed-size 16,899-byte payload.
  */
 #pragma once
 
@@ -18,9 +18,9 @@ namespace crsce::common::format {
     /**
      * @class CompressedPayload
      * @name CompressedPayload
-     * @brief Holds and serializes one CRSCE compressed block (15,749 bytes).
+     * @brief Holds and serializes one CRSCE compressed block (16,899 bytes).
      * @details
-     * Block layout (B.22: LTP sums use variable-width encoding, 4*min(k+1,511-k)-adj(k) cells/line):
+     * Block layout (B.27: 6 LTP sub-tables, uniform 511-cell lines, 9 bits each):
      *   Field    Elements  Bits/Element  Total Bits   Encoding
      *   LH       511       160           81,760       20 bytes per SHA-1 digest, sequential
      *   BH       1         256           256          32 bytes SHA-256 block hash
@@ -29,11 +29,13 @@ namespace crsce::common::format {
      *   VSM      511       9             4,599        MSB-first packed bitstream
      *   DSM      1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
      *   XSM      1,021     variable      8,185        MSB-first, ceil(log2(len(d)+1))
-     *   LTP1SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
-     *   LTP2SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
-     *   LTP3SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
-     *   LTP4SM   511       variable      4,600        MSB-first, bit_width(ltp_len(k)) bits
-     *   Total                            125,992 bits = 15,749 bytes (rounded up)
+     *   LTP1SM   511       9             4,599        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP2SM   511       9             4,599        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP3SM   511       9             4,599        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP4SM   511       9             4,599        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP5SM   511       9             4,599        MSB-first, bit_width(ltp_len(k)) bits
+     *   LTP6SM   511       9             4,599        MSB-first, bit_width(ltp_len(k)) bits
+     *   Total                            135,186 bits = 16,899 bytes (rounded up)
      */
     class CompressedPayload {
     public:
@@ -45,13 +47,13 @@ namespace crsce::common::format {
 
         /**
          * @name kBlockPayloadBytes
-         * @brief Exact size of one serialized block in bytes (15,749).
+         * @brief Exact size of one serialized block in bytes (16,899).
          *
-         * B.25: LTP sums use 9-bit encoding (bit_width(511) = 9 bits per element).
-         * Fixed 107,592 bits (LH+BH+DI+LSM+VSM+DSM+XSM) + 18,396 LTP bits = 125,988 bits.
-         * ceil(125,988 / 8) = 15,749 bytes (rounded up from 15,748.5).
+         * B.27: 6 LTP sub-tables, each 511 × 9 bits = 4,599 bits.
+         * Fixed 107,592 bits (LH+BH+DI+LSM+VSM+DSM+XSM) + 27,594 LTP bits = 135,186 bits.
+         * ceil(135,186 / 8) = 16,898.25 → 16,899 bytes.
          */
-        static constexpr std::size_t kBlockPayloadBytes = 15749;
+        static constexpr std::size_t kBlockPayloadBytes = 16899;
 
         /**
          * @name kDiagCount
@@ -294,6 +296,46 @@ namespace crsce::common::format {
          */
         [[nodiscard]] std::uint16_t getLTP4SM(std::uint16_t k) const;
 
+        // -- LTP5SM accessors (LTP5 partition) --
+
+        /**
+         * @name setLTP5SM
+         * @brief Set the LTP5 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setLTP5SM(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getLTP5SM
+         * @brief Get the LTP5 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getLTP5SM(std::uint16_t k) const;
+
+        // -- LTP6SM accessors (LTP6 partition) --
+
+        /**
+         * @name setLTP6SM
+         * @brief Set the LTP6 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @param value Sum value (max 511, fits in 9 bits).
+         * @throws std::out_of_range if k >= kS.
+         */
+        void setLTP6SM(std::uint16_t k, std::uint16_t value);
+
+        /**
+         * @name getLTP6SM
+         * @brief Get the LTP6 partition sum at index k.
+         * @param k Index in [0, kS).
+         * @return The stored sum value.
+         * @throws std::out_of_range if k >= kS.
+         */
+        [[nodiscard]] std::uint16_t getLTP6SM(std::uint16_t k) const;
+
         // -- Serialization --
 
         /**
@@ -379,6 +421,18 @@ namespace crsce::common::format {
          * @brief LTP4 partition sum vector: kS elements, each in [0, kS].
          */
         std::vector<std::uint16_t> ltp4sm_;
+
+        /**
+         * @name ltp5sm_
+         * @brief LTP5 partition sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> ltp5sm_;
+
+        /**
+         * @name ltp6sm_
+         * @brief LTP6 partition sum vector: kS elements, each in [0, kS].
+         */
+        std::vector<std::uint16_t> ltp6sm_;
 
         // -- Private bit-packing helpers --
 

@@ -53,6 +53,8 @@ namespace {
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0),
+            std::vector<std::uint16_t>(kS, 0),
+            std::vector<std::uint16_t>(kS, 0),
             std::vector<std::uint16_t>(kS, 0)
         );
     }

@@ -30,6 +30,8 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
+using crsce::decompress::solvers::kLtp5Base;
+using crsce::decompress::solvers::kLtp6Base;
 using crsce::decompress::solvers::kLtpNumLines;
 using crsce::decompress::solvers::ltpLineLen;
 using crsce::decompress::solvers::ltpMembership;
@@ -52,6 +54,8 @@ TEST(RowDecomposedControllerTest, ResetIsNoOp) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -86,6 +90,8 @@ TEST(RowDecomposedControllerTest, AllZerosYieldsSingleSolution) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -139,6 +145,8 @@ TEST(RowDecomposedControllerTest, EnumerateSolutionsLexAllZeros) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0)
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -188,6 +196,8 @@ TEST(RowDecomposedControllerTest, InfeasibleYieldsNoSolutions) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0)
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
@@ -219,6 +229,8 @@ TEST(RowDecomposedControllerTest, EnumerateInfeasibleNoCallback) {
 
     auto store = std::make_unique<ConstraintStore>(
         rowSums, colSums, diagSums, antiDiagSums,
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -270,6 +282,8 @@ TEST(RowDecomposedControllerTest, TwoByTwoCornerFindsUniqueSolution) {
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    std::vector<std::uint16_t> ltp6Sums(kS, 0);
     {
         auto incLtpFlat = [&](std::uint16_t f) {
             if (f < static_cast<std::uint16_t>(kLtp2Base)) {
@@ -278,8 +292,12 @@ TEST(RowDecomposedControllerTest, TwoByTwoCornerFindsUniqueSolution) {
                 ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))]++;
             } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
                 ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))]++;
-            } else {
+            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
                 ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))]++;
+            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
+                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))]++;
+            } else {
+                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))]++;
             }
         };
         const auto &mem00 = ltpMembership(0, 0);
@@ -290,7 +308,7 @@ TEST(RowDecomposedControllerTest, TwoByTwoCornerFindsUniqueSolution) {
 
     auto store = std::make_unique<ConstraintStore>(
         rowSums, colSums, diagSums, antiDiagSums,
-        ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums
+        ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
@@ -341,6 +359,8 @@ TEST(RowDecomposedControllerTest, EnumerateStopsOnCallbackFalse) {
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kNumDiags, 0),
+        std::vector<std::uint16_t>(kS, 0),
+        std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
@@ -399,7 +419,7 @@ TEST(RowDecomposedControllerTest, AllOnesYieldsSingleSolution) {
     }
     auto store = std::make_unique<ConstraintStore>(
         rowSums, colSums, diagSums, antiDiagSums,
-        ltpSums, ltpSums, ltpSums, ltpSums
+        ltpSums, ltpSums, ltpSums, ltpSums, ltpSums, ltpSums
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);

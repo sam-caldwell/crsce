@@ -1,19 +1,21 @@
 /**
  * @file LtpTable.h
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt.
- * @brief Full-coverage uniform-511 LTP partitions LTP1–LTP4 (B.25).
+ * @brief Full-coverage uniform-511 LTP partitions LTP1–LTP6 (B.25/B.27).
  *
- * Four independent sub-tables, each covering all 261,121 cells exactly once.
+ * Six independent sub-tables, each covering all 261,121 cells exactly once.
  * Every line has exactly 511 cells (ltp_len(k) = kLtpS for all k).
  * Sum per sub-table = 511 * 511 = 261,121.
- * Each cell belongs to exactly one line in each of the four sub-tables (count always 4).
+ * Each cell belongs to exactly one line in each of the six sub-tables (count always 6).
  * Sub-tables use independent LCG shuffles so each line spans a diverse cross-section of rows.
- * Forward table: cell → LtpMembership (count=4, flat[0..3]).
+ * Forward table: cell → LtpMembership (count=6, flat[0..5]).
  * Reverse table: line → span of kLtpS LtpCell entries.
  *
- * B.22 seed search: seeds are runtime-overridable via CRSCE_LTP_SEED_1..4 env vars.
+ * B.22 seed search: seeds are runtime-overridable via CRSCE_LTP_SEED_1..6 env vars.
  * B.23 clipped-triangular experiment (TESTED, ABANDONED): partial coverage caused severe
  * regression (~46K depth vs ~86K for uniform-511); see B.23 section in spec.
+ * B.27: added LTP5 and LTP6 (seeds CRSCLTP5/CRSCLTP6) to increase constraint density to 10
+ * lines per cell (6 LTP + 4 basic); wire format expanded to 16,899 bytes per block.
  */
 #pragma once
 
@@ -60,6 +62,18 @@ namespace crsce::decompress::solvers {
     inline constexpr std::uint32_t kLtp4Base = 4597;
 
     /**
+     * @name kLtp5Base
+     * @brief Flat stat-array base for LTP5 lines (10s-2 = 5108).
+     */
+    inline constexpr std::uint32_t kLtp5Base = 5108;
+
+    /**
+     * @name kLtp6Base
+     * @brief Flat stat-array base for LTP6 lines (11s-2 = 5619).
+     */
+    inline constexpr std::uint32_t kLtp6Base = 5619;
+
+    /**
      * @struct LtpCell
      * @name LtpCell
      * @brief A (row, column) cell coordinate pair used in LTP reverse tables.
@@ -85,22 +99,22 @@ namespace crsce::decompress::solvers {
      * @name LtpMembership
      * @brief Forward-table entry: which LTP sub-table lines does cell (r,c) belong to?
      *
-     * Under B.22 full-coverage: every cell belongs to exactly one line in each of the four
-     * sub-tables (count always 4).  flat[i] is the flat stat-array index for sub-table i.
+     * Under B.27 full-coverage: every cell belongs to exactly one line in each of the six
+     * sub-tables (count always 6).  flat[i] is the flat stat-array index for sub-table i.
      */
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     struct LtpMembership {
         /**
          * @name count
-         * @brief Number of LTP sub-tables this cell belongs to (always 4 under B.22).
+         * @brief Number of LTP sub-tables this cell belongs to (always 6 under B.27).
          */
         std::uint8_t count{0};
 
         /**
          * @name flat
-         * @brief Flat stat-array indices for LTP sub-tables 0..3.
+         * @brief Flat stat-array indices for LTP sub-tables 0..5.
          */
-        std::array<std::uint16_t, 4> flat{};
+        std::array<std::uint16_t, 6> flat{};
     };
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
@@ -162,5 +176,21 @@ namespace crsce::decompress::solvers {
      * @return Span of ltpLineLen(k) LtpCell entries.
      */
     [[nodiscard]] std::span<const LtpCell> ltp4CellsForLine(std::uint16_t k);
+
+    /**
+     * @name ltp5CellsForLine
+     * @brief Return the cells on LTP5 line k.
+     * @param k Line index in [0, kLtpNumLines).
+     * @return Span of ltpLineLen(k) LtpCell entries.
+     */
+    [[nodiscard]] std::span<const LtpCell> ltp5CellsForLine(std::uint16_t k);
+
+    /**
+     * @name ltp6CellsForLine
+     * @brief Return the cells on LTP6 line k.
+     * @param k Line index in [0, kLtpNumLines).
+     * @return Span of ltpLineLen(k) LtpCell entries.
+     */
+    [[nodiscard]] std::span<const LtpCell> ltp6CellsForLine(std::uint16_t k);
 
 } // namespace crsce::decompress::solvers

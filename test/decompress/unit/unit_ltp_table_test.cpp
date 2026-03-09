@@ -1,13 +1,13 @@
 /**
  * @file unit_ltp_table_test.cpp
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt.
- * @brief Unit tests for LtpTable: B.25 full-coverage uniform-511 LTP partitions.
+ * @brief Unit tests for LtpTable: B.25/B.27 full-coverage uniform-511 LTP partitions.
  *
- * B.25 invariants verified:
+ * B.25/B.27 invariants verified:
  *   Axiom 1 (Full coverage): sum of all line lengths per sub-table = 261,121 = 511*511.
  *   Axiom 2 (No duplicates): each cell appears exactly once per sub-table.
  *   Axiom 3 (Uniform lengths): ltp_len(k) = 511 for all k in [0, 510].
- *   Coverage: every cell (r,c) has ltpMembership count exactly 4.
+ *   Coverage: every cell (r,c) has ltpMembership count exactly 6.
  *   Forward/reverse consistency: ltpMembership flat index resolves to the correct reverse table.
  *   Reproducibility: ltpMembership is deterministic (static table, idempotent).
  */
@@ -24,12 +24,16 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
+using crsce::decompress::solvers::kLtp5Base;
+using crsce::decompress::solvers::kLtp6Base;
 using crsce::decompress::solvers::kLtpNumLines;
 using crsce::decompress::solvers::kLtpS;
 using crsce::decompress::solvers::ltp1CellsForLine;
 using crsce::decompress::solvers::ltp2CellsForLine;
 using crsce::decompress::solvers::ltp3CellsForLine;
 using crsce::decompress::solvers::ltp4CellsForLine;
+using crsce::decompress::solvers::ltp5CellsForLine;
+using crsce::decompress::solvers::ltp6CellsForLine;
 using crsce::decompress::solvers::ltpLineLen;
 using crsce::decompress::solvers::ltpMembership;
 
@@ -217,22 +221,90 @@ TEST(LtpTableTest, Ltp4AxiomTwoNoDuplicatesInLine) {
 }
 
 // ---------------------------------------------------------------------------
-// Coverage: every cell has membership count exactly 4
+// LTP5 Axiom 1: sum of all line lengths = kCellsPerSubTable
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Every cell (r,c) belongs to exactly 4 LTP sub-tables (B.25 full coverage).
- *
- * Iterates all 261,121 cells. Verifies ltpMembership(r,c).count == 4.
+ * @brief Axiom 1 for LTP5: total cells across all 511 LTP5 lines = 261,121.
  */
-TEST(LtpTableTest, AllCellsCoveredExactlyFourTimes) {
+TEST(LtpTableTest, Ltp5AxiomOneConservation) {
+    std::uint32_t count = 0;
+    for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+        const auto cells = ltp5CellsForLine(k);
+        count += static_cast<std::uint32_t>(cells.size());
+    }
+    EXPECT_EQ(count, kCellsPerSubTable);
+}
+
+/**
+ * @brief Axiom 2 for LTP5: each sampled line has exactly ltpLineLen(k) distinct cells.
+ */
+TEST(LtpTableTest, Ltp5AxiomTwoNoDuplicatesInLine) {
+    for (const std::uint16_t k : {static_cast<std::uint16_t>(0),
+                                   static_cast<std::uint16_t>(255),
+                                   static_cast<std::uint16_t>(510)}) {
+        const auto cells = ltp5CellsForLine(k);
+        EXPECT_EQ(cells.size(), static_cast<std::size_t>(ltpLineLen(k)));
+        std::set<std::pair<std::uint16_t, std::uint16_t>> seen;
+        for (const auto &cell : cells) {
+            const auto [it, inserted] = seen.emplace(cell.r, cell.c);
+            EXPECT_TRUE(inserted) << "Duplicate cell (" << cell.r << "," << cell.c
+                                  << ") in LTP5 line " << k;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// LTP6 Axiom 1: sum of all line lengths = kCellsPerSubTable
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Axiom 1 for LTP6: total cells across all 511 LTP6 lines = 261,121.
+ */
+TEST(LtpTableTest, Ltp6AxiomOneConservation) {
+    std::uint32_t count = 0;
+    for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+        const auto cells = ltp6CellsForLine(k);
+        count += static_cast<std::uint32_t>(cells.size());
+    }
+    EXPECT_EQ(count, kCellsPerSubTable);
+}
+
+/**
+ * @brief Axiom 2 for LTP6: each sampled line has exactly ltpLineLen(k) distinct cells.
+ */
+TEST(LtpTableTest, Ltp6AxiomTwoNoDuplicatesInLine) {
+    for (const std::uint16_t k : {static_cast<std::uint16_t>(0),
+                                   static_cast<std::uint16_t>(255),
+                                   static_cast<std::uint16_t>(510)}) {
+        const auto cells = ltp6CellsForLine(k);
+        EXPECT_EQ(cells.size(), static_cast<std::size_t>(ltpLineLen(k)));
+        std::set<std::pair<std::uint16_t, std::uint16_t>> seen;
+        for (const auto &cell : cells) {
+            const auto [it, inserted] = seen.emplace(cell.r, cell.c);
+            EXPECT_TRUE(inserted) << "Duplicate cell (" << cell.r << "," << cell.c
+                                  << ") in LTP6 line " << k;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Coverage: every cell has membership count exactly 6
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Every cell (r,c) belongs to exactly 6 LTP sub-tables (B.27 full coverage).
+ *
+ * Iterates all 261,121 cells. Verifies ltpMembership(r,c).count == 6.
+ */
+TEST(LtpTableTest, AllCellsCoveredExactlySixTimes) {
     std::uint32_t covered = 0;
     for (std::uint16_t r = 0; r < kLtpS; ++r) {
         for (std::uint16_t c = 0; c < kLtpS; ++c) {
             const auto &mem = ltpMembership(r, c);
-            EXPECT_EQ(mem.count, static_cast<std::uint8_t>(4))
+            EXPECT_EQ(mem.count, static_cast<std::uint8_t>(6))
                 << "Cell (" << r << "," << c << ") has count " << static_cast<int>(mem.count)
-                << " (expected 4)";
+                << " (expected 6)";
             ++covered;
         }
     }
@@ -279,12 +351,24 @@ TEST(LtpTableTest, ForwardReverseConsistency) {
                         if (cell.r == r && cell.c == c) { found = true; break; }
                     }
                     EXPECT_TRUE(found) << "Cell (" << r << "," << c << ") not in LTP3 line " << lineIdx;
-                } else {
+                } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
                     const auto lineIdx = static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base));
                     for (const auto &cell : ltp4CellsForLine(lineIdx)) {
                         if (cell.r == r && cell.c == c) { found = true; break; }
                     }
                     EXPECT_TRUE(found) << "Cell (" << r << "," << c << ") not in LTP4 line " << lineIdx;
+                } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
+                    const auto lineIdx = static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base));
+                    for (const auto &cell : ltp5CellsForLine(lineIdx)) {
+                        if (cell.r == r && cell.c == c) { found = true; break; }
+                    }
+                    EXPECT_TRUE(found) << "Cell (" << r << "," << c << ") not in LTP5 line " << lineIdx;
+                } else {
+                    const auto lineIdx = static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base));
+                    for (const auto &cell : ltp6CellsForLine(lineIdx)) {
+                        if (cell.r == r && cell.c == c) { found = true; break; }
+                    }
+                    EXPECT_TRUE(found) << "Cell (" << r << "," << c << ") not in LTP6 line " << lineIdx;
                 }
             }
         }
@@ -323,7 +407,7 @@ TEST(LtpTableTest, SeedReproducibility) {
 /**
  * @brief All flat indices from ltpMembership fall within valid sub-table ranges.
  *
- * For sampled cells, flat indices must be in [kLtp1Base, kLtp4Base+511).
+ * For sampled cells, flat indices must be in [kLtp1Base, kLtp6Base+511).
  */
 TEST(LtpTableTest, FlatIndicesInBounds) {
     for (const std::uint16_t r : {static_cast<std::uint16_t>(0),
@@ -337,8 +421,8 @@ TEST(LtpTableTest, FlatIndicesInBounds) {
                 const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                 EXPECT_GE(f, static_cast<std::uint16_t>(kLtp1Base))
                     << "Cell (" << r << "," << c << ") flat[" << j << "] below kLtp1Base";
-                EXPECT_LT(f, static_cast<std::uint16_t>(kLtp4Base + kLtpNumLines))
-                    << "Cell (" << r << "," << c << ") flat[" << j << "] above LTP4 range";
+                EXPECT_LT(f, static_cast<std::uint16_t>(kLtp6Base + kLtpNumLines))
+                    << "Cell (" << r << "," << c << ") flat[" << j << "] above LTP6 range";
             }
         }
     }

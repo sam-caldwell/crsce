@@ -90,6 +90,18 @@ namespace crsce::decompress::solvers {
                         callback(cell.r, cell.c);
                     }
                     break;
+
+                case LineType::LTP5:
+                    for (const auto &cell : ltp5CellsForLine(line.index)) {
+                        callback(cell.r, cell.c);
+                    }
+                    break;
+
+                case LineType::LTP6:
+                    for (const auto &cell : ltp6CellsForLine(line.index)) {
+                        callback(cell.r, cell.c);
+                    }
+                    break;
             }
         }
     } // anonymous namespace

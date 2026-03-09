@@ -10,10 +10,11 @@
 namespace crsce::decompress::solvers {
     /**
      * @enum LineType
-     * @brief Discriminator for the eight families of cross-sum constraints.
+     * @brief Discriminator for the ten families of cross-sum constraints.
      *
      * B.20: replaced 4 toroidal-slope families (Slope256/255/2/509) with 4 pseudorandom
      * LTP partitions (LTP1–LTP4), keeping the same total of 10s-2 = 5108 lines.
+     * B.27: added LTP5 and LTP6 (12s-2 = 6130 lines total, 10 lines per cell).
      *
      * // B.20 disabled (original slope values, retained for reference):
      * // Slope256 = 4,  Slope255 = 5,  Slope2 = 6,  Slope509 = 7,  LTP1 = 8,  LTP2 = 9
@@ -26,7 +27,9 @@ namespace crsce::decompress::solvers {
         LTP1 = 4,
         LTP2 = 5,
         LTP3 = 6,
-        LTP4 = 7
+        LTP4 = 7,
+        LTP5 = 8,
+        LTP6 = 9
     };
 
     /**

@@ -27,6 +27,8 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
+using crsce::decompress::solvers::kLtp5Base;
+using crsce::decompress::solvers::kLtp6Base;
 using crsce::decompress::solvers::kLtpNumLines;
 using crsce::decompress::solvers::ltpLineLen;
 using crsce::decompress::solvers::ltpMembership;
@@ -49,8 +51,11 @@ namespace {
                               const std::vector<std::uint16_t> &ltp1Sums = std::vector<std::uint16_t>(kS, 0),
                               const std::vector<std::uint16_t> &ltp2Sums = std::vector<std::uint16_t>(kS, 0),
                               const std::vector<std::uint16_t> &ltp3Sums = std::vector<std::uint16_t>(kS, 0),
-                              const std::vector<std::uint16_t> &ltp4Sums = std::vector<std::uint16_t>(kS, 0)) {
-        return {rowSums, colSums, diagSums, antiDiagSums, ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums};
+                              const std::vector<std::uint16_t> &ltp4Sums = std::vector<std::uint16_t>(kS, 0),
+                              const std::vector<std::uint16_t> &ltp5Sums = std::vector<std::uint16_t>(kS, 0),
+                              const std::vector<std::uint16_t> &ltp6Sums = std::vector<std::uint16_t>(kS, 0)) {
+        return {rowSums, colSums, diagSums, antiDiagSums,
+                ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums};
     }
 
     /**
@@ -89,7 +94,7 @@ namespace {
             std::vector<std::uint16_t>(kS, 255),
             diagSums,
             antiDiagSums,
-            ltpSums, ltpSums, ltpSums, ltpSums
+            ltpSums, ltpSums, ltpSums, ltpSums, ltpSums, ltpSums
         );
     }
 
@@ -189,6 +194,8 @@ TEST(FailedLiteralProberTest, ProbeCellForcesOne) {
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    std::vector<std::uint16_t> ltp6Sums(kS, 0);
     {
         const auto &mem = ltpMembership(0, 0);
         for (std::uint8_t j = 0; j < mem.count; ++j) {
@@ -199,14 +206,19 @@ TEST(FailedLiteralProberTest, ProbeCellForcesOne) {
                 ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
             } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
                 ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-            } else {
+            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
                 ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
+                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))] = 1;
+            } else {
+                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))] = 1;
             }
         }
     }
 
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                           ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     PropagationEngine propagator(store);
     BranchingController brancher(store, propagator);
     Sha256HashVerifier hasher(kS);

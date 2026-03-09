@@ -98,6 +98,20 @@ namespace crsce::common::format {
                 std::bit_width(decompress::solvers::ltpLineLen(k)));
             ltp4sm_[k] = unpackBits(data, bitOffset, n);
         }
+
+        // 12. LTP5SM: variable-width
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            const auto n = static_cast<std::uint8_t>(
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
+            ltp5sm_[k] = unpackBits(data, bitOffset, n);
+        }
+
+        // 13. LTP6SM: variable-width
+        for (std::uint16_t k = 0; k < kS; ++k) {
+            const auto n = static_cast<std::uint8_t>(
+                std::bit_width(decompress::solvers::ltpLineLen(k)));
+            ltp6sm_[k] = unpackBits(data, bitOffset, n);
+        }
     }
 
 } // namespace crsce::common::format

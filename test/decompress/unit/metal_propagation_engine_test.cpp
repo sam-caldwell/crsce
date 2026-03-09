@@ -28,6 +28,8 @@ using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
 using crsce::decompress::solvers::kLtp3Base;
 using crsce::decompress::solvers::kLtp4Base;
+using crsce::decompress::solvers::kLtp5Base;
+using crsce::decompress::solvers::kLtp6Base;
 using crsce::decompress::solvers::ltpMembership;
 
 namespace {
@@ -61,9 +63,12 @@ TEST(MetalPropagationEngineTest, RhoZeroForcesAllUnknownsToZero) {
     const std::vector<std::uint16_t> ltp2Sums(kS, 0);
     const std::vector<std::uint16_t> ltp3Sums(kS, 0);
     const std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp6Sums(kS, 0);
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {{.type = LineType::Row, .index = 0}};
@@ -102,6 +107,8 @@ TEST(MetalPropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    std::vector<std::uint16_t> ltp6Sums(kS, 0);
 
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
@@ -118,14 +125,19 @@ TEST(MetalPropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
                 ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
             } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
                 ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-            } else {
+            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
                 ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
+                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))] = 1;
+            } else {
+                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))] = 1;
             }
         }
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {
@@ -161,6 +173,8 @@ TEST(MetalPropagationEngineTest, ResetClearsForcedAssignments) {
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
     std::vector<std::uint16_t> ltp3Sums(kS, 0);
     std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    std::vector<std::uint16_t> ltp6Sums(kS, 0);
 
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
@@ -177,14 +191,19 @@ TEST(MetalPropagationEngineTest, ResetClearsForcedAssignments) {
                 ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
             } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
                 ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-            } else {
+            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
                 ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
+            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
+                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))] = 1;
+            } else {
+                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))] = 1;
             }
         }
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {
@@ -211,9 +230,12 @@ TEST(MetalPropagationEngineTest, InfeasibleWhenRhoNegative) {
     const std::vector<std::uint16_t> ltp2Sums(kS, 0);
     const std::vector<std::uint16_t> ltp3Sums(kS, 0);
     const std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp6Sums(kS, 0);
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     store.assign(0, 0, 1);
 
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
@@ -237,9 +259,12 @@ TEST(MetalPropagationEngineTest, EmptyQueueIsFeasible) {
     const std::vector<std::uint16_t> ltp2Sums(kS, 0);
     const std::vector<std::uint16_t> ltp3Sums(kS, 0);
     const std::vector<std::uint16_t> ltp4Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp5Sums(kS, 0);
+    const std::vector<std::uint16_t> ltp6Sums(kS, 0);
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue;
@@ -262,6 +287,8 @@ TEST(MetalPropagationEngineTest, NoForcingWhenRhoBetweenZeroAndU) {
     const std::vector<std::uint16_t> ltp2Sums(kS, static_cast<std::uint16_t>(kS / 2));
     const std::vector<std::uint16_t> ltp3Sums(kS, static_cast<std::uint16_t>(kS / 2));
     const std::vector<std::uint16_t> ltp4Sums(kS, static_cast<std::uint16_t>(kS / 2));
+    const std::vector<std::uint16_t> ltp5Sums(kS, static_cast<std::uint16_t>(kS / 2));
+    const std::vector<std::uint16_t> ltp6Sums(kS, static_cast<std::uint16_t>(kS / 2));
 
     for (std::uint16_t d = 0; d < kNumDiags; ++d) {
         const auto len = std::min({static_cast<int>(d + 1),
@@ -272,7 +299,8 @@ TEST(MetalPropagationEngineTest, NoForcingWhenRhoBetweenZeroAndU) {
     }
 
     ConstraintStore store(rowSums, colSums, diagSums, antiDiagSums,
-                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums);
+                          ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
+                      ltp5Sums, ltp6Sums);
     MetalPropagationEngine engine(store, rowSums, colSums, diagSums, antiDiagSums);
 
     const std::vector<LineID> queue = {{.type = LineType::Row, .index = 0}};

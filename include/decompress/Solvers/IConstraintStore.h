@@ -83,9 +83,9 @@ namespace crsce::decompress::solvers {
         /**
          * @struct CellLines
          * @name CellLines
-         * @brief Set of LineIDs that a cell participates in (always 8 lines in B.22).
+         * @brief Set of LineIDs that a cell participates in (always 10 lines in B.27).
          *
-         * Contains 4 basic lines (row, col, diag, anti-diag) plus 4 LTP lines (one per sub-table).
+         * Contains 4 basic lines (row, col, diag, anti-diag) plus 6 LTP lines (one per sub-table).
          */
         // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
         struct CellLines {
@@ -93,11 +93,11 @@ namespace crsce::decompress::solvers {
              * @name lines
              * @brief The LineIDs; only the first count entries are valid.
              */
-            std::array<LineID, 8> lines{};
+            std::array<LineID, 10> lines{};
 
             /**
              * @name count
-             * @brief Number of valid entries in lines (always 8 in B.22).
+             * @brief Number of valid entries in lines (always 10 in B.27).
              */
             std::uint8_t count{0};
         };
@@ -105,10 +105,10 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name getLinesForCell
-         * @brief Get the LineIDs (row, col, diag, anti-diag, LTP1–LTP4) that cell (r, c) participates in.
+         * @brief Get the LineIDs (row, col, diag, anti-diag, LTP1–LTP6) that cell (r, c) participates in.
          * @param r Row index.
          * @param c Column index.
-         * @return CellLines with always 8 valid LineIDs (B.22 full coverage).
+         * @return CellLines with always 10 valid LineIDs (B.27 full coverage).
          * @throws None
          */
         [[nodiscard]] virtual CellLines getLinesForCell(std::uint16_t r, std::uint16_t c) const = 0;
