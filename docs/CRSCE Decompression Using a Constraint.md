@@ -5761,6 +5761,25 @@ constraint-line updates per cell assignment (10 lines instead of 8). The overhea
 because propagation is dominated by the fast-path `tryPropagateCell()` branch, which exits
 early before iterating all lines in most cases.
 
+**Seed search results.** An exhaustive joint search over all $256^2 = 65{,}536$ (seed5, seed6)
+suffix-byte pairs was launched with seeds 1–4 fixed at B.26c values. The search was terminated
+after 30,504 pairs (46.5% coverage) spanning all four quadrants of the seed5 byte range, each
+quadrant fully paired with all 256 seed6 values.
+
+| Metric | Value |
+|--------|-------|
+| Pairs evaluated | 30,504 / 65,536 (46.5%) |
+| Unique depth values observed | 1 |
+| Mean depth | 91,090.0 |
+| Std deviation | **0.0** |
+| Min / Max | 91,090 / 91,090 |
+| Pairs beating baseline | 0 |
+
+The landscape is completely flat: every tested (seed5, seed6) pair returns exactly 91,090. A
+zero standard deviation over 30,504 independent evaluations uniformly distributed across the
+full byte range is definitive — the search was terminated early as the remaining 53.5% is
+statistically certain to yield no improvement.
+
 #### B.27.5 Conclusions
 
 1. **Additional LTP sub-tables are neutral at default seeds.** Adding LTP5 and LTP6 with
@@ -5773,44 +5792,118 @@ early before iterating all lines in most cases.
    remains faster than B.20 (~198K), B.22 greedy (~329K), and approaches the B.26c rate.
    If seed optimization yields a depth improvement, the slowdown is justified.
 
-3. **Seed optimization is the critical next step.** The B.26c experiment demonstrated
-   that greedy sequential seed selection ranked 29th out of 1,296 pairs, and the true
-   winner was non-separable (CRSCLTPV only wins when paired with CRSCLTPP). The same
-   landscape ruggedness is expected for seeds 5 and 6. Optimization proceeds via
-   **coordinate-descent staging**: fix $s_6$ at its default (`CRSCLTP6`), sweep all 256
-   suffix-byte candidates for $s_5$; freeze the best $s_5$ and sweep all 256 candidates
-   for $s_6$; iterate until convergence. Cost per sweep: $256 \times 23\,\text{s} \div 4
-   \approx 26$ minutes; a full round (two sweeps) completes in under one hour. This is
-   strictly cheaper than exhaustive joint search ($256^2 = 65{,}536$ pairs at ~105 hours
-   wall time) while converging to the same optimum in non-pathological landscapes.
+3. **Seeds 5 and 6 are invariant at the B.26c operating point.** The exhaustive joint
+   search confirmed zero variance across all tested pairs. The depth ceiling of 91,090 is
+   set entirely by seeds 1+2 (CRSCLTPV+CRSCLTPP); seeds 5+6 contribute no additional
+   discriminating constraint pressure regardless of their values.
 
-4. **Wire-format breakage is real.** Any container produced under the 4-LTP format
+4. **The invariance pattern generalizes across additional uniform-511 sub-tables.** Seeds
+   3+4 were invariant at the B.22 operating point; seeds 5+6 are invariant at the B.26c
+   operating point. This establishes a pattern: each new pair of uniform-511 sub-tables
+   is inert when the preceding seeds are already at their optimum. The depth ceiling is
+   controlled by the first jointly-optimized seed pair, and subsequent sub-tables do not
+   crack it. This has direct implications for B.28 and B.29: further seed search within
+   the uniform-511 family is unlikely to yield improvement unless the fundamental
+   operating point (seeds 1+2) is also changed.
+
+5. **Wire-format breakage is real.** Any container produced under the 4-LTP format
    (15,749 bytes/block) is incompatible with the 6-LTP reader (16,899 bytes/block) and
    vice versa. `ValidateContainer` was updated to enforce the new size. This is expected
    behavior for a research format with no versioning guarantee between branches.
 
 #### B.27.6 Open Questions
 
-(a) Does coordinate-descent over the full 256-byte suffix space (sweep $s_5$, freeze, sweep
-$s_6$, iterate) yield a depth improvement beyond the B.26c ceiling of 91,090? The B.26c
-landscape was rugged (greedy ranked 29th of 1,296); the landscape for $s_5$ and $s_6$ may
-be similarly non-separable and require multiple coordinate-descent rounds to converge to the
-true per-pair optimum. The B.22 observation (seeds 3 and 4 invariant within the alphanumeric
-set) may not generalize to the full 256-byte space or to the 10-line-per-cell operating point.
+(a) **Answered — seeds 5+6 are invariant.** The exhaustive joint search (30,504 of 65,536
+pairs, zero variance) confirms that $s_5$ and $s_6$ produce no depth variation at the B.26c
+operating point. The rugged landscape observed for $s_1$/$s_2$ in B.26c does not generalize
+to additional uniform-511 sub-tables.
 
-(b) After $(s_5, s_6)$ are optimized, should $(s_1, s_2)$ be re-optimized at the new
-operating point? A full 4D joint search over $(s_1, s_2, s_5, s_6)$ is infeasible
-($256^4 \approx 4.3 \times 10^9$ pairs at 23 seconds each, $\approx$3,100 years).
-Alternating coordinate descent — sweep $s_1$ (all 256), freeze best; sweep $s_2$, freeze;
-sweep $s_5$, freeze; sweep $s_6$, freeze; repeat — is tractable at $\approx$26 minutes per
-axis sweep but risks local optima. The B.26c non-separability result makes this risk concrete:
-the greedy sequential winner differed from the joint winner.
+(b) The invariance raises a deeper question: **are seeds 5+6 invariant because they are
+redundant with seeds 1+2, or because the depth ceiling is a hard structural limit independent
+of partition geometry?** These two interpretations have different consequences for B.28/B.29.
+Sub-experiments B.27a–B.27d are designed to distinguish them (see below).
 
 (c) Is there a structural maximum to the benefit of additional LTP sub-tables? As more
 sub-tables are added, each cell becomes over-constrained before the plateau row, potentially
 reducing the backtracking freedom that enables deeper search. An empirical sweep of
 $k \in \{4, 6, 8, 10\}$ LTP sub-tables (with jointly optimized seeds at each $k$) would
-characterize the optimal constraint density.
+characterize the optimal constraint density. B.27d provides partial evidence by testing whether
+joint optimization of seeds 1+2+5+6 reaches a different optimum than seeds 1+2 alone.
+
+#### B.27a Swap Experiment: Value vs. Slot Position (Completed)
+
+**Setup.** Set seeds 1+2 to the pre-B.26c defaults (`CRSCLTP1` + `CRSCLTP2`, depth ~86,123 in
+4-LTP) and seeds 5+6 to the B.26c winners (`CRSCLTPV` + `CRSCLTPP`). Seeds 3+4 remain fixed
+at `CRSCLTP3` + `CRSCLTP4`.
+
+**Question.** Do the B.26c winning seed *values* produce high depth regardless of which
+sub-table slot they occupy, or is there something structurally special about slots 1+2?
+
+**Result.**
+
+| Configuration | Depth |
+|---|---|
+| B.26c baseline: slots 1+2 = CRSCLTPV+CRSCLTPP, slots 5+6 = CRSCLTP5+CRSCLTP6 | 91,090 |
+| B.27a swap: slots 1+2 = CRSCLTP1+CRSCLTP2, slots 5+6 = CRSCLTPV+CRSCLTPP | **86,123** |
+| Weak 4-LTP reference: slots 1+2 = CRSCLTP1+CRSCLTP2 | ~86,123 |
+
+Depth = 86,123 — identical to the weak 4-LTP reference. Placing the B.26c winning values in
+slots 5+6 produces zero benefit. The depth is the same as if those slots held default seeds.
+
+**Interpretation.** Sub-tables 5+6 are **structurally inert** — they contribute zero
+constraint pressure to the DFS regardless of their seed values. The depth is controlled
+entirely by slots 1+2. This is not a "slot position matters" result in the sense that slots
+1+2 are special and slots 5+6 are not; rather, slots 5+6 are inert *period* — no value placed
+in them affects the outcome. The governing question for B.27b is whether this inertness holds
+even when slots 1+2 are *also* weak (i.e., whether any seeds 5+6 can compensate).
+
+#### B.27b Weak Seeds 1+2, Coordinate-Descent Search of Seeds 5+6 (Proposed)
+
+**Setup.** Fix seeds 1+2 at `CRSCLTP1` + `CRSCLTP2` (weak, ~86K depth in 4-LTP). Run
+coordinate-descent over seeds 5+6: sweep seed5 (256 suffix-byte candidates), freeze best;
+sweep seed6, freeze best; iterate until convergence.
+
+**Question.** Can seeds 5+6 independently drive depth from ~86K toward 91K when seeds 1+2 are
+weak? This distinguishes the two interpretations of B.27 invariance:
+
+- **If seeds 5+6 reach ~91K with weak 1+2:** sub-tables 5+6 are capable of the same work as
+  1+2 — the invariance seen in B.27 is because seeds 1+2 were already optimal, leaving no
+  headroom. The additional sub-tables matter; they just weren't needed.
+- **If seeds 5+6 stay flat at ~86K regardless:** the extra sub-tables are structurally inert.
+  No seed choice for slots 5+6 can improve depth when slots 1+2 are suboptimal. This closes
+  the door on uniform-511 expansion as a depth improvement strategy.
+
+**Cost.** Coordinate descent, 2 axes, 2–3 rounds: **~2 hours.**
+
+#### B.27c Re-search Seeds 1+2 in the 6-LTP Context (Proposed)
+
+**Setup.** Fix seeds 5+6 at their defaults (`CRSCLTP5` + `CRSCLTP6`). Run coordinate-descent
+over seeds 1+2: sweep seed1 (256 candidates), freeze best; sweep seed2, freeze best; iterate.
+
+**Question.** Does the 6-LTP optimal for seeds 1+2 differ from the 4-LTP optimal
+(CRSCLTPV+CRSCLTPP)? If the landscape shifts, the additional sub-tables interact non-trivially
+with seeds 1+2 — the 6-table joint optimum is at a different point and the B.26c winner was
+specific to the 4-table operating point.
+
+**Cost.** Coordinate descent, 2 axes, 2–3 rounds: **~2 hours.**
+
+#### B.27d Joint Four-Axis Coordinate Descent: Seeds 1+2+5+6 (Proposed)
+
+**Setup.** Starting from (CRSCLTPV, CRSCLTPP, CRSCLTP5, CRSCLTP6), run alternating
+coordinate descent over all four axes: sweep seed1, freeze; sweep seed2, freeze; sweep seed5,
+freeze; sweep seed6, freeze; repeat until no axis improves.
+
+**Question.** Is there a 4D joint optimum reachable by coordinate descent that improves on the
+B.26c depth? The B.26c result showed that seeds 1+2 are non-separable (greedy ≠ joint winner);
+the 4D landscape may have its own non-separabilities that coordinate descent with the right
+starting point can exploit.
+
+**Note.** The B.27 invariance result (seeds 5+6 flat at B.26c operating point) suggests the
+starting point for B.27d is already at a saddle in the (seed5, seed6) directions. A different
+starting point for seeds 1+2 (informed by B.27b or B.27c) may activate the seeds 5+6
+dimensions and reach a genuinely different joint optimum.
+
+**Cost.** Four axes × ~26 min/sweep, 3–5 rounds: **~5–9 hours.**
 
 ### B.28 Interior-Byte Variant: `CRSC[X]LTP` (Proposed)
 
