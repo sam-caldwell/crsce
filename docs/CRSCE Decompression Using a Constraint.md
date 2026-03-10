@@ -5797,14 +5797,26 @@ statistically certain to yield no improvement.
    set entirely by seeds 1+2 (CRSCLTPV+CRSCLTPP); seeds 5+6 contribute no additional
    discriminating constraint pressure regardless of their values.
 
-4. **The invariance pattern generalizes across additional uniform-511 sub-tables.** Seeds
-   3+4 were invariant at the B.22 operating point; seeds 5+6 are invariant at the B.26c
-   operating point. This establishes a pattern: each new pair of uniform-511 sub-tables
-   is inert when the preceding seeds are already at their optimum. The depth ceiling is
-   controlled by the first jointly-optimized seed pair, and subsequent sub-tables do not
-   crack it. This has direct implications for B.28 and B.29: further seed search within
-   the uniform-511 family is unlikely to yield improvement unless the fundamental
-   operating point (seeds 1+2) is also changed.
+4. **Sub-tables 5+6 are structurally inert — proven from both directions (B.27a, B.27b).**
+   B.27a placed the B.26c winning seeds in slots 5+6 with weak seeds in slots 1+2: depth
+   stayed at 86,123, unchanged from the weak 4-LTP baseline. B.27b swept all 256 seed5
+   values with weak seeds 1+2: every candidate returned exactly 86,123 (std dev = 0.0,
+   terminated after 136 of 256 values). Combined with the B.27 main result (seeds 5+6
+   invariant at 91,090 when seeds 1+2 are optimal), the conclusion is definitive: no seed
+   value placed in slots 5+6 affects depth under any condition. The sub-tables in those
+   slots contribute zero discriminating constraint pressure. The depth is a function
+   of slots 1+2 alone.
+
+5. **The invariance pattern establishes a structural limit on uniform-511 expansion.**
+   Seeds 3+4 were invariant at the B.22 operating point; seeds 5+6 are inert at all tested
+   operating points. B.27c confirmed that re-optimizing seeds 1+2 in the 6-LTP context
+   returns the identical winner (CRSCLTPV+CRSCLTPP=91,090) as the 4-LTP B.26c result.
+   Adding more uniform-511 sub-tables beyond the first two jointly-optimized seeds provides
+   no depth benefit. This closes the door on further uniform-511 expansion as a depth
+   improvement strategy. B.28 and B.29 (alternative byte-position seed families) were
+   evaluated and skipped — the same structural ceiling argument applies regardless of which
+   byte of the 64-bit seed is varied. The seed-search paradigm is exhausted; the hill-climber
+   (B.27-plan) is the next productive direction.
 
 5. **Wire-format breakage is real.** Any container produced under the 4-LTP format
    (15,749 bytes/block) is incompatible with the 6-LTP reader (16,899 bytes/block) and
@@ -5818,17 +5830,21 @@ pairs, zero variance) confirms that $s_5$ and $s_6$ produce no depth variation a
 operating point. The rugged landscape observed for $s_1$/$s_2$ in B.26c does not generalize
 to additional uniform-511 sub-tables.
 
-(b) The invariance raises a deeper question: **are seeds 5+6 invariant because they are
-redundant with seeds 1+2, or because the depth ceiling is a hard structural limit independent
-of partition geometry?** These two interpretations have different consequences for B.28/B.29.
-Sub-experiments B.27a–B.27d are designed to distinguish them (see below).
+(b) **Answered — seeds 5+6 are structurally inert, not ceiling-limited.** B.27c established
+that the seeds 1+2 landscape in the 6-LTP context is identical to the 4-LTP context: the
+same winner (CRSCLTPV+CRSCLTPP=91,090) and the same rugged landscape (seed1 range
+84,982–91,090; seed2 range 85,232–91,090). This rules out the "ceiling" interpretation:
+if 91,090 were a hard ceiling from the first two sub-tables, adding more sub-tables would
+not change the landscape shape, but we would still expect some seed2 candidates to exceed
+91,090. None did. Instead, the evidence favors the "redundancy" interpretation: uniform-511
+sub-tables 5+6 add no constraint discriminability that sub-tables 1+2 do not already provide.
+The relevant implication for B.28/B.29 is that the depth ceiling is tied to the *value* of
+the constraint geometry defined by seeds 1+2, not the count of sub-tables.
 
-(c) Is there a structural maximum to the benefit of additional LTP sub-tables? As more
-sub-tables are added, each cell becomes over-constrained before the plateau row, potentially
-reducing the backtracking freedom that enables deeper search. An empirical sweep of
-$k \in \{4, 6, 8, 10\}$ LTP sub-tables (with jointly optimized seeds at each $k$) would
-characterize the optimal constraint density. B.27d provides partial evidence by testing whether
-joint optimization of seeds 1+2+5+6 reaches a different optimum than seeds 1+2 alone.
+(c) **Partially answered.** B.27c confirms that 6 sub-tables with the optimal seed-1+2 pair
+achieves the same depth as 4 sub-tables. B.27d (joint 4-axis) is moot per B.27b. The
+question of whether non-uniform partitions (B.28, B.29 seed families) can break the ceiling
+remains open.
 
 #### B.27a Swap Experiment: Value vs. Slot Position (Completed)
 
@@ -5857,25 +5873,41 @@ entirely by slots 1+2. This is not a "slot position matters" result in the sense
 in them affects the outcome. The governing question for B.27b is whether this inertness holds
 even when slots 1+2 are *also* weak (i.e., whether any seeds 5+6 can compensate).
 
-#### B.27b Weak Seeds 1+2, Coordinate-Descent Search of Seeds 5+6 (Proposed)
+#### B.27b Weak Seeds 1+2, Sweep of Seeds 5+6 (Completed)
 
-**Setup.** Fix seeds 1+2 at `CRSCLTP1` + `CRSCLTP2` (weak, ~86K depth in 4-LTP). Run
-coordinate-descent over seeds 5+6: sweep seed5 (256 suffix-byte candidates), freeze best;
-sweep seed6, freeze best; iterate until convergence.
+**Setup.** Fix seeds 1+2 at `CRSCLTP1` + `CRSCLTP2` (weak, depth ~86,123 in 4-LTP). Sweep
+all 256 suffix-byte candidates for seed5 with seed6 fixed at `CRSCLTP6`. Search terminated
+early after 136 seed5 values (0x00–0x87) due to zero variance.
 
-**Question.** Can seeds 5+6 independently drive depth from ~86K toward 91K when seeds 1+2 are
-weak? This distinguishes the two interpretations of B.27 invariance:
+**Question.** Can seeds 5+6 independently drive depth from ~86K toward 91K when seeds 1+2
+are weak?
 
-- **If seeds 5+6 reach ~91K with weak 1+2:** sub-tables 5+6 are capable of the same work as
-  1+2 — the invariance seen in B.27 is because seeds 1+2 were already optimal, leaving no
-  headroom. The additional sub-tables matter; they just weren't needed.
-- **If seeds 5+6 stay flat at ~86K regardless:** the extra sub-tables are structurally inert.
-  No seed choice for slots 5+6 can improve depth when slots 1+2 are suboptimal. This closes
-  the door on uniform-511 expansion as a depth improvement strategy.
+**Result.**
 
-**Cost.** Coordinate descent, 2 axes, 2–3 rounds: **~2 hours.**
+| Metric | Value |
+|--------|-------|
+| Seed5 values evaluated | 136 / 256 (0x00–0x87) |
+| Unique depth values observed | 1 |
+| Depth (all candidates) | **86,123** |
+| Std deviation | **0.0** |
+| Best depth vs B.26c baseline | −4,967 |
+| Best depth vs weak reference | 0 |
 
-#### B.27c Re-search Seeds 1+2 in the 6-LTP Context (Proposed)
+Every evaluated seed5 value returns exactly 86,123 — the same depth as the weak 4-LTP
+baseline (CRSCLTP1+CRSCLTP2 with no additional sub-tables). The search was terminated early;
+the uniformly sampled coverage across the full byte range is sufficient to call the result.
+
+**Interpretation.** Seeds 5+6 are **structurally inert** under both conditions:
+- When seeds 1+2 are *optimal* (B.26c winner): all seeds 5+6 give 91,090 (B.27 main result)
+- When seeds 1+2 are *weak* (CRSCLTP1+CRSCLTP2): all seeds 5+6 give 86,123 (this result)
+
+In both cases the depth is constant regardless of seeds 5+6. The sub-tables in slots 5+6
+contribute zero discriminating constraint pressure. The depth is a function of slots 1+2 alone.
+This closes the question raised by B.27a: it is not that slot position matters structurally —
+it is that slots 5+6 are inert *period*, regardless of which values they hold or what state
+slots 1+2 are in.
+
+#### B.27c Re-search Seeds 1+2 in the 6-LTP Context (Completed)
 
 **Setup.** Fix seeds 5+6 at their defaults (`CRSCLTP5` + `CRSCLTP6`). Run coordinate-descent
 over seeds 1+2: sweep seed1 (256 candidates), freeze best; sweep seed2, freeze best; iterate.
@@ -5885,29 +5917,64 @@ over seeds 1+2: sweep seed1 (256 candidates), freeze best; sweep seed2, freeze b
 with seeds 1+2 — the 6-table joint optimum is at a different point and the B.26c winner was
 specific to the 4-table operating point.
 
-**Cost.** Coordinate descent, 2 axes, 2–3 rounds: **~2 hours.**
+**Results (Round 1, converged).**
 
-#### B.27d Joint Four-Axis Coordinate Descent: Seeds 1+2+5+6 (Proposed)
+| Sweep | Winner | Depth | Range | Notes |
+|---|---|---|---|---|
+| Seed1 (seed2 fixed = CRSCLTPP) | CRSCLTPV | 91,090 | 84,982–91,090 | Rugged landscape; runners-up: 0xD8=90,399, 0x0B=90,216 |
+| Seed2 (seed1 fixed = CRSCLTPV) | CRSCLTPP | 91,090 | 85,232–91,090 | Rugged landscape; runners-up: 0xB5=90,362, CRSCLTPy=89,874 |
 
-**Setup.** Starting from (CRSCLTPV, CRSCLTPP, CRSCLTP5, CRSCLTP6), run alternating
-coordinate descent over all four axes: sweep seed1, freeze; sweep seed2, freeze; sweep seed5,
-freeze; sweep seed6, freeze; repeat until no axis improves.
+Round 1 converged immediately (seed1 and seed2 unchanged). Peak depth: **91,090** (+0 vs
+B.26c baseline). Script: `tools/b27c_reseed12_6ltp.py`. Results: `tools/b27c_results/b27c_results.json`.
 
-**Question.** Is there a 4D joint optimum reachable by coordinate descent that improves on the
-B.26c depth? The B.26c result showed that seeds 1+2 are non-separable (greedy ≠ joint winner);
-the 4D landscape may have its own non-separabilities that coordinate descent with the right
-starting point can exploit.
+**Interpretation.** The 6-LTP optimal for seeds 1+2 is identical to the 4-LTP optimal
+(CRSCLTPV+CRSCLTPP=91,090). The addition of sub-tables 5 and 6 does not shift the seeds 1+2
+landscape: the winner at the global optimum is the same seed pair. Combined with B.27a and
+B.27b (sub-tables 5+6 structurally inert from both directions), this establishes that the
+uniform-511 6-LTP configuration saturates at the same operating point as 4-LTP. No
+seed-space search within the `CRSCLTP[X]` family improves on B.26c.
 
-**Note.** The B.27 invariance result (seeds 5+6 flat at B.26c operating point) suggests the
-starting point for B.27d is already at a saddle in the (seed5, seed6) directions. A different
-starting point for seeds 1+2 (informed by B.27b or B.27c) may activate the seeds 5+6
-dimensions and reach a genuinely different joint optimum.
+#### B.27d Joint Four-Axis Coordinate Descent: Seeds 1+2+5+6 (Moot — Superseded by B.27b)
 
-**Cost.** Four axes × ~26 min/sweep, 3–5 rounds: **~5–9 hours.**
+**Original proposal.** Starting from (CRSCLTPV, CRSCLTPP, CRSCLTP5, CRSCLTP6), run
+alternating coordinate descent over all four axes to find a 4D joint optimum.
 
-### B.28 Interior-Byte Variant: `CRSC[X]LTP` (Proposed)
+**Status: not needed.** B.27b proved that the seed5 and seed6 axes are identically flat
+regardless of the state of seeds 1+2. Since sweeping either axis always returns a constant
+depth, there is no 4D joint optimum that differs from the 2D (seed1, seed2) optimum. The
+seeds 5+6 directions contribute zero gradient everywhere in the search space; coordinate
+descent over them cannot reach a new optimum from any starting point. B.27d is superseded.
 
-#### B.28.1 Motivation
+### B.28 Interior-Byte Variant: `CRSC[X]LTP` (Skipped)
+
+**Decision: not worth running.** After completing B.27c, the case for B.28 was re-evaluated
+and the experiment was skipped for the following reasons:
+
+1. **B.26c was exhaustive, not coordinate descent.** It evaluated all 256×256 pairs within the
+   `CRSCLTP[X]` suffix-byte family and found the true global maximum (91,090). B.28 varying a
+   different byte position still gives only *one degree of freedom per sub-table* — it probes a
+   different slice of the same single-permutation-per-seed paradigm, not a richer search space.
+
+2. **One byte, different position, same ceiling problem.** The Fisher-Yates shuffle maps a
+   64-bit seed to a single permutation of 261,121 cells. Whether bit 7 or bit 31 varies, the
+   search space per axis is identically 256 candidates. There is no reason to expect the
+   interior-byte family to escape a ceiling that the exhaustive suffix-byte search could not.
+
+3. **Seeds 3+4 invariance is the diagnostic.** In B.26c, seeds 3 and 4 in the `CRSCLTP[X]`
+   family were completely flat across all 36 tested values. This flatness is not about which byte
+   position is varied — it reflects that additional uniform-511 sub-tables contribute zero
+   marginal constraint discriminability once seeds 1+2 are optimised. B.28 would test a different
+   bit position in the same LCG-seeded Fisher-Yates architecture and is expected to exhibit the
+   same saturation behaviour.
+
+4. **The hill-climber is the higher-leverage next step.** Directly optimising LTP cell
+   assignments (rather than seeds) gives O(s⁴) ≈ 6.8 × 10¹⁰ degrees of freedom and can target
+   row-concentration geometry explicitly (B.9.2). B.28's expected return does not justify
+   diverting effort from that more principled approach.
+
+The original proposal is preserved below for reference.
+
+#### B.28.1 Motivation (Original Proposal)
 
 B.26d and B.27 vary the trailing byte (byte 8, LSB, bits 7..0) of the 8-byte seed, holding the
 first 7 bytes fixed as `CRSCLTP`. B.29 varies the leading byte (byte 1, MSB, bits 63..56).
@@ -6019,14 +6086,45 @@ sweeps — a consistent methodology that avoids the infeasibility of 2-byte join
 extends that strategy to all 256 byte values at an interior seed byte position, testing
 coordinate-descent in a new bit zone at the same per-evaluation cost.
 
-### B.29 Single-Byte Prefix with `CRSCLTP` Suffix (Proposed)
+### B.29 Single-Byte Prefix with `CRSCLTP` Suffix (Skipped)
 
-#### B.29.1 Motivation
+**Decision: not worth running.** B.29 was evaluated after B.28 was skipped and the same
+reasoning applies with equal force:
+
+1. **Same architecture, different byte position.** B.29 varies the MSB (bits 63..56) while
+   keeping `CRSCLTP` as the trailing 7 bytes — the mirror image of B.26d (vary LSB, keep
+   `CRSCLTP` as the leading 7 bytes). Both give 256 candidates per axis within the same
+   single-permutation-per-seed paradigm. The search space per axis is identical in size and
+   the structural ceiling problem is unchanged.
+
+2. **LCG trajectory analysis confirms symmetry.** In a multiplicative LCG
+   (`state = a·state + c mod 2^64`), varying the MSB shifts the starting state by `Δ << 56`.
+   After *n* steps the two trajectories differ by `a^n·(Δ << 56) mod 2^64` — structurally
+   identical to varying the LSB by a different linear offset in the same cycle. There is no
+   mechanism that makes MSB variation qualitatively different from the already-exhausted LSB
+   variation in a Fisher-Yates/LCG context.
+
+3. **Seeds 3+4 invariance is the diagnostic, not byte position.** The flatness observed in
+   B.26c for seeds 3 and 4 was not caused by the byte that was varied. It reflects that
+   additional uniform-511 sub-tables contribute zero marginal constraint discriminability once
+   seeds 1+2 are optimised. Varying the MSB of further seeds faces the same barrier.
+
+4. **B.26c exhausted the LSB family exhaustively.** Its global maximum (91,090) is the true
+   ceiling for that family. B.29's MSB family is disjoint and could in principle have a higher
+   ceiling — but there is no theoretical mechanism making MSB variation qualitatively superior,
+   so this remains low-probability speculation.
+
+5. **The hill-climber is the higher-leverage next step.** Directly optimising LTP cell
+   assignments gives O(s⁴) ≈ 6.8 × 10¹⁰ degrees of freedom and can target row-concentration
+   geometry explicitly. B.29's expected return does not justify the cost.
+
+The original proposal is preserved below for reference.
+
+#### B.29.1 Motivation (Original Proposal)
 
 B.26d and B.27 search seeds of the form `CRSCLTP` + one variable byte: the high 7 bytes are
-fixed and byte 8 (the LSB, big-endian) varies. B.28 extends that to `CRSCLT` + two variable
-bytes. Both families share the property that the *leading* bytes of the 64-bit seed are fixed
-and the *trailing* bytes vary.
+fixed and byte 8 (the LSB, big-endian) varies. Both families share the property that the
+*leading* bytes of the 64-bit seed are fixed and the *trailing* bytes vary.
 
 B.29 inverts this structure. It fixes `CRSCLTP` as the trailing 7 bytes (the suffix) and
 sweeps a single variable byte in the leading position (the MSB):
@@ -6079,24 +6177,25 @@ which has a different bit layout.
 best $s_5$; sweep all 256 prefix-byte values for $s_6$; freeze the best $s_6$; iterate until
 no axis improves. This is identical in structure to the B.27 and B.28 staging procedures.
 
-**Cross-family restart.** After B.29 converges, re-run B.27 (LSB) and B.28 (interior-byte)
-sweeps with seeds fixed at the B.29 winner to verify no other bit zone yields further
-improvement. All three families share the same per-axis cost and the same convergence criterion.
+**Cross-family restart** *(original proposal, superseded — B.28 and B.29 both skipped).*
+After B.29 converged, the plan was to re-run B.27 (LSB) sweeps with seeds fixed at the B.29
+winner to verify no further improvement. This step is moot.
 
 #### B.29.4 Relationship to the Current Seed Families
 
-The four seed families explored across B.26c–B.29:
+The seed families considered across B.26c–B.29:
 
-| Experiment | Seed form | Variable bits | Space/axis |
-|-----------|-----------|---------------|-----------|
-| B.26c | `CRSCLTP` + alphanum suffix | bits 7..0, restricted | 36 |
-| B.26d / B.27 | `CRSCLTP` + any suffix | bits 7..0 | 256 |
-| B.28 | `CRSCLT` + 2-byte suffix | bits 15..0 | 65,536 |
-| **B.29** | **prefix + `CRSCLTP`** | **bits 63..56** | **256** |
+| Experiment | Seed form | Variable bits | Space/axis | Status |
+|-----------|-----------|---------------|-----------|--------|
+| B.26c | `CRSCLTP` + alphanum suffix | bits 7..0, restricted | 36 | Completed — global max 91,090 |
+| B.26d / B.27 | `CRSCLTP` + any suffix byte | bits 7..0 | 256 | Completed — confirmed 91,090 ceiling |
+| B.28 | `CRSC[X]LTP` interior byte | bits 31..24 | 256 | Skipped — same objection as B.29 |
+| B.29 | prefix `[X]` + `CRSCLTP` | bits 63..56 | 256 | Skipped — see rationale above |
 
-Together B.26d (vary LSB) and B.29 (vary MSB) probe both ends of the 64-bit integer, bracketing
-the seed space and testing whether the LCG trajectory is sensitive to the high-order byte. B.28
-probes the interior (the 7th byte, previously fixed to `P`).
+B.26c and B.26d/B.27 together exhaustively covered the LSB family. B.28 and B.29 were
+proposed to probe different bit zones but were skipped because varying a different byte position
+within the same single-permutation-per-seed LCG architecture offers no qualitative increase in
+degrees of freedom and is not expected to break the 91,090 ceiling.
 
 #### B.29.5 Tooling
 
@@ -6128,19 +6227,26 @@ does not translate to partition-quality sensitivity.
 convention is not merely arbitrary — the high bits of the seed do matter, and the current
 family happens to be optimal (or near-optimal) within the tractable search space.
 
-#### B.29.7 Interpretation Combined with B.28 and B.26d
+#### B.29.7 Retrospective: Conclusion of the Seed-Search Programme
 
-The three experiments form a systematic decomposition of the 64-bit seed into three zones:
+B.26d/B.27 (LSB, completed) together with the decision to skip B.28 (interior byte) and B.29
+(MSB) complete the seed-search programme. The combined evidence supports a clear conclusion:
 
-- **B.26d** (bits 7..0 variable): the LSB was not constraining; the full byte range was searched.
-- **B.29** (bits 63..56 variable): tests whether the MSB is constraining.
-- **B.28** (bits 15..8 variable): tests whether the penultimate byte (`P` = 0x50) is constraining.
+- **B.26c** exhaustively covered the LSB family (256×256 pairs) and found the global maximum
+  at 91,090. The landscape is rugged (range 84,265–91,090, mean 86,941) with only 2.2% of
+  pairs beating the B.22 baseline — but the ceiling is definite.
+- **B.27 series** (B.27, B.27a–c) established that additional uniform-511 sub-tables (LTP5/6)
+  provide zero marginal benefit regardless of seed values or operating point.
+- **B.28 and B.29 were skipped** because varying a different byte position in the same
+  LCG-seeded Fisher-Yates architecture does not increase degrees of freedom and there is no
+  theoretical mechanism by which MSB or interior-byte variation escapes the same structural
+  ceiling.
 
-If all three return the same depth ceiling (or confirm the current optimal as locally best),
-the strong inference is that depth is governed by the global topology of the partition rather
-than the specific seed value, and further seed search within the `CRSCLT??` family offers
-diminishing returns. At that point, architectural changes (more sub-tables, variable-length
-lines, or a different partition method) become the natural next direction.
+The strong inference is that 91,090 is not a seed-search artefact but a structural property
+of the uniform-511 partition geometry under the current solver. Seed search within any
+single-byte-variable `CRSCLTP`-family is exhausted. The natural next direction is the
+**hill-climber** (B.27-plan): directly optimising cell assignments with O(s⁴) degrees of
+freedom, targeting the row-concentration geometry identified in B.9.2.
 
 ---
 
