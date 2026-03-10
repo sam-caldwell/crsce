@@ -3,8 +3,8 @@
  * @brief Definition for accessing the reflected CRC-32 lookup table.
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt
  */
-#include "common/Util/detail/crc32_table.h"
-#include "common/Util/detail/make_entry_rt.h"
+#include "common/Util/crc32_table.h"
+#include "common/Util/make_entry_rt.h"
 #include <array>
 #include <cstdint>
 
@@ -15,14 +15,13 @@ namespace crsce::common::util::detail {
      * @return const std::array<std::uint32_t, 256>& Process-lifetime lookup table.
      */
     const std::array<std::uint32_t, 256> &crc32_table() {
-        static std::array<std::uint32_t, 256> t{};
-        static bool init = false;
-        if (!init) {
+        static const std::array<std::uint32_t, 256> t = [] {
+            std::array<std::uint32_t, 256> result{};
             for (std::uint32_t i = 0; i < 256U; ++i) {
-                t.at(i) = make_entry_rt(i);
+                result.at(i) = make_entry_rt(i);
             }
-            init = true;
-        }
+            return result;
+        }();
         return t;
     }
 }

@@ -6,8 +6,8 @@
                 <h1>CRSCE — Cross-Sums Compression and Expansion</h1>
                 <p>
                     CRSCE is a research proof-of-concept compression format and toolchain that encodes a 511×511 bit
-                    Cross‑Sum Matrix (CSM) per block using four families of cyclic cross‑sum constraints and a chained
-                    SHA‑256 Lateral Hash (LH) array. The project ships two C++23 binaries, `compress` and `decompress`,
+                    Cross‑Sum Matrix (CSM) per block using four families of cyclic cross‑sum constraints and per‑row
+                    SHA‑256 Lateral Hashes (LH). The project ships two C++23 binaries, `compress` and `decompress`,
                     built with CMake/Ninja and verified by CTest. The format prioritizes integrity and deterministic
                     verification; it does not provide confidentiality.
                 </p>

@@ -11,9 +11,9 @@ LLVMBIN := /opt/homebrew/opt/llvm/bin
 # Choose a sensible default preset: prefer Homebrew LLVM if present, otherwise use a portable debug preset
 HAVE_LLVM := $(shell [ -x "$(LLVMBIN)/clang++" ] && echo yes || echo no)
 ifeq ($(HAVE_LLVM),yes)
-  PRESET ?= llvm-debug
+  PRESET ?= llvm-release
 else
-  PRESET ?= cmake-build-debug
+  PRESET ?= arm64-release
 endif
 export PRESET
 
@@ -30,14 +30,10 @@ help:
 	@echo "  clean     - Delete and recreate the build/ directory"
 	@echo "  configure - Configure the build pipeline"
 	@echo "  lint      - Run configured linters"
-	@echo "  lint/tools- Lint only tools/**/*.cpp"
 	@echo "  build     - Build all presets (auto-configure as needed)"
 	@echo "             Use 'make build/one PRESET=<name>' to build one"
-	@echo "  deps      - Discover and build all tools/** CMake projects"
 	@echo "  test      - Build and run all test programs"
 	@echo "  test/{ones, zeroes, random, alternating01, alternating10} - Run only a given test runner"
-	@echo "  ci/scan-logs-alternating - Non-fatal GOBP scan on alternating logs (if present)"
-	@echo "  ci/no-gobp-deterministic - Verify zeroes/ones decompressor logs contain no GOBP markers"
 	@echo "  cover     - Ensure minimum test coverage threshold is maintained"
 	@echo "  ready     - Check development environment prerequisites"
 	@echo "  ready/fix - Install missing development environment prerequisites"
@@ -50,11 +46,5 @@ all:
 	@$(MAKE) lint
 	@$(MAKE) build
 	@$(MAKE) test
-	@$(MAKE) test/zeroes
-	@$(MAKE) test/ones
-	@$(MAKE) test/alternating01
-	@$(MAKE) test/alternating10
-	@$(MAKE) test/random
-	@$(MAKE) cover
 
 include Makefile.d/*.mk

@@ -5,6 +5,23 @@ cmake_minimum_required(VERSION 4.2)
 
 project(crsce VERSION 1.0.0 LANGUAGES CXX)
 
+# --- ARM64 assembly support (SHA-2 hardware extensions) ---
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+    enable_language(ASM)
+endif()
+
+# --- Metal GPU acceleration (Apple Silicon) ---
+if(APPLE)
+    option(CRSCE_ENABLE_METAL "Enable Metal GPU acceleration for solver" ON)
+else()
+    option(CRSCE_ENABLE_METAL "Enable Metal GPU acceleration for solver" OFF)
+endif()
+if(CRSCE_ENABLE_METAL)
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 23)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

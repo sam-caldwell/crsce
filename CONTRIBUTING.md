@@ -119,14 +119,13 @@ The project implements the CRSCE format. When working on features, keep these ac
     5) `XSM[0..510]` (each 9 bits, MSB‑first)
     6) four trailing zero padding bits
 - Cross‑sum computation: canonical loop bounds 0..510 with modulo addressing for diagonals; each entry in 0..511
-- LH chain: SHA‑256 with seed `RG9uYWxkVHJ1bXBJbXBlYWNoSW5jYXJjZXJhdGVIaXN0b3J5UmVtZW1iZXJz`,
-  `N=SHA256(seed)`, `LH[0]=SHA256(N||RowBytes(0))`, `LH[r]=SHA256(LH[r-1]||RowBytes(r))` for r=1..510
+- LH: per‑row SHA‑256 hashes (no seed, no chaining). `LH[r]=SHA256(RowBytes(r))` for r=0..510
 
 ### Decompress
 
 - CLI: `decompress -in <file> -out <file>`
 - Must parse fixed 18,652‑byte payloads per block in the exact field order and lengths above
-- Acceptance: reconstructed CSM must exactly match stored cross‑sum vectors and recomputed LH chain; otherwise reject
+- Acceptance: reconstructed CSM must exactly match stored cross‑sum vectors and per‑row LH hashes; otherwise reject
 - Byte stream: traverse CSM row‑major, pack bits MSB‑first into bytes; remove end padding using original size
 - Fail‑hard: stop and return error on invalid blocks or timeout; do not produce partial output by default
 
@@ -135,7 +134,7 @@ The project implements the CRSCE format. When working on features, keep these ac
 - All `decompress` inputs are untrusted. Validate header fields, block sizes, indices, and bounds before allocation.
 - Enforce strict parsing and acceptance rules; treat nonzero trailing padding bits as a format error if applicable.
 - Implement timeouts or guardrails for decompression attempts that exceed configured limits.
-- SHA‑256 must match the standard exactly for LH computations.
+- SHA‑256 must match the standard exactly for per‑row LH computations.
 
 ## Adding and Registering Tests
 

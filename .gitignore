@@ -31,6 +31,8 @@ latex/
 # For Python
 __pycache__/
 *.pyc
+C*D*.md
+!docs/*.md
 
 # Logs and dumps
 *.log
@@ -50,9 +52,6 @@ _deps/
 bin/
 /lib/
 /share/
-
-# Ignore only the top-level tools directory (not cmake/tools)
-tools/binDumper
 
 # Ninja build files
 .ninja_deps

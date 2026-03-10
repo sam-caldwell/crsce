@@ -19,11 +19,11 @@
 #include <stdexcept>
 #include <cstdlib>
 
-#include "testRunnerRandom/detail/now_ms.h"
-#include "testRunnerRandom/detail/sha512.h"
-#include "testRunnerRandom/detail/write_random_file.h"
-#include "testRunnerRandom/detail/resolve_exe.h"
-#include "testRunnerRandom/detail/run_process.h"
+#include "testRunnerRandom/now_ms.h"
+#include "testRunnerRandom/sha512.h"
+#include "testRunnerRandom/write_random_file.h"
+#include "testRunnerRandom/resolve_exe.h"
+#include "testRunnerRandom/run_process.h"
 
 namespace fs = std::filesystem;
 

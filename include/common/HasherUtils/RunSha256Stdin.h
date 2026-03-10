@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "common/HasherUtils/detail/run_sha256_stdin.h"
+#include "common/HasherUtils/run_sha256_stdin.h"
 
 namespace crsce::common::hasher {
     /**

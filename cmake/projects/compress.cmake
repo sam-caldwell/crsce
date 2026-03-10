@@ -7,17 +7,54 @@ add_executable(compress cmd/compress/main.cpp)
 
 target_include_directories(compress PUBLIC
     "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/common"
-    "${PROJECT_SOURCE_DIR}/src/Compress"
 )
 
-# Add source files from src/Compress and src/common
-file(GLOB_RECURSE COMPRESS_SOURCES
-    "src/Compress/*.cpp"
+# Compress CLI sources + Compressor sources + shared common + solver sources
+set(COMPRESS_CLI_SOURCES
+    src/Compress/Cli/run.cpp
+    src/Compress/Cli/Heartbeat.cpp
+    src/Compress/Cli/heartbeat_worker.cpp
+)
+file(GLOB_RECURSE COMPRESS_COMPRESSOR_SOURCES CONFIGURE_DEPENDS
+    "src/Compress/Compressor/*.cpp"
+)
+file(GLOB_RECURSE COMPRESS_COMMON_SOURCES CONFIGURE_DEPENDS
     "src/common/*.cpp"
 )
+# Compressor needs the solver for DI discovery
+file(GLOB_RECURSE COMPRESS_SOLVER_SOURCES CONFIGURE_DEPENDS
+    "src/Decompress/Solvers/*.cpp"
+)
 
-target_sources(compress PRIVATE ${COMPRESS_SOURCES})
+# Discover ARM64 assembly sources (.S files) when building for ARM64
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+    file(GLOB_RECURSE COMPRESS_ASM_SOURCES CONFIGURE_DEPENDS
+        "src/common/*.S"
+    )
+endif()
+
+# Discover Objective-C++ solver sources when Metal is enabled
+if(CRSCE_ENABLE_METAL)
+    file(GLOB_RECURSE COMPRESS_SOLVER_OBJCXX_SOURCES CONFIGURE_DEPENDS
+        "src/Decompress/Solvers/*.mm"
+    )
+endif()
+
+target_sources(compress PRIVATE
+    ${COMPRESS_CLI_SOURCES}
+    ${COMPRESS_COMPRESSOR_SOURCES}
+    ${COMPRESS_COMMON_SOURCES}
+    ${COMPRESS_SOLVER_SOURCES}
+    ${COMPRESS_ASM_SOURCES}
+    ${COMPRESS_SOLVER_OBJCXX_SOURCES}
+)
+
+# Metal GPU acceleration
+if(CRSCE_ENABLE_METAL)
+    target_compile_definitions(compress PRIVATE CRSCE_ENABLE_METAL=1)
+    target_link_libraries(compress PRIVATE "${METAL_FRAMEWORK}" "${FOUNDATION_FRAMEWORK}")
+    add_dependencies(compress metal_shaders)
+endif()
 
 # Stage binary to a unified bin/ directory for convenience
 add_custom_command(TARGET compress POST_BUILD

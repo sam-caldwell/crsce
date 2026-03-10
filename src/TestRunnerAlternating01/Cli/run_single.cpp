@@ -4,16 +4,16 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "testrunnerAlternating01/Cli/detail/run_single.h"
+#include "testrunnerAlternating01/Cli/run_single.h"
 
-#include "testRunnerRandom/detail/now_ms.h"
-#include "testRunnerRandom/detail/min_bytes_for_n_blocks.h"
-#include "testRunnerRandom/detail/write_alternating01_file.h"
-#include "testRunnerRandom/Cli/detail/generated_input.h"
-#include "testRunnerRandom/Cli/detail/make_input.h"
-#include "testRunnerRandom/Cli/detail/process_case.h"
-#include "testRunnerRandom/detail/env.h"
-#include "testrunnerAlternating01/Cli/detail/preflight.h"
+#include "testRunnerRandom/now_ms.h"
+#include "testRunnerRandom/min_bytes_for_n_blocks.h"
+#include "testRunnerRandom/write_alternating01_file.h"
+#include "testRunnerRandom/Cli/generated_input.h"
+#include "testRunnerRandom/Cli/make_input.h"
+#include "testRunnerRandom/Cli/process_case.h"
+#include "testRunnerRandom/env.h"
+#include "testrunnerAlternating01/Cli/preflight.h"
 
 #include <cstdint>
 #include <filesystem>

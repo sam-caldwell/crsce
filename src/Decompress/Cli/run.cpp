@@ -1,17 +1,15 @@
 /**
  * @file run.cpp
- * @brief Implements the decompressor CLI runner: parse args, validate paths, run decompression.
- * @author Sam Caldwell
- * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details.
+ * @brief Decompressor CLI runner.
+ * @copyright (c) 2026 Sam Caldwell.  See LICENSE.txt for details.
  */
-#include "common/O11y/O11y.h"
 #include "decompress/Cli/run.h"
-#include "decompress/Decompressor/Decompressor.h"
 
+#include <iostream>
 #include <exception>
 #include <string>
-#include <cstdint> // NOLINT
 
+#include "decompress/Decompressor/Decompressor.h"
 
 namespace crsce::decompress::cli {
     /**
@@ -23,23 +21,12 @@ namespace crsce::decompress::cli {
      */
     int run(const std::string &input, const std::string &output) {
         try {
-            crsce::decompress::Decompressor decompressor(input, output);
-            const bool ok = decompressor.decompress_file();
-            return ok ? 0 : 4;
+            Decompressor decompressor;
+            decompressor.decompress(input, output);
+            return 0;
         } catch (const std::exception &e) {
-            ::crsce::o11y::O11y::instance().event("decompress_error", {
-                                                      {"type", std::string("exception")},
-                                                      {"what", std::string(e.what())}
-                                                  });
-            ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
-            return 99;
-        } catch (...) {
-            ::crsce::o11y::O11y::instance().event("decompress_error",
-                                                  {
-                                                      {"type", std::string("exception_unknown")}
-                                                  });
-            ::crsce::o11y::O11y::instance().counter("decompress_files_failed");
-            return 100;
+            std::cerr << "decompress error: " << e.what() << '\n';
+            return 1;
         }
     }
 } // namespace crsce::decompress::cli

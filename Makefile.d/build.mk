@@ -3,14 +3,14 @@
 #
 # Default preset can be overridden from the command line for single-preset builds
 # e.g., make build/one PRESET=llvm-release
-PRESET ?= llvm-debug
+PRESET ?= llvm-release
 JOBS := $(shell cmake -P cmake/tools/print_num_cpus.cmake | tail -n1 | sed 's/[^0-9].*//')
 
 # Compute the set of presets to build when running the aggregate 'build' target.
-# Start with portable presets; add LLVM presets if Homebrew LLVM is available.
-PRESETS_ALL := cmake-build-debug cmake-build-release arm64-debug arm64-release
+# Start with arm64-release; add llvm-release if Homebrew LLVM is available.
+PRESETS_ALL := arm64-release
 ifeq ($(HAVE_LLVM),yes)
-  PRESETS_ALL += llvm-debug llvm-release
+  PRESETS_ALL += llvm-release
 endif
 
 .PHONY: all build build/one clean configure help lint ready ready/fix test

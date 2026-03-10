@@ -4,11 +4,11 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testrunnerAlternating01/Cli/detail/run.h"
+#include "testrunnerAlternating01/Cli/run.h"
 
 // Only default run() is defined here; single-block run() lives in run_single.cpp
 // Include only what is used in this TU
-#include "testrunnerAlternating01/Cli/detail/run_single.h"
+#include "testrunnerAlternating01/Cli/run_single.h"
 #include <filesystem>
 
 namespace crsce::testrunner_alternating01::cli {

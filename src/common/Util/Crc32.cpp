@@ -6,7 +6,7 @@
 #include "common/Util/Crc32.h"
 #include <cstddef>
 #include <cstdint>
-#include "common/Util/detail/crc32_table.h"
+#include "common/Util/crc32_table.h"
 
 namespace crsce::common::util {
 

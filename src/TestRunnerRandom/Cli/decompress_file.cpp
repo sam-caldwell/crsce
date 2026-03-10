@@ -4,15 +4,15 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testRunnerRandom/Cli/detail/decompress_file.h"
+#include "testRunnerRandom/Cli/decompress_file.h"
 
-#include "testRunnerRandom/detail/proc_result.h"
-#include "testRunnerRandom/detail/run_process.h"
-#include "testRunnerRandom/detail/files.h"
-#include "testRunnerRandom/detail/sha512.h"
-#include "testRunnerRandom/detail/log_decompress.h"
-#include "testRunnerRandom/detail/resolve_exe.h"
-#include "testRunnerRandom/detail/json_escape.h"
+#include "testRunnerRandom/proc_result.h"
+#include "testRunnerRandom/run_process.h"
+#include "testRunnerRandom/files.h"
+#include "testRunnerRandom/sha512.h"
+#include "testRunnerRandom/log_decompress.h"
+#include "testRunnerRandom/resolve_exe.h"
+#include "testRunnerRandom/json_escape.h"
 #include "common/exceptions/DecompressNonZeroExitException.h"
 #include "common/exceptions/DecompressTimeoutException.h"
 

@@ -4,13 +4,13 @@
  * @author Sam Caldwell
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
-#include "testRunnerRandom/Cli/detail/make_input.h"
+#include "testRunnerRandom/Cli/make_input.h"
 
-#include "testRunnerRandom/Cli/detail/generated_input.h"
-#include "testRunnerRandom/detail/now_ms.h"
-#include "testRunnerRandom/detail/sha512.h"
-#include "testRunnerRandom/detail/log_hash_input.h"
-#include "testRunnerRandom/detail/blocks_for_input_bytes.h"
+#include "testRunnerRandom/Cli/generated_input.h"
+#include "testRunnerRandom/now_ms.h"
+#include "testRunnerRandom/sha512.h"
+#include "testRunnerRandom/log_hash_input.h"
+#include "testRunnerRandom/blocks_for_input_bytes.h"
 #include <filesystem>
 #include <cstdint>
 #include <string>

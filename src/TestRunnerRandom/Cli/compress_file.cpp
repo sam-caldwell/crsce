@@ -3,14 +3,14 @@
  * @brief Run compress, write artifacts, log, and enforce timeout.
  * @copyright © 2026 Sam Caldwell. See LICENSE.txt for details
  */
-#include "testRunnerRandom/Cli/detail/compress_file.h"
+#include "testRunnerRandom/Cli/compress_file.h"
 
-#include "testRunnerRandom/detail/proc_result.h"
-#include "testRunnerRandom/detail/run_process.h"
-#include "testRunnerRandom/detail/log_compress.h"
-#include "testRunnerRandom/detail/resolve_exe.h"
-#include "testRunnerRandom/detail/json_escape.h"
-#include "testRunnerRandom/detail/files.h"
+#include "testRunnerRandom/proc_result.h"
+#include "testRunnerRandom/run_process.h"
+#include "testRunnerRandom/log_compress.h"
+#include "testRunnerRandom/resolve_exe.h"
+#include "testRunnerRandom/json_escape.h"
+#include "testRunnerRandom/files.h"
 #include "common/exceptions/CompressNonZeroExitException.h"
 #include "common/exceptions/CompressTimeoutException.h"
 

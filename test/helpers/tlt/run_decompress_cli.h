@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "decompress/Cli/detail/run.h"
+#include "decompress/Cli/run.h"
 
 namespace crsce::testhelpers::tlt {
     /**
