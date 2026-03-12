@@ -25,6 +25,7 @@ Periodic validation: run a timed decompressor to measure actual depth; emit to J
 Usage:
     python3 tools/b32_ltp_hill_climb.py [--iters N] [--secs N] [--out PATH] [--checkpoint N]
                                          [--init PATH] [--mode {early,band}] [--k1 N] [--k2 N]
+                                         [--anneal] [--T_init F] [--T_final F]
 
     --iters N         Total hill-climb iterations (default 10_000_000)
     --secs N          Decompress seconds per depth measurement (default 20)
@@ -38,6 +39,10 @@ Usage:
                       Objective mode (default: early).
     --k1 N            Band-mode lower bound inclusive (default 179 = K_PLATEAU+1).
     --k2 N            Band-mode upper bound inclusive (default 210).
+    --anneal          Enable simulated annealing: accept downhill score moves with
+                      probability exp(delta/T) where T cools geometrically.
+    --T_init F        Initial SA temperature (default 2000.0).
+    --T_final F       Final SA temperature (default 5.0).
 
 Format of output LTPB file (consumed by LtpTable.cpp buildFromAssignment):
     Offset  Size        Field
@@ -51,6 +56,7 @@ Total: 16 + 2,088,968 = ~2 MB.
 
 import argparse
 import json
+import math
 import os
 import pathlib
 import signal
@@ -100,6 +106,18 @@ MAX_COV    = 451            # = S - 60; overridden by --max_cov CLI flag
 #   F=140, M=451 → K ≈ 64 lines
 #   F=  0, M=451 → K = 202 lines (too many; prior regression experiment)
 FLOOR      = 0              # 0 = disabled; overridden by --floor CLI flag
+
+# ── Simulated annealing ──────────────────────────────────────────────────────
+# When enabled (--anneal), downhill score moves are accepted with probability
+# exp(delta / T) where T decays geometrically from T_INIT to T_FINAL.
+# Temperature calibration (for typical Δ ≈ ±250 per swap, score ~20M):
+#   T=2000: P(accept|Δ=-250) ≈ 88%  (highly exploratory)
+#   T=200:  P(accept|Δ=-250) ≈ 29%
+#   T=50:   P(accept|Δ=-250) ≈  0.7%
+#   T=5:    P(accept|Δ=-250) ≈  4e-22 (essentially greedy)
+ANNEAL  = False    # overridden by --anneal CLI flag
+T_INIT  = 2000.0  # initial SA temperature; overridden by --T_init
+T_FINAL = 5.0     # final SA temperature; overridden by --T_final
 
 # ── Objective mode ────────────────────────────────────────────────────────────
 # "early": reward cells in rows 0..K_PLATEAU (original B.34 objective)
@@ -323,9 +341,10 @@ def hill_climb_one_sub(
     coverage: np.ndarray,
     rng: np.random.Generator,
     n_iters: int,
+    temperature: float = 0.0,
 ) -> tuple:
     """
-    Run n_iters hill-climb steps on one sub-table.
+    Run n_iters hill-climb (or SA) steps on one sub-table.
     Returns (accepted_count, total_score_delta).
     assignment, csr, coverage are modified in-place.
 
@@ -334,16 +353,21 @@ def hill_climb_one_sub(
       delta = reward(new_la) + reward(new_lb) - reward(old_la) - reward(old_lb)
     Ceiling MAX_COV prevents all lines from over-concentrating into early rows,
     which would strip late-row LTP constraint density.
+
+    When temperature > 0 (SA mode), downhill moves (delta < 0) are accepted with
+    probability exp(delta / temperature).  Uphill moves always apply the donor-floor
+    guard; downhill SA moves bypass the floor to allow genuine exploration.
     """
-    S_    = S
-    K_    = K_PLATEAU
-    K1_   = K1
-    K2_   = K2
-    T_    = THRESHOLD
-    M_    = MAX_COV
-    F_    = FLOOR          # donor-floor: reject swaps that would bring donor below this
-    N_    = N
-    band_ = (MODE == "band")
+    S_     = S
+    K_     = K_PLATEAU
+    K1_    = K1
+    K2_    = K2
+    T_     = THRESHOLD
+    M_     = MAX_COV
+    F_     = FLOOR          # donor-floor: reject swaps that would bring donor below this
+    N_     = N
+    band_  = (MODE == "band")
+    temp_  = temperature    # SA temperature (0.0 = pure greedy)
 
     row_of = np.arange(N_, dtype=np.uint32) // S_  # row_of[flat] = flat // S
 
@@ -385,10 +409,19 @@ def hill_climb_one_sub(
 
         delta = r(new_la) + r(new_lb) - r(old_la) - r(old_lb)
 
-        # Hard donor-floor: reject if the line LOSING an early cell would drop below F_.
-        # da < 0  → la is the donor (loses early cell); da > 0 → lb is the donor.
+        # Acceptance decision.
+        # da < 0  → la is the donor (loses a zone cell); da > 0 → lb is the donor.
         donor_new = new_la if da < 0 else new_lb
-        if delta > 0 and donor_new >= F_:
+        if delta > 0:
+            # Uphill: accept iff donor floor is satisfied.
+            do_accept = (donor_new >= F_)
+        elif temp_ > 0.0 and delta < 0:
+            # Downhill: SA acceptance — bypass floor to allow genuine exploration.
+            do_accept = float(rng.random()) < math.exp(delta / temp_)
+        else:
+            do_accept = False
+
+        if do_accept:
             assignment[flat_a] = lb
             assignment[flat_b] = la
             csr[la * S_ + pos_a] = flat_b
@@ -404,7 +437,7 @@ def hill_climb_one_sub(
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    global THRESHOLD, MAX_COV, FLOOR, MODE, K1, K2  # noqa: PLW0603
+    global THRESHOLD, MAX_COV, FLOOR, MODE, K1, K2, ANNEAL, T_INIT, T_FINAL  # noqa: PLW0603
     parser = argparse.ArgumentParser(description="B.32 LTP hill-climber")
     parser.add_argument("--iters",      type=int, default=10_000_000,
                         help="Total hill-climb iterations (default 10M)")
@@ -451,12 +484,25 @@ def main() -> None:
                         help=f"Band-mode lower bound inclusive (default {K_PLATEAU+1})")
     parser.add_argument("--k2",         type=int, default=K_PLATEAU + 32,
                         help=f"Band-mode upper bound inclusive (default {K_PLATEAU+32})")
+    parser.add_argument("--anneal",     action="store_true",
+                        help="Enable simulated annealing: accept downhill moves with "
+                             "probability exp(delta/T).  T decays geometrically from "
+                             "--T_init to --T_final over --iters total iterations.")
+    parser.add_argument("--T_init",     type=float, default=T_INIT,
+                        help=f"Initial SA temperature (default {T_INIT}).  "
+                             f"At T=2000: P(accept|Δ=-250)≈88%%.")
+    parser.add_argument("--T_final",    type=float, default=T_FINAL,
+                        help=f"Final SA temperature (default {T_FINAL}).  "
+                             f"At T=5: P(accept|Δ=-250)≈0 (essentially greedy).")
     args = parser.parse_args()
     MODE      = args.mode
     K1        = args.k1
     K2        = args.k2
     MAX_COV   = args.max_cov
     FLOOR     = args.floor
+    ANNEAL    = args.anneal
+    T_INIT    = args.T_init
+    T_FINAL   = args.T_final
     # Default threshold: uniform expectation for the target zone
     if args.threshold is not None:
         THRESHOLD = args.threshold
@@ -496,6 +542,13 @@ def main() -> None:
     print(f"  Checkpoint:   every {args.checkpoint:,} accepted swaps")
     if args.patience > 0:
         print(f"  Patience:     {args.patience} checkpoints without improvement → early stop")
+    if ANNEAL:
+        print(f"  Annealing:    ON  T_init={T_INIT}  T_final={T_FINAL}")
+        _p_init = math.exp(-250.0 / T_INIT)
+        _p_final = math.exp(-250.0 / T_FINAL) if T_FINAL > 0 else 0.0
+        print(f"              P(accept|Δ=-250): {_p_init:.3f} → {_p_final:.2e}")
+    else:
+        print(f"  Annealing:    OFF (greedy hill-climb)")
     print(f"  Validate:     {validate}  ({args.secs}s per depth measurement)")
     if args.init is not None:
         print(f"  Init from:    {args.init}  (second-pass from saved table)")
@@ -574,20 +627,35 @@ def main() -> None:
 
     BATCH = 1000  # iterations per inner call
 
+    # SA temperature schedule: geometric decay from T_INIT to T_FINAL
+    current_T = T_INIT if ANNEAL else 0.0
+    if ANNEAL and T_INIT > T_FINAL > 0.0:
+        _n_outer  = max(1, args.iters // (BATCH * NUM_SUB))
+        _T_decay  = (T_FINAL / T_INIT) ** (1.0 / _n_outer)
+    else:
+        _T_decay  = 1.0
+
     print(f"{'='*60}")
-    print("Starting hill-climb…")
+    if ANNEAL:
+        print(f"Starting simulated annealing hill-climb…  T={current_T:.1f}")
+    else:
+        print("Starting hill-climb…")
     print(f"{'='*60}")
 
     while total_iters < args.iters:
         # Round-robin over sub-tables
         for sub in range(NUM_SUB):
             accepted, delta = hill_climb_one_sub(
-                assignments[sub], csrs[sub], coverages[sub], rng, BATCH
+                assignments[sub], csrs[sub], coverages[sub], rng, BATCH, current_T
             )
             total_accepted  += accepted
             since_checkpoint += accepted
             total_score     += delta
         total_iters += BATCH * NUM_SUB
+
+        # Decay SA temperature after each full round over all sub-tables
+        if ANNEAL:
+            current_T = max(T_FINAL, current_T * _T_decay)
 
         # Checkpoint
         if since_checkpoint >= args.checkpoint:
@@ -617,7 +685,8 @@ def main() -> None:
                     print(f"    → saved best table to {save_best_path}")
                 else:
                     stale_checkpoints += 1
-                print(f"    depth={depth}  (best={best_depth}){marker}", flush=True)
+                T_label = f"  T={current_T:.1f}" if ANNEAL else ""
+                print(f"    depth={depth}  (best={best_depth}){T_label}{marker}", flush=True)
                 log_record = {
                     "event":       "checkpoint",
                     "iters":       total_iters,
@@ -627,20 +696,24 @@ def main() -> None:
                     "best_depth":  best_depth,
                     "floor":       FLOOR,
                     "mode":        MODE,
+                    "anneal":      ANNEAL,
+                    "temperature": current_T,
                     "stale":       stale_checkpoints,
                     "timestamp":   time.time(),
                     "top10_cov":   top_covs,
                 }
             else:
                 log_record = {
-                    "event":     "checkpoint",
-                    "iters":     total_iters,
-                    "accepted":  total_accepted,
-                    "score":     total_score,
-                    "floor":     FLOOR,
-                    "mode":      MODE,
-                    "timestamp": time.time(),
-                    "top10_cov": top_covs,
+                    "event":       "checkpoint",
+                    "iters":       total_iters,
+                    "accepted":    total_accepted,
+                    "score":       total_score,
+                    "floor":       FLOOR,
+                    "mode":        MODE,
+                    "anneal":      ANNEAL,
+                    "temperature": current_T,
+                    "timestamp":   time.time(),
+                    "top10_cov":   top_covs,
                 }
             with open(LOG_PATH, "a") as log:
                 log.write(json.dumps(log_record) + "\n")
@@ -685,6 +758,9 @@ def main() -> None:
             "best_depth":  best_depth,
             "floor":       FLOOR,
             "mode":        MODE,
+            "anneal":      ANNEAL,
+            "T_init":      T_INIT,
+            "T_final":     T_FINAL,
             "init_file":   str(args.init) if args.init else None,
             "timestamp":   time.time(),
         }) + "\n")
