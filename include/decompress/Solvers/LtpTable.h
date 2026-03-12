@@ -193,4 +193,16 @@ namespace crsce::decompress::solvers {
      */
     [[nodiscard]] std::span<const LtpCell> ltp6CellsForLine(std::uint16_t k);
 
+    /**
+     * @name ltpFileIsValid
+     * @brief Return true iff the file at path can be parsed as a valid LTPB LTP table.
+     *
+     * Does NOT cache or modify the shared LTP singleton.  Used by tests and
+     * health-check tooling to verify file integrity independently of getLtpData().
+     *
+     * @param path Filesystem path to an LTPB file.
+     * @return True if the file parses successfully; false on any error.
+     */
+    [[nodiscard]] bool ltpFileIsValid(const char *path) noexcept;
+
 } // namespace crsce::decompress::solvers
