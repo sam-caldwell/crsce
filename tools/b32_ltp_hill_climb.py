@@ -43,6 +43,22 @@ Usage:
                       probability exp(delta/T) where T cools geometrically.
     --T_init F        Initial SA temperature (default 2000.0).
     --T_final F       Final SA temperature (default 5.0).
+    --score-cap N     Hard cap on total score (0=disabled). Uphill moves that would
+                      push score above N are rejected. Prevents anti-correlation
+                      overshoot. Recommended: 22000000 for B.37.
+    --kick N          Apply N random unconstrained swaps before hill-climbing (ILS
+                      perturbation). Escapes local optima by jumping to a different
+                      landscape basin. Recommended: 500-5000.
+    --deflate K       Apply K targeted deflation swaps before hill-climbing (B.38).
+                      Each deflation swap moves one early-row cell from a high-coverage
+                      line (coverage > --deflate_high) to a late-row cell on a
+                      low-coverage line (coverage < --deflate_low).  This reduces the
+                      proxy score without random destruction, bringing over-concentrated
+                      tables (score >30M) back into the productive hill-climb range
+                      (~20-25M).  Stop early if score drops below --deflate_target.
+    --deflate_high H  Minimum coverage for a donor line in deflation (default 350).
+    --deflate_low  L  Maximum coverage for a receiver line in deflation (default 250).
+    --deflate_target N  Stop deflation early once score < N (default 22000000).
 
 Format of output LTPB file (consumed by LtpTable.cpp buildFromAssignment):
     Offset  Size        Field
@@ -115,9 +131,13 @@ FLOOR      = 0              # 0 = disabled; overridden by --floor CLI flag
 #   T=200:  P(accept|Δ=-250) ≈ 29%
 #   T=50:   P(accept|Δ=-250) ≈  0.7%
 #   T=5:    P(accept|Δ=-250) ≈  4e-22 (essentially greedy)
-ANNEAL  = False    # overridden by --anneal CLI flag
-T_INIT  = 2000.0  # initial SA temperature; overridden by --T_init
-T_FINAL = 5.0     # final SA temperature; overridden by --T_final
+ANNEAL     = False    # overridden by --anneal CLI flag
+T_INIT     = 2000.0  # initial SA temperature; overridden by --T_init
+T_FINAL    = 5.0     # final SA temperature; overridden by --T_final
+# Score cap: hard-reject any uphill move that would push total score above this value.
+# Prevents overshoot into the anti-correlation zone (score > 25M → depth regresses).
+# 0 = disabled (default).  Recommended: 22_000_000 for B.37 score-capped SA.
+SCORE_CAP  = 0       # overridden by --score-cap CLI flag
 
 # ── Objective mode ────────────────────────────────────────────────────────────
 # "early": reward cells in rows 0..K_PLATEAU (original B.34 objective)
@@ -342,6 +362,7 @@ def hill_climb_one_sub(
     rng: np.random.Generator,
     n_iters: int,
     temperature: float = 0.0,
+    current_score: int = 0,
 ) -> tuple:
     """
     Run n_iters hill-climb (or SA) steps on one sub-table.
@@ -357,6 +378,11 @@ def hill_climb_one_sub(
     When temperature > 0 (SA mode), downhill moves (delta < 0) are accepted with
     probability exp(delta / temperature).  Uphill moves always apply the donor-floor
     guard; downhill SA moves bypass the floor to allow genuine exploration.
+
+    When SCORE_CAP > 0, uphill moves that would push (current_score + delta) above
+    SCORE_CAP are rejected.  This prevents overshoot into the anti-correlation zone.
+    current_score must be the true total score across all sub-tables so the cap is
+    evaluated globally, not per-sub-table.
     """
     S_     = S
     K_     = K_PLATEAU
@@ -368,6 +394,8 @@ def hill_climb_one_sub(
     N_     = N
     band_  = (MODE == "band")
     temp_  = temperature    # SA temperature (0.0 = pure greedy)
+    cap_   = SCORE_CAP      # 0 = disabled
+    score_ = current_score  # running total score (updated as moves are accepted)
 
     row_of = np.arange(N_, dtype=np.uint32) // S_  # row_of[flat] = flat // S
 
@@ -413,10 +441,11 @@ def hill_climb_one_sub(
         # da < 0  → la is the donor (loses a zone cell); da > 0 → lb is the donor.
         donor_new = new_la if da < 0 else new_lb
         if delta > 0:
-            # Uphill: accept iff donor floor is satisfied.
-            do_accept = (donor_new >= F_)
+            # Uphill: accept iff donor floor OK and score cap not exceeded.
+            score_new = score_ + delta
+            do_accept = (donor_new >= F_) and (cap_ == 0 or score_new <= cap_)
         elif temp_ > 0.0 and delta < 0:
-            # Downhill: SA acceptance — bypass floor to allow genuine exploration.
+            # Downhill: SA acceptance — bypass floor and cap to allow exploration.
             do_accept = float(rng.random()) < math.exp(delta / temp_)
         else:
             do_accept = False
@@ -430,6 +459,7 @@ def hill_climb_one_sub(
             coverage[lb] = new_lb
             accepted += 1
             score_delta += delta
+            score_ += delta
 
     return accepted, score_delta
 
@@ -437,7 +467,7 @@ def hill_climb_one_sub(
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    global THRESHOLD, MAX_COV, FLOOR, MODE, K1, K2, ANNEAL, T_INIT, T_FINAL  # noqa: PLW0603
+    global THRESHOLD, MAX_COV, FLOOR, MODE, K1, K2, ANNEAL, T_INIT, T_FINAL, SCORE_CAP  # noqa: PLW0603
     parser = argparse.ArgumentParser(description="B.32 LTP hill-climber")
     parser.add_argument("--iters",      type=int, default=10_000_000,
                         help="Total hill-climb iterations (default 10M)")
@@ -494,15 +524,43 @@ def main() -> None:
     parser.add_argument("--T_final",    type=float, default=T_FINAL,
                         help=f"Final SA temperature (default {T_FINAL}).  "
                              f"At T=5: P(accept|Δ=-250)≈0 (essentially greedy).")
+    parser.add_argument("--score-cap",  type=int, default=0,
+                        help="Hard cap on total score (0=disabled).  Uphill moves that "
+                             "would push total score above this value are rejected.  "
+                             "Prevents overshoot into the anti-correlation zone (>25M). "
+                             "Recommended: 22000000 for B.37 score-capped SA.")
+    parser.add_argument("--kick",       type=int, default=0,
+                        help="Apply K random (unconstrained) swaps to the loaded table "
+                             "before hill-climbing.  Each kick swap picks a random sub-table, "
+                             "two random lines, two random positions, and applies the swap "
+                             "unconditionally (no score filter, no floor, no cap).  "
+                             "Use for ILS: kick escapes local optima, then greedy hill-climb "
+                             "finds a new local optimum.  Recommended kick sizes: 500-5000.  "
+                             "Combine with --seed for reproducible kicks and different "
+                             "perturbation trajectories.")
+    parser.add_argument("--deflate",         type=int, default=0,
+                        help="Apply K targeted deflation swaps before hill-climbing (B.38).  "
+                             "Each swap moves an early-row cell from a high-coverage line to a "
+                             "late-row cell on a low-coverage line, reducing proxy score.  "
+                             "Applied after --kick if both are specified.  "
+                             "Stops early if score < --deflate_target.")
+    parser.add_argument("--deflate_high",    type=int, default=350,
+                        help="Donor coverage threshold for deflation (default 350).")
+    parser.add_argument("--deflate_low",     type=int, default=250,
+                        help="Receiver coverage threshold for deflation (default 250).")
+    parser.add_argument("--deflate_target",  type=int, default=22_000_000,
+                        help="Stop deflation early once total score drops below this "
+                             "value (default 22000000).  Set to 0 to always apply all K swaps.")
     args = parser.parse_args()
     MODE      = args.mode
     K1        = args.k1
     K2        = args.k2
     MAX_COV   = args.max_cov
     FLOOR     = args.floor
-    ANNEAL    = args.anneal
-    T_INIT    = args.T_init
-    T_FINAL   = args.T_final
+    ANNEAL     = args.anneal
+    T_INIT     = args.T_init
+    T_FINAL    = args.T_final
+    SCORE_CAP  = args.score_cap
     # Default threshold: uniform expectation for the target zone
     if args.threshold is not None:
         THRESHOLD = args.threshold
@@ -549,7 +607,14 @@ def main() -> None:
         print(f"              P(accept|Δ=-250): {_p_init:.3f} → {_p_final:.2e}")
     else:
         print(f"  Annealing:    OFF (greedy hill-climb)")
+    if SCORE_CAP > 0:
+        print(f"  Score cap:    {SCORE_CAP:,}  (uphill moves rejected if score would exceed cap)")
     print(f"  Validate:     {validate}  ({args.secs}s per depth measurement)")
+    if args.kick > 0:
+        print(f"  Kick:         {args.kick:,}  (random ILS perturbation swaps before hill-climb)")
+    if args.deflate > 0:
+        print(f"  Deflate:      {args.deflate:,}  (targeted score-reducing swaps; "
+              f"high>{args.deflate_high}, low<{args.deflate_low}, target<{args.deflate_target:,})")
     if args.init is not None:
         print(f"  Init from:    {args.init}  (second-pass from saved table)")
     else:
@@ -594,6 +659,98 @@ def main() -> None:
         coverages.append(cov)
 
     print(f"\nInitial total score: {total_score:,}")
+
+    # ── ILS kick: random perturbation before hill-climbing ───────────────────
+    if args.kick > 0:
+        print(f"\nApplying {args.kick:,} random kicks (ILS perturbation)…")
+        n_applied = 0
+        for _ in range(args.kick):
+            sub    = int(rng.integers(0, NUM_SUB))
+            la     = int(rng.integers(0, S))
+            lb     = int(rng.integers(0, S))
+            if la == lb:
+                continue
+            pos_a  = int(rng.integers(0, S))
+            pos_b  = int(rng.integers(0, S))
+            flat_a = int(csrs[sub][la * S + pos_a])
+            flat_b = int(csrs[sub][lb * S + pos_b])
+            # Apply swap unconditionally — no score or floor filter.
+            assignments[sub][flat_a] = lb
+            assignments[sub][flat_b] = la
+            csrs[sub][la * S + pos_a] = flat_b
+            csrs[sub][lb * S + pos_b] = flat_a
+            # Update coverage if this swap straddles the zone boundary.
+            r_a = flat_a // S
+            r_b = flat_b // S
+            if MODE == "band":
+                zone_a = bool(K1 <= r_a <= K2)
+                zone_b = bool(K1 <= r_b <= K2)
+            else:
+                zone_a = bool(r_a <= K_PLATEAU)
+                zone_b = bool(r_b <= K_PLATEAU)
+            if zone_a != zone_b:
+                da = int(zone_b) - int(zone_a)
+                coverages[sub][la] += da
+                coverages[sub][lb] -= da
+            n_applied += 1
+        # Recompute total score after kick (coverage changed for zone-straddling kicks).
+        total_score = sum(score_from_coverage(cov) for cov in coverages)
+        print(f"  Applied {n_applied:,} kicks  post-kick score: {total_score:,}")
+
+    # ── Deflation: targeted score-reducing swaps (B.38) ─────────────────────
+    if args.deflate > 0:
+        high_def    = args.deflate_high
+        low_def     = args.deflate_low
+        target_def  = args.deflate_target
+        print(f"\nApplying up to {args.deflate:,} deflation swaps "
+              f"(high>{high_def}, low<{low_def}, target score<{target_def:,})…")
+        n_deflated  = 0
+        n_attempts  = 0
+        max_attempts = args.deflate * 100  # cap attempts; each deflation swap needs ~20-100 tries
+        while (n_deflated < args.deflate and n_attempts < max_attempts
+               and (target_def == 0 or total_score > target_def)):
+            n_attempts += 1
+            sub = int(rng.integers(0, NUM_SUB))
+            # Donor: a line with coverage above high_def
+            high_lines = np.where(coverages[sub] > high_def)[0]
+            if len(high_lines) == 0:
+                continue
+            la = int(rng.choice(high_lines))
+            # Early-row cells on la
+            la_cells = csrs[sub][la * S:(la + 1) * S]
+            early_mask = (la_cells // S) <= K_PLATEAU
+            early_positions = np.where(early_mask)[0]
+            if len(early_positions) == 0:
+                continue
+            pos_a = int(rng.choice(early_positions))
+            flat_a = int(csrs[sub][la * S + pos_a])
+            # Receiver: a line with coverage below low_def
+            low_lines = np.where(coverages[sub] < low_def)[0]
+            if len(low_lines) == 0:
+                continue
+            lb = int(rng.choice(low_lines))
+            # Late-row cells on lb
+            lb_cells = csrs[sub][lb * S:(lb + 1) * S]
+            late_mask = (lb_cells // S) > K_PLATEAU
+            late_positions = np.where(late_mask)[0]
+            if len(late_positions) == 0:
+                continue
+            pos_b = int(rng.choice(late_positions))
+            flat_b = int(csrs[sub][lb * S + pos_b])
+            # Apply the deflation swap (always reduces coverage[la], increases coverage[lb])
+            assignments[sub][flat_a] = lb
+            assignments[sub][flat_b] = la
+            csrs[sub][la * S + pos_a] = flat_b
+            csrs[sub][lb * S + pos_b] = flat_a
+            coverages[sub][la] -= 1
+            coverages[sub][lb] += 1
+            n_deflated += 1
+            # Recompute score periodically (avoid recomputing every swap for speed)
+            if n_deflated % 1000 == 0:
+                total_score = sum(score_from_coverage(cov) for cov in coverages)
+        total_score = sum(score_from_coverage(cov) for cov in coverages)
+        print(f"  Applied {n_deflated:,} deflation swaps ({n_attempts:,} attempts)  "
+              f"post-deflation score: {total_score:,}")
     print()
 
     # Initial checkpoint: write and (optionally) measure baseline depth
@@ -605,6 +762,11 @@ def main() -> None:
         print(f"Baseline depth measurement ({args.secs}s)…")
         best_depth = measure_depth(args.out, args.secs)
         print(f"  Baseline depth: {best_depth}  (expected ~91,090)")
+        # Always save the initial (potentially kicked) table as the starting best.
+        # Without this, ILS runs where the kick itself produces the best state would
+        # never write save_best_path (the checkpoint loop only fires when depth > best_depth).
+        write_ltpb(save_best_path, assignments)
+        print(f"    → saved initial table to {save_best_path}")
 
     log_record = {
         "event":     "init",
@@ -646,7 +808,8 @@ def main() -> None:
         # Round-robin over sub-tables
         for sub in range(NUM_SUB):
             accepted, delta = hill_climb_one_sub(
-                assignments[sub], csrs[sub], coverages[sub], rng, BATCH, current_T
+                assignments[sub], csrs[sub], coverages[sub], rng, BATCH,
+                current_T, total_score,
             )
             total_accepted  += accepted
             since_checkpoint += accepted
@@ -698,6 +861,7 @@ def main() -> None:
                     "mode":        MODE,
                     "anneal":      ANNEAL,
                     "temperature": current_T,
+                    "score_cap":   SCORE_CAP,
                     "stale":       stale_checkpoints,
                     "timestamp":   time.time(),
                     "top10_cov":   top_covs,
@@ -712,6 +876,7 @@ def main() -> None:
                     "mode":        MODE,
                     "anneal":      ANNEAL,
                     "temperature": current_T,
+                    "score_cap":   SCORE_CAP,
                     "timestamp":   time.time(),
                     "top10_cov":   top_covs,
                 }
@@ -761,6 +926,7 @@ def main() -> None:
             "anneal":      ANNEAL,
             "T_init":      T_INIT,
             "T_final":     T_FINAL,
+            "score_cap":   SCORE_CAP,
             "init_file":   str(args.init) if args.init else None,
             "timestamp":   time.time(),
         }) + "\n")
