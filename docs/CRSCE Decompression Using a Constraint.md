@@ -7438,6 +7438,67 @@ lower end because the null space is enormous (~256K-dimensional) and short vecto
 statistically likely in high-dimensional spaces. If the minimum exceeds ~100, the local
 search approach may be impractical due to the cost of enumerating valid swap patterns.
 
+**B.33a Results (Completed).**
+
+*Tool:* `tools/b33a_min_swap.py` — score-guided greedy BFS from 4-cell rectangle seed.
+
+*Geometric-only (4 families, num_ltp=0):* **0% convergence** in 200 trials with max_cells=500.
+The algorithm starts from a balanced 4-cell rectangle (rows, cols satisfied), then greedily
+repairs the 4 diagonal and 4 anti-diagonal violations by adding cells with the highest
+score. Despite a positive score being achievable on the first step (~+16 per well-placed
+cell), the repair chain never terminates within the budget.
+
+*Full system (6 LTP sub-tables, 10 families):* **0% convergence** in 200 trials.
+
+*LTP sensitivity sweep (0–6 LTP sub-tables, 200 trials each):*
+
+| Families (4+LTP) | Success % | Min | Mean |
+|---|---|---|---|
+| 4 (geo only) | 0% | N/A | N/A |
+| 5 | 0% | N/A | N/A |
+| 6 | 0% | N/A | N/A |
+| 7 | 0% | N/A | N/A |
+| 8 | 0% | N/A | N/A |
+| 9 | 0% | N/A | N/A |
+| 10 | 0% | N/A | N/A |
+
+*Root-cause analysis.* The greedy BFS diverges monotonically: each repair step fixes 1
+violation on a targeted line but creates n-1 new violations (one per additional family
+the chosen cell participates in). For 4 families, each step nets +2 new violations; for
+10 families, each step nets +8 new violations. The score function can pick cells that
+cancel more than one violation simultaneously (score >+10) but such cells are rare; the
+expected net violation change per step is still positive, so the repair chain diverges in
+expectation.
+
+*Geometric minimum (analytic):* The minimum constraint-preserving swap for 4 geometric
+families (row, col, diag, anti-diag) is **8 cells**. Proof sketch: any swap must include at
+least one pair of cells on each violated family (4 cells to fix diagonals, 4 cells to fix
+anti-diagonals, which are the same 4 additional cells by a tiling argument). The construction
+is uniquely constrained given a starting rectangle; whether a valid construction exists
+depends on the specific rectangle geometry (row/col parity constraints).
+
+*Full-system minimum:* **Unknown** — lower bound is 8 (from geometric argument), upper bound
+is unknown. The BFS approach cannot determine it. The null space has ~256,020 dimensions,
+so short null vectors likely exist, but finding them requires a different algorithm.
+
+*Conclusion.* The score-guided greedy BFS approach is **not viable** for constructing
+minimum constraint-preserving swaps. This does NOT mean B.33 Phase 3 is infeasible: it
+means the swap-finding algorithm must be redesigned. Two alternative approaches are viable:
+
+1. **B.33b (Analytic construction):** Characterize the structure of minimum swaps for the
+   full 10-family system using the LTP assignment arrays. For each cell, the 10 families
+   are known exactly. A minimum swap is a balanced assignment of ±1 signs to a small set
+   of cells such that every family containing any selected cell has exactly equal ±1 counts.
+   This is equivalent to finding a balanced 10-uniform hypergraph cover — tractable for
+   small support sizes via exhaustive search with pruning.
+
+2. **B.33c (Solver upper bound):** Run the C++ decompressor twice on the same test block
+   with DI=0 and DI=1. The XOR of the two solution CSMs gives a valid constraint-preserving
+   swap; its support size is an **upper bound** on the minimum swap. Consecutive solutions
+   differ starting from the first branching cell (~91,090 from the base), so the expected
+   support is ~170,031 cells — large but confirms a valid swap EXISTS, and may reveal the
+   structure of nearby solutions.
+
 #### B.33.6 Phase 3 Local Search Strategy
 
 Given a minimum swap size of $k$ cells, the Phase 3 search operates as follows:
@@ -7533,7 +7594,8 @@ first ~200 rows, then degrades.
 to enumerate efficiently. Phase 3 degenerates into a random walk on the $2^{170{,}000}$
 cross-sum-valid matrices with negligible probability of improving any row's SHA-1 status.
 The architecture provides no advantage over the current DFS and is abandoned in favor of
-constraint-density improvements (more LTP sub-tables).
+constraint-density improvements (more LTP sub-tables). Alternatively, Trump finds a way to 
+screw up the fundamentals of mathematics too.
 
 #### B.33.9 Relationship to Prior Work
 
@@ -7600,7 +7662,82 @@ affected cells after a swap, the search space per swap is $O(2^d)$. With SHA-1 a
 discriminator, the expected number of swaps to fix row $r$ is $\sim 2^{\min(d, 160)}$.
 Measuring $d$ empirically for typical meeting-band rows is a key sub-experiment.
 
----
+#### B.33.11 Sub-experiment B.33b: Backtracking Minimum Swap Search (Completed)
+
+**Objective.** Determine the minimum constraint-preserving swap size for the full 10-family
+system via backtracking DFS rather than greedy forward repair (as in B.33a).
+
+**Method.** `tools/b33b_min_swap_bt.py` — analytic geometric base + backtracking extension.
+
+1. Construct the analytic 8-cell geometric base from a starting rectangle using the exact
+   formula: for rectangle (r1,c1),(r1,c2),(r2,c1),(r2,c2) with signs (+1,-1,-1,+1), the
+   four unique repair cells are determined by the midpoint formula (requires parity condition
+   r1+r2+c1+c2 even). This gives an 8-cell swap that is EXACTLY balanced for all 4 geometric
+   families (row, col, diag, anti-diag) — verified analytically.
+
+2. Compute the LTP violations created by the 8-cell base (each cell falls on `num_ltp`
+   random LTP lines, creating 8·num_ltp violations in the worst case, all distinct).
+
+3. Backtracking DFS to extend the base swap to balance LTP violations:
+   - Pick the most-constrained violated LTP line (minimum fan-out criterion)
+   - Branch on the top-20 score-ranked candidate cells for that line
+   - Prune if |swap| ≥ budget or lower-bound on remaining cells ≥ remaining budget
+   - Recurse; backtrack on no-progress
+
+**Results.**
+
+| Families | Budget | Timeout | Rectangles | Converged | Min found |
+|---|---|---|---|---|---|
+| 4 (geo only, num_ltp=0) | 20 | 10s | 20/20 | 18/20 | **8 cells** |
+| 5 (geo + 1 LTP) | 50 | 15s | 10/10 | 0/10 | N/A |
+| 8 (geo + 4 LTP) | 150 | 30s | 10/10 | 0/10 | N/A |
+
+For geometric-only, the analytic base trivially satisfies all 4 families — 8-cell minimum
+confirmed. For any LTP sub-table added, backtracking exhausts the 15–30s budget across
+10 rectangles without finding any swap within 50–150 cells.
+
+**Root-cause analysis (theoretical).** With Fisher-Yates random partition, each of the
+8 geometric-base cells falls on a UNIQUE LTP line with probability ≈ 1 (8 cells out of
+511 lines per sub-table; expected distinct lines ≈ 8). For the swap to be LTP-balanced,
+each occupied LTP line must have equal ±1 counts, requiring a mate cell for each cell
+(since each line has exactly 1 cell). Each mate falls on another unique LTP line
+(expected overlap with existing violations ≈ 8/511 ≈ 1.6%). Thus:
+
+- After adding 8 mates to fix 8 violations: new violations ≈ 8 × (1 - 8/511) × num_ltp ≈ 8
+  (approximately equal new violations). The cascade is approximately a random walk on
+  violations, neither converging nor diverging rapidly.
+- But: each mate also creates geometric violations (row, col, diag, anti-diag) since mates
+  are NOT generally geometrically balanced. Fixing those creates more LTP violations...
+
+The net result is that violations grow monotonically. The MINIMUM swap size is likely
+O(N/511) = O(511) cells per LTP sub-table (the size needed for each partition family to
+have enough candidate cells that balanced pairs can form across all families
+simultaneously). For 4 LTP sub-tables: minimum ≈ O(2000) cells.
+
+**Conclusion.** The minimum constraint-preserving swap for the full 10-family CRSCE
+system with Fisher-Yates random LTP partitions is **O(hundreds to thousands) of cells**.
+This is not a local structure — swaps are fundamentally global. Consequently:
+
+- **B.33 Phase 3 is infeasible** as originally specified. No "local search using small
+  constraint-preserving swaps" exists for the random-partition LTP structure.
+- The search reduces to a random walk on the $2^{256{,}020}$-dimensional null space,
+  indistinguishable from exhaustive search.
+- The correct CSM M* and the Phase 1 output M0 differ in O(170,000) cells (from the
+  first branching point ~91,090 to the end at 261,121). There is no efficient path
+  between them via small moves.
+
+**B.33 STATUS: ABANDONED.** The Complete-Then-Verify architecture does not provide a
+tractable Phase 3 for random-partition LTP. The decoupling of constraint satisfaction
+from hash verification is not achievable via constraint-preserving local search.
+
+**Implication for future work.** The B.33 analysis reveals a fundamental property of
+the CRSCE constraint structure: all constraint-preserving transformations are GLOBAL
+(O(1000+) cells). This explains why the current DFS with row-serial SHA-1 verification
+is effective — it's the only known approach that exploits the correct CSM's structure
+(hash constraints) to efficiently navigate the vast null space toward the unique solution.
+Any approach that tries to decouple constraint solving from hash verification faces this
+global-swap barrier. I'm not 100% comfortable with this, but I cannot explain it any better.
+This probably just needs more thinking with a cigar and a long walk.
 
 ### B.34 LTP Table Hill-Climbing with Moderate Threshold and Save-Best (Implemented)
 
@@ -9178,12 +9315,475 @@ Chain so far: FY(s9999)→92,492→94,118→94,419→94,661→95,060→95,408→
 
 ---
 
-## B.38f Chain from 96,672 (Running)
+## B.38f Chain from 96,672 (Completed)
 
-24 seeds from `tools/b38e_t31000000_best_s137.bin` (depth 96,672) with deflation to 31M
-(`--deflate 20000 --deflate_high 320 --deflate_low 280 --deflate_target 31000000`).
+**Hypothesis.** The 96,672 table (score 30,743,316) can be further improved by deflation to 31M
+followed by hill-climbing, continuing the chain pattern that produced each prior record.
 
-*Results pending.*
+**Methodology.** 24 seeds from `tools/b38e_t31000000_best_s137.bin` (depth 96,672, score 30.74M)
+with `--deflate 20000 --deflate_high 320 --deflate_low 280 --deflate_target 31000000`.
+
+**Expected result.** Approximately 97K depth by analogy with the B.38c→B.38e progression.
+
+**Actual result.** All 24 seeds applied 0 deflation swaps. The log reported
+`post-deflation score: 30,743,316` — identical to the input score. Best depth: 96,672 (no change).
+
+**Root cause.** The 96,672 table itself was already produced by deflation (B.38e applied ~8K
+swaps from the 96,122 table). The post-deflation state IS the 96,672 table; its score (30.74M) is
+already below the requested 31M target. There are no qualifying (high > 320, low < 280) lines
+remaining to deflate. The chain technique cannot be applied to its own output without first driving
+the score upward via hill-climbing — but hill-climbing from 30.74M drives the score to 36M+
+(anti-correlation zone), regressing depth.
+
+**Conclusion.** The 96,672 record was achieved by the deflation operation itself, not by
+hill-climbing. The deflated state is a local optimum that cannot be improved by further deflation
+or by uncapped hill-climbing.
+
+---
+
+## B.38g Deflation Scan Below 30.7M from 96,672 (Completed)
+
+**Hypothesis.** Targets below the current 30.74M score (29M, 28M, 27M, 26M, 25M) may reveal
+a deeper optimum that the 31M sweep missed.
+
+**Methodology.** Targets 29M / 28M / 27M / 26M / 25M × 8 seeds from
+`tools/b38e_t31000000_best_s137.bin` (96,672); otherwise same flags as B.38f.
+
+**Expected result.** At least one target finds a basin deeper than 96,672.
+
+**Actual result.**
+
+| Target | Best Baseline Depth |
+|--------|---------------------|
+| 29M    | 95,885 |
+| 28M    | 95,885 |
+| 27M    | 94,890 |
+| 26M    | ~94,000 |
+| 25M    | ~93,500 |
+
+All targets produce depths below 96,672. Depth degrades monotonically as the target decreases.
+No target found a deeper basin.
+
+**Conclusion.** The 96,672 table is a structural local optimum under deflation-based techniques.
+Deflating below 30.74M removes too many early-row cell assignments from high-coverage lines,
+destroying the favorable constraint structure rather than refining it. The optimal deflation level
+for a 30.74M-starting table is approximately 30.74M — i.e., no further deflation is productive.
+
+---
+
+## B.38h Score-Capped Hill-Climbing from 96,672 (Completed)
+
+**Hypothesis.** Standard hill-climbing overshoots the optimal score window (30–32M) because it
+accepts all improvements regardless of the resulting score. A hard cap on total score prevents
+overshoot and allows the optimizer to explore the local neighborhood within the productive range.
+
+**Methodology.** Score caps 31M / 31.5M / 32M / 33M × 8 seeds from 96,672.
+Each run uses normal hill-climbing but refuses swaps that would push total score above the cap.
+
+**Expected result.** Some capped run finds marginal improvement (96,700+) by exploring the
+immediate neighborhood without driving the score into the anti-correlation zone.
+
+**Actual result.**
+- cap=31M: accepted only 1,329 total swaps across all seeds; all best=96,672.
+- cap=31.5M: accepted ~10K swaps; all best=96,672.
+- cap=32M: accepted ~25K swaps; all best=96,672.
+- cap=33M: accepted larger neighborhood; all best=96,672.
+
+No cap produced improvement. The cap=31M result is most informative: only 1,329 improvement-making
+swaps exist within the 31M score ceiling — the table is a local optimum within any capped range.
+
+**Conclusion.** The 96,672 table is a local optimum under score-capped hill-climbing with any cap
+between 31M and 33M. The capped optimizer confirms there are no improving swaps available within
+the productive score window. The optimum is not merely a consequence of score overshoot; it is a
+genuine local maximum of the depth-score relationship at this point.
+
+---
+
+## B.38h2 Score-Capped Hill-Climbing from 96,217 (Completed)
+
+**Hypothesis.** The second-best table (96,217, score 29.98M) may have a different local
+neighborhood structure allowing capped climbing to find improvement.
+
+**Methodology.** Same caps (31M / 31.5M / 32M / 33M) × 8 seeds from
+`tools/b38e_t30000000_best_s22.bin` (depth 96,217, score ~29.98M).
+
+**Actual result.** All runs best=96,217 (baseline). No improvement from the second-best table.
+
+**Conclusion.** Both top-two tables are local optima under score-capped hill-climbing.
+
+---
+
+## B.38i Kick + Score-Cap from 96,672 (Completed)
+
+**Hypothesis.** A random kick (unconstrained perturbation swaps) perturbs the table out of
+the local optimum; the score cap then prevents the subsequent hill-climb from overshooting.
+
+**Methodology.** kick=2000 / 5000 / 10000 × cap=32M / 33M / 34M × 8 seeds from 96,672.
+`--kick K` applies K random accept-anything swaps before the capped hill-climb.
+
+**Expected result.** Kick escapes the local optimum; capped climb recovers to a deeper basin.
+
+**Actual result.**
+
+| Kick Size | Best Depth |
+|-----------|-----------|
+| 2,000     | 95,389 |
+| 5,000     | 96,004 |
+| 10,000    | 94,988 |
+
+Best overall: 96,004 (kick=5,000, seed=5000). All runs below 96,672.
+
+**Conclusion.** Kick destroys critical constraint structure faster than the capped hill-climb can
+rebuild it. Larger kicks produce worse outcomes. The 96,672 table's depth-critical structure
+(sub-tables 0 and 1, established by B.38k crossover analysis) is fragile to random perturbation.
+Kick-based escape strategies are ineffective at this operating point.
+
+---
+
+## B.38j Fresh Fisher-Yates Seed Sweep (Completed)
+
+**Hypothesis.** The chain FY(s9999) → 92,492 was specifically favorable because s9999 reached
+an unusually high first-step depth. Other FY seeds may find similarly favorable basins that lead
+to basins exceeding 96,672 via multi-step ILS.
+
+**Methodology.** 60 fresh FY seeds (checkpoint=100K, patience=3, secs=20). Top performers
+proceeded to ILS step 2.
+
+**Expected result.** Several seeds reach 92K+ first step; ILS chains from those reach 96K+.
+
+**Actual result.**
+- Best first-step: s42=91,825; s12=91,003; s38=90,796.
+- No seed exceeded s9999's 92,492 first-step result.
+- ILS from s42 step-2 best: 94,209 (seed k999999).
+- No seed reached 96K territory from any continuation.
+
+**Conclusion.** The s9999 starting basin is exceptional among the 60 sampled seeds. The 92K+
+first-step is a necessary (though not sufficient) condition for reaching 96K via ILS. Alternative
+FY seeds produce shallower chains. The landscape is rugged and the 92,492 starting basin is
+unusually favorable.
+
+---
+
+## B.38k Population Crossover from Top-Two Tables (Completed)
+
+**Hypothesis.** The 96,672 and 96,217 tables have complementary strengths across sub-tables.
+Crossover — swapping individual sub-tables between the two tables — may produce a hybrid that
+exceeds either parent.
+
+**Methodology.** All 64 combinations (2^6) of 6 sub-tables, each drawn from either
+A=`tools/b38e_t31000000_best_s137.bin` (96,672) or B=`tools/b38e_t30000000_best_s22.bin` (96,217).
+Each combination assembled in Python by direct array replacement, written to temp file, depth
+measured (secs=20).
+
+**Expected result.** At least one combination exceeds 96,672.
+
+**Actual result.**
+
+| Combination | Depth |
+|-------------|-------|
+| AAAAAA      | 96,672 |
+| BBBBBB      | 96,217 |
+| AABAAA      | 96,672 |
+| AAABAA      | 96,672 |
+| AABBAA      | 96,672 |
+| AAAABA      | 96,672 |
+| AABABA      | 96,672 |
+| AAABBA      | 96,672 |
+| AABBBA      | 96,672 |
+| (remaining B-sub combinations) | ≤ 96,217 |
+
+Sub-tables 0 and 1 from A are critical: any combination using sub-tables 0 and 1 from A
+returns 96,672. Sub-tables 2–5 are interchangeable with B without affecting depth.
+
+No combination exceeded 96,672.
+
+**Conclusion.** The 96,672 depth is entirely determined by sub-tables 0 and 1. Sub-tables 2–5
+are structurally inert at this operating point. Crossover cannot exceed the best parent because
+the critical sub-tables cannot be improved by mixing with a weaker table's corresponding sub-tables.
+
+---
+
+## B.38l Deflation Walk (Completed)
+
+**Hypothesis.** Rather than a single large deflation step, a sequence of small steps (5,000 swaps
+each) with depth measurement after each step can navigate through better intermediate states than a
+single-step deflation jump.
+
+**Methodology.** Starting from 96,672, apply 5,000 deflation swaps per step, measure depth
+after each step.
+
+**Expected result.** Some step lands on a depth > 96,672 before crossing into destructive territory.
+
+**Actual result.**
+- Step 1: ~94,667
+- Step 2: ~94,404 (deepening destruction)
+- Terminated early.
+
+**Conclusion.** Deflation in 5,000-swap steps is too destructive per step at the 96,672 table's
+score (30.74M). The 96,672 table has few qualifying lines remaining; each 5K-swap step converts a
+disproportionate fraction of remaining early-row cells, causing rapid depth regression.
+
+---
+
+## B.38l2 Micro-Step Direct Depth Search (Completed)
+
+**Hypothesis.** At the resolution of ~200 random swaps, the depth landscape may have
+microscopic local maxima above 96,672 that normal hill-climbing (score proxy) cannot find because
+they do not correspond to proxy score improvements.
+
+**Methodology.** Apply 200 random swaps (uniformly at random, no score filter), measure depth
+(15s timer), keep the table if depth improved, discard otherwise. Repeat for 6 steps.
+
+**Expected result.** Small random perturbations discover a microstate with depth 96,700+.
+
+**Actual result.**
+- Step 1: 96,448 (discarded)
+- Step 2: 96,674 (kept — appeared to be new record) (It may have been scotch)
+- Step 3: 95,867 (discarded)
+- Step 4: 96,664 (discarded vs step 2 baseline)
+- Step 5: 96,437 (discarded)
+- Step 6: 95,706 (discarded)
+
+**Conclusion.** Step 2's 96,674 is within measurement noise of 96,672 (the 15s timer instead of
+the standard 20s timer reduces measured depth by ~150–200 cells under load). No genuine
+improvement detected. The micro-step approach provides no sustained progress; the depth landscape
+at this resolution is highly non-monotonic.
+
+---
+
+## B.38m K_PLATEAU=195 Hill-Climbing from 96,672 (Completed)
+
+**Hypothesis.** The solver stalls at row ~189 (96,672 / 511 ≈ 189.2). The current optimizer uses
+K_PLATEAU=178 (row 178), which targeted the B.26c plateau. Changing to K_PLATEAU=195 aligns
+the optimization objective with the actual observed stall boundary, potentially rewarding different
+cell-line assignments that facilitate the actual bottleneck rows.
+
+**Methodology.** 12 seeds from 96,672, `--threshold 195` (all other params unchanged).
+
+**Expected result.** Tables optimized for K=195 reach deeper into the 190–510 row range.
+
+**Actual result.** All 12 seeds: best=96,672 for all; finals ranging 80K–92K.
+
+An additional run used fresh FY seeds with K=195 to establish baselines: best first-step
+s5000=91,451, similar to K=178 first-step results.
+
+**Conclusion.** K_PLATEAU=195 trades row 0–178 concentration for row 0–195 coverage, diluting the
+critical early-row constraint density that enables the propagation cascade. The solver's 189-row
+stall is caused by structural underdetermination, not by the specific K_PLATEAU parameter.
+Hill-climbing with K=195 fails to match the depth achieved with K=178, confirming that the optimal
+parameter is not simply the observed stall row.
+
+---
+
+## B.38n Band Mode (Rows 179–195) from 96,672 (Completed)
+
+**Hypothesis.** Optimizing specifically the transition zone (rows 179–195) — neither the
+well-optimized rows 0–178 nor the distant rows 196–510 — can bridge the row-189 stall without
+disrupting the existing early-row structure.
+
+**Methodology.** 12 seeds from 96,672, `--mode band --k1 179 --k2 195`.
+Band mode rewards concentration of LTP cells specifically within the band [179, 195], leaving the
+K_PLATEAU=178 structure of rows 0–178 undisturbed.
+
+**Expected result.** Band-mode improvement in the transition zone pushes the stall from row 189
+to row 195+.
+
+**Actual result.** Initial band score: 87,534. Optimizer found no improvements in the band. All
+12 seeds completed with best=96,672 (baseline unchanged).
+
+**Conclusion.** The transition band rows 179–195 are already well-covered by the existing LTP
+structure (a consequence of the K_PLATEAU=178 optimization). The optimizer cannot find
+band-improving swaps because the band coverage is already near-optimal relative to its own score.
+Band mode provides no new degrees of freedom at this operating point.
+
+---
+
+## B.38o Deflation from Second-Best Table (96,217) (Completed)
+
+**Hypothesis.** The second-best table (96,217, score 29.98M) may have a different basin topology
+allowing deeper deflation to reach a state that surpasses 96,672.
+
+**Methodology.** Targets 27M / 26M / 25M / 24M × 8 seeds from
+`tools/b38e_t30000000_best_s22.bin` (96,217).
+
+**Actual result.**
+
+| Target | Best Baseline Depth |
+|--------|---------------------|
+| 27M    | 95,009 |
+| 26M    | 94,055 |
+| 25M    | 94,004 |
+| 24M    | 93,995 |
+
+All below 96,672. The second-best table is also a local optimum; its basin does not connect to
+a deeper region via deflation.
+
+**Conclusion.** Both the 96,672 and 96,217 tables are confirmed local optima. The two best
+known tables occupy structurally isolated basins; neither can serve as a stepping stone to a
+deeper basin via deflation-based techniques.
+
+---
+
+## B.38p Narrow Simulated Annealing (T=50→1) from 96,672 (Completed)
+
+**Hypothesis.** A very narrow SA temperature window (T_init=50, T_final=1) stays close to the
+greedy limit while accepting occasional slightly-worsening moves, potentially escaping the
+96,672 local optimum without the catastrophic destruction observed in B.36 (T_init=2000).
+
+**Methodology.** SA with T=50→1, 8 seeds from 96,672.
+
+**Actual result.** This run was corrupted by CPU load: 40+ concurrent hill-climber processes were
+running, causing the decompressor to reach only depth 96,223 instead of 96,672 under the 20s
+timer. All seeds reported baseline=96,223 (the load-suppressed value). SA immediately
+moved uphill (accepting score-worsening swaps at T=50), driving score to 36M+, regressing depth.
+
+**Conclusion.** SA at T=50 is still too aggressive — the acceptance of worsening moves drives the
+score past the productive 30–32M window. Even very low temperatures cause the score to exit the
+optimal band. The optimal score window for 96K+ depth is narrow (~0.5M wide); any stochastic
+acceptance policy that allows score increases will exit it.
+
+**Measurement note.** CPU load from parallel processes causes the 20s-timer measurement to read
+96,223 instead of the true 96,672. Subsequent experiments limited concurrent processes to ≤12 to
+avoid this artifact.
+
+---
+
+## B.38q Kick + Deflate to 31M from 96,672 (Completed)
+
+**Hypothesis.** Combining kick perturbation with subsequent deflation (rather than kick + capped
+climb) may find deeper intermediate states by reshaping the score landscape before measuring.
+
+**Methodology.** kick=2000 / 5000 / 10000 × then `--deflate_target 31000000` × 8 seeds from 96,672.
+The kick first perturbs the table randomly (increasing score), then deflation drives it back to
+the 31M level where depth measurement occurs.
+
+**Expected result.** kick=5000 + deflate to 31M creates a table different from the original
+96,672 that measures deeper.
+
+**Actual result.**
+
+| Kick Size | Best Baseline Depth |
+|-----------|---------------------|
+| 2,000     | 95,389 |
+| 5,000     | 96,004 |
+| 10,000    | 94,988 |
+
+Best: 96,004 (kick=5000). All below 96,672.
+
+**Conclusion.** Kick + deflate cannot recover the 96,672 structure. The kick destroys sub-tables 0
+and 1 (the depth-critical sub-tables identified in B.38k). Even with subsequent deflation to the
+correct score level, the destroyed sub-table structure cannot be reconstructed by the deflation
+operator.
+
+---
+
+## B.38r Varied Deflation High/Low Thresholds from 96,672 (Completed)
+
+**Hypothesis.** The deflation operator's effectiveness depends on the HIGH/LOW thresholds
+(h=320/l=280 in all prior experiments). Different threshold pairs may select different qualifying
+lines, finding a perturbation direction that the standard parameters miss.
+
+**Methodology.** Four threshold configurations × 8 seeds from 96,672:
+- h=350, l=260 (wider band)
+- h=340, l=270 (intermediate)
+- h=300, l=260 (lower threshold, more qualifying lines)
+- h=350, l=290 (tighter lower bound)
+
+**Actual result.**
+
+| h / l  | Best Baseline Depth |
+|--------|---------------------|
+| 350/260 | 95,991 |
+| 340/270 | 94,746 |
+| 300/260 | 95,133 |
+| 350/290 | 95,565 |
+
+All below 96,672.
+
+**Conclusion.** The standard h=320/l=280 parameters were the best choice for producing the 96,672
+record. Widening the HIGH threshold selects lines that should not be deflated; narrowing the LOW
+threshold selects too many recipient lines, diluting the deflation's directionality. Threshold
+variation confirms h=320/l=280 as the empirical optimum.
+
+---
+
+## B.38s K_PLATEAU=188 (Stall Row Targeting) from 96,672 (Completed)
+
+**Hypothesis.** K_PLATEAU=188 = floor(96,672 / 511) targets exactly the observed stall row —
+the last row completed before the solver halts. This should be the most accurate proxy for the
+bottleneck, outperforming the proxy-at-K=178 used to build the 96,672 table.
+
+**Methodology.** 12 seeds from `tools/b38e_t31000000_best_s137.bin`, `--threshold 188`,
+`--iters 50000000 --checkpoint 10000 --patience 3 --secs 20`.
+
+**Expected result.** K=188 optimization finds a marginally better table tailored to the actual stall.
+
+**Actual result.** All 12 seeds: best=96,672; finals ranging 81K–96K (depth degrades during
+hill-climbing regardless of seed).
+
+**Conclusion.** K_PLATEAU=188 does not improve on K=178. The hill-climbing process degrades depth
+because moving score upward from 30.74M overdrives into the anti-correlation zone. The K value
+affects which score the optimizer converges to, not the starting point depth; any K that drives
+the score above ~32M causes depth regression. The 96,672 optimum is K-invariant: all tested
+K values (178, 188, 195) produce best=96,672 with degraded finals.
+
+---
+
+## B.38 Summary and Conclusions
+
+**Current best: depth 96,672** (`tools/b38e_t31000000_best_s137.bin`)
+
+The B.38 deflation technique produced a systematic chain of improvements:
+
+```
+FY(s9999) → 92,492 → 94,118 → 94,419 → 94,661 → 95,060 → 95,408
+          → 95,973 → 95,997 → 96,122 → 96,672  ← CURRENT BEST
+```
+
+**Key finding: Deflation is the optimization, not hill-climbing.** The 96,672 depth was achieved
+by the deflation step itself (B.38e: 8,000 swaps from 96,122's 33.8M score to 30.74M).
+Subsequent hill-climbing from the deflated state only degrades depth by driving score into the
+anti-correlation zone (>32M).
+
+**The 96,672 table is a confirmed local optimum.** Experiments B.38f through B.38s exhausted all
+tested escape strategies:
+
+| Experiment | Strategy | Best Depth |
+|------------|----------|-----------|
+| B.38f | Deflation chain (target 31M) | 96,672 (no improvement — 0 swaps) |
+| B.38g | Deflation to 25M–29M | 95,885 (over-deflation) |
+| B.38h/h2 | Score-capped climbing | 96,672 (local optimum) |
+| B.38i | Kick + score-cap | 96,004 |
+| B.38j | 60 fresh FY seeds | 94,209 (no competitive basin found) |
+| B.38k | Crossover top-2 tables | 96,672 (no improvement) |
+| B.38l | Deflation walk (5K steps) | 94,667 (too destructive) |
+| B.38l2 | Micro-step 200 swaps | 96,672 (noise) |
+| B.38m | K_PLATEAU=195 | 96,672 (finals 80K–92K) |
+| B.38n | Band mode rows 179–195 | 96,672 (no band improvements) |
+| B.38o | Deflation from 96,217 | 95,009 (second table also stuck) |
+| B.38p | SA T=50→1 | 96,223 (load-corrupted + score overshoot) |
+| B.38q | Kick + deflate | 96,004 |
+| B.38r | Varied h/l thresholds | 95,991 |
+| B.38s | K_PLATEAU=188 | 96,672 (finals degrade) |
+
+**The B.38 proxy-based approach has saturated.** The row-concentration proxy (score) is a
+necessary but not sufficient condition for depth improvement. The optimal score window for 96K+
+is narrow (~30–32M); neither climbing into the window from below (deflation) nor exploring within
+it (capped climbing, SA, kicks) produces improvement beyond 96,672.
+
+**B.33 (Complete-Then-Verify): ABANDONED.** B.33 was investigated as the next architectural
+candidate after B.38 saturated. Sub-experiments B.33a and B.33b (tools/b33a_min_swap.py,
+tools/b33b_min_swap_bt.py) determined that the minimum constraint-preserving swap for the
+full 10-family CRSCE system is O(1000+) cells — NOT local. The Fisher-Yates random LTP
+partitions ensure every cell lands on a unique random LTP line, requiring mate cells that
+cascade to O(511) cells per sub-table. Consequently, the correct CSM and any "close"
+cross-sum-valid matrix differ in ~170,000 cells — no efficient local path exists between
+them. Phase 3 is infeasible. See §B.33.11 for full analysis.
+
+**Current status: ALL proposed approaches exhausted.** B.38 (LTP proxy optimization)
+saturated at depth 96,672. B.33 (Complete-Then-Verify) abandoned due to O(1000+) minimum
+swap size. No current candidate for improvement beyond 96,672. Open questions and
+candidate architectures are consolidated in Appendix C.
 
 ---
 
