@@ -9851,36 +9851,64 @@ works only if the third axis has geometric regularity, which pseudorandom LTP ax
 The n-dimensional paradigm suggests that swap structures should be conceived natively in
 the full 6D space, treating all axes symmetrically.
 
-#### B.39.3 Intersection Density Analysis
+#### B.39.3 Swap Scaling Analysis
 
-The feasibility of small n-dimensional swaps depends on the intersection density of
-constraint lines across dimensions.
+The minimum constraint-preserving swap size depends on the number of independent
+dimensional axes and the intersection density of constraint lines across them.
+
+**Dimensional scaling model.** In 2D (row $\times$ column), a balanced swap requires a
+4-cell rectangle: 2 values per dimension, $2 \times 2 = 4$ intersection cells. Each row
+sees one +1 and one $-1$; each column sees the same. Adding a third independent
+dimension introduces a third axis. The balanced structure must now satisfy zero net
+change on every line in all three dimensions. There are $\binom{3}{2} = 3$ coordinate
+planes, each requiring a 4-cell balanced sub-structure, giving $3 \times 4 = 12$ cells
+before accounting for sharing. In 6D, there are $\binom{6}{2} = 15$ coordinate planes,
+but each cell sits on all 6 axes simultaneously, so a single cell contributes to
+balancing $\binom{6}{2} - \binom{5}{2} = 5$ planes at once. The effective minimum is
+therefore far below $15 \times 4 = 60$.
+
+The confirmed data point supports linear scaling: for $n = 4$ geometric families (LSM,
+VSM, DSM, XSM), the minimum swap is **8 cells** $= 2n$. Extrapolating linearly:
+
+| Dimensions | Lower bound ($2n$) | Upper estimate ($3n$) | $2^n$ (hyperrectangle) |
+|---|---|---|---|
+| 2 (LSM + VSM) | 4 | 6 | 4 |
+| 4 (+ DSM + XSM) | 8 (**confirmed**) | 12 | 16 |
+| 5 (+ LTP1) | 10 | 15 | 32 |
+| 6 (+ LTP2) | 12 | 18 | 64 |
+| 8 (all families) | 16 | 24 | 256 |
+
+The $2^n$ hyperrectangle model (placing cells at every corner of an $n$-dimensional
+hypercube) is a sufficient but grossly non-minimal construction. It scales exponentially
+with dimension and is the wrong baseline for estimating minimum swap feasibility.
+
+The linear model ($2n$ to $3n$ cells) is consistent with the $n = 4$ data point and with
+the structure of the balancing requirement: each independent dimension requires at least
+one +1 and one $-1$ cell on each affected line, but cells serve multiple dimensions
+simultaneously because every cell lies on one line in every family. The question is
+whether the pseudorandom LTP axes permit sufficient cell-sharing to maintain linear
+scaling, or whether the lack of geometric correlation between LTP lines forces the cascade
+expansion identified in B.33b.
+
+**Intersection density.** The feasibility of cell-sharing depends on how often constraint
+lines from different families co-occupy the same cells.
 
 **2D intersections (geometric families).** Every (row, column) pair intersects in exactly
 one cell. Every (row, diagonal) pair intersects in 0 or 1 cells. The 2D grid structure
-guarantees dense intersections, enabling small balanced patterns.
+guarantees dense intersections, enabling small balanced patterns with maximal cell-sharing.
 
 **Cross-dimensional intersections (geometric $\times$ LTP).** For a given row $r$ and LTP1
 line $L$, the expected intersection size is $|r| \times |L| / s^2 = 511 \times 511 /
-261{,}121 = 1$ cell. The intersection exists with high probability but is not guaranteed.
+261{,}121 = 1$ cell. Pairwise intersections between any two families contain approximately
+one cell on average, so 2D balanced sub-structures (4-cell rectangles) are constructible
+across any pair of dimensions.
 
-**High-dimensional intersections.** For a 6-tuple of line indices $(r, c, d, x, \ell_1,
-\ell_2)$, the expected number of cells at that intersection is:
-
-$$
-    \frac{s^2}{\prod_{i=1}^{6} n_i} \approx \frac{261{,}121}{511^4 \times 1{,}021^2}
-    \approx 3.8 \times 10^{-12}
-$$
-
-where $n_i$ is the number of lines in family $i$. The probability that any given 6D
-coordinate is occupied is negligible. A naive $2^6 = 64$-cell hyperrectangle (the
-natural generalization of the 4-cell rectangle) almost certainly does not exist in the
-constraint hypergraph.
-
-This analysis establishes that the minimum swap cannot be a simple hyperrectangular
-pattern. The swap structure, if small, must exploit higher-order coincidences --- cells
-that share line memberships across multiple families without occupying all corners of a
-hyperrectangle.
+**The critical question for B.39a** is whether these pairwise intersections can be composed
+into a single small set of cells that simultaneously balances *all* dimensions. The $n = 4$
+confirmed minimum of 8 cells demonstrates that simultaneous balancing across 4 geometric
+dimensions is achievable at the linear lower bound. Whether this extends to the pseudorandom
+LTP dimensions --- where the intersection structure is uncorrelated with the geometric
+axes --- is precisely what B.39a's algebraic computation will determine.
 
 #### B.39.4 Null Space Formulation
 
@@ -9895,8 +9923,7 @@ space --- roughly 98% of all degrees of freedom are unconstrained by cross-sum p
 The **minimum swap size** is the minimum Hamming weight (number of non-zero entries) of
 any non-zero vector in this null space. This is equivalent to the minimum-weight codeword
 problem in coding theory, which is NP-hard in general but admits efficient approximations
-for structured matrices via lattice reduction (LLL/BKZ algorithms) or integer linear
-programming.
+for structured matrices via lattice reduction (LLL/BKZ algorithms) or integer linear programming.
 
 The key distinction from B.33a/B.33b: those experiments searched for minimum swaps via
 heuristic forward repair and backtracking DFS with small budgets. B.39a will compute the
@@ -9909,19 +9936,27 @@ null-space vectors exist without enumerating them by trial and error.
 number of constraint families, using algebraic methods native to the n-dimensional paradigm
 rather than the geometric seed-and-repair approach of B.33a/B.33b.
 
-**Hypothesis.** Two competing models:
+**Hypothesis.** Three competing models:
+
+- **Linear model (dimensional scaling):** The minimum swap grows as $2n$ to $3n$ cells
+  for $n$ independent constraint dimensions. For $n = 8$ (4 geometric + 4 LTP), this
+  predicts 16--24 cells. This model is consistent with the confirmed $n = 4$ minimum of
+  8 cells and assumes that cell-sharing across dimensions remains efficient even for
+  pseudorandom LTP axes. Under this model, B.33's Phase 3 is feasible and B.33b's cascade
+  analysis was an artifact of the biased 2D-seed-and-repair search strategy.
 
 - **Cascade model (B.33b extrapolation):** The minimum swap grows as $O(511)$ cells per
   LTP sub-table, giving $O(2{,}000)$ for 4 LTP sub-tables. Under this model, B.33's Phase 3
-  remains infeasible and the n-dimensional paradigm confirms B.33b's conclusion from a
-  different analytical perspective.
+  remains infeasible. The cascade occurs because pseudorandom LTP axes prevent the
+  cell-sharing that keeps geometric swaps small --- every repair cell creates new violations
+  on uncorrelated LTP lines, and the repair chain diverges.
 
-- **Null-space structure model:** The 256,020-dimensional null space admits short vectors
-  that are not discoverable by greedy or backtracking search from 2D seeds, but are
-  findable via algebraic computation. Under this model, the minimum swap is substantially
-  smaller than the cascade estimate --- potentially $O(50\text{--}200)$ cells --- because
-  the high-dimensional null space permits cancellations across families that the sequential
-  repair strategy cannot exploit.
+- **Intermediate model:** The minimum swap is substantially smaller than the cascade
+  estimate but larger than the linear prediction --- potentially $O(50\text{--}200)$
+  cells --- because the high-dimensional null space (dimension $\geq 256{,}020$) admits
+  short vectors that are not discoverable by greedy or backtracking search from 2D seeds,
+  but are findable via algebraic computation. The null space permits multi-family
+  cancellations that the sequential repair strategy cannot exploit.
 
 **Method.**
 
