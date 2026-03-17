@@ -9220,7 +9220,7 @@ but deflation destroys the critical properties of the 95,973 table.
 
 ---
 
-## B.38b Optimal Deflation Level Sweep (Completed)
+### B.38b Optimal Deflation Level Sweep (Completed)
 
 Sweep over 6 deflation target scores (33M, 32M, 31M, 30M, 29M, 28M) × 3 seeds (42, 100, 300).
 `--init tools/b37v_best_s100.bin` (depth 95,973).
@@ -9245,7 +9245,7 @@ Best table: `tools/b38b_t32000000_best_s100.bin`.  +24 over 95,973.
 
 ---
 
-## B.38c Chain from 95,997 (Completed)
+### B.38c Chain from 95,997 (Completed)
 
 24 seeds from 95,997 with deflation to 32M (7,000 deflation swaps → 31.8M → greedy climb).
 
@@ -9267,7 +9267,7 @@ vs B.26c: +5,032 cells (+5.53%).
 
 ---
 
-## B.38d Chain from 96,122 (Completed)
+### B.38d Chain from 96,122 (Completed)
 
 24 seeds from `tools/b38c_best_s70000.bin` (depth 96,122) with deflation to 32M
 (`--deflate 20000 --deflate_target 32000000`).
@@ -9286,7 +9286,7 @@ but is too shallow for the 33.8M-starting 96,122 table. Lower targets (31M, 30M,
 
 ---
 
-## B.38e Deflation Target Sweep from 96,122 (Completed)
+### B.38e Deflation Target Sweep from 96,122 (Completed)
 
 **Design**: Test three deflation targets (31M, 30M, 29M) × 12 seeds from `tools/b38c_best_s70000.bin`
 (depth 96,122). 36 parallel runs, `--deflate 20000 --deflate_high 320 --deflate_low 280`.
@@ -9315,7 +9315,7 @@ Chain so far: FY(s9999)→92,492→94,118→94,419→94,661→95,060→95,408→
 
 ---
 
-## B.38f Chain from 96,672 (Completed)
+### B.38f Chain from 96,672 (Completed)
 
 **Hypothesis.** The 96,672 table (score 30,743,316) can be further improved by deflation to 31M
 followed by hill-climbing, continuing the chain pattern that produced each prior record.
@@ -9341,7 +9341,7 @@ or by uncapped hill-climbing.
 
 ---
 
-## B.38g Deflation Scan Below 30.7M from 96,672 (Completed)
+### B.38g Deflation Scan Below 30.7M from 96,672 (Completed)
 
 **Hypothesis.** Targets below the current 30.74M score (29M, 28M, 27M, 26M, 25M) may reveal
 a deeper optimum that the 31M sweep missed.
@@ -9371,7 +9371,7 @@ for a 30.74M-starting table is approximately 30.74M — i.e., no further deflati
 
 ---
 
-## B.38h Score-Capped Hill-Climbing from 96,672 (Completed)
+### B.38h Score-Capped Hill-Climbing from 96,672 (Completed)
 
 **Hypothesis.** Standard hill-climbing overshoots the optimal score window (30–32M) because it
 accepts all improvements regardless of the resulting score. A hard cap on total score prevents
@@ -9399,7 +9399,7 @@ genuine local maximum of the depth-score relationship at this point.
 
 ---
 
-## B.38h2 Score-Capped Hill-Climbing from 96,217 (Completed)
+### B.38h2 Score-Capped Hill-Climbing from 96,217 (Completed)
 
 **Hypothesis.** The second-best table (96,217, score 29.98M) may have a different local
 neighborhood structure allowing capped climbing to find improvement.
@@ -9413,7 +9413,7 @@ neighborhood structure allowing capped climbing to find improvement.
 
 ---
 
-## B.38i Kick + Score-Cap from 96,672 (Completed)
+### B.38i Kick + Score-Cap from 96,672 (Completed)
 
 **Hypothesis.** A random kick (unconstrained perturbation swaps) perturbs the table out of
 the local optimum; the score cap then prevents the subsequent hill-climb from overshooting.
@@ -9440,7 +9440,7 @@ Kick-based escape strategies are ineffective at this operating point.
 
 ---
 
-## B.38j Fresh Fisher-Yates Seed Sweep (Completed)
+### B.38j Fresh Fisher-Yates Seed Sweep (Completed)
 
 **Hypothesis.** The chain FY(s9999) → 92,492 was specifically favorable because s9999 reached
 an unusually high first-step depth. Other FY seeds may find similarly favorable basins that lead
@@ -9464,7 +9464,7 @@ unusually favorable.
 
 ---
 
-## B.38k Population Crossover from Top-Two Tables (Completed)
+### B.38k Population Crossover from Top-Two Tables (Completed)
 
 **Hypothesis.** The 96,672 and 96,217 tables have complementary strengths across sub-tables.
 Crossover — swapping individual sub-tables between the two tables — may produce a hybrid that
@@ -9503,7 +9503,7 @@ the critical sub-tables cannot be improved by mixing with a weaker table's corre
 
 ---
 
-## B.38l Deflation Walk (Completed)
+### B.38l Deflation Walk (Completed)
 
 **Hypothesis.** Rather than a single large deflation step, a sequence of small steps (5,000 swaps
 each) with depth measurement after each step can navigate through better intermediate states than a
@@ -9525,7 +9525,7 @@ disproportionate fraction of remaining early-row cells, causing rapid depth regr
 
 ---
 
-## B.38l2 Micro-Step Direct Depth Search (Completed)
+### B.38l2 Micro-Step Direct Depth Search (Completed)
 
 **Hypothesis.** At the resolution of ~200 random swaps, the depth landscape may have
 microscopic local maxima above 96,672 that normal hill-climbing (score proxy) cannot find because
@@ -9551,7 +9551,7 @@ at this resolution is highly non-monotonic.
 
 ---
 
-## B.38m K_PLATEAU=195 Hill-Climbing from 96,672 (Completed)
+### B.38m K_PLATEAU=195 Hill-Climbing from 96,672 (Completed)
 
 **Hypothesis.** The solver stalls at row ~189 (96,672 / 511 ≈ 189.2). The current optimizer uses
 K_PLATEAU=178 (row 178), which targeted the B.26c plateau. Changing to K_PLATEAU=195 aligns
@@ -9575,7 +9575,7 @@ parameter is not simply the observed stall row.
 
 ---
 
-## B.38n Band Mode (Rows 179–195) from 96,672 (Completed)
+### B.38n Band Mode (Rows 179–195) from 96,672 (Completed)
 
 **Hypothesis.** Optimizing specifically the transition zone (rows 179–195) — neither the
 well-optimized rows 0–178 nor the distant rows 196–510 — can bridge the row-189 stall without
@@ -9598,7 +9598,7 @@ Band mode provides no new degrees of freedom at this operating point.
 
 ---
 
-## B.38o Deflation from Second-Best Table (96,217) (Completed)
+### B.38o Deflation from Second-Best Table (96,217) (Completed)
 
 **Hypothesis.** The second-best table (96,217, score 29.98M) may have a different basin topology
 allowing deeper deflation to reach a state that surpasses 96,672.
@@ -9624,7 +9624,7 @@ deeper basin via deflation-based techniques.
 
 ---
 
-## B.38p Narrow Simulated Annealing (T=50→1) from 96,672 (Completed)
+### B.38p Narrow Simulated Annealing (T=50→1) from 96,672 (Completed)
 
 **Hypothesis.** A very narrow SA temperature window (T_init=50, T_final=1) stays close to the
 greedy limit while accepting occasional slightly-worsening moves, potentially escaping the
@@ -9648,7 +9648,7 @@ avoid this artifact.
 
 ---
 
-## B.38q Kick + Deflate to 31M from 96,672 (Completed)
+### B.38q Kick + Deflate to 31M from 96,672 (Completed)
 
 **Hypothesis.** Combining kick perturbation with subsequent deflation (rather than kick + capped
 climb) may find deeper intermediate states by reshaping the score landscape before measuring.
@@ -9677,7 +9677,7 @@ operator.
 
 ---
 
-## B.38r Varied Deflation High/Low Thresholds from 96,672 (Completed)
+### B.38r Varied Deflation High/Low Thresholds from 96,672 (Completed)
 
 **Hypothesis.** The deflation operator's effectiveness depends on the HIGH/LOW thresholds
 (h=320/l=280 in all prior experiments). Different threshold pairs may select different qualifying
@@ -9707,7 +9707,7 @@ variation confirms h=320/l=280 as the empirical optimum.
 
 ---
 
-## B.38s K_PLATEAU=188 (Stall Row Targeting) from 96,672 (Completed)
+### B.38s K_PLATEAU=188 (Stall Row Targeting) from 96,672 (Completed)
 
 **Hypothesis.** K_PLATEAU=188 = floor(96,672 / 511) targets exactly the observed stall row —
 the last row completed before the solver halts. This should be the most accurate proxy for the
@@ -9729,7 +9729,7 @@ K values (178, 188, 195) produce best=96,672 with degraded finals.
 
 ---
 
-## B.38 Summary and Conclusions
+### B.38 Summary and Conclusions
 
 **Current best: depth 96,672** (`tools/b38e_t31000000_best_s137.bin`)
 
@@ -9780,10 +9780,466 @@ cascade to O(511) cells per sub-table. Consequently, the correct CSM and any "cl
 cross-sum-valid matrix differ in ~170,000 cells — no efficient local path exists between
 them. Phase 3 is infeasible. See §B.33.11 for full analysis.
 
-**Current status: ALL proposed approaches exhausted.** B.38 (LTP proxy optimization)
-saturated at depth 96,672. B.33 (Complete-Then-Verify) abandoned due to O(1000+) minimum
-swap size. No current candidate for improvement beyond 96,672. Open questions and
+**Current status:** B.38 (LTP proxy optimization) saturated at depth 96,672. B.33
+(Complete-Then-Verify) abandoned due to O(1000+) minimum swap size under the 2D analysis.
+B.39 re-examines B.33's feasibility through an n-dimensional geometric paradigm that
+treats each constraint family as an independent coordinate axis. Open questions and
 candidate architectures are consolidated in Appendix C.
+
+---
+
+### B.39 N-Dimensional Constraint Geometry and Complete-Then-Verify Revisited (Proposed)
+
+#### B.39.1 Motivation
+
+B.33 proposed a complete-then-verify solver architecture whose feasibility depended on the
+existence of small constraint-preserving swaps. Sub-experiments B.33a and B.33b determined
+that such swaps are infeasible under the analysis framework used: greedy forward repair
+(B.33a) and backtracking DFS from an 8-cell geometric base (B.33b) both failed to find any
+swap preserving all 8 constraint families within budgets of 50--500 cells.
+
+However, both B.33a and B.33b framed the swap-finding problem in two dimensions --- starting
+from a planar geometric pattern (a rectangle or its 8-cell diagonal extension) and attempting
+to "repair" violations on the pseudorandom LTP families by adding cells one at a time. This
+framing is structurally biased: it privileges the geometric families (which admit small
+planar solutions) and treats the LTP families as disturbances to be patched, leading to the
+divergent cascade identified in B.33b.
+
+B.39 reframes the problem using an **n-dimensional geometric paradigm** that treats all
+constraint families symmetrically.
+
+#### B.39.2 The N-Dimensional Paradigm
+
+The four geometric cross-sum families (LSM, VSM, DSM, XSM) are projections within the 2D
+plane of the CSM. Row sums project onto the row axis, column sums onto the column axis,
+diagonal sums onto the line $c - r = \text{const}$, and anti-diagonal sums onto the line
+$r + c = \text{const}$. These are four directions of projection within a shared 2D
+embedding, which is why small planar swap patterns (8-cell constructions) can satisfy all
+four simultaneously --- the geometric correlations between families create coincidental
+cancellations at small scale.
+
+Each LTP sub-table assigns every cell $(r, c)$ to one of 511 lines via a Fisher--Yates
+permutation that is independent of the $(r, c)$ coordinate system. This assignment is
+structurally equivalent to a new coordinate axis: cell $(r, c)$ acquires a third coordinate
+$\ell_1(r, c) = \text{LTP1}(r, c)$ that is uncorrelated with the first two. The LTP1 sum
+constraint is then a projection along this third axis --- a hyperplane slice through 3-space
+where $\ell_1 = k$, summing the cell values in that slice. The pseudorandom nature of the
+LTP assignment means this third axis is maximally uncorrelated with the 2D plane, which is
+precisely why LTP partitions add non-redundant constraint information (unlike the
+toroidal-slope partitions they replaced in B.20, whose algebraic regularity created partial
+correlation with DSM and XSM).
+
+LTP2 adds a fourth coordinate axis, LTP3 a fifth, LTP4 a sixth. Each cell occupies a point
+in 6-dimensional space:
+
+$$
+    (r,\; c,\; \ell_1(r,c),\; \ell_2(r,c),\; \ell_3(r,c),\; \ell_4(r,c))
+$$
+
+where the first two coordinates are deterministic grid positions and the last four are
+pseudorandom partition assignments. The eight constraint families are projections along six
+axes of this 6D space (with DSM and XSM being oblique projections within the $(r, c)$ plane
+rather than independent axes, reducing the effective independent dimensionality to six).
+
+A **constraint-preserving swap** is a balanced perturbation in this 6D space: a set of cells
+whose signed changes sum to zero on every hyperplane slice in every dimension. The B.33a/B.33b
+analysis failed because it attempted to construct 6D-balanced structures by starting from
+2D-balanced seeds and patching the higher dimensions incrementally. This is analogous to
+trying to build a 3D cube by starting from a 2D square and adding height --- a strategy that
+works only if the third axis has geometric regularity, which pseudorandom LTP axes do not.
+
+The n-dimensional paradigm suggests that swap structures should be conceived natively in
+the full 6D space, treating all axes symmetrically.
+
+#### B.39.3 Intersection Density Analysis
+
+The feasibility of small n-dimensional swaps depends on the intersection density of
+constraint lines across dimensions.
+
+**2D intersections (geometric families).** Every (row, column) pair intersects in exactly
+one cell. Every (row, diagonal) pair intersects in 0 or 1 cells. The 2D grid structure
+guarantees dense intersections, enabling small balanced patterns.
+
+**Cross-dimensional intersections (geometric $\times$ LTP).** For a given row $r$ and LTP1
+line $L$, the expected intersection size is $|r| \times |L| / s^2 = 511 \times 511 /
+261{,}121 = 1$ cell. The intersection exists with high probability but is not guaranteed.
+
+**High-dimensional intersections.** For a 6-tuple of line indices $(r, c, d, x, \ell_1,
+\ell_2)$, the expected number of cells at that intersection is:
+
+$$
+    \frac{s^2}{\prod_{i=1}^{6} n_i} \approx \frac{261{,}121}{511^4 \times 1{,}021^2}
+    \approx 3.8 \times 10^{-12}
+$$
+
+where $n_i$ is the number of lines in family $i$. The probability that any given 6D
+coordinate is occupied is negligible. A naive $2^6 = 64$-cell hyperrectangle (the
+natural generalization of the 4-cell rectangle) almost certainly does not exist in the
+constraint hypergraph.
+
+This analysis establishes that the minimum swap cannot be a simple hyperrectangular
+pattern. The swap structure, if small, must exploit higher-order coincidences --- cells
+that share line memberships across multiple families without occupying all corners of a
+hyperrectangle.
+
+#### B.39.4 Null Space Formulation
+
+A constraint-preserving swap is a vector $v \in \{-1, 0, +1\}^{261{,}121}$ in the
+(integer) null space of the constraint incidence matrix $A$ ($5{,}108 \times 261{,}121$),
+subject to the feasibility constraint that the modified matrix $M + v$ remains binary.
+
+The null space has dimension $\geq 256{,}020$ (since $\text{rank}(A) \leq 5{,}101$ after
+accounting for 7 linear dependencies from the conservation axiom). This is an enormous
+space --- roughly 98% of all degrees of freedom are unconstrained by cross-sum projections.
+
+The **minimum swap size** is the minimum Hamming weight (number of non-zero entries) of
+any non-zero vector in this null space. This is equivalent to the minimum-weight codeword
+problem in coding theory, which is NP-hard in general but admits efficient approximations
+for structured matrices via lattice reduction (LLL/BKZ algorithms) or integer linear
+programming.
+
+The key distinction from B.33a/B.33b: those experiments searched for minimum swaps via
+heuristic forward repair and backtracking DFS with small budgets. B.39a will compute the
+null space structure directly using algebraic methods, which can determine whether short
+null-space vectors exist without enumerating them by trial and error.
+
+#### B.39.5 Sub-experiment B.39a: N-Dimensional Minimum Swap Characterization
+
+**Objective.** Determine the minimum constraint-preserving swap size as a function of the
+number of constraint families, using algebraic methods native to the n-dimensional paradigm
+rather than the geometric seed-and-repair approach of B.33a/B.33b.
+
+**Hypothesis.** Two competing models:
+
+- **Cascade model (B.33b extrapolation):** The minimum swap grows as $O(511)$ cells per
+  LTP sub-table, giving $O(2{,}000)$ for 4 LTP sub-tables. Under this model, B.33's Phase 3
+  remains infeasible and the n-dimensional paradigm confirms B.33b's conclusion from a
+  different analytical perspective.
+
+- **Null-space structure model:** The 256,020-dimensional null space admits short vectors
+  that are not discoverable by greedy or backtracking search from 2D seeds, but are
+  findable via algebraic computation. Under this model, the minimum swap is substantially
+  smaller than the cascade estimate --- potentially $O(50\text{--}200)$ cells --- because
+  the high-dimensional null space permits cancellations across families that the sequential
+  repair strategy cannot exploit.
+
+**Method.**
+
+(a) **Construct the constraint incidence matrix** $A$ ($5{,}108 \times 261{,}121$) for the
+current LTP seeds (CRSCLTPV, CRSCLTPP, CRSCLTP3, CRSCLTP4). Each row of $A$ is a binary
+indicator vector for one constraint line. Store $A$ as a sparse matrix (each row has exactly
+511 non-zero entries for LTP/LSM/VSM lines, or $\text{len}(k)$ for DSM/XSM lines).
+
+(b) **Stratified null-space sampling.** Compute the null space of $A$ (over $\mathbb{Q}$)
+incrementally by family count:
+
+| Configuration | Matrix size | Expected null dim |
+|---|---|---|
+| $n = 2$ (LSM + VSM) | 1,022 $\times$ 261,121 | ~260,099 |
+| $n = 3$ (+ DSM) | 2,043 $\times$ 261,121 | ~259,078 |
+| $n = 4$ (+ XSM) | 3,064 $\times$ 261,121 | ~258,057 |
+| $n = 5$ (+ LTP1) | 3,575 $\times$ 261,121 | ~257,546 |
+| $n = 6$ (+ LTP2) | 4,086 $\times$ 261,121 | ~257,035 |
+| $n = 7$ (+ LTP3) | 4,597 $\times$ 261,121 | ~256,524 |
+| $n = 8$ (+ LTP4) | 5,108 $\times$ 261,121 | ~256,013 |
+
+At each level, use lattice basis reduction (LLL algorithm) on a random projection of the
+null space to find short vectors. Record the minimum Hamming weight found across 1,000
+random projections. This gives an upper bound on the true minimum for each family count.
+
+(c) **Integer linear programming (ILP) formulation.** For each family count $n$, solve:
+
+$$
+    \min \|v\|_0 \quad \text{s.t.} \quad Av = 0, \quad v \in \{-1, 0, +1\}^{261{,}121}
+$$
+
+where $\|v\|_0$ counts non-zero entries. This is an $\ell_0$-minimization problem; relax to
+$\ell_1$ for tractability. The $\ell_1$-relaxed solution provides a lower bound on the
+$\ell_0$ minimum. If the $\ell_1$ solution is sparse (few non-zero entries), it likely
+corresponds to a true minimum swap.
+
+(d) **Swap structure analysis.** For each minimum or near-minimum swap found, record:
+
+- Total cell count (Hamming weight of $v$)
+- Row span (number of distinct rows touched)
+- Column span
+- Maximum cells per row
+- LTP line distribution (how many LTP lines are affected per sub-table)
+
+The row span is the critical parameter for B.39b: a swap spanning $k$ rows disturbs $k$
+SHA-1 hashes simultaneously.
+
+(e) **Comparison with B.33b cascade estimate.** If the algebraic minimum is substantially
+smaller than $O(2{,}000)$ (say, below 100 cells), this would indicate that B.33b's cascade
+analysis overestimated the minimum because the greedy repair strategy cannot exploit
+multi-family cancellations. If the algebraic minimum confirms $O(1{,}000\text{+})$, the
+cascade model is validated and B.33's Phase 3 is definitively infeasible.
+
+**Expected outcome.** The minimum swap for the full 8-family system is between 20 and 2,000
+cells. The experiment will resolve which regime applies. The $n = 4$ (geometric-only) result
+should confirm the known 8-cell minimum. The growth curve from $n = 4$ to $n = 8$ will
+reveal whether each LTP sub-table contributes linearly ($+O(511)$ per sub-table, supporting
+the cascade model) or sub-linearly (supporting the null-space structure model).
+
+**Tool.** `tools/b39a_ndim_swap.py` --- sparse constraint matrix construction, null-space
+sampling via SciPy/NumPy, LLL reduction via fpylll or flint, ILP via PuLP or OR-Tools.
+
+#### B.39.6 Sub-experiment B.39b: Complete-Then-Verify with N-Dimensional Swaps
+
+**Prerequisite.** B.39a must establish that the minimum swap size is tractable (below
+approximately 200 cells and spanning fewer than ~20 rows). If B.39a confirms the cascade
+model ($O(1{,}000\text{+})$ cells spanning hundreds of rows), B.39b is infeasible and
+should not be attempted.
+
+**Objective.** Test the complete-then-verify architecture (B.33 Phases 1--3) using the swap
+characterization from B.39a, with the Phase 3 search operating natively in the n-dimensional
+constraint space rather than via 2D geometric patterns.
+
+**Hypothesis.** If small n-dimensional swaps exist (B.39a null-space structure model), the
+complete-then-verify architecture can reconstruct the CSM by:
+
+1. Propagating constraints to the current depth (~96,672 cells, ~189 rows)
+2. Completing the remaining ~164,449 cells to satisfy all cross-sum constraints (Phase 1)
+3. Navigating the null space via small swaps to find the unique CSM satisfying all SHA-1
+   row hashes (Phase 3)
+
+The critical metric is the **row span** of the minimum swap. If swaps span $k$ rows, each
+swap disturbs $k$ SHA-1 hashes. Phase 3's convergence depends on whether the number of
+passing rows increases monotonically (or at least net-positively) as swaps are applied.
+
+**Method.**
+
+(a) **Phase 1: Cross-sum completion.** Starting from the propagation-determined cells
+(~96,672 at current operating point), extend the assignment through the remaining rows using
+DFS with cross-sum feasibility checks only (no SHA-1 verification). The heavily
+underdetermined constraint system in the meeting band ($u \gg 1$ on all lines) should admit
+a complete assignment quickly.
+
+(b) **Phase 2: Initial verification.** Compute SHA-1 on all 511 rows of the complete
+candidate. Record the set of passing rows $P$ and failing rows $F = \{0, \ldots, 510\}
+\setminus P$. The propagation-determined rows (0--188) should pass. Meeting-band rows
+(189--510) will almost certainly fail.
+
+(c) **Phase 3: Null-space navigation.** Using the minimum-swap vocabulary characterized by
+B.39a:
+
+**Strategy A: Row-targeted greedy.** For each failing row $r \in F$ (in order of lowest
+index first), enumerate all valid swaps involving at least one cell in row $r$. Apply each
+swap, recompute SHA-1 on all affected rows, accept if the number of passing rows increases.
+This is the B.33 Phase 3 strategy, but with swaps defined by the n-dimensional null space
+rather than by 2D geometric patterns.
+
+**Strategy B: Global random walk.** Apply random swaps from the minimum-swap vocabulary
+without targeting specific rows. After each swap, recompute SHA-1 on all affected rows.
+Accept if the number of passing rows does not decrease (plateau-accepting). This treats
+Phase 3 as a random walk on the null-space manifold of cross-sum-valid matrices, guided
+by a fitness function (count of passing rows).
+
+**Strategy C: Compound moves.** Apply sequences of $m$ swaps simultaneously (a compound
+move is a sum of $m$ minimum swaps, which is also in the null space by linearity). Compound
+moves explore a larger neighborhood per step at the cost of higher per-step computation.
+If single-swap row spans are too large (each swap disturbs too many rows), compound moves
+may achieve net improvement by combining swaps whose SHA-1 effects partially cancel.
+
+(d) **Metrics.** For each strategy, record:
+
+- Convergence: does the number of passing rows reach 511?
+- Convergence rate: passing rows as a function of swap count
+- SHA-1 landscape structure: is the landscape unimodal (monotone improvement toward the
+  correct CSM) or multimodal (local optima where swaps cannot improve without first
+  regressing)?
+- Per-swap cost: wall time per swap application + SHA-1 recomputation on affected rows
+
+**Expected outcomes.**
+
+- **Optimistic (B.39a minimum swap $\leq 50$ cells, row span $\leq 5$):** Phase 3
+  converges. Each swap disturbs few rows; the passing-row count increases monotonically
+  or near-monotonically. The solver reconstructs the full CSM in minutes. The
+  complete-then-verify architecture is viable and outperforms the current DFS approach
+  for the meeting band.
+
+- **Moderate (B.39a minimum swap 50--200 cells, row span 10--30):** Phase 3 is marginally
+  tractable. Each swap disturbs many rows; progress is non-monotonic but net-positive
+  over many steps. The solver converges but slowly. Performance is comparable to or
+  modestly better than DFS for the meeting band. Strategy C (compound moves) may be
+  necessary to achieve net improvement.
+
+- **Pessimistic (B.39a minimum swap $> 200$ cells or row span $> 30$):** Phase 3 does
+  not converge within practical time budgets. Each swap disturbs too many rows, and the
+  SHA-1 landscape is effectively flat (each swap has $\sim 2^{-160}$ probability of
+  improving any given row). The complete-then-verify architecture provides no advantage,
+  and the null-space navigation problem is as hard as exhaustive search.
+
+#### B.39.7 Relationship to Prior Work
+
+**B.33 (Complete-Then-Verify: Abandoned).** B.39 is a direct successor to B.33, revisiting
+the same three-phase architecture with a different analytical framework. B.33's abandonment
+was based on B.33a/B.33b results showing $O(1{,}000\text{+})$-cell minimum swaps. B.39a
+re-examines this conclusion using algebraic methods (null-space computation, lattice
+reduction, ILP) rather than heuristic search (greedy BFS, backtracking DFS). If B.39a
+confirms B.33b's cascade estimate, B.33's abandonment is validated with stronger theoretical
+justification. If B.39a finds smaller swaps, B.33 is rehabilitated via B.39b.
+
+**B.34--B.38 (LTP Table Geometry Optimization).** B.39 operates at a different level than
+B.34--B.38. The LTP geometry experiments optimize the cell-to-line assignment tables (the
+axes of the n-dimensional space); B.39 operates on the cell values within a fixed constraint
+system. The two approaches are composable: B.39b would use the B.38-optimized LTP tables
+(which produce deeper propagation cascades and therefore a smaller meeting band for Phase 3
+to navigate).
+
+The n-dimensional paradigm also explains why B.34--B.38's hill-climbing works: optimizing
+LTP cell-to-line assignments is reshaping the LTP axes to be more aligned with the solver's
+top-down traversal order along the row axis. The row-concentration proxy literally measures
+the projection of each LTP line's cell mass onto the early-row region of the row axis.
+
+**B.27 (LTP5/LTP6: Inert).** The n-dimensional paradigm explains B.27's null result.
+Dimensions 7 and 8 (LTP5, LTP6) add constraint lines, but the solver's propagation cascade
+was already saturating the information available from dimensions 1--6 within the first ~178
+rows. Additional dimensions cannot help if the existing dimensions already force all cells
+that the row-serial traversal order can reach. The inertness of LTP5/LTP6 is a property of
+the solver's traversal strategy, not of the constraint system's information content.
+
+**B.31 (Alternating-Direction Pincer: Null).** The n-dimensional paradigm explains the
+pincer null result. Bottom-up DFS traverses the row axis in reverse, but the SHA-1 hash
+constraints are indexed by row --- they can only verify complete rows, regardless of
+traversal direction. The hash constraints are projections along the row axis; traversing
+that axis in either direction does not create new verification opportunities in the other
+five dimensions.
+
+#### B.39.8 Implications Beyond Complete-Then-Verify
+
+Regardless of whether B.39b proves feasible, the n-dimensional characterization from B.39a
+has independent value:
+
+(a) **Understanding the constraint system's geometry.** The minimum swap size quantifies the
+"coupling strength" between constraint families. A small minimum swap means the families are
+weakly coupled (local moves can satisfy all families simultaneously). A large minimum swap
+means they are strongly coupled (only global moves preserve all constraints). This is a
+fundamental structural property of the CRSCE constraint system that informs all future
+solver design.
+
+(b) **LTP seed optimization.** Different LTP seeds produce different 6D geometries with
+different minimum swap sizes. Seeds that produce smaller minimum swaps correspond to weaker
+inter-family coupling, which may correlate with deeper propagation cascades (because weak
+coupling means each family's constraints are more independently informative). This suggests
+a new LTP optimization criterion: minimize the minimum swap size as a proxy for maximizing
+constraint independence. This criterion is fundamentally different from the row-concentration
+proxy used in B.34--B.38 and could open a new optimization avenue.
+
+(c) **Solver architecture guidance.** If the minimum swap is large (confirming B.33b), this
+provides a theoretical explanation for why the current DFS + row-serial SHA-1 architecture
+is effective: the constraint system's strong inter-family coupling prevents local search from
+competing with systematic enumeration. Conversely, if the minimum swap is small, this
+motivates hybrid architectures that combine DFS propagation with local search in the meeting
+band.
+
+#### B.39.9 Open Questions
+
+(a) **Does the minimum swap size depend on the specific LTP seeds?** Different Fisher--Yates
+permutations produce different 6D geometries. The minimum swap for CRSCLTPV + CRSCLTPP
+(B.26c winners) may differ from that of other seed pairs. If the variance is large, this
+adds a new dimension to seed optimization (B.26c).
+
+(b) **Is the null-space minimum achievable by signed {-1, 0, +1} vectors?** The null space
+is computed over $\mathbb{Q}$; the shortest rational null vector may not have entries
+restricted to $\{-1, 0, +1\}$. The gap between the rational minimum and the signed-integer
+minimum determines whether the algebraic lower bound is tight.
+
+(c) **What is the computational cost of the $\ell_1$-relaxed ILP at scale?** The constraint
+matrix has 261,121 columns. Modern ILP solvers may struggle at this scale. Decomposition
+strategies (solving per-family sub-problems and combining) may be necessary.
+
+(d) **Can compound moves (sums of multiple minimum swaps) achieve row-local effects?** Even
+if individual minimum swaps span many rows, the sum of two swaps might cancel disturbances
+on some rows while reinforcing changes on others. The linearity of the null space guarantees
+that any sum of null-space vectors is also a null-space vector. Whether useful row-local
+compound moves exist is an empirical question.
+
+(e) **Does the SHA-1 fitness landscape over the null space have useful structure?** Phase 3
+of B.39b treats the count of SHA-1-passing rows as a fitness function over the null-space
+manifold. If this landscape is smooth (nearby null-space points have similar fitness), local
+search can exploit gradient-like information. If it is rugged (fitness changes unpredictably
+with each swap), the search degenerates to random sampling. The structure of this landscape
+is unknown and is a key empirical question for B.39b.
+
+---
+
+## B.40 Hash-Failure Correlation Harvesting + Within-Row Priority Branching (Proposed)
+
+### B.40.1 Motivation
+
+The solver reaches a consistent plateau at depth ~96,672 (row ~189 of 511). At the plateau, the
+DFS backtracks repeatedly through the same row range. Every SHA-1 failure at a row boundary
+discards the entire row's assignment and explores an alternative. Currently no information from
+failed paths is retained — each failure is treated as independent.
+
+However, SHA-1 failures at the plateau are not random: the same row range consistently fails,
+and the correlation between specific cell assignments and hash failure is a structural property
+of the constraint system at that depth. This exploitable structure has never been measured.
+
+### B.40.2 Hypothesis
+
+SHA-1 failures at the plateau are systematically correlated with specific cells within the
+failing row. Certain cells (those most tightly coupled to column, LTP, and cross-family
+constraints) contribute disproportionately to hash mismatches. If these "high-correlation" cells
+are branched on first within the row, SHA-1 pruning triggers earlier in the row evaluation,
+reducing the search space for subsequent cells and compressing the effective branching factor
+within the plateau row range.
+
+This is distinct from B.26b (within-row MRV by constraint uncertainty): B.26b used `u` values
+(remaining unknowns per constraint line) as a proxy for importance; B.40 uses observed SHA-1
+failure correlation — a signal that directly measures which cells are responsible for
+unsatisfiable paths, rather than which cells are most constrained.
+
+### B.40.3 Method
+
+**Phase 1 — Profiling run (no behavior change):**
+
+Add a `HashFailureTracker` to `RowDecomposedController`. For each SHA-1 failure at row `r`:
+
+1. Record the `1`-assigned cells in row `r` at the time of failure.
+2. Accumulate a per-row, per-column failure count: `fail_count[r][c]` incremented each time
+   cell `(r,c)=1` at a SHA-1 failure.
+3. Also accumulate success count: `pass_count[r][c]` when SHA-1 passes with `(r,c)=1`.
+4. Run a fixed profiling budget (e.g., 20M iterations at plateau) and emit correlation
+   statistics to a JSON file.
+
+**Correlation score per cell:**
+
+```
+phi[r][c] = (fail_count[r][c] / total_fail[r]) - (pass_count[r][c] / total_pass[r])
+```
+
+Positive `phi` means the cell appears more often in failing assignments than passing ones.
+
+**Phase 2 — Priority-branching run:**
+
+Load the pre-computed `phi` table. In `BranchingController`, within a row, order cells by
+descending `phi` score (branch on high-correlation cells first). The row-serial outer order is
+unchanged (rows are still processed 0→510 in sequence), preserving the SHA-1 pruning invariant
+established in B.26a. Only the within-row cell ordering changes.
+
+### B.40.4 Implementation Notes
+
+- `HashFailureTracker`: lightweight array `uint32_t fail_count[511][511]`, `uint32_t pass_count[511][511]`
+  (~1 MB stack or heap). Incremented only on SHA-1 events (rare relative to propagation steps).
+- Profiling run: use existing `RowDecomposedController` with profiling enabled; emit
+  `phi[r][c]` to JSON after the run. Requires ~20M iterations at plateau for statistical
+  significance (failure events are common in this zone).
+- Priority-branching run: load `phi` table at startup; `BranchingController::nextCell()` within
+  a row sorts by `phi` (or uses a pre-sorted column-priority array per row).
+- Row-serial order preserved: outer DFS loop advances rows 0→510 identically to current B.26c.
+
+### B.40.5 Expected Outcomes
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Improvement) | Plateau depth > 96,672 | Within-row phi correlation is a genuine pruning signal; proceed to Phase 2 full run |
+| H2 (Neutral) | Depth ~96,672, iteration rate unchanged | Correlation exists but not at the right depth; try profiling only rows 150–200 |
+| H3 (Regression) | Depth < 96,672 | Priority disrupts a beneficial order; revert; analyze phi distribution shape |
+| H4 (Null — no correlation) | phi values near 0 for all cells | SHA-1 failures are independent of individual cell assignments; B.40 infeasible |
+
+**Status: PROPOSED — not yet started.**
 
 ---
 
@@ -10571,30 +11027,13 @@ alternative that is dominated on cost-benefit grounds.
 
 #### D.1.9 Open Questions
 
-(a) What is the empirical convergence behavior of LBP on the CRSCE factor graph at various depths? If LBP converges
-rapidly in the plateau band (where coupling is weak) but slowly at the edges, the selective-LBP strategy (D.1.7)
-may be more viable than the quantitative estimates suggest, because the plateau is where the solver spends most of
-its time.
-
-(b) Can the cardinality-factor message computation be restructured to exploit SIMD on Apple Silicon? The $O(s^2)$
-dynamic programming has data dependencies that prevent naive vectorization, but the 8 independent factor updates per
-assignment could be pipelined across NEON lanes, potentially reducing the $8\times$ factor to $2$--$3\times$.
-
-(c) Does LBP's overconfidence (Objection 2) systematically harm branching in the CRSCE instance, or does the ranking
-correlation with true marginals (Argument 1) dominate? This is an empirical question that could be answered by
-running LBP on the CRSCE factor graph, comparing the resulting marginals with exact marginals (computed on small
-subproblems), and measuring the rank correlation.
-
-(d) Is there a hybrid approach where LBP runs asynchronously on a background thread, and the DFS solver queries the
-most recent marginal estimates without blocking? This decouples LBP's throughput from the DFS throughput, at the
-cost of using stale (but continuously improving) marginals. The determinism concern (Objection 5) is severe for
-this approach, as the asynchronous schedule is inherently non-deterministic.
-
-(e) Would region-based generalizations of BP --- such as generalized belief propagation (GBP) on Kikuchi clusters
-(Yedidia, Freeman, & Weiss, 2005) --- provide more accurate marginals on the densely-loopy CRSCE graph? GBP
-operates on clusters of variables rather than individual variables, explicitly accounting for short cycles within
-each cluster. The cost is $O(2^{|C|})$ per cluster of size $|C|$, which is tractable only for small clusters
+a. What is the empirical convergence behavior of LBP on the CRSCE factor graph at various depths? If LBP converges rapidly in the plateau band (where coupling is weak) but slowly at the edges, the selective-LBP strategy (D.1.7) may be more viable than the quantitative estimates suggest, because the plateau is where the solver spends most of its time.
+b. Can the cardinality-factor message computation be restructured to exploit SIMD on Apple Silicon? The $O(s^2)$ dynamic programming has data dependencies that prevent naive vectorization, but the 8 independent factor updates per assignment could be pipelined across NEON lanes, potentially reducing the $8\times$ factor to $2$--$3\times$.
+c. Does LBP's overconfidence (Objection 2) systematically harm branching in the CRSCE instance, or does the ranking correlation with true marginals (Argument 1) dominate? This is an empirical question that could be answered by running LBP on the CRSCE factor graph, comparing the resulting marginals with exact marginals (computed on small subproblems), and measuring the rank correlation.
+d. Is there a hybrid approach where LBP runs asynchronously on a background thread, and the DFS solver queries the most recent marginal estimates without blocking? This decouples LBP's throughput from the DFS throughput, at the cost of using stale (but continuously improving) marginals. The determinism concern (Objection 5) is severe for this approach, as the asynchronous schedule is inherently non-deterministic.
+e. Would region-based generalizations of BP --- such as generalized belief propagation (GBP) on Kikuchi clusters (Yedidia, Freeman, & Weiss, 2005) --- provide more accurate marginals on the densely-loopy CRSCE graph? GBP operates on clusters of variables rather than individual variables, explicitly accounting for short cycles within each cluster. The cost is $O(2^{|C|})$ per cluster of size $|C|$, which is tractable only for small clusters
 ($|C| \leq 20$). Whether meaningful clusters exist in the CRSCE graph's regular structure is an open question.
+
 ---
 
 ### D.2 Conflict-Driven Clause Learning (CDCL) from Hash Failures (formerly B.1)
@@ -10602,17 +11041,9 @@ each cluster. The cost is $O(2^{|C|})$ per cluster of size $|C|$, which is tract
 #### D.2.1 Proposal
 
 When a SHA-1 lateral hash mismatch kills a subtree at depth ~87K, the solver backtracks one level ---
-undoing the most recent branching assignment and trying the alternate value. This is chronological
-backtracking: the solver retries assignments in reverse order of when they were made, regardless of which
-assignments actually *caused* the conflict. It learns nothing from the failure. If the root cause was an
-assignment made 500 levels earlier, the solver exhausts an exponential number of intermediate configurations
-before reaching that level.
+undoing the most recent branching assignment and trying the alternate value. This is chronological backtracking: the solver retries assignments in reverse order of when they were made, regardless of which assignments actually *caused* the conflict. It learns nothing from the failure. If the root cause was an assignment made 500 levels earlier, the solver exhausts an exponential number of intermediate configurations before reaching that level.
 
-CDCL adaptation was proposed to exploit hash failures as conflict sources. An LH mismatch on row $r$
-constitutes a proof that the current partial assignment to the $s$ cells in row $r$ is infeasible. The
-solver could analyze this proof to identify a small subset of earlier assignments jointly responsible for
-the conflict, record that combination as a *nogood clause*, and backjump directly to the deepest responsible
-assignment rather than unwinding the stack one frame at a time.
+CDCL adaptation was proposed to exploit hash failures as conflict sources. An LH mismatch on row $r$ constitutes a proof that the current partial assignment to the $s$ cells in row $r$ is infeasible. The solver could analyze this proof to identify a small subset of earlier assignments jointly responsible for the conflict, record that combination as a *nogood clause*, and backjump directly to the deepest responsible assignment rather than unwinding the stack one frame at a time.
 
 #### D.2.2 Background: CDCL in SAT Solvers
 
