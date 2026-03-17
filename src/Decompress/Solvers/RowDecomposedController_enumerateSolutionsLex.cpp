@@ -6,10 +6,14 @@
 #include "decompress/Solvers/RowDecomposedController.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
 #include <functional>
+#include <ios>
 #include <queue>
 #include <span>
 #include <string>
@@ -362,6 +366,37 @@ namespace crsce::decompress::solvers {
         std::uint64_t heapSelections = 0;
         const auto dfsStart = std::chrono::steady_clock::now();
 
+        // --- B.40 hash-failure correlation profiling ---
+        // When CRSCE_B40_PROFILE is set, track per-cell fail/pass counts for
+        // every SHA-1 verification event. On solver exit, write raw counts to
+        // the specified file path for offline phi computation.
+        const char *b40ProfilePath = std::getenv("CRSCE_B40_PROFILE"); // NOLINT(concurrency-mt-unsafe)
+        const bool b40Enabled = (b40ProfilePath != nullptr) && (b40ProfilePath[0] != '\0'); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        // Flat arrays [r * kS + c]: fail/pass count when cell (r,c)=1 at hash event
+        std::vector<std::uint32_t> b40FailCount;
+        std::vector<std::uint32_t> b40PassCount;
+        std::vector<std::uint32_t> b40RowFails(kS, 0);
+        std::vector<std::uint32_t> b40RowPasses(kS, 0);
+        if (b40Enabled) {
+            b40FailCount.resize(static_cast<std::size_t>(kS) * kS, 0);
+            b40PassCount.resize(static_cast<std::size_t>(kS) * kS, 0);
+        }
+        // Lambda: record which cells are 1 in a completed row at hash event
+        auto b40RecordHashEvent = [&](std::uint16_t row, bool passed) {
+            if (!b40Enabled) { return; }
+            const auto &rowBits = cs.getRow(row);
+            auto *counts = passed ? b40PassCount.data() : b40FailCount.data();
+            const auto base = static_cast<std::size_t>(row) * kS;
+            for (std::uint16_t c = 0; c < kS; ++c) {
+                const auto word = c / 64U;
+                const auto bit  = 63U - (c % 64U); // MSB-first
+                if ((rowBits[word] >> bit) & 1U) {  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    ++counts[base + c];             // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                }
+            }
+            if (passed) { ++b40RowPasses[row]; } else { ++b40RowFails[row]; }
+        };
+
         // Row-completion priority queue: (unknown_count, row_index), min-heap
         using RowEntry = std::pair<std::uint16_t, std::uint16_t>;
         std::priority_queue<RowEntry, std::vector<RowEntry>, std::greater<>> rowHeap;
@@ -466,6 +501,9 @@ namespace crsce::decompress::solvers {
                 if (!hasher_->verifyRow(frame.row, cs.getRow(frame.row))) {
                     hashFailed = true;
                     ++hashMismatches;
+                    b40RecordHashEvent(frame.row, false);
+                } else {
+                    b40RecordHashEvent(frame.row, true);
                 }
             }
 
@@ -476,8 +514,10 @@ namespace crsce::decompress::solvers {
                         if (!hasher_->verifyRow(a.r, cs.getRow(a.r))) {
                             hashFailed = true;
                             ++hashMismatches;
+                            b40RecordHashEvent(a.r, false);
                             break;
                         }
+                        b40RecordHashEvent(a.r, true);
                     }
                 }
             }
@@ -697,6 +737,25 @@ namespace crsce::decompress::solvers {
                     {"b31_direction",       static_cast<std::uint64_t>(direction == SolverDirection::BottomUp ? 1 : 0),
                                                                  ::crsce::o11y::O11y::MetricKind::Gauge},
                     {"b31_hard_commits",    b31HardCommits,      ::crsce::o11y::O11y::MetricKind::Counter}});
+
+                // B.40: periodically flush profiling data (~every 100M iterations)
+                if (b40Enabled && (iterations % 100'000'000) == 0) {
+                    std::ofstream b40Out(b40ProfilePath, std::ios::binary | std::ios::trunc); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    if (b40Out.is_open()) {
+                        constexpr std::array<char, 4> b40Magic = {'B', '4', '0', 'P'};
+                        b40Out.write(b40Magic.data(), 4);
+                        const auto b40Dim = static_cast<std::uint16_t>(kS);
+                        b40Out.write(reinterpret_cast<const char *>(&b40Dim), sizeof(b40Dim)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        b40Out.write(reinterpret_cast<const char *>(b40RowFails.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(kS * sizeof(std::uint32_t)));
+                        b40Out.write(reinterpret_cast<const char *>(b40RowPasses.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(kS * sizeof(std::uint32_t)));
+                        b40Out.write(reinterpret_cast<const char *>(b40FailCount.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(static_cast<std::size_t>(kS) * kS * sizeof(std::uint32_t)));
+                        b40Out.write(reinterpret_cast<const char *>(b40PassCount.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(static_cast<std::size_t>(kS) * kS * sizeof(std::uint32_t)));
+                    }
+                }
             }
 
             // --- Cell selection: heap-first, then direction-ordered static sequence ---
@@ -774,6 +833,29 @@ namespace crsce::decompress::solvers {
             if (selectedFromHeap || nextOrderIdx != frame.orderIdx) {
                 stack.push_back({nextOrderIdx, 0, 0, nextRow, nextCol, nextPreferred,
                                  selectedFromHeap, direction});
+            }
+        }
+
+        // --- B.40: write profiling data to binary file ---
+        if (b40Enabled) {
+            std::ofstream out(b40ProfilePath, std::ios::binary | std::ios::trunc);
+            if (out.is_open()) {
+                // Header: "B40P" magic + kS + total hash events per row
+                constexpr std::array<char, 4> magic = {'B', '4', '0', 'P'};
+                out.write(magic.data(), 4);
+                const auto dim = static_cast<std::uint16_t>(kS);
+                out.write(reinterpret_cast<const char *>(&dim), sizeof(dim)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                // Per-row totals (fail_count, pass_count) as uint32
+                out.write(reinterpret_cast<const char *>(b40RowFails.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                          static_cast<std::streamsize>(kS * sizeof(std::uint32_t)));
+                out.write(reinterpret_cast<const char *>(b40RowPasses.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                          static_cast<std::streamsize>(kS * sizeof(std::uint32_t)));
+                // Full cell-level arrays: fail_count[kS*kS], pass_count[kS*kS]
+                out.write(reinterpret_cast<const char *>(b40FailCount.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                          static_cast<std::streamsize>(static_cast<std::size_t>(kS) * kS * sizeof(std::uint32_t)));
+                out.write(reinterpret_cast<const char *>(b40PassCount.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                          static_cast<std::streamsize>(static_cast<std::size_t>(kS) * kS * sizeof(std::uint32_t)));
+                out.close();
             }
         }
 
