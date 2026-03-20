@@ -9,6 +9,9 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
+#include <ios>
 #include <memory>
 #include <span>
 #include <string>
@@ -126,6 +129,32 @@ namespace crsce::decompress::solvers {
         const auto [firstR, firstC] = firstCell.value();
         const std::array<std::uint8_t, 2> order = brancher_->branchOrder();
 
+        // B.40: hash-failure correlation profiling
+        const char *b40ProfilePath = std::getenv("CRSCE_B40_PROFILE"); // NOLINT(concurrency-mt-unsafe)
+        const bool b40Enabled = (b40ProfilePath != nullptr) && (b40ProfilePath[0] != '\0'); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::vector<std::uint32_t> b40FailCount;
+        std::vector<std::uint32_t> b40PassCount;
+        std::vector<std::uint32_t> b40RowFails(kS, 0);
+        std::vector<std::uint32_t> b40RowPasses(kS, 0);
+        if (b40Enabled) {
+            b40FailCount.resize(static_cast<std::size_t>(kS) * kS, 0);
+            b40PassCount.resize(static_cast<std::size_t>(kS) * kS, 0);
+        }
+        auto b40RecordHashEvent = [&](std::uint16_t row, bool passed) {
+            if (!b40Enabled) { return; }
+            const auto &rowBits = cs.getRow(row);
+            auto *counts = passed ? b40PassCount.data() : b40FailCount.data();
+            const auto base = static_cast<std::size_t>(row) * kS;
+            for (std::uint16_t c = 0; c < kS; ++c) {
+                const auto word = c / 64U;
+                const auto bit  = 63U - (c % 64U);
+                if ((rowBits[word] >> bit) & 1U) {  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    ++counts[base + c];             // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                }
+            }
+            if (passed) { ++b40RowPasses[row]; } else { ++b40RowFails[row]; }
+        };
+
         std::vector<CoFrame> stack;
         stack.reserve(261121);
         stack.push_back({firstR, firstC, 0, 0});
@@ -147,6 +176,25 @@ namespace crsce::decompress::solvers {
                     {"failed_not_feasible",  failedNotFeasible,   ::crsce::o11y::O11y::MetricKind::Counter},
                     {"failed_hash_mismatch", failedHashMismatch,  ::crsce::o11y::O11y::MetricKind::Counter},
                     {"candidates_submitted", candidatesSubmitted, ::crsce::o11y::O11y::MetricKind::Counter}});
+
+                // B.40: flush profiling data every ~10M iterations
+                if (b40Enabled && (dfsIterations % 10000000) == 0) {
+                    std::ofstream b40Out(b40ProfilePath, std::ios::binary | std::ios::trunc); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    if (b40Out.is_open()) {
+                        constexpr std::array<char, 4> b40Magic = {'B', '4', '0', 'P'};
+                        b40Out.write(b40Magic.data(), 4);
+                        const auto b40Dim = static_cast<std::uint16_t>(kS);
+                        b40Out.write(reinterpret_cast<const char *>(&b40Dim), sizeof(b40Dim)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        b40Out.write(reinterpret_cast<const char *>(b40RowFails.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(kS * sizeof(std::uint32_t)));
+                        b40Out.write(reinterpret_cast<const char *>(b40RowPasses.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(kS * sizeof(std::uint32_t)));
+                        b40Out.write(reinterpret_cast<const char *>(b40FailCount.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(static_cast<std::size_t>(kS) * kS * sizeof(std::uint32_t)));
+                        b40Out.write(reinterpret_cast<const char *>(b40PassCount.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                     static_cast<std::streamsize>(static_cast<std::size_t>(kS) * kS * sizeof(std::uint32_t)));
+                    }
+                }
             }
 
             // Undo previous value's assignment before trying next value or popping
@@ -201,6 +249,9 @@ namespace crsce::decompress::solvers {
             if (cs.getStatDirect(frame.r).unknown == 0) {
                 if (!hasher_->verifyRow(frame.r, cs.getRow(frame.r))) {
                     hashFailed = true;
+                    b40RecordHashEvent(frame.r, false);
+                } else {
+                    b40RecordHashEvent(frame.r, true);
                 }
             }
             if (!hashFailed) {
@@ -208,8 +259,10 @@ namespace crsce::decompress::solvers {
                     if (a.r != frame.r && cs.getStatDirect(a.r).unknown == 0) {
                         if (!hasher_->verifyRow(a.r, cs.getRow(a.r))) {
                             hashFailed = true;
+                            b40RecordHashEvent(a.r, false);
                             break;
                         }
+                        b40RecordHashEvent(a.r, true);
                     }
                 }
             }

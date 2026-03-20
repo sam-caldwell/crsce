@@ -239,6 +239,14 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] const std::array<std::uint64_t, 8> &getRow(std::uint16_t r) const override;
 
         /**
+         * @name getColumn
+         * @brief Assemble column c from rowBits_ as 8 uint64 words (MSB-first, matching getRow format).
+         * @param c Column index in [0, 510].
+         * @return 8 uint64 words containing the 511 bits of column c packed MSB-first.
+         */
+        [[nodiscard]] std::array<std::uint64_t, 8> getColumn(std::uint16_t c) const;
+
+        /**
          * @name getFirstUnassigned
          * @brief Find the first unassigned cell at or after startRow using bitwise scanning.
          * @param startRow Row index to begin scanning from.

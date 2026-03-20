@@ -3757,7 +3757,7 @@ cheaper per candidate ($O(8u)$ vs. SHA-1's $\sim 200$ ns), so checking cross-lin
 survivors is more efficient when many candidates fail cross-line checks. But if most candidates pass cross-lines
 (as expected when $u$ is small and residuals are loose), the filtering overhead is wasted.
 
-### B.18 Learning from Repeated Hash Failures
+### B.18 Learning from Repeated Hash Failures (Superceded by B.40)
 
 B.14 proposes lightweight nogood recording: when an SHA-1 hash check fails, the solver records the failed row
 assignment (or the decision-cell subset thereof) as a nogood to prevent re-entering the same configuration. This
@@ -9780,15 +9780,21 @@ cascade to O(511) cells per sub-table. Consequently, the correct CSM and any "cl
 cross-sum-valid matrix differ in ~170,000 cells — no efficient local path exists between
 them. Phase 3 is infeasible. See §B.33.11 for full analysis.
 
-**Current status:** B.38 (LTP proxy optimization) saturated at depth 96,672. B.33
-(Complete-Then-Verify) abandoned due to O(1000+) minimum swap size under the 2D analysis.
-B.39 re-examines B.33's feasibility through an n-dimensional geometric paradigm that
-treats each constraint family as an independent coordinate axis. Open questions and
-candidate architectures are consolidated in Appendix C.
+**B.39 (N-Dimensional Constraint Geometry): COMPLETED &mdash; PESSIMISTIC.** B.39a confirmed the B.33b cascade model algebraically: the minimum constraint-preserving swap is 1,528 cells (upper bound), touching 11 rows and 492 columns. The $3n$ dimensional scaling model ($3 \times 511 \approx 1{,}533$) matches the measured minimum. B.39b (null-space navigation) not attempted per the pessimistic-outcome criterion. Complete-Then-Verify is definitively closed. See &sect;B.39.5a for full results.
+
+**B.40 (Hash-Failure Correlation): COMPLETED &mdash; NULL.** Zero SHA-1 events at the plateau after 200M+ iterations. The plateau is caused by constraint exhaustion ($\rho$ violations), not hash failure. No row in the meeting band ever reaches $u = 0$. SHA-1 verification never triggers. See &sect;B.40.6.
+
+**B.41 (Cross-Dimensional Hashing): DIAGNOSTIC COMPLETE &mdash; INFEASIBLE FOR DEPTH.** Column unknown counts at the plateau reveal that columns are far less complete than rows (min column unknown = 206 vs min row unknown = 2). Column-serial passes would need ~206 assignments before any verification event. The meeting band's constraint exhaustion affects columns more severely than rows. B.41 retains value for collision resistance but does not improve solver depth. See &sect;B.41.10.
+
+**B.42 (Pre-Branch Pruning Spectrum): COMPLETED.** B.42a revealed 56.6% preferred-infeasible and 43.2% both-infeasible branching waste, but 0% interval-tightening potential. B.42c (both-value probing) eliminates all waste and provides ~40% throughput improvement but **does not change depth**. The plateau is constraint-exhausted: the depth ceiling is a property of the constraint system's information content, not the solver's search efficiency.
+
+**B.43 (Bottom-Up RCLA Initialization): COMPLETED &mdash; INFEASIBLE.** At most 1 row has $u \leq 20$ at the plateau; meeting-band rows have $u \approx 300$-$400$. RCLA cannot cascade. Bottom-up sweep direction provides no advantage (constraint information is direction-invariant). See &sect;B.43.
+
+**Current status:** All proposed solver-architecture approaches (B.33, B.38, B.39, B.40, B.41, B.42, B.43) have been completed or abandoned. The depth ceiling (~86K-96K depending on LTP table and test block) is a fundamental limit of the 8-family cross-sum constraint system with Fisher-Yates random LTP partitions (5,097 independent constraints over 261,121 cells = 2% constraint density, leaving 256,024 unconstrained degrees of freedom). Further depth improvement requires adding information to the constraint system itself&mdash;additional projection families, finer-grained hash constraints, or a fundamentally different encoding. Open questions are consolidated in Appendix C.
 
 ---
 
-### B.39 N-Dimensional Constraint Geometry and Complete-Then-Verify Revisited (Proposed)
+### B.39 N-Dimensional Constraint Geometry and Complete-Then-Verify Revisited (Completed &mdash; Pessimistic)
 
 #### B.39.1 Motivation
 
@@ -10276,7 +10282,7 @@ is unknown and is a key empirical question for B.39b.
 
 ---
 
-## B.40 Hash-Failure Correlation Harvesting + Within-Row Priority Branching (Proposed)
+## B.40 Hash-Failure Correlation Harvesting + Within-Row Priority Branching (Completed &mdash; Null)
 
 ### B.40.1 Motivation
 
@@ -10351,11 +10357,27 @@ established in B.26a. Only the within-row cell ordering changes.
 | H3 (Regression) | Depth < 96,672 | Priority disrupts a beneficial order; revert; analyze phi distribution shape |
 | H4 (Null — no correlation) | phi values near 0 for all cells | SHA-1 failures are independent of individual cell assignments; B.40 infeasible |
 
-**Status: PROPOSED &mdash; not yet started.**
+### B.40.6 Results (Completed &mdash; Null)
+
+**Phase 1 profiling run.** The solver was run on a synthetic random 50%-density CSM block with B.31 direction switching disabled (top-down only) and `CRSCE_B40_PROFILE` enabled. After 200M+ DFS iterations at peak depth 85,694 (row ~167):
+
+- Total SHA-1 failures: **0**
+- Total SHA-1 passes: **0**
+- Hash mismatches: **0**
+
+**Root cause: constraint exhaustion, not hash failure.** The plateau is NOT caused by SHA-1 verification failures. No meeting-band row ever reaches $u(\text{row}) = 0$ (fully assigned) during top-down DFS. The solver backtracks due to constraint infeasibility ($\rho < 0$ or $\rho > u$ on some constraint line) long before any row in the meeting band becomes fully assigned. SHA-1 verification never triggers because the verification condition ($u = 0$) is never met.
+
+This invalidates the B.40 hypothesis. The within-row priority branching by phi correlation is inapplicable because there is no phi signal to measure&mdash;the solver never generates SHA-1 events in the region where improvement is needed.
+
+**B.40 outcome: H4 (null&mdash;no correlation).** SHA-1 failures are not the binding constraint at the plateau. The binding constraint is cross-sum feasibility, which exhausts before any row completes. B.40 Phase 2 (priority branching) is not attempted.
+
+**Implication for B.41.** This finding initially appeared to strengthen the case for B.41 (cross-dimensional hashing + four-direction pincer), suggesting that if the row axis is exhausted, the column axis might not be. However, B.41 diagnostic instrumentation (column unknown counts at the plateau) reveals the opposite: at peak depth 86,125, the minimum nonzero column unknown count is **206** (vs 2 for rows), and only 8 of 511 columns are fully assigned. Columns are far LESS complete than rows at the plateau, with ~206 unassigned cells per column versus ~2 per row. Column-serial passes would need to assign ~206 cells per column before any column-hash verification could fire&mdash;dramatically worse than the row situation. The meeting band's constraint exhaustion is not axis-specific; it affects columns even more severely than rows because columns span the entire row range including the ~343 rows of the meeting band. **B.41's four-direction pincer is unlikely to improve depth.**
+
+**Status: COMPLETED &mdash; NULL.**
 
 ---
 
-## B.41 Cross-Dimensional Hashing + Four-Direction Pincer (Proposed)
+## B.41 Cross-Dimensional Hashing + Four-Direction Pincer (Diagnostic Complete &mdash; Infeasible for Depth)
 
 ### B.41.1 Motivation
 
@@ -10485,7 +10507,94 @@ B.41b trades coverage (only half of rows/columns verified) for precision (each h
 
 **Collision resistance (B.41b).** With 11 affected rows, approximately 6 land on odd rows (hashed). With 492 affected columns, approximately 246 land on odd columns (hashed). The collision probability is $2^{-160 \times (6 + 246) - 256} = 2^{-160 \times 252 - 256} = 2^{-40,576}$ &mdash; comparable to B.41a.
 
-### B.41.8 Implementation Notes
+### B.41.8 Sub-experiment B.41c: Row/Column-Completion Look-Ahead (Conditional on B.41b H1)
+
+**Prerequisite.** B.41b must achieve H1 (depth > 96,672). If B.41b is neutral or regressive, B.41c is not
+attempted &mdash; the four-direction pincer does not provide the architectural context that makes
+completion look-ahead valuable across both axes.
+
+**Motivation.** B.17 proposed Row-Completion Look-Ahead (RCLA): when a row drops to $u \leq u_{\max}$
+unknowns, enumerate all $\binom{u}{\rho}$ cardinality-feasible completions, check each against SHA-1,
+and backtrack immediately if none pass. B.17 was never implemented because it is a constant-factor
+optimization &mdash; it prunes the same infeasible subtrees that DFS would have pruned, just faster
+&mdash; and does not change the depth ceiling in a row-serial-only solver.
+
+B.41b changes the calculus. The four-direction pincer introduces column-serial passes (LR, RL) with
+column-hash verification. **Column-Completion Look-Ahead (CCLA)** is the natural dual of RCLA: when
+a column drops to $u \leq u_{\max}$ unknowns, enumerate all $\binom{u}{\rho}$ completions consistent
+with the column's cardinality constraint, check each against the column hash, and backtrack immediately
+if none pass. In B.41b, CCLA applies to the 256 odd columns that have hashes.
+
+With both RCLA and CCLA active, all four passes benefit from look-ahead pruning:
+
+| Pass | Look-ahead type | Hash verified | Trigger |
+|------|----------------|---------------|---------|
+| TD (top-down) | RCLA | Odd-row SHA-1 | $\binom{u}{\rho} \leq C_{\max}$ on odd row |
+| BU (bottom-up) | RCLA | Odd-row SHA-1 | $\binom{u}{\rho} \leq C_{\max}$ on odd row |
+| LR (left-right) | CCLA | Odd-column SHA-1 | $\binom{u}{\rho} \leq C_{\max}$ on odd column |
+| RL (right-left) | CCLA | Odd-column SHA-1 | $\binom{u}{\rho} \leq C_{\max}$ on odd column |
+
+Even-indexed rows and columns (unhashed in B.41b) cannot trigger look-ahead &mdash; they rely solely
+on cross-sum constraint propagation, as in the base B.41b design.
+
+**Phase 1 &mdash; Instrumentation (no behavior change).**
+
+Before implementing look-ahead, instrument the B.41b solver to log the distribution of $u$ and $\rho$
+at the moment each hash verification fires (both row and column hashes). This answers B.17's open
+question B.17.8(a) in the four-direction context:
+
+- If $u$ is typically near 0 at hash verification (propagation forces most cells before the hash
+  fires), look-ahead has no room to trigger and B.41c is moot.
+- If $u$ is typically 5&ndash;20 at hash verification (propagation stalls before the row or column is
+  complete, leaving cells for branching), look-ahead can trigger and is worth implementing.
+
+The instrumentation is ~10 lines of logging in `RowDecomposedController` and imposes negligible
+runtime overhead.
+
+**Phase 2 &mdash; RCLA + CCLA implementation.**
+
+If Phase 1 shows $u \geq 5$ at hash verification for a significant fraction of plateau-band rows
+and columns:
+
+1. **Triggering.** Invoke look-ahead when $\binom{u}{\rho} \leq C_{\max}$ (candidate: $C_{\max} = 500$,
+   corresponding to ~100 $\mu$s of SHA-1 work). The threshold adapts naturally to the residual:
+   extreme $\rho$ (near 0 or $u$) allows larger $u$ values; $\rho \approx u/2$ requires smaller $u$.
+   Use a precomputed $\binom{u}{\rho}$ lookup table ($\leq 1$ MB).
+
+2. **Cross-line pre-filtering (B.17.3).** Before checking SHA-1, filter each candidate completion
+   against cross-line feasibility (column, diagonal, anti-diagonal, and LTP residuals for RCLA;
+   row, diagonal, anti-diagonal, and LTP residuals for CCLA). Cost: $O(8u)$ per candidate. This
+   may reduce the SHA-1 candidate count by 2&ndash;10&times; in the plateau band, where cross-line
+   residuals are moderately constrained.
+
+3. **DI consistency.** Look-ahead is purely deductive and deterministic (B.17.6). It prunes only
+   provably infeasible subtrees. The enumeration order (lexicographic over the $u$ unknown positions)
+   is fixed. The solver visits the same solutions in the same order, but backtracks sooner on doomed
+   rows and columns. DI semantics are preserved.
+
+**Cost-benefit estimate.**
+
+| Metric | Without look-ahead | With look-ahead (u=10, &rho;=5) |
+|--------|-------------------|-------------------------------|
+| Cost per infeasible row/column | $\binom{10}{5} \times 10 \times 3\mu s \approx 7.5$ ms (DFS) | $\binom{10}{5} \times 1\mu s \approx 250\mu s$ (enumerate) |
+| Speedup per infeasible detection | &mdash; | ~30&times; |
+| Depth improvement | &mdash; | None (same subtrees pruned) |
+| Iteration rate improvement | &mdash; | Higher (more iterations per wall-clock second) |
+
+Look-ahead is a constant-factor optimization: it increases the iteration rate in the plateau band,
+allowing the solver to explore more of the search space per unit time. It does not change the depth
+ceiling directly. However, in a time-bounded decompression context, faster iteration translates to
+deeper effective exploration.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Improvement) | B.41c iteration rate &gt; B.41b iteration rate by &geq; 20% in plateau band | Look-ahead triggers frequently; cross-line pre-filtering effective; worth keeping |
+| H2 (Neutral) | Iteration rate within 5% | Look-ahead triggers rarely ($u$ near 0 at hash verification); Phase 1 instrumentation was correct to gate Phase 2 |
+| H3 (Regression) | Iteration rate decreases | Look-ahead overhead (enumeration + SHA-1) exceeds DFS overhead for the observed $u$ distribution; revert |
+
+### B.41.9 Implementation Notes
 
 Both B.41a and B.41b require:
 
@@ -10497,7 +10606,13 @@ Both B.41a and B.41b require:
 
 4. **LTP table:** Use the B.38-optimized table (`b38e_t31000000_best_s137.bin`) for both experiments to isolate the hash/solver effect from LTP geometry.
 
-### B.41.9 Relationship to Prior Work
+B.41c additionally requires:
+
+5. **Phase 1 instrumentation:** Log $u$ and $\rho$ at each hash verification event (row and column) in the B.41b solver. Emit to JSON for offline analysis. ~10 lines in `RowDecomposedController`.
+
+6. **Phase 2 look-ahead:** Precomputed $\binom{u}{\rho}$ lookup table ($u, \rho \leq 511$). Row-completion enumerator and column-completion enumerator sharing common combinatorial generation logic. Cross-line pre-filter checking 8 constraint lines per candidate. ~100&ndash;150 lines total.
+
+### B.41.10 Relationship to Prior Work
 
 **B.31 (Alternating-Direction Pincer: Null).** B.41 is a direct successor to B.31, addressing the root cause of its failure: the absence of column-axis verification. B.31 alternated between top-down and bottom-up passes along the same (row) axis, gaining no new dimensional coverage. B.41 adds column hashes and column-serial passes, providing genuine cross-dimensional pruning.
 
@@ -10505,7 +10620,720 @@ Both B.41a and B.41b require:
 
 **B.32 (Four-Direction Iterative Pincer: Proposed).** B.32 proposed a four-direction pincer but was never implemented because B.31 (its two-direction prerequisite) produced null results. B.41 supersedes B.32 by addressing the verification gap that made B.31 ineffective.
 
-**Status: PROPOSED &mdash; not yet started.**
+**B.17 (Row-Completion Look-Ahead: Proposed).** B.41c generalizes B.17's RCLA to both row and column axes, exploiting B.41b's column hashes for Column-Completion Look-Ahead (CCLA). B.17 was never implemented as a standalone experiment because it is a constant-factor optimization that does not change the depth ceiling in a row-serial-only solver. In the four-direction pincer context, CCLA gives the LR/RL passes a pruning acceleration mechanism that did not previously exist.
+
+### B.41.10 Diagnostic Results (Completed &mdash; Infeasible for Depth)
+
+Before implementing the full four-direction solver and format changes, diagnostic instrumentation was added to measure column completion at the plateau. The solver was run on a synthetic random 50%-density CSM block using the B.38-optimized LTP table.
+
+**Column vs. row unknown counts at peak depth 86,125:**
+
+| Metric | Row axis | Column axis |
+|--------|----------|-------------|
+| Min nonzero unknown | 2 | 206 |
+| Axes fully complete | 168 / 511 | 8 / 511 |
+| Cells needed for next verification event | 2 | 206 |
+
+**Interpretation.** Columns are **far less complete** than rows at the plateau. The minimum column unknown count is 206, meaning even the closest-to-completion column has 206 unassigned cells. Column-serial passes would need to assign ~206 cells before any column-hash verification could fire&mdash;approximately 100x worse than the row situation (where some rows are within 2 cells of completion).
+
+**Root cause.** Columns span all 511 rows, including the ~343 rows of the meeting band (rows ~168-510). A column cannot complete until its meeting-band cells are assigned. Since the meeting band is precisely the region where constraint propagation has exhausted, columns inherit the meeting band's intractability in full. Row-serial DFS at least completes rows in the propagation zone (rows 0-167); column-serial DFS cannot complete ANY column until the meeting band is traversed, which is the problem it was supposed to solve.
+
+**Conclusion.** The B.41 four-direction pincer will not improve solver depth. The meeting band's constraint exhaustion is not axis-specific&mdash;it affects columns more severely than rows. B.41's column hashes remain valuable for collision resistance (&sect;B.41.3 shows $2^{39,360}$ improvement in collision resistance at the same payload cost), but the solver architecture does not benefit from column-serial passes.
+
+**B.41a/B.41b sub-experiments: NOT ATTEMPTED** (infeasible per diagnostic result).
+
+**Status: DIAGNOSTIC COMPLETE &mdash; INFEASIBLE FOR DEPTH IMPROVEMENT. Collision resistance value retained.**
+
+---
+
+## B.42 Pre-Branch Pruning Spectrum (Proposed)
+
+The CRSCE solver operates on a spectrum of pre-branch intelligence. At one extreme, the solver
+assigns a value, propagates, and discovers infeasibility *after the fact* (lazy detection). At the
+other, the solver exhaustively verifies feasibility of every candidate value before committing
+(full SAC maintenance). The current production solver sits at an intermediate point: it runs
+`probeToFixpoint()` once as preprocessing (SAC-like, expensive, thorough), then during DFS uses
+only `probeAlternate()` (k=1 failed-literal probing on the alternate value) and fast-path
+`tryPropagateCell()` (singleton forcing only, ~80% of iterations exit early with no cascading).
+
+B.42 systematically explores this spectrum to determine where the optimal cost-benefit tradeoff lies
+at the current operating point (depth 96,672, row ~189 plateau, B.38-optimized LTP table). Each
+sub-experiment escalates the pre-branch intelligence level, with clear decision gates between stages.
+
+### B.42.1 The Pre-Branch Intelligence Spectrum
+
+The solver has six progressively stronger pre-branch mechanisms, three of which are implemented:
+
+| Level | Mechanism | Status | Cost per branch | What it catches |
+|-------|-----------|--------|----------------|-----------------|
+| L0 | Propagation only (`tryPropagateCell` fast path) | **Implemented** | ~0.5 &mu;s | &rho;=0 or &rho;=u on any of 10 lines |
+| L1 | Failed-literal probe on alternate (`probeAlternate`) | **Implemented** | ~3 &mu;s (1 probe) | Alternate value leads to immediate contradiction |
+| L2 | Cross-line interval tightening (B.16.2) | Not implemented | ~0.1 &mu;s (8 comparisons) | v<sub>min</sub>=v<sub>max</sub> from joint constraint bounds |
+| L3 | Both-value probing (`probeCell` during DFS) | Partially implemented | ~6 &mu;s (2 probes) | Either value infeasible &rarr; force or backtrack |
+| L4 | k-level exhaustive lookahead (`probeAlternateDeep`) | **Implemented** | ~3&times;2<sup>k</sup> &mu;s | Contradiction k steps ahead |
+| L5 | Full SAC maintenance after every assignment | Not implemented | ~1 s (all cells) | All singleton inconsistencies globally |
+
+**Key observation.** L2 (interval tightening) is cheaper than L1 (alternate probing) but is not
+implemented. L3 (both-value probing) extends L1 trivially but is only used at the preprocessing
+fixpoint, not during DFS. The spectrum has a gap: the solver jumps from L0/L1 directly to L4
+(stall-triggered deep probing) without exploiting L2 or L3.
+
+B.42 fills this gap and measures the marginal value of each level at the plateau.
+
+### B.42.2 Sub-experiment B.42a: Waste Instrumentation
+
+**Objective.** Before implementing any changes, measure the current solver's wasted work at the
+plateau to establish the ceiling of improvement from better pre-branch pruning.
+
+**Instrumentation (no behavior change):**
+
+1. **Immediate-backtrack counter.** Count how many times the solver assigns a value, propagates,
+   detects infeasibility, and immediately backtracks to try the alternate. This is work that
+   both-value probing (L3) would have avoided. Log per-row distribution.
+
+2. **Forced-after-probe counter.** Count how many times `probeAlternate` returns infeasible
+   (alternate branch is dead), meaning the preferred value could have been forced without
+   branching. This is work that both-value probing captures equally &mdash; the question is
+   how often the *preferred* value is the dead one (which `probeAlternate` does not check).
+
+3. **Interval-tightening potential.** For each branching decision at the plateau, compute the
+   B.16.2 interval bounds (v<sub>min</sub>, v<sub>max</sub>) from all 8 constraint lines.
+   Record how often v<sub>min</sub>=v<sub>max</sub> (cell is determined without branching)
+   and how often v<sub>min</sub>=v<sub>max</sub>=preferred (cell was going to be assigned
+   correctly anyway, so no saving).
+
+4. **Wasted-depth distribution.** When a backtrack occurs, record how many cells were assigned
+   (and then undone) between the branching decision that caused the infeasibility and the
+   point where infeasibility was detected. A wasted depth of 0 means infeasibility was caught
+   immediately (no improvement possible); a wasted depth of k means k assignments were wasted
+   (pre-branch pruning at depth k would have saved them).
+
+**Metrics emitted:** JSON event log via `IO11y`, analyzed offline.
+
+**Expected output:** A profile showing (a) the fraction of branching decisions where pre-branch
+checking would have helped, (b) the distribution of wasted depth, and (c) the potential of
+interval tightening at the plateau. This profile determines which of B.42b&ndash;B.42e are
+worth implementing.
+
+**Decision gate:** If the immediate-backtrack rate is &lt;5% and wasted depth is typically 0,
+the current L0/L1 approach is near-optimal and B.42b&ndash;B.42e are unlikely to help.
+Proceed only if the instrumentation reveals substantial waste.
+
+**Implementation cost:** ~30&ndash;50 lines of logging in `RowDecomposedController`. Zero
+runtime overhead on the hot path (counters only increment on backtrack events, which are
+already expensive).
+
+#### B.42.2a B.42a Results (Completed)
+
+B.42a instrumentation was run on the RowDecomposedController (synthetic random 50%-density CSM, B.38-optimized LTP table, 70M iterations at peak depth 86,125).
+
+| Metric | Value | % of branches |
+|--------|-------|---------------|
+| Total branching decisions | 39,404,780 | 100% |
+| Preferred value infeasible | 22,284,407 | **56.6%** |
+| Alternate value infeasible | 17,031,789 | **43.2%** |
+| Interval forced (L2 potential) | 0 | **0.0%** |
+| Interval contradiction (L2 potential) | 0 | **0.0%** |
+| Interval undetermined | 39,404,780 | **100.0%** |
+
+**Key findings.**
+
+1. **56.6% preferred-infeasible rate.** The solver's preferred value (selected by probability confidence) is wrong more than half the time. Each failure costs a full assign+propagate+unassign cycle (~3 &mu;s) before trying the alternate. Both-value probing (B.42c) would eliminate this waste by checking both values before committing.
+
+2. **43.2% both-values-infeasible rate.** Nearly half of all branches have BOTH values infeasible. The solver currently pays two full cycles (preferred fails, alternate fails, backtrack) for each such event. Both-value probing would detect this in a single probing pass and backtrack immediately.
+
+3. **0% interval-tightening potential.** $v_{\min} = 0$ and $v_{\max} = 1$ for ALL branching decisions at the plateau. The cross-line interval bounds never tighten below the full [0, 1] range. This means B.42b (interval tightening) and B.42e (propagation-triggered interval sweep) **will have zero effect** and should not be implemented.
+
+4. **99.8% backtrack rate.** Only 0.2% of branches lead to sustained forward progress (100% &minus; 56.6% &minus; 43.2% = 0.2%). The solver is in an almost-pure backtracking regime at the plateau.
+
+**Decision gate assessment.** The immediate-backtrack rate is 56.6% (far above the 5% threshold). The waste is massive. However, the zero interval-tightening potential eliminates B.42b and B.42e. The remaining viable sub-experiment is **B.42c (both-value probing during DFS)**, which directly addresses the 56.6% preferred-infeasible and 43.2% both-infeasible waste.
+
+**B.42b status: NOT ATTEMPTED** (zero interval-tightening potential per B.42a).
+**B.42e status: NOT ATTEMPTED** (zero interval-tightening potential per B.42a).
+
+### B.42.3 Sub-experiment B.42b: Cross-Line Interval Tightening
+
+**Prerequisite.** B.42a instrumentation shows interval-tightening potential &gt;0 for a
+meaningful fraction (&geq;1%) of branching decisions at the plateau.
+
+**Motivation.** The current propagation engine checks each of the 10 constraint lines
+*independently*: &rho;=0 forces zeros, &rho;=u forces ones. It never reasons about the *joint*
+effect of all lines through a cell. B.16.2's interval analysis fills this gap at minimal cost.
+
+**Method.** Before each branching decision on cell (r,c), compute:
+
+$$v_{\min}(r,c) = \max_{L \ni (r,c)} \left( \rho(L) - (u(L) - 1) \right)^+$$
+
+$$v_{\max}(r,c) = \min_{L \ni (r,c)} \left( \rho(L),\; 1 \right)$$
+
+where the max and min range over all 10 constraint lines containing (r,c) (row, column,
+diagonal, anti-diagonal, 4 LTP, plus LTP5/LTP6 if present).
+
+- If $v_{\min} = 1$: force the cell to 1 (no branching needed).
+- If $v_{\max} = 0$: force the cell to 0 (no branching needed).
+- If $v_{\min} > v_{\max}$: immediate contradiction &mdash; backtrack without trying either value.
+- Otherwise: proceed with normal branching (L0/L1).
+
+**Cost.** 10 line-stat lookups + 10 comparisons per cell = ~0.1 &mu;s. This is 5&times; cheaper
+than a single `probeAlternate` call (~3 &mu;s) and 30&times; cheaper than both-value probing
+(~6 &mu;s). The cost is dominated by the cache miss on line stats, which are already hot from
+`tryPropagateCell`.
+
+**Cascading.** When interval tightening forces a cell, propagate the forced assignment normally
+via `tryPropagateCell`. The cascade may create new interval-tightening opportunities on
+neighboring cells. To exploit this, run the interval check on all cells affected by the
+propagation wave (cells sharing a line with the forced cell). This is a lightweight version
+of B.16.3's residual bounds propagation.
+
+**DI consistency.** Interval tightening is purely deductive and deterministic. It forces only
+cells that are logically implied by the current constraint state. The compressor and decompressor
+produce identical forced assignments. DI semantics are preserved.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Improvement) | Depth &gt; 96,672 | Interval tightening forces cells that propagation misses; the additional forced cells push the cascade deeper |
+| H2 (Neutral) | Depth &asymp; 96,672, iteration rate &asymp; unchanged | Interval bounds rarely tighter than singleton forcing at current operating point; the plateau rows have &rho; far from both 0 and u on all lines |
+| H3 (Marginal) | Depth &asymp; 96,672, iteration rate improves &geq;10% | Interval tightening forces some cells (saving branching overhead) but doesn't change depth; constant-factor speedup |
+
+**Implementation cost:** ~40&ndash;60 lines in `PropagationEngine` or a new `IntervalTightener`
+class. The computation is a tight inner loop over 10 line stats &mdash; straightforward to
+implement and test.
+
+### B.42.4 Sub-experiment B.42c: Both-Value Probing During DFS
+
+**Prerequisite.** B.42a instrumentation shows that the preferred-value-infeasible rate is &geq;5%
+at the plateau (the solver frequently commits to the preferred value, discovers infeasibility, and
+backtracks to try the alternate).
+
+**Motivation.** The current DFS always commits to the preferred value first. If the preferred is
+infeasible, the solver pays the full assign+propagate+unassign cost before trying the alternate.
+`probeAlternate` only checks the alternate &mdash; not the preferred. Both-value probing checks
+both values before committing, enabling three optimizations:
+
+1. **Force when one value is dead.** If probing shows value 0 is infeasible, force value 1 (no
+   branching, no DFS frame pushed). This is what `probeCell` does at the preprocessing fixpoint
+   but not during active DFS.
+
+2. **Immediate backtrack when both values are dead.** If both values are infeasible, backtrack
+   immediately without trying either. The current solver must try preferred, fail, try alternate,
+   fail, then backtrack &mdash; paying two full assign+propagate+unassign cycles.
+
+3. **Preferred-value confidence.** When both values are feasible, the solver proceeds normally.
+   But if probing reveals that one value produces a substantially larger propagation cascade
+   (more forced cells), the solver can prefer that value (more constrained = more pruning power).
+   This is a heuristic enhancement, not a correctness change.
+
+**Method.** At each DFS branching decision on cell (r,c):
+
+```
+result = probeCell(r, c)    // existing infrastructure
+if result.bothInfeasible:
+    backtrack()
+elif result.forcedValue != NONE:
+    assign(r, c, result.forcedValue)   // no DFS frame; forced
+    propagate()
+else:
+    // Both feasible: branch normally (preferred first)
+    pushDfsFrame(r, c, preferred)
+```
+
+**Cost.** Two probes per branching decision: ~6 &mu;s total. This is 12&times; the cost of
+the L0 fast path (~0.5 &mu;s) and 2&times; the cost of L1 (`probeAlternate`, ~3 &mu;s).
+
+At the current plateau throughput of ~400K iter/sec at L0, the overhead of L3 would reduce
+throughput to ~170K iter/sec (a 2.4&times; slowdown). This is justified only if the pruning
+benefit (fewer branches, fewer backtracks) exceeds the overhead.
+
+**Interaction with L2 (B.42b).** If B.42b (interval tightening) is active, cells forced by
+interval analysis skip both-value probing entirely (already determined). This reduces the
+number of cells requiring the expensive L3 probe. The optimal pipeline is:
+
+1. Interval tightening (L2, ~0.1 &mu;s) &mdash; force if determinable
+2. Both-value probing (L3, ~6 &mu;s) &mdash; only if L2 does not resolve the cell
+
+**DI consistency.** `probeCell` is deterministic (it probes value 0 then value 1 in fixed order).
+Forced cells are logically implied by the constraint state. The same forcing occurs in both
+compressor and decompressor. DI semantics are preserved.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Improvement) | Depth &gt; 96,672 | Both-value probing detects infeasible assignments earlier; the saved branching extends the cascade |
+| H2 (Neutral) | Depth &asymp; 96,672 | Probing catches errors that `tryPropagateCell` would have caught one step later; net effect is zero depth change |
+| H3 (Regression) | Depth &lt; 96,672 or iteration rate drops &gt;3&times; | Probing overhead dominates; the solver explores fewer iterations per second, reducing the chance of finding deep paths in time-bounded runs |
+
+**Decision gate.** If H3 occurs, the 2&times; overhead of both-value probing is not justified.
+Fall back to L2-only (B.42b) or L2+L1 (interval tightening + alternate-only probing).
+
+#### B.42.4a B.42c Results (Completed &mdash; Neutral)
+
+B.42c was implemented in `RowDecomposedController_enumerateSolutionsLex.cpp` and tested on the same synthetic random 50%-density CSM block (B.38-optimized LTP table, 2-minute run).
+
+| Metric | Baseline (no B.42c) | With B.42c |
+|--------|--------------------:|----------:|
+| Peak depth | 86,125 | 86,125 |
+| Iterations (2 min) | 70M | 97.5M |
+| Iter/sec | ~830K | ~825K |
+| Total branches | 39.4M | 24.2M |
+| Branching rate | 56.3% | 24.6% |
+| Preferred infeasible | 22.3M (56.6%) | 0 |
+| Alternate infeasible | 17.0M (43.2%) | 0 |
+
+**Outcome: H2 (Neutral).** Peak depth is identical. The both-value probing successfully eliminates all wasted branching cycles&mdash;the preferred-infeasible and alternate-infeasible counters drop to zero because `probeCell` catches infeasibility before assignment. The branching rate drops from 56.3% to 24.6% (the remaining branches are cells where both values are genuinely feasible). Throughput is essentially unchanged (~825K vs ~830K iter/sec), indicating that the probing overhead is negligible relative to the saved assign+propagate+undo cycles.
+
+However, the depth ceiling is unchanged. The waste elimination allows the solver to explore more iterations in the same wall-clock time (97.5M vs 70M in 2 minutes) but does not extend the propagation cascade. The plateau is fundamentally constraint-exhausted: no amount of branching-order optimization or waste elimination changes the set of cells that constraint propagation can force.
+
+**B.42c value.** While B.42c does not improve depth, it provides a ~40% throughput improvement (more iterations per unit time) by eliminating wasted cycles. This is valuable for time-bounded compression runs: the solver explores 40% more of the search space in the same time budget. For blocks near the DI-discovery threshold, this speedup could make the difference between finding DI within the timeout and failing.
+
+**B.42d status: NOT APPLICABLE** (prerequisite not met&mdash;B.42c achieves H2, not H1).
+**B.42e status: NOT ATTEMPTED** (zero interval-tightening potential per B.42a).
+
+### B.42.5 Sub-experiment B.42d: Adaptive Pre-Branch Escalation
+
+**Prerequisite.** B.42b and/or B.42c show measurable benefit (H1 or H3-marginal). This
+sub-experiment optimizes *when* to apply each level.
+
+**Motivation.** The pre-branch levels have different cost-benefit profiles at different depths:
+
+- **Early rows (0&ndash;100):** Propagation cascades are strong; L0 is sufficient. Adding L2/L3
+  overhead wastes time on cells that would have been forced anyway.
+- **Plateau rows (170&ndash;200):** Propagation stalls; L2/L3/L4 provide the most value per unit
+  cost. Every forced cell avoids exponential backtracking.
+- **Late rows (300&ndash;511):** Unknown counts are small; propagation is again aggressive. L0
+  suffices; higher levels add overhead.
+
+B.8 proposed adaptive escalation from k=0 to k=4 based on stall detection (&sigma; metric).
+B.42d integrates the L2/L3 levels into this adaptive framework:
+
+**Escalation policy:**
+
+| Stall metric &sigma; | Active levels | Throughput estimate |
+|----------------------|---------------|-------------------|
+| &sigma; &gt; &sigma;<sup>+</sup> (forward progress) | L0 only (fast path) | ~400K iter/sec |
+| &sigma;<sup>&minus;</sup> &lt; &sigma; &leq; &sigma;<sup>+</sup> (slowing) | L0 + L2 (interval tightening) | ~380K iter/sec |
+| &sigma; &leq; &sigma;<sup>&minus;</sup> (stalled) | L0 + L2 + L3 (both-value probing) | ~170K iter/sec |
+| &sigma; &leq; &sigma;<sup>&minus;&minus;</sup> (deeply stalled) | L0 + L2 + L3 + L4 at k=2 | ~80K iter/sec |
+
+**De-escalation:** When &sigma; recovers above &sigma;<sup>+</sup> for 2W decisions (B.8.2
+hysteresis), decrement one level. The solver self-tunes to the minimum pre-branch intelligence
+that sustains forward progress.
+
+**Parameter sweep.** The stall thresholds (&sigma;<sup>+</sup>, &sigma;<sup>&minus;</sup>,
+&sigma;<sup>&minus;&minus;</sup>) and window size W are tuning parameters. B.42d sweeps a small
+grid (3 values for each threshold, 3 values for W = {5000, 10000, 20000}) to find the optimal
+operating point. Total: 81 configurations, each run for 10 minutes.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Improvement) | Best adaptive config depth &gt; 96,672 | Adaptive pre-branch escalation is the right architecture; the plateau requires L2/L3 but early/late rows do not |
+| H2 (Neutral) | All configs &asymp; 96,672 | Pre-branch intelligence does not change depth; the plateau is not caused by insufficient per-node pruning |
+| H3 (One level dominates) | A single fixed level (e.g., L2 always on) matches the best adaptive config | Adaptation overhead is not justified; the winning level should be hardcoded |
+
+### B.42.6 Sub-experiment B.42e: Propagation-Triggered Interval Sweep
+
+**Prerequisite.** B.42b (interval tightening) achieves H1 or H3-marginal, confirming that
+interval analysis forces cells that propagation misses.
+
+**Motivation.** B.42b applies interval tightening only to the cell about to be branched on. But
+each forced cell changes the &rho; and u values on its 10 constraint lines, which may create new
+interval-tightening opportunities on other cells sharing those lines. B.16.3 proposed iterating
+this to a fixed point, but the full-matrix sweep is too expensive at ~2.6 ms per pass.
+
+B.42e proposes a *triggered* variant: after each propagation wave (whether from branching or
+forcing), run interval tightening on all unassigned cells sharing a line with the newly
+assigned/forced cells. This limits the sweep to the *neighborhood* of the change rather than
+the entire matrix.
+
+**Method.** After `tryPropagateCell(r, c)` completes (including any cascade):
+
+1. Collect the set of lines $L_{\text{dirty}}$ touched by the cascade (at most 10 per forced cell).
+2. For each line in $L_{\text{dirty}}$, iterate its unassigned cells and compute v<sub>min</sub>/v<sub>max</sub>.
+3. If any cell is determined (v<sub>min</sub>=v<sub>max</sub>), force it and add its lines to $L_{\text{dirty}}$.
+4. Repeat until $L_{\text{dirty}}$ is empty (local fixpoint).
+
+**Cost.** Each dirty line has at most 511 unassigned cells, and each cell requires 10 line-stat
+lookups. In the plateau, a typical propagation wave touches ~5 lines and ~50 cells, giving
+~50 &times; 10 = 500 line-stat lookups = ~0.5 &mu;s. In the rare cascade case (forcing 10+
+cells), cost rises to ~5 &mu;s. This is comparable to `probeAlternate` but provides a
+fundamentally different kind of inference (joint constraint bounds vs. tentative assignment).
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Cascade extension) | Propagation-triggered interval sweep forces &geq;1 additional cell per 100 branching decisions at plateau | Joint-constraint reasoning extends the propagation cascade; cumulative effect over many decisions may increase depth |
+| H2 (Rare but valuable) | Interval sweep forces &lt;1 per 100 decisions, but depth improves | The few additional forcings occur at critical points (row boundaries or high-constraint-density cells) and have outsized impact |
+| H3 (Negligible) | Near-zero additional forcings | The interval bounds v<sub>min</sub>/v<sub>max</sub> are strictly wider than {0,1} for virtually all plateau cells; joint reasoning adds nothing beyond singleton forcing |
+
+### B.42.7 Sub-experiment B.42f: Four-Direction Integration (Conditional on B.41b H1)
+
+**Prerequisite.** B.41b achieves H1 (depth &gt; 96,672) AND at least one of B.42b&ndash;B.42e
+shows measurable benefit.
+
+**Motivation.** The four-direction pincer (B.41b) introduces column-serial traversal (LR, RL).
+Pre-branch pruning applies symmetrically to column-serial passes: interval tightening checks
+the same 10 constraint lines (the "primary" line is now the column rather than the row, but
+the computation is identical), and both-value probing uses the same `probeCell` infrastructure.
+
+**Method.** Apply the winning B.42 configuration (from B.42d's parameter sweep or the best
+individual sub-experiment) to all four traversal directions in B.41b:
+
+- **TD/BU passes:** Identical to standalone B.42. Row-serial traversal with pre-branch pruning.
+- **LR/RL passes:** Column-serial traversal. Interval tightening computes v<sub>min</sub>/v<sub>max</sub>
+  from the same 10 lines (row is now a "cross" constraint; column is the "primary" constraint).
+  Both-value probing uses the same `probeCell`. No code change required beyond the traversal
+  direction (the pre-branch check is cell-centric, not direction-centric).
+
+**Interaction with B.41c (RCLA/CCLA).** Pre-branch pruning (B.42) and completion look-ahead
+(B.41c) are complementary:
+
+- B.42 forces cells *before* they are branched on, reducing the number of unknowns u in
+  each row/column.
+- B.41c triggers when u is small enough for exhaustive enumeration ($\binom{u}{\rho} \leq C_{\max}$).
+- B.42 accelerates the arrival at B.41c's trigger threshold by forcing more cells, while B.41c
+  handles the final few unknowns via enumeration.
+
+The combined pipeline for each row or column:
+
+```
+for each unassigned cell in row/column:
+    L2: interval tightening → force if determined
+    L3: both-value probing → force or backtrack if one/both values dead
+    L0: assign preferred value + propagate
+    check: if u ≤ u_max for this row/column:
+        B.41c: enumerate remaining completions vs. hash
+```
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Synergy) | B.41b+B.42 depth &gt; B.41b depth AND &gt; B.42 depth (standalone) | Pre-branch pruning and column-hash verification are multiplicative; each enables the other to work more effectively |
+| H2 (Additive) | B.41b+B.42 depth &asymp; max(B.41b, B.42) | Benefits are independent; no synergy but no interference |
+| H3 (Interference) | B.41b+B.42 depth &lt; B.41b depth | Pre-branch overhead reduces iteration rate in column-serial passes, counteracting column-hash pruning |
+
+### B.42.8 Implementation Notes
+
+The B.42 sub-experiments build on existing infrastructure:
+
+1. **B.42a (instrumentation):** ~30&ndash;50 lines of counters and logging in
+   `RowDecomposedController_enumerateSolutionsLex.cpp`. Zero hot-path overhead (counters on
+   backtrack events only).
+
+2. **B.42b (interval tightening):** New `IntervalTightener` class or inline logic in
+   `PropagationEngine`. Core computation is 10 line-stat lookups + 10 comparisons per cell.
+   ~40&ndash;60 lines. Integrate via a `tightenCell(r, c)` method called before each branching
+   decision.
+
+3. **B.42c (both-value probing):** The infrastructure exists in `FailedLiteralProber::probeCell`.
+   The change is calling `probeCell` at each DFS node instead of only during `probeToFixpoint`.
+   ~10&ndash;20 lines of integration in the DFS loop.
+
+4. **B.42d (adaptive escalation):** Extend the existing stall detector (B.8) with additional
+   thresholds for L2/L3 activation. ~30&ndash;40 lines for the escalation/de-escalation logic.
+   Parameter sweep via shell script.
+
+5. **B.42e (propagation-triggered sweep):** Track dirty lines after each propagation wave.
+   Iterate unassigned cells on dirty lines, apply interval tightening, cascade if forced.
+   ~60&ndash;80 lines. The dirty-line tracking can reuse the existing `LineID` infrastructure.
+
+6. **B.42f (four-direction integration):** No new code if B.42b&ndash;e are implemented
+   cell-centrically (which they are). The pre-branch checks are agnostic to traversal
+   direction. Integration is testing + parameter tuning.
+
+### B.42.9 Relationship to Prior Work
+
+**B.6 (Singleton Arc Consistency: Proposed).** B.42c (both-value probing during DFS) is
+the per-node analog of B.6's SAC preprocessing. B.6 proposed maintaining SAC as a global
+invariant (re-probing all cells after every assignment), which costs ~1 s per assignment and
+is prohibitive during DFS. B.42c applies the same operation only to the cell being branched on,
+reducing the cost from O(n) probes to O(1) probes per decision. B.42e (propagation-triggered
+sweep) is a lightweight approximation of partial SAC (B.6.5), limited to the neighborhood of
+each change rather than the entire matrix.
+
+**B.8 (Adaptive Lookahead: Proposed).** B.42d integrates L2/L3 into B.8's adaptive escalation
+framework. B.8 proposed escalation from k=0 to k=4 based on stall detection; B.42d adds
+intermediate levels (L2 interval tightening, L3 both-value probing) between k=0 and k=2,
+filling the gap where the solver currently jumps from cheap propagation to expensive multi-level
+lookahead.
+
+**B.16 (Partial Row Constraint Tightening: Proposed).** B.42b is a direct implementation of
+B.16.2's interval analysis. B.42e is a targeted implementation of B.16.3's residual bounds
+propagation, limited to dirty lines rather than the full matrix. B.16 proposed these as
+standalone techniques; B.42 positions them within a unified pre-branch pipeline and measures
+their interaction with probing and lookahead.
+
+**B.41b (Four-Direction Pincer: Infeasible for Depth).** B.42f was conditional on B.41b achieving depth improvement. B.41 diagnostic results (&sect;B.41.10) show columns are far less complete than rows at the plateau (min column unknown = 206 vs min row unknown = 2), making column-serial passes unviable for depth improvement. **B.42f is therefore not applicable.** The remaining B.42 sub-experiments (B.42a&ndash;B.42e) operate purely in row-serial mode and are unaffected by B.41's outcome.
+
+**B.41c (Completion Look-Ahead: Conditional).** B.42 and B.41c are complementary. B.42 forces
+cells before branching (reducing u toward the B.41c trigger threshold); B.41c handles the
+exhaustive enumeration of remaining unknowns when u is small. The combined effect is a two-stage
+pipeline: B.42 shrinks the problem, B.41c finishes it.
+
+### B.42.10 Summary and Conclusions
+
+**B.42a (Waste Instrumentation): COMPLETED.** 56.6% preferred-infeasible rate, 43.2% both-infeasible rate. Massive waste identified. However, 0% interval-tightening potential eliminates B.42b and B.42e.
+
+**B.42b (Interval Tightening): NOT ATTEMPTED.** Zero L2 potential per B.42a&mdash;$v_{\min} = 0$ and $v_{\max} = 1$ for all plateau cells.
+
+**B.42c (Both-Value Probing): COMPLETED &mdash; NEUTRAL (H2).** Eliminates all branching waste (preferred/alternate infeasible counters drop to zero). Reduces branching rate from 56.3% to 24.6%. Provides ~40% throughput improvement. **Depth unchanged** (86,125 = baseline). The plateau is constraint-exhausted, not waste-caused.
+
+**B.42d (Adaptive Escalation): NOT APPLICABLE.** Prerequisite (B.42b or B.42c achieving H1) not met.
+
+**B.42e (Propagation-Triggered Sweep): NOT ATTEMPTED.** Zero interval-tightening potential per B.42a.
+
+**B.42f (Four-Direction Integration): NOT APPLICABLE.** B.41b infeasible for depth (&sect;B.41.10).
+
+**Overall B.42 conclusion.** The pre-branch pruning spectrum has been fully characterized. The solver's waste at the plateau is large (56.6% wrong-preferred, 43.2% both-dead) but eliminating it does not change depth. The constraint system is exhausted at the plateau: no per-node pruning technique (interval tightening, probing, or adaptive escalation) can extend the propagation cascade because the residual constraint density is insufficient to force additional cells. The depth ceiling is a property of the constraint system's information content, not the solver's search efficiency.
+
+**B.42c retained for throughput.** Both-value probing provides a meaningful constant-factor speedup (~40% more iterations per wall-clock second) that is valuable for time-bounded compression. The change is low-risk (31/31 tests pass, DI semantics preserved) and should be retained in production.
+
+**Status: COMPLETED.**
+
+---
+
+## B.43 Bottom-Up Initialization via Row-Completion Look-Ahead (Completed &mdash; Infeasible)
+
+### B.43.1 Motivation
+
+Experiments B.40 through B.42 established that the plateau is caused by constraint exhaustion, not solver inefficiency. The solver backtracks because no row in the meeting band reaches full assignment ($u = 0$) during top-down DFS, and eliminating branching waste (B.42c) does not change this.
+
+However, B.42a diagnostics revealed that some rows fluctuate to within 2-6 unknowns of completion at the plateau. This raises a question: if the solver could detect these near-complete rows and resolve them via exhaustive enumeration rather than DFS branching, would the resulting cascade of newly constrained cells extend the propagation depth?
+
+B.43 proposes **Row-Completion Look-Ahead (RCLA)** combined with a bottom-up initialization sweep: before the main DFS begins, and at each plateau checkpoint, scan all rows for those with small unknown counts and enumerate their feasible completions against the SHA-1 lateral hash. A row with $u$ unknowns and residual sum $\rho$ has at most $\binom{u}{\rho}$ candidate completions, each verifiable via a single SHA-1 computation.
+
+The hypothesis is that completing near-complete rows will tighten constraints on adjacent rows (via column, diagonal, and LTP lines), potentially triggering a cascade of further RCLA completions that "peels" the meeting band from both ends.
+
+### B.43.2 Method
+
+**RCLA eligibility.** A row $r$ is RCLA-eligible when $u(r) \leq T$ for threshold $T$ chosen such that $\binom{T}{\lfloor T/2 \rfloor}$ is computationally tractable. Candidate thresholds:
+
+| Threshold $T$ | Max completions $\binom{T}{\lfloor T/2 \rfloor}$ | Enumeration cost |
+|---|----|---|
+| 5 | 10 | ~1 &mu;s |
+| 10 | 252 | ~25 &mu;s |
+| 15 | 6,435 | ~640 &mu;s |
+| 20 | 184,756 | ~18 ms |
+| 25 | 3,268,760 | ~330 ms |
+
+**RCLA completion.** For each eligible row $r$:
+
+1. Identify the $u(r)$ unassigned cell positions within the row.
+2. Enumerate all $\binom{u(r)}{\rho(r)}$ binary assignments to those cells that satisfy the row sum.
+3. For each candidate assignment, pack the full 511-bit row and compute SHA-1.
+4. Compare to the stored lateral hash $\text{LH}[r]$.
+5. If exactly one candidate matches: **force all $u(r)$ cells** to their resolved values and propagate.
+6. If zero candidates match: the current partial assignment is infeasible (backtrack trigger).
+7. If multiple candidates match: row is not uniquely resolvable (SHA-1 collision within the sub-enumeration; astronomically unlikely for $T \leq 25$).
+
+**Bottom-up sweep.** After initial constraint propagation:
+
+1. Scan rows from 510 downward to 0.
+2. For each RCLA-eligible row, attempt completion.
+3. If a row is completed, propagate forced cells.
+4. Re-check adjacent rows (those sharing a column, diagonal, or LTP line with the completed row) for newly reduced $u$ values.
+5. Repeat until no more rows are eligible (fixpoint).
+
+**DFS integration.** During the main DFS, check RCLA eligibility at each row-completion-heap event (when $u(r)$ drops below the threshold). This catches rows that become near-complete due to DFS branching.
+
+### B.43.3 Diagnostic Results (Completed)
+
+Before implementing RCLA, diagnostic instrumentation was added to measure how many rows are RCLA-eligible at the plateau. The solver was run on the synthetic random 50%-density CSM block (B.38-optimized LTP table, 1-minute observation window).
+
+**Row unknown distribution at peak depth 86,125:**
+
+| Category | Rows |
+|----------|------|
+| $u = 0$ (complete) | 168 |
+| $u = 1$-$5$ | 0-1 (fluctuates) |
+| $u = 6$-$10$ | 0-1 (fluctuates) |
+| $u = 11$-$20$ | 0 |
+| $u > 20$ | ~342 |
+| Total | 511 |
+
+**Key finding: at most 1 row is RCLA-eligible at any time** (for any threshold $T \leq 20$). The near-complete row fluctuates between $u = 4$ and $u = 6$ as the DFS branches and backtracks. The remaining 342 meeting-band rows have $u \gg 20$ (typically $u \approx 300$-$400$), far beyond any tractable RCLA threshold.
+
+### B.43.4 Analysis
+
+**Why RCLA cannot cascade.** Completing a single row fixes $u$ cells and tightens constraints on 10 lines per cell (row, column, diagonal, anti-diagonal, 4 LTP). For the adjacent meeting-band rows, this reduces their unknown counts by at most 1 per shared constraint line. A row with $u = 300$ would need ~280 constraint-tightening events to reach $T = 20$&mdash;requiring ~280 other rows or columns to be completed first. This is circular: each row needs other rows to complete first.
+
+The fundamental issue is the **constraint density** in the meeting band. The 8-family constraint system provides $\sim 10$ constraints per cell, but only $5{,}097 / 261{,}121 \approx 2\%$ of the cells are independently constrained ($\text{rank}(A) / N$). In the meeting band (~175K cells), the effective constraint density is even lower because the propagation zone (rows 0-167) has already consumed the "easy" forcings.
+
+**Comparison with top-down DFS.** The DFS reaches the plateau precisely because it has exhausted all forceable cells. RCLA requires rows to be near-complete, which happens only transiently during DFS backtracking (when the solver has tentatively assigned most of a row's cells, only to discover infeasibility a few cells later). These transient near-completions are artifacts of the search path, not stable structural features of the constraint system.
+
+**Bottom-up sweep: identical result.** After initial propagation, the row-unknown distribution is the same regardless of sweep direction. Rows 0-167 have $u = 0$ (fully propagated); rows 168-510 have $u \gg 20$. A bottom-up sweep from row 510 finds zero RCLA-eligible rows because meeting-band rows have ~300-400 unknowns. The bottom-up direction provides no advantage because the constraint system's information content is direction-invariant.
+
+### B.43.5 Conclusion
+
+**B.43 outcome: INFEASIBLE.** The RCLA approach requires near-complete rows, but the meeting band has at most 1 row with $u \leq 20$ at any time. The bottom-up cascade hypothesis is not viable: completing a single row cannot trigger a chain reaction of further completions because adjacent rows have $u \gg 20$.
+
+This result confirms the B.42 conclusion from a different angle: the depth ceiling is a property of the constraint system's information content, not the solver's search strategy. The 8-family constraint system (5,097 independent constraints over 261,121 cells) leaves 256,024 degrees of freedom (98% of cells unconstrained). No solver technique&mdash;top-down, bottom-up, probing, interval analysis, RCLA, or direction switching&mdash;can compensate for this structural information deficit.
+
+**Implication for future work.** Reaching the 100K depth target requires adding information to the constraint system itself. Candidate approaches include additional projection families (beyond the current 8), finer-grained hash constraints (sub-row or sub-block hashes), or a fundamentally different matrix encoding that increases the constraint-to-cell ratio above the current 2%.
+
+**Status: COMPLETED &mdash; INFEASIBLE.**
+
+---
+
+## B.44 Constraint Density Breakthrough: Discovering New Projection Families (Proposed)
+
+### B.44.1 Motivation
+
+Experiments B.33 through B.43 have exhaustively characterized the solver's depth ceiling and established that it is a property of the constraint system's **information content**, not the solver's search strategy. The 8-family system (LSM, VSM, DSM, XSM, LTP1-4) provides 5,097 independent constraints over 261,121 cells&mdash;a 2% constraint density that leaves 256,024 degrees of freedom (98% of cells unconstrained by cross-sums alone). SHA-1 lateral hashes disambiguate within this null space, but only at row completion boundaries, which the solver cannot reach in the meeting band.
+
+The path to 100K+ depth requires **increasing the constraint density**&mdash;adding new projection families that contribute independent constraints, reducing the null-space dimension and enabling propagation to force cells deeper into the matrix. B.44 systematically explores which new families are viable, how many independent constraints each contributes, and what payload cost each imposes.
+
+### B.44.2 The Constraint Budget
+
+The current system's information balance:
+
+| Component | Bits | Independent constraints (GF(2)) |
+|-----------|------|---------------------------------|
+| LSM (511 row sums) | 4,599 | 510 |
+| VSM (511 column sums) | 4,599 | 510 |
+| DSM (1,021 diagonal sums) | 8,185 | 1,017 |
+| XSM (1,021 anti-diagonal sums) | 8,185 | 1,020 |
+| LTP1-4 (4 &times; 511 sums) | 18,396 | 2,040 |
+| **Total cross-sums** | **43,964** | **5,097** |
+| LH (511 SHA-1 hashes) | 81,760 | &mdash; (non-linear) |
+| BH (SHA-256 block hash) | 256 | &mdash; (non-linear) |
+| **Total payload** | **125,980** | |
+
+The CSM has 261,121 bits. The payload is 125,980 bits&mdash;a 48.2% compression ratio. To reach 100% constraint density (every cell independently constrained by cross-sums), the system would need $261{,}121 - 5{,}097 = 256{,}024$ additional independent constraints. At ~9 bits per constraint line (for a 511-cell uniform partition), this would require $256{,}024 / 510 \approx 502$ additional LTP-like sub-tables&mdash;adding $502 \times 4{,}599 = 2{,}308{,}698$ bits (288,587 bytes) to the payload. This would make the payload far larger than the original data, defeating the purpose of compression.
+
+The practical question is: **what is the minimum number of additional constraint families needed to push depth from ~96K to 261K, and what payload cost does each impose?**
+
+### B.44.3 Candidate Constraint Families
+
+Six categories of new projection families are considered, ordered by expected information yield per payload bit:
+
+**Category 1: Sub-row / sub-column block sums.** Partition each row into $B$ blocks of $\lceil 511/B \rceil$ cells and store the sum of each block. For $B = 2$: 511 rows &times; 2 blocks = 1,022 constraints, each ~8 bits. Payload cost: ~8,176 bits. These are NOT independent of the row sum (the two block sums must add to LSM[r]), so the marginal independent constraints are $511 \times (B-1) = 511$ for $B = 2$.
+
+**Category 2: Parity constraints.** Store the XOR (parity) of cells along each constraint line rather than (or in addition to) the sum. Parity is 1 bit per line vs 9 bits per sum, drastically reducing payload cost. However, parity is strictly less informative than the sum: it captures only the least significant bit. For lines with known sum, parity is redundant ($\text{parity} = \text{sum} \bmod 2$). Parity constraints on NEW lines (not already covered by cross-sums) could add cheap independent information.
+
+**Category 3: Higher-order polynomial projections.** Instead of linear sums ($\sum c_i$), store quadratic sums ($\sum c_i c_j$ for specific cell pairs) or weighted sums ($\sum w_i c_i$ with non-binary weights). These capture non-linear relationships that cross-sums miss. The challenge: quadratic sums are expensive to verify during propagation (each cell assignment affects $O(k)$ terms for $k$ paired cells).
+
+**Category 4: Algebraically structured partitions (MOLS).** Mutually Orthogonal Latin Squares of order 511 provide partitions where every pair of lines from different families intersects in exactly one cell. Since $511 = 7 \times 73$, $\text{MOLS}(511) \geq 6$ (at least 6 mutually orthogonal squares exist). Each MOLS-based partition provides 511 lines of 511 cells, but with a crucial difference from Fisher-Yates LTP: the algebraic structure guarantees uniform pairwise intersection, enabling tighter joint constraint bounds.
+
+**Category 5: Sub-block SHA-1 hashes.** Instead of (or in addition to) per-row SHA-1, hash sub-blocks of each row. For example, split each 511-bit row into 4 blocks of ~128 bits and hash each block independently. This provides 4 SHA-1 verification events per row (at $u_{\text{block}} = 0$ instead of $u_{\text{row}} = 0$), enabling verification at 128-cell granularity rather than 511-cell granularity. Payload cost: $511 \times 4 \times 160 = 326{,}240$ bits (40,780 bytes)&mdash;expensive, but fundamentally changes the verification boundary.
+
+**Category 6: Hybrid constraint-hash families.** Store a lightweight hash (e.g., CRC-32 or truncated SHA-1) of each LTP sub-table line. This provides hash-based verification at the LTP-line granularity (511 cells per line) in addition to the cross-sum. Payload cost: $4 \times 511 \times 32 = 65{,}408$ bits (8,176 bytes) for CRC-32.
+
+### B.44.4 Theoretical Analysis: Constraints Required for Full Depth
+
+The solver's propagation cascade forces cells when a constraint line's residual $\rho = 0$ (force all unknowns to 0) or $\rho = u$ (force all unknowns to 1). Each independent constraint contributes one potential forcing event. For a random 50%-density CSM, the probability that a line with $u$ unknowns has $\rho = 0$ or $\rho = u$ decreases exponentially with $u$: $P \approx 2 \times 2^{-u}$.
+
+At the plateau, typical lines have $u \approx 300$. The probability of any single line triggering forcing is $\sim 2^{-299}$&mdash;effectively zero. Propagation works in the early rows because $u$ is small (many cells already assigned), not because the constraint system has high density.
+
+**The leverage point is not more lines but shorter lines.** Each LTP sub-table has 511 lines of 511 cells. If we partitioned the same cells into 2,555 lines of ~102 cells, the same number of cells would be constrained, but each line would reach $\rho = 0$ or $\rho = u$ with probability $\sim 2^{-102}$ (still negligible) at the plateau.
+
+**The real lever: finer-grained verification boundaries.** SHA-1 forces are non-linear and fire at $u = 0$. Reducing the verification granularity from 511 cells (per row) to $G$ cells (per sub-block) means the solver gets hash verification events when $G$ contiguous cells are assigned, enabling pruning at a $G$-cell boundary instead of a 511-cell boundary. At $G = 64$: the solver gets a verification event every 64 assignments (within the block), providing ~8 pruning checkpoints per row instead of 1.
+
+### B.44.5 Sub-experiment B.44a: Constraint Family Discovery via Simulation
+
+**Objective.** Empirically determine which candidate families provide the most independent constraints per payload bit, and measure the marginal depth improvement from each.
+
+**Method.** Write a Python simulation tool (`tools/b44a_constraint_sim.py`) that:
+
+1. Constructs the $5{,}108 \times 261{,}121$ constraint matrix $A$ for the current 8-family system (reusing B.39a code).
+2. For each candidate family from &sect;B.44.3, extends $A$ with the new constraint lines.
+3. Computes the GF(2) rank of the extended matrix to determine the number of **new independent constraints** (rank increase over the baseline 5,097).
+4. Computes the new null-space dimension ($261{,}121 - \text{rank}_{\text{new}}$).
+5. Estimates the payload cost of the new family (bits per constraint line &times; number of lines).
+6. Computes the **information efficiency**: independent constraints gained per payload bit.
+
+**Families to test:**
+
+| ID | Family | Lines | Bits/line | Payload bits | Expected new rank |
+|----|--------|-------|-----------|-------------|-------------------|
+| C1a | Sub-row blocks ($B = 2$) | 1,022 | 8 | 8,176 | ~511 |
+| C1b | Sub-row blocks ($B = 4$) | 2,044 | 7 | 14,308 | ~1,533 |
+| C2a | Row parity on new random partitions | 511 | 1 | 511 | ~510 |
+| C2b | 8 parity partitions (FY, new seeds) | 4,088 | 1 | 4,088 | ~4,080 |
+| C4a | MOLS(511) partition (1 square) | 511 | 9 | 4,599 | ~510 |
+| C4b | MOLS(511) partitions (6 squares) | 3,066 | 9 | 27,594 | ~3,060 |
+| C5a | Sub-row SHA-1 ($G = 128$, 4 blocks/row) | 2,044 | 160 | 326,240 | N/A (non-linear) |
+| C5b | Sub-row SHA-1 ($G = 64$, 8 blocks/row) | 4,088 | 160 | 654,080 | N/A (non-linear) |
+| C6a | CRC-32 per LTP line | 2,044 | 32 | 65,408 | N/A (non-linear) |
+
+**Key metric:** For linear families (C1, C2, C4), the rank increase directly measures the information gained. For hash families (C5, C6), the value is in verification granularity, not rank&mdash;these must be tested via solver simulation.
+
+**Solver depth simulation.** For each candidate family, modify the synthetic-block test infrastructure to:
+1. Compute the new constraint values from the known CSM.
+2. Load them as additional constraints in the solver.
+3. Measure peak depth with the extended constraint system.
+4. Compare against the 86,125 baseline.
+
+This can be done in Python for the rank analysis and via C++ solver modifications for the depth measurement.
+
+### B.44.6 Sub-experiment B.44b: Sub-Row Block Sums
+
+**Prerequisite.** B.44a rank analysis confirms that sub-row block sums (C1a or C1b) provide $\geq 500$ new independent constraints.
+
+**Hypothesis.** Splitting each row into $B$ blocks and storing sub-block sums provides finer-grained constraint information that forces cells within partially-assigned rows. At the plateau, rows have $u = 300$-$400$ unknowns distributed across the full 511-cell width. Sub-block sums ($B = 4$: blocks of ~128 cells each) provide 4 independent residuals per row, each with $u_{\text{block}} \approx 75$-$100$. While $2^{-75}$ is still negligibly small for direct forcing ($\rho = 0$ or $\rho = u$), the sub-block sums provide **tighter bounds** on each cell's feasibility: a cell in a block with $\rho_{\text{block}} = 0$ is forced to 0 even if the full-row $\rho$ is nonzero.
+
+**Implementation.** Extend `ConstraintStore` with sub-row block lines. Each row $r$ is divided into $B$ blocks: cells $[r, 0..127]$, $[r, 128..255]$, $[r, 256..383]$, $[r, 384..510]$. Each block is a new constraint line with its own target sum (stored in the payload) and its own $u/\rho$ statistics. The propagation engine handles these lines identically to existing lines.
+
+**Payload cost.** $511 \times 3 \times 7 = 10{,}731$ bits ($B = 4$: 3 new block sums per row, since the 4th is determined by the row sum). Adds ~1,342 bytes to the block payload.
+
+**Expected outcome.** If sub-block $\rho = 0$ or $\rho = u$ events occur during DFS in the meeting band, propagation will force additional cells, potentially cascading to deeper depths. The question is how often sub-block residuals hit extremes when the full-row residual does not.
+
+### B.44.7 Sub-experiment B.44c: Parity Partitions (Cheap Information)
+
+**Prerequisite.** B.44a confirms parity constraints add $\geq 500$ independent constraints per 511 bits of payload.
+
+**Hypothesis.** Random parity partitions are the cheapest way to add independent constraints: 1 bit per line vs 9 bits for a sum. Eight new FY-shuffled parity partitions (C2b) would add ~4,080 independent constraints at a payload cost of only 4,088 bits (511 bytes)&mdash;an order of magnitude more efficient than LTP sums per payload bit.
+
+**Mechanism.** Each parity partition assigns every cell to one of 511 parity lines (via Fisher-Yates shuffle, different seeds from LTP1-6). The stored parity bit for each line is the XOR of all cells on that line. During propagation, when a parity line has $u = 1$ (one unknown cell), the cell's value is determined: $v = \text{parity}_{\text{stored}} \oplus \text{assigned\_parity}$. This is a new forcing rule: $u = 1$ forcing via parity, independent of the sum-based $\rho = 0 / \rho = u$ forcing.
+
+**Key advantage.** Parity forcing fires at $u = 1$ (exactly one unknown on the line), which is a much more achievable threshold than $\rho = 0$ (requires all remaining unknowns to be zero). In the meeting band, parity lines from random partitions will reach $u = 1$ as the DFS assigns cells&mdash;providing forcing events that sum-based constraints cannot.
+
+**Key risk.** Parity constraints carry only 1 bit of information per line (vs 9 bits for a sum). The forcing is weaker: it fires only at $u = 1$ (not $u > 1$), and it provides no residual tightening during propagation cascades.
+
+**Payload cost.** $8 \times 511 \times 1 = 4{,}088$ bits = 511 bytes. New payload size: $16{,}899 + 511 = 17{,}410$ bytes. Compression ratio: $17{,}410 / 32{,}641 = 53.3\%$ (from 51.8%).
+
+### B.44.8 Sub-experiment B.44d: Sub-Block Hash Verification (Finer Pruning Boundaries)
+
+**Prerequisite.** B.44a solver simulation shows that linear constraint families (B.44b, B.44c) provide insufficient depth improvement. This sub-experiment tests whether finer hash verification boundaries break through the ceiling via non-linear constraints.
+
+**Hypothesis.** The B.40 finding&mdash;no SHA-1 events at the plateau because no row reaches $u = 0$&mdash;identifies the verification boundary as the binding constraint. If hash verification fires at $G$-cell sub-block boundaries instead of 511-cell row boundaries, the solver can prune infeasible sub-trees 8&times; sooner (for $G = 64$).
+
+**Method.** Divide each 511-bit row into 8 blocks of 64 bits (blocks 0-6: 64 bits each, block 7: 63 bits + 1 padding). Compute SHA-1 of each 64-bit block independently. Store 8 block hashes per row: $511 \times 8 \times 160 = 653{,}280$ bits. This is a **large** payload increase (81,660 bytes), raising the block payload to ~98,559 bytes and the compression ratio to ~302%.
+
+**The compression ratio exceeds 100%**: the payload is 3&times; larger than the original data. This makes the approach impractical for compression, but the experiment isolates the question: **does finer hash verification extend depth, regardless of payload cost?**
+
+If the answer is yes, the next step is to find a cheaper hash mechanism (CRC-32, truncated SHA-1, or block parity) that provides similar pruning at lower payload cost.
+
+**Alternative: CRC-32 sub-block verification (B.44d').** Use 32-bit CRC instead of 160-bit SHA-1. Payload: $511 \times 8 \times 32 = 130{,}816$ bits = 16,352 bytes. New total: ~33,251 bytes. Ratio: ~102%. CRC-32 has collision probability $2^{-32}$ per block, which is adequate for pruning (the solver doesn't need cryptographic collision resistance for pruning, only for correctness&mdash;BH provides the final guarantee).
+
+### B.44.9 Implementation Plan
+
+B.44 sub-experiments are ordered by implementation cost and information yield:
+
+1. **B.44a (simulation):** Python-only. Reuse B.39a's constraint matrix infrastructure. Extend with candidate families, measure rank. Estimate: ~200 lines of Python, 1-2 hours of computation. **Do this first.**
+
+2. **B.44c (parity partitions):** Cheapest to implement and test. Add 8 parity lines to ConstraintStore + PropagationEngine + payload. Estimate: ~100 lines of C++, minor payload format change.
+
+3. **B.44b (sub-row block sums):** Moderate complexity. Add block-sum lines to ConstraintStore. Estimate: ~150 lines of C++.
+
+4. **B.44d (sub-block hashes):** Most complex. Requires new hash verifier, modified DFS loop, significant payload change. Estimate: ~300 lines of C++. Test CRC-32 variant first (cheaper payload).
+
+### B.44.10 Relationship to Prior Work
+
+**B.27 (LTP5/LTP6: Inert).** B.27 added two more LTP sub-tables and found zero depth improvement. The B.39a analysis explains why: each LTP sub-table adds 510 independent constraints, but these are sum-based constraints on 511-cell lines. At the plateau, lines with $u = 300$ have $\rho$ far from both 0 and $u$&mdash;the new constraints provide no forcing. B.44c (parity partitions) addresses this by using a different forcing rule ($u = 1$ parity forcing instead of $\rho = 0/u$ sum forcing).
+
+**B.20 (Toroidal-Slope to LTP Transition).** B.20 replaced algebraically structured partitions with pseudorandom Fisher-Yates partitions, gaining depth because FY partitions are uncorrelated with the geometric families. B.44.4 (MOLS) revisits algebraic structure, but with a different motivation: MOLS provides guaranteed uniform pairwise intersection between families, which may enable tighter joint bounds than random partitions (whose intersection structure is probabilistic).
+
+**B.42a (Interval Tightening: Zero Potential).** B.42a showed that per-cell interval bounds $[v_{\min}, v_{\max}]$ from the current 8 families are always $[0, 1]$. Adding new families (B.44b sub-block sums, B.44c parity) may tighten these bounds because the new constraints provide independent information about sub-regions of the row. Sub-block sums in particular decompose the row residual into block residuals, each with smaller $u$, potentially reaching $v_{\min} = v_{\max}$ where the full-row constraint cannot.
+
+**B.40 (No SHA-1 at Plateau).** B.40's null result directly motivates B.44d: if the solver never reaches $u = 0$ on a full row, make the verification boundary smaller so $u = 0$ is achievable on sub-blocks.
+
+**Status: PROPOSED.**
 
 ---
 

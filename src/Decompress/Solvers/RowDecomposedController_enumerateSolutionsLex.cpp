@@ -68,7 +68,14 @@ namespace crsce::decompress::solvers {
          *        set for kDepthStallIterMax consecutive iterations, the TD direction
          *        has genuinely stalled at its ceiling and BU is triggered.
          */
-        constexpr std::uint64_t kDepthStallIterMax = 1'000'000ULL;
+        // B.40: When CRSCE_B40_PROFILE is set, disable B.31 direction switching
+        // by setting the stall threshold to max, keeping the solver in top-down mode
+        // so SHA-1 failures occur in the meeting band (rows ~150-190) rather than
+        // on row 510 (bottom-up). Normal mode uses 1M iterations.
+        const std::uint64_t kDepthStallIterMax =
+            (std::getenv("CRSCE_B40_PROFILE") != nullptr) // NOLINT(concurrency-mt-unsafe)
+                ? UINT64_MAX
+                : 1'000'000ULL;
 
         /**
          * @name kDirBuIterBudget
@@ -351,6 +358,21 @@ namespace crsce::decompress::solvers {
         std::vector<bool>               buVerifiedRowFlags(kS, false);
         std::uint64_t                   b31HardCommits = 0;
 
+        // --- B.42a waste instrumentation ---
+        // Counts how often the preferred value is infeasible (immediate backtrack to alternate).
+        // Also tracks interval-tightening potential: for each branch, could cross-line
+        // v_min/v_max analysis have determined the cell without branching?
+        std::uint64_t b42PreferredInfeasible   = 0; // preferred value failed, tried alternate
+        std::uint64_t b42AlternateInfeasible   = 0; // alternate value also failed (both dead)
+        std::uint64_t b42BothFeasible          = 0; // both values feasible, normal branch  // NOLINT(misc-const-correctness)
+        std::uint64_t b42IntervalForced        = 0; // v_min == v_max (cell determinable by L2)
+        std::uint64_t b42IntervalContradict    = 0; // v_min > v_max (immediate contradiction by L2)
+        std::uint64_t b42IntervalUndetermined  = 0; // v_min < v_max (L2 cannot resolve)
+        std::uint64_t b42TotalBranches         = 0; // total branching decisions
+        // Wasted depth: sum of (stack depth at infeasibility detection - stack depth at branch)
+        std::uint64_t b42WastedCellsTotal      = 0; // NOLINT(misc-const-correctness)
+        std::uint64_t b42WastedEvents          = 0; // NOLINT(misc-const-correctness)
+
         // --- Global DFS loop ---
         std::vector<ProbDfsFrame> stack;
         stack.reserve(cellOrder.size());
@@ -424,32 +446,63 @@ namespace crsce::decompress::solvers {
             }
 
             // Determine branch value: preferred first, then alternate
-            const std::uint8_t v = (frame.nextValue == 0)
+            std::uint8_t v = (frame.nextValue == 0)
                 ? frame.preferred
                 : static_cast<std::uint8_t>(1 - frame.preferred);
             frame.nextValue++;
 
-            // Phase B: Adaptive lookahead — probe alternate value at current depth k.
-            // k=0: skip probing (fastest forward progress).
-            // k=1: single-level probe via probeAlternate (existing hot-path).
-            // k=2..4: recursive k-level probe via probeAlternateDeep.
+            // Save undo point BEFORE probing so frame.token is valid for early continue
+            frame.token = brancher_->saveUndoPoint();
+
+            // B.42c: Both-value probing during DFS.
+            // On first attempt (preferred value), probe BOTH values to detect:
+            //   - Both infeasible → immediate backtrack (saves 2 assign/propagate/undo cycles)
+            //   - One forced → assign forced value directly (saves 1 wasted cycle)
+            //   - Both feasible → proceed normally with preferred first
             if (frame.nextValue == 1) {
-                const auto k = detector.currentK();
-                if (k > 0) {
-                    const auto altV = static_cast<std::uint8_t>(1 - v);
-                    bool feasible = false;
-                    if (k == 1) {
-                        feasible = prober.probeAlternate(frame.row, frame.col, altV);
-                    } else {
-                        feasible = prober.probeAlternateDeep(frame.row, frame.col, altV, k);
-                    }
-                    if (!feasible) {
-                        frame.nextValue = 2; // alternate is dead — force current value
-                    }
+                const auto probeResult = prober.probeCell(frame.row, frame.col);
+                if (probeResult.bothInfeasible) {
+                    // Neither value works — backtrack without trying either
+                    frame.nextValue = 2;
+                    continue;
                 }
+                if (probeResult.forcedValue != 255) {
+                    // One value is forced — use that value, mark alternate as dead
+                    v = probeResult.forcedValue;
+                    frame.nextValue = 2; // only try the forced value
+                }
+                // If both feasible (forcedValue == 255): proceed with preferred (v unchanged)
             }
 
-            frame.token = brancher_->saveUndoPoint();
+            // B.42a: interval-tightening potential (L2 diagnostic)
+            // Compute v_min and v_max across all constraint lines for this cell.
+            // This does NOT change behavior — it only records what L2 would have done.
+            if (frame.nextValue == 1) { // only on first value (avoid double-counting)
+                ++b42TotalBranches;
+                const auto cellLines = cs.getLinesForCell(frame.row, frame.col);
+                std::int32_t vMin = 0;
+                std::int32_t vMax = 1;
+                for (std::uint8_t li = 0; li < cellLines.count; ++li) {
+                    const auto &stat = cs.getStatDirect(
+                        ConstraintStore::lineIndex(cellLines.lines[li])); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    const auto rho = static_cast<std::int32_t>(stat.target) -
+                                     static_cast<std::int32_t>(stat.assigned);
+                    const auto u   = static_cast<std::int32_t>(stat.unknown);
+                    // v_min: cell must be at least max(0, rho - (u - 1))
+                    const auto lineVMin = std::max(0, rho - (u - 1));
+                    // v_max: cell can be at most min(1, rho)
+                    const auto lineVMax = std::min(1, rho);
+                    vMin = std::max(vMin, lineVMin);
+                    vMax = std::min(vMax, lineVMax);
+                }
+                if (vMin > vMax) {
+                    ++b42IntervalContradict;
+                } else if (vMin == vMax) {
+                    ++b42IntervalForced;
+                } else {
+                    ++b42IntervalUndetermined;
+                }
+            }
 
             // Assign and record
             cs.assign(frame.row, frame.col, v);
@@ -467,6 +520,9 @@ namespace crsce::decompress::solvers {
             }
 
             if (!feasible) {
+                // B.42a: track which value failed
+                if (frame.nextValue == 1) { ++b42PreferredInfeasible; }
+                else { ++b42AlternateInfeasible; }
                 continue;
             }
 
@@ -523,6 +579,9 @@ namespace crsce::decompress::solvers {
             }
 
             if (hashFailed) {
+                // B.42a: hash failure counts as infeasible for the current value
+                if (frame.nextValue == 1) { ++b42PreferredInfeasible; }
+                else { ++b42AlternateInfeasible; }
                 continue; // chronological backtrack (B.25: CDCL removed — see B.21.13)
             }
 
@@ -706,13 +765,31 @@ namespace crsce::decompress::solvers {
             }
 
             if ((iterations & 0xFFFFF) == 0) {
-                // Compute min nonzero row unknown for diagnostic visibility
+                // Compute min nonzero row and column unknown for diagnostic visibility
                 std::uint16_t minNzRowUnknown = kS;
                 for (std::uint16_t r = 0; r < kS; ++r) {
                     const auto u = cs.getStatDirect(r).unknown;
                     if (u > 0 && u < minNzRowUnknown) {
                         minNzRowUnknown = u;
                     }
+                }
+                // B.41 diagnostic: column unknown counts at plateau
+                std::uint16_t minNzColUnknown = kS;
+                std::uint16_t colsComplete = 0;
+                for (std::uint16_t c = 0; c < kS; ++c) {
+                    const auto u = cs.getStatDirect(kS + c).unknown;
+                    if (u == 0) { ++colsComplete; }
+                    else if (u < minNzColUnknown) { minNzColUnknown = u; }
+                }
+                // B.43 diagnostic: RCLA eligibility — rows near completion
+                std::uint16_t rowsU1to5  = 0;
+                std::uint16_t rowsU6to10 = 0;
+                std::uint16_t rowsU11to20 = 0;
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    const auto u = cs.getStatDirect(r).unknown;
+                    if (u >= 1 && u <= 5)  { ++rowsU1to5; }
+                    else if (u <= 10)      { ++rowsU6to10; }
+                    else if (u <= 20)      { ++rowsU11to20; }
                 }
                 ::crsce::o11y::O11y::instance().metric("solver_dfs_iterations", {
                     {"iterations",          iterations,      ::crsce::o11y::O11y::MetricKind::Counter},
@@ -736,10 +813,25 @@ namespace crsce::decompress::solvers {
                     {"b31_bu_iter_count",   dirBuIterCount,      ::crsce::o11y::O11y::MetricKind::Gauge},
                     {"b31_direction",       static_cast<std::uint64_t>(direction == SolverDirection::BottomUp ? 1 : 0),
                                                                  ::crsce::o11y::O11y::MetricKind::Gauge},
-                    {"b31_hard_commits",    b31HardCommits,      ::crsce::o11y::O11y::MetricKind::Counter}});
+                    {"b31_hard_commits",    b31HardCommits,      ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b41_min_nz_col_unknown", minNzColUnknown, ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"b41_cols_complete",      colsComplete,    ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"b42_total_branches",     b42TotalBranches,       ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b42_pref_infeasible",    b42PreferredInfeasible, ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b42_alt_infeasible",     b42AlternateInfeasible, ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b42_interval_forced",    b42IntervalForced,      ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b42_interval_contradict",b42IntervalContradict,  ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b42_interval_undetermined",b42IntervalUndetermined,::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b43_rows_u1to5",          rowsU1to5,             ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"b43_rows_u6to10",         rowsU6to10,            ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"b43_rows_u11to20",        rowsU11to20,           ::crsce::o11y::O11y::MetricKind::Gauge}});
 
-                // B.40: periodically flush profiling data (~every 100M iterations)
-                if (b40Enabled && (iterations % 100'000'000) == 0) {
+                // B.40: flush profiling data every ~100M iterations when enabled.
+                // The outer block fires every ~1M iterations (0x100000). We use a
+                // simple counter to flush every 100th entry into this block.
+                static std::uint64_t b40FlushCounter = 0;
+                ++b40FlushCounter;
+                if (b40Enabled && (b40FlushCounter % 100) == 0) {
                     std::ofstream b40Out(b40ProfilePath, std::ios::binary | std::ios::trunc); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                     if (b40Out.is_open()) {
                         constexpr std::array<char, 4> b40Magic = {'B', '4', '0', 'P'};
