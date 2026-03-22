@@ -17,10 +17,12 @@
 #include <queue>
 #include <span>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 #include "common/Csm/Csm.h"
+#include "common/Util/crc32_ieee.h"
 #include "common/Generator/Generator.h"
 #include "common/O11y/O11y.h"
 #include "decompress/Solvers/BeliefPropagator.h"
@@ -221,6 +223,7 @@ namespace crsce::decompress::solvers {
      * @throws None
      */
     // NOLINTNEXTLINE(readability-static-accessed-through-instance)
+    // NOLINTNEXTLINE(readability-function-size,readability-static-accessed-through-instance)
     auto RowDecomposedController::enumerateSolutionsLex() -> crsce::common::Generator<crsce::common::Csm> {
         auto &cs = static_cast<ConstraintStore &>(*store_); // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
         auto *cpuProp = dynamic_cast<PropagationEngine *>(propagator_.get());
@@ -373,6 +376,218 @@ namespace crsce::decompress::solvers {
         std::uint64_t b42WastedCellsTotal      = 0; // NOLINT(misc-const-correctness)
         std::uint64_t b42WastedEvents          = 0; // NOLINT(misc-const-correctness)
 
+        // --- B.44c parity partition forcing ---
+        // When CRSCE_B44C_PARITY is set, load parity sidecar and enable u=1 parity forcing.
+        const char *b44cPath = std::getenv("CRSCE_B44C_PARITY"); // NOLINT(concurrency-mt-unsafe)
+        const bool b44cEnabled = (b44cPath != nullptr) && (b44cPath[0] != '\0'); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::uint8_t b44cNumPartitions = 0;
+        // Per-partition: assignment[N] (cell -> line), target_parity[S], unknown[S], assigned_xor[S]
+        std::vector<std::vector<std::uint16_t>> b44cAsn;    // [partition][cell] -> line
+        std::vector<std::vector<std::uint8_t>>  b44cTarget; // [partition][line] -> target parity
+        std::vector<std::vector<std::uint16_t>> b44cU;      // [partition][line] -> unknown count
+        std::vector<std::vector<std::uint8_t>>  b44cXor;    // [partition][line] -> assigned XOR
+        // Per-partition: cells on each line (for finding the u=1 cell)
+        std::vector<std::vector<std::vector<std::uint32_t>>> b44cLineCells; // [part][line] -> [flat cells]
+        std::uint64_t b44cForcings = 0;
+        if (b44cEnabled) {
+            std::ifstream pf(b44cPath, std::ios::binary); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            if (pf.is_open()) {
+                std::array<char, 4> magic{};
+                pf.read(magic.data(), 4);
+                std::uint16_t dim = 0;
+                pf.read(reinterpret_cast<char *>(&dim), 2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                pf.read(reinterpret_cast<char *>(&b44cNumPartitions), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                if (dim == kS && b44cNumPartitions > 0) {
+                    b44cAsn.resize(b44cNumPartitions);
+                    b44cTarget.resize(b44cNumPartitions);
+                    b44cU.resize(b44cNumPartitions);
+                    b44cXor.resize(b44cNumPartitions);
+                    b44cLineCells.resize(b44cNumPartitions);
+                    for (std::uint8_t p = 0; p < b44cNumPartitions; ++p) {
+                        b44cAsn[p].resize(static_cast<std::size_t>(kS) * kS);
+                        pf.read(reinterpret_cast<char *>(b44cAsn[p].data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                                static_cast<std::streamsize>(static_cast<std::size_t>(kS) * kS * 2));
+                        b44cTarget[p].resize(kS);
+                        pf.read(reinterpret_cast<char *>(b44cTarget[p].data()), kS); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        b44cU[p].assign(kS, kS); // each line starts with 511 unknowns
+                        b44cXor[p].assign(kS, 0);
+                        // Build cell lists per line
+                        b44cLineCells[p].resize(kS);
+                        for (std::uint32_t flat = 0; flat < static_cast<std::uint32_t>(kS) * kS; ++flat) {
+                            b44cLineCells[p][b44cAsn[p][flat]].push_back(flat); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                        }
+                    }
+                    // Apply initial propagation: cells already assigned by initial propagation
+                    for (std::uint16_t r = 0; r < kS; ++r) {
+                        for (std::uint16_t c = 0; c < kS; ++c) {
+                            if (cs.getCellState(r, c) != CellState::Unassigned) {
+                                const auto flat = (static_cast<std::uint32_t>(r) * kS) + c;
+                                const auto val = cs.getCellValue(r, c);
+                                for (std::uint8_t p = 0; p < b44cNumPartitions; ++p) {
+                                    const auto line = b44cAsn[p][flat]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                                    --b44cU[p][line]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                                    b44cXor[p][line] ^= val; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                                }
+                            }
+                        }
+                    }
+                    ::crsce::o11y::O11y::instance().event("b44c_parity_loaded",
+                        {{"partitions", std::to_string(b44cNumPartitions)}});
+                }
+            }
+        }
+        // B.44c parity change log for undo support.
+        // Each entry: (partition, line, cell_value) — replayed in reverse on undo.
+        struct B44cLogEntry {
+            std::uint8_t  partition; ///< @brief Partition index.
+            std::uint16_t line;     ///< @brief Line index within partition.
+            std::uint8_t  value;    ///< @brief Cell value that was assigned (for XOR reversal).
+        };
+        std::vector<B44cLogEntry> b44cLog;
+        std::vector<std::size_t>  b44cLogMarkers; // save-point markers into b44cLog
+
+        auto b44cAssign = [&](std::uint16_t r, std::uint16_t c, std::uint8_t val) {
+            if (!b44cEnabled) { return; }
+            const auto flat = (static_cast<std::uint32_t>(r) * kS) + c;
+            for (std::uint8_t p = 0; p < b44cNumPartitions; ++p) {
+                const auto line = b44cAsn[p][flat]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                --b44cU[p][line]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                b44cXor[p][line] ^= val; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                b44cLog.push_back({p, line, val});
+            }
+        };
+        auto b44cSavePoint = [&]() -> std::size_t {
+            return b44cLog.size();
+        };
+        auto b44cUndoTo = [&](std::size_t marker) {
+            while (b44cLog.size() > marker) {
+                const auto &e = b44cLog.back();
+                ++b44cU[e.partition][e.line]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                b44cXor[e.partition][e.line] ^= e.value; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                b44cLog.pop_back();
+            }
+        };
+        // Check all parity lines for u=1 forcing; returns list of (r,c,v) to force
+        auto b44cCheckForcing = [&]() -> std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> {
+            std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> forced;
+            if (!b44cEnabled) { return forced; }
+            for (std::uint8_t p = 0; p < b44cNumPartitions; ++p) {
+                for (std::uint16_t line = 0; line < kS; ++line) {
+                    if (b44cU[p][line] != 1) { continue; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    // Find the one unassigned cell on this line
+                    for (const auto flat : b44cLineCells[p][line]) { // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                        const auto cr = static_cast<std::uint16_t>(flat / kS);
+                        const auto cc = static_cast<std::uint16_t>(flat % kS);
+                        if (cs.getCellState(cr, cc) == CellState::Unassigned) {
+                            const auto val = static_cast<std::uint8_t>(
+                                b44cTarget[p][line] ^ b44cXor[p][line]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                            forced.emplace_back(cr, cc, val);
+                            break;
+                        }
+                    }
+                }
+            }
+            return forced;
+        };
+
+        // --- B.44d sub-block CRC-32 verification ---
+        // When CRSCE_B44D_SUBBLOCK is set, load sub-block CRC-32 sidecar and verify
+        // sub-blocks of each row as they reach u=0 during DFS.
+        const char *b44dPath = std::getenv("CRSCE_B44D_SUBBLOCK"); // NOLINT(concurrency-mt-unsafe)
+        const bool b44dEnabled = (b44dPath != nullptr) && (b44dPath[0] != '\0'); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        constexpr std::uint16_t kBlockSize = 64;
+        constexpr std::uint8_t  kBlocksPerRow = 8;
+        // Per-row, per-block: expected CRC-32 and unknown count
+        std::vector<std::uint32_t> b44dCrc;    // [row * kBlocksPerRow + block]
+        std::vector<std::uint16_t> b44dBlockU; // [row * kBlocksPerRow + block]
+        std::uint64_t b44dVerifications = 0;
+        std::uint64_t b44dMismatches = 0;
+        if (b44dEnabled) {
+            std::ifstream df(b44dPath, std::ios::binary); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            if (df.is_open()) {
+                std::array<char, 4> dMagic{};
+                df.read(dMagic.data(), 4);
+                std::uint16_t dDim = 0;
+                df.read(reinterpret_cast<char *>(&dDim), 2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                std::uint8_t dBlocks = 0;
+                std::uint8_t dBlockSz = 0;
+                df.read(reinterpret_cast<char *>(&dBlocks), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                df.read(reinterpret_cast<char *>(&dBlockSz), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                if (dDim == kS && dBlocks == kBlocksPerRow && dBlockSz == kBlockSize) {
+                    b44dCrc.resize(static_cast<std::size_t>(kS) * kBlocksPerRow);
+                    df.read(reinterpret_cast<char *>(b44dCrc.data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                            static_cast<std::streamsize>(b44dCrc.size() * 4));
+                    // Initialize block unknown counts
+                    b44dBlockU.resize(static_cast<std::size_t>(kS) * kBlocksPerRow);
+                    for (std::uint16_t r = 0; r < kS; ++r) {
+                        for (std::uint8_t b = 0; b < kBlocksPerRow; ++b) {
+                            const auto cStart = static_cast<std::uint16_t>(b * kBlockSize);
+                            const auto cEnd = std::min(static_cast<std::uint16_t>(cStart + kBlockSize), kS);
+                            std::uint16_t unknowns = 0;
+                            for (auto c = cStart; c < cEnd; ++c) {
+                                if (cs.getCellState(r, c) == CellState::Unassigned) { ++unknowns; }
+                            }
+                            b44dBlockU[(static_cast<std::size_t>(r) * kBlocksPerRow) + b] = unknowns;
+                        }
+                    }
+                    ::crsce::o11y::O11y::instance().event("b44d_subblock_loaded",
+                        {{"blocks_per_row", std::to_string(kBlocksPerRow)},
+                         {"block_size", std::to_string(kBlockSize)}});
+                }
+            }
+        }
+        // B.44d undo log: track block-u changes for undo support
+        struct B44dLogEntry {
+            std::uint16_t row;  ///< @brief Row index.
+            std::uint8_t block; ///< @brief Block index within row.
+        };
+        std::vector<B44dLogEntry> b44dLog;
+        std::vector<std::size_t>  b44dLogMarkers;
+
+        auto b44dOnAssign = [&](std::uint16_t r, std::uint16_t c) -> std::uint8_t {
+            const auto b = static_cast<std::uint8_t>(c / kBlockSize);
+            if (b44dEnabled && !b44dBlockU.empty()) {
+                --b44dBlockU[(static_cast<std::size_t>(r) * kBlocksPerRow) + b]; // NOLINT
+                b44dLog.push_back({r, b});
+            }
+            return b;
+        };
+        auto b44dSavePoint = [&]() -> std::size_t { return b44dLog.size(); };
+        auto b44dUndoTo = [&](std::size_t marker) {
+            while (b44dLog.size() > marker) {
+                const auto &e = b44dLog.back();
+                ++b44dBlockU[(static_cast<std::size_t>(e.row) * kBlocksPerRow) + e.block]; // NOLINT
+                b44dLog.pop_back();
+            }
+        };
+        // Lambda: verify a sub-block if complete (u=0); returns false if CRC mismatch
+        auto b44dVerifyBlock = [&](std::uint16_t r, std::uint8_t b) -> bool {
+            if (!b44dEnabled || b44dBlockU.empty()) { return true; }
+            if (b44dBlockU[(static_cast<std::size_t>(r) * kBlocksPerRow) + b] != 0) { return true; } // NOLINT
+            // Block is complete — compute CRC-32 and verify
+            ++b44dVerifications;
+            const auto cStart = static_cast<std::uint16_t>(b * kBlockSize);
+            const auto cEnd = std::min(static_cast<std::uint16_t>(cStart + kBlockSize), kS);
+            // Pack block bits MSB-first
+            std::array<std::uint8_t, 8> blockBytes{};
+            for (auto c = cStart; c < cEnd; ++c) {
+                const auto bitIdx = c - cStart;
+                const auto byteIdx = bitIdx / 8;
+                const auto bitPos = 7 - (bitIdx % 8);
+                if (cs.getCellValue(r, c) != 0) {
+                    blockBytes[byteIdx] |= (1U << bitPos); // NOLINT
+                }
+            }
+            const auto numBytes = static_cast<std::size_t>((cEnd - cStart) + 7) / 8;
+            const auto computed = ::crsce::common::util::crc32_ieee(blockBytes.data(), numBytes);
+            const auto expected = b44dCrc[(static_cast<std::size_t>(r) * kBlocksPerRow) + b]; // NOLINT
+            if (computed != expected) {
+                ++b44dMismatches;
+                return false;
+            }
+            return true;
+        };
+
         // --- Global DFS loop ---
         std::vector<ProbDfsFrame> stack;
         stack.reserve(cellOrder.size());
@@ -437,6 +652,14 @@ namespace crsce::decompress::solvers {
             // Undo previous value's assignment before trying the next
             if (frame.nextValue > 0) {
                 brancher_->undoToSavePoint(frame.token);
+                if (b44cEnabled && !b44cLogMarkers.empty()) {
+                    b44cUndoTo(b44cLogMarkers.back());
+                    b44cLogMarkers.pop_back();
+                }
+                if (b44dEnabled && !b44dLogMarkers.empty()) {
+                    b44dUndoTo(b44dLogMarkers.back());
+                    b44dLogMarkers.pop_back();
+                }
             }
 
             // Both values exhausted -- backtrack
@@ -453,6 +676,8 @@ namespace crsce::decompress::solvers {
 
             // Save undo point BEFORE probing so frame.token is valid for early continue
             frame.token = brancher_->saveUndoPoint();
+            if (b44cEnabled) { b44cLogMarkers.push_back(b44cSavePoint()); }
+            if (b44dEnabled) { b44dLogMarkers.push_back(b44dSavePoint()); }
 
             // B.42c: Both-value probing during DFS.
             // On first attempt (preferred value), probe BOTH values to detect:
@@ -537,6 +762,57 @@ namespace crsce::decompress::solvers {
                 }
             }
 
+            // B.44c: update parity state for the assigned cell and all propagated cells
+            b44cAssign(frame.row, frame.col, v);
+            for (const auto &a : forced) {
+                b44cAssign(a.r, a.c, cs.getCellValue(a.r, a.c));
+            }
+
+            // B.44c: parity u=1 forcing cascade
+            if (b44cEnabled) {
+                bool parityFeasible = true;
+                for (;;) {
+                    const auto parityForced = b44cCheckForcing();
+                    if (parityForced.empty()) { break; }
+                    for (const auto &[pr, pc, pv] : parityForced) {
+                        if (cs.getCellState(pr, pc) != CellState::Unassigned) { continue; }
+                        cs.assign(pr, pc, pv);
+                        brancher_->recordAssignment(pr, pc);
+                        b44cAssign(pr, pc, pv);
+                        ++b44cForcings;
+                        // Propagate the parity-forced cell
+                        bool pFeasible = false;
+                        if (cpuProp != nullptr) {
+                            pFeasible = cpuProp->tryPropagateCell(pr, pc);
+                        } else {
+                            const auto pLines = cs.getLinesForCell(pr, pc);
+                            (*propagator_).reset();
+                            pFeasible = propagator_->propagate(
+                                std::span<const LineID>{pLines.lines.data(),
+                                    static_cast<std::size_t>(pLines.count)});
+                        }
+                        if (!pFeasible) {
+                            parityFeasible = false;
+                            break;
+                        }
+                        // Record propagated cells from parity forcing
+                        const auto &pForced = (cpuProp != nullptr)
+                            ? cpuProp->getForcedAssignments()
+                            : propagator_->getForcedAssignments();
+                        for (const auto &pa : pForced) {
+                            brancher_->recordAssignment(pa.r, pa.c);
+                            b44cAssign(pa.r, pa.c, cs.getCellValue(pa.r, pa.c));
+                        }
+                    }
+                    if (!parityFeasible) { break; }
+                }
+                if (!parityFeasible) {
+                    if (frame.nextValue == 1) { ++b42PreferredInfeasible; }
+                    else { ++b42AlternateInfeasible; }
+                    continue; // backtrack
+                }
+            }
+
             // Check rows affected by this assignment wave for heap eligibility
             auto checkHeapRow = [&](std::uint16_t r) {
                 const auto u = cs.getStatDirect(r).unknown;
@@ -547,6 +823,27 @@ namespace crsce::decompress::solvers {
             checkHeapRow(frame.row);
             for (const auto &a : forced) {
                 checkHeapRow(a.r);
+            }
+
+            // --- B.44d sub-block CRC-32 verification ---
+            // Update block unknown counts and verify completed blocks.
+            if (b44dEnabled && !b44dBlockU.empty()) {
+                bool blockFailed = false;
+                // Direct assignment
+                const auto blk = b44dOnAssign(frame.row, frame.col);
+                if (!b44dVerifyBlock(frame.row, blk)) { blockFailed = true; }
+                // Propagated cells
+                if (!blockFailed) {
+                    for (const auto &a : forced) {
+                        const auto ab = b44dOnAssign(a.r, a.c);
+                        if (!b44dVerifyBlock(a.r, ab)) { blockFailed = true; break; }
+                    }
+                }
+                if (blockFailed) {
+                    if (frame.nextValue == 1) { ++b42PreferredInfeasible; }
+                    else { ++b42AlternateInfeasible; }
+                    continue; // backtrack on CRC mismatch
+                }
             }
 
             // --- Cross-row hash verification ---
@@ -824,7 +1121,10 @@ namespace crsce::decompress::solvers {
                     {"b42_interval_undetermined",b42IntervalUndetermined,::crsce::o11y::O11y::MetricKind::Counter},
                     {"b43_rows_u1to5",          rowsU1to5,             ::crsce::o11y::O11y::MetricKind::Gauge},
                     {"b43_rows_u6to10",         rowsU6to10,            ::crsce::o11y::O11y::MetricKind::Gauge},
-                    {"b43_rows_u11to20",        rowsU11to20,           ::crsce::o11y::O11y::MetricKind::Gauge}});
+                    {"b43_rows_u11to20",        rowsU11to20,           ::crsce::o11y::O11y::MetricKind::Gauge},
+                    {"b44c_parity_forcings",    b44cForcings,          ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b44d_block_verifications",b44dVerifications,     ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b44d_block_mismatches",   b44dMismatches,        ::crsce::o11y::O11y::MetricKind::Counter}});
 
                 // B.40: flush profiling data every ~100M iterations when enabled.
                 // The outer block fires every ~1M iterations (0x100000). We use a

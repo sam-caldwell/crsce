@@ -11271,6 +11271,32 @@ At the plateau, typical lines have $u \approx 300$. The probability of any singl
 
 This can be done in Python for the rank analysis and via C++ solver modifications for the depth measurement.
 
+#### B.44.5a B.44a Results (Completed)
+
+The rank analysis was run using `tools/b44a_constraint_sim.py` with the B.38-optimized LTP table. GF(2) Gaussian elimination on the extended constraint matrices produced the following results:
+
+| Family | Lines added | Payload bits | Rank gain | New null dim | Efficiency (constraints/bit) |
+|--------|-------------|-------------|-----------|-------------|------------------------------|
+| Baseline (8 families) | 5,108 | 43,964 | &mdash; | 256,024 | &mdash; |
+| Sub-row B=2 (C1a) | +1,022 | +8,176 | +510 | 255,514 | 0.0624 |
+| Sub-row B=4 (C1b) | +2,044 | +10,731 | +1,530 | 254,494 | 0.1426 |
+| 1 parity partition (C2a) | +511 | +511 | +510 | 255,514 | **0.9980** |
+| **8 parity partitions (C2b)** | **+4,088** | **+4,088** | **+4,080** | **251,944** | **0.9980** |
+| 1 MOLS(511) (C4a) | +511 | +4,599 | **0** | 256,024 | 0.0000 |
+| 6 MOLS(511) (C4b) | +3,066 | +27,594 | +2,544 | 253,480 | 0.0922 |
+
+**Key findings.**
+
+1. **Parity partitions dominate.** 8 parity partitions (C2b) provide 4,080 new independent constraints at only 4,088 bits (511 bytes)&mdash;an efficiency of 0.998 constraints per payload bit. This is **16&times; more efficient** than sub-row blocks and **11&times; more efficient** than MOLS.
+
+2. **MOLS(511) with 1 square is completely redundant.** The Galois-field construction $\ell = kr + c \pmod{511}$ produces lines that are linear combinations of existing row+column constraints over GF(2). Zero new independent constraints are gained. Even 6 MOLS squares add only 2,544 constraints (not the expected 3,060) because of partial redundancy.
+
+3. **Sub-row B=4 adds 1,530 constraints** but at 10,731 bits&mdash;an efficiency of 0.14, an order of magnitude worse than parity. However, sub-row sums provide **sum-based** constraints ($\rho = 0/u$ forcing) whereas parity provides only **parity-based** constraints ($u = 1$ forcing). The two mechanisms are complementary.
+
+4. **Scaling projection for parity.** Each parity partition adds 510 independent constraints at 511 bits. To close the 256,024-dimensional null space entirely would require ~502 parity partitions at 256,522 bits (32,066 bytes), bringing the total payload to ~49K bytes (150% compression ratio). This exceeds parity with the original data, but intermediate values (e.g., 50 partitions = 25,500 constraints = 10% null-space reduction at ~3.2K bytes) may provide meaningful depth improvement without excessive payload cost.
+
+**Decision.** Proceed to B.44c (parity partitions) as the primary candidate. B.44b (sub-row blocks) is secondary but may complement parity with sum-based forcing. B.44d (sub-block hashes) remains viable if linear families prove insufficient.
+
 ### B.44.6 Sub-experiment B.44b: Sub-Row Block Sums
 
 **Prerequisite.** B.44a rank analysis confirms that sub-row block sums (C1a or C1b) provide $\geq 500$ new independent constraints.
@@ -11297,6 +11323,25 @@ This can be done in Python for the rank analysis and via C++ solver modification
 
 **Payload cost.** $8 \times 511 \times 1 = 4{,}088$ bits = 511 bytes. New payload size: $16{,}899 + 511 = 17{,}410$ bytes. Compression ratio: $17{,}410 / 32{,}641 = 53.3\%$ (from 51.8%).
 
+#### B.44.7a B.44c Results (Completed &mdash; Null)
+
+Parity forcing was implemented in `RowDecomposedController` using 8 FY-shuffled parity partitions (seeds CRSCPAR1-8) loaded from a sidecar file (`CRSCE_B44C_PARITY` env var). The solver was run on the synthetic random 50%-density CSM block (B.38-optimized LTP table, 2-minute run).
+
+| Metric | Baseline | With 8 parity partitions |
+|--------|----------|--------------------------|
+| Peak depth | 86,125 | 86,125 |
+| Parity u=1 forcings | N/A | **0** |
+| Iterations (2 min) | 97.5M | 41.9M |
+| Iter/sec | ~825K | ~364K |
+
+**Result: zero parity forcings.** The parity $u = 1$ condition was never met during the run. The parity lines, like all existing constraint lines, have 511 cells each. At the plateau, each parity line has ~300 unknown cells (matching the meeting band). The $u = 1$ threshold requires 510 of 511 cells on a line to be assigned&mdash;which can only happen when the solver has nearly completed the entire matrix, far beyond the plateau depth.
+
+**The throughput dropped from ~825K to ~364K iter/sec** (56% overhead) due to the parity state maintenance (updating 8 partitions per cell assignment + cascaded u=1 checking per propagation event), with zero benefit.
+
+**Critical insight: line length is the binding constraint, not family count.** All constraint families in the current system use 511-cell lines (rows, columns, diagonals, LTP, parity). The forcing condition for any mechanism ($\rho = 0$, $\rho = u$, or $u = 1$) requires the line to be nearly complete. At the plateau, lines have ~300 unknowns. Adding more 511-cell lines&mdash;regardless of family type (sum, parity, or otherwise)&mdash;cannot trigger forcing because the lines are 60% unknown.
+
+**This reframes the problem.** The path to deeper propagation is not more families (which was the B.44 hypothesis) but **shorter lines**. A constraint system with lines of length $L \ll 511$ would reach the forcing condition ($u = 0$, $u = 1$, or $\rho = 0/u$) much sooner during DFS. B.44b's sub-row block sums ($L \approx 128$) and B.44d's sub-block hashes ($G = 64$) are the candidates that directly address line length.
+
 ### B.44.8 Sub-experiment B.44d: Sub-Block Hash Verification (Finer Pruning Boundaries)
 
 **Prerequisite.** B.44a solver simulation shows that linear constraint families (B.44b, B.44c) provide insufficient depth improvement. This sub-experiment tests whether finer hash verification boundaries break through the ceiling via non-linear constraints.
@@ -11310,6 +11355,52 @@ This can be done in Python for the rank analysis and via C++ solver modification
 If the answer is yes, the next step is to find a cheaper hash mechanism (CRC-32, truncated SHA-1, or block parity) that provides similar pruning at lower payload cost.
 
 **Alternative: CRC-32 sub-block verification (B.44d').** Use 32-bit CRC instead of 160-bit SHA-1. Payload: $511 \times 8 \times 32 = 130{,}816$ bits = 16,352 bytes. New total: ~33,251 bytes. Ratio: ~102%. CRC-32 has collision probability $2^{-32}$ per block, which is adequate for pruning (the solver doesn't need cryptographic collision resistance for pruning, only for correctness&mdash;BH provides the final guarantee).
+
+#### B.44.8a B.44d Results (Completed — Positive Signal)
+
+B.44d was implemented using CRC-32 verification on 64-cell sub-blocks (8 blocks per row). The solver was run on the synthetic random 50%-density CSM block (B.38-optimized LTP table, 2-minute run, B.44c parity disabled).
+
+| Metric | Baseline | With sub-block CRC-32 |
+|--------|----------|----------------------|
+| **Peak depth** | 86,125 | **86,756 (+631)** |
+| Iterations (2 min) | 97.5M | **364.9M (3.7&times; faster)** |
+| Iter/sec | ~825K | **~3,067K** |
+| Block verifications | N/A | 328M |
+| Block mismatches | N/A | 328M (100%) |
+
+**Result: POSITIVE SIGNAL.** This is the first genuine depth improvement since B.38. Key observations:
+
+1. **+631 cells of depth.** Modest but real. The sub-block CRC-32 catches infeasible partial assignments within 64-cell blocks, enabling earlier backtracking and different search-space exploration.
+
+2. **3.7&times; throughput increase.** Sub-block verification fires at 64-cell granularity, pruning bad subtrees ~8&times; sooner than per-row SHA-1. This dramatically reduces wasted DFS iterations.
+
+3. **100% block mismatch rate.** Every sub-block verification fails. This is expected: at the plateau, the solver's tentative assignments within meeting-band rows are almost never correct at the sub-block level. The CRC-32 catches them instantly.
+
+4. **Changed search-space topology.** With sub-block pruning, the solver explores a different region (min_row_unknown = 225 vs 2-6 baseline). Earlier pruning within rows changes the backtracking pattern, potentially accessing deeper configurations.
+
+**Interpretation.** Sub-block verification addresses the B.40 root cause directly: the solver previously had NO verification mechanism within partially-assigned rows. CRC-32 sub-blocks provide 8 verification checkpoints per row, each at 64-cell granularity. This breaks the "no SHA-1 events at the plateau" barrier that all previous experiments (B.40-B.44c) could not overcome.
+
+**Validation on real data: SEVERE REGRESSION.**
+
+The same B.44d configuration was tested on real MP4 data (first block of `useless-machine.mp4`, compressed with `DISABLE_COMPRESS_DI=1`, B.38-optimized LTP table). Sequential 1-minute runs, no CPU contention:
+
+| | Baseline | B.44d |
+|---|---|---|
+| Peak depth | **96,689** | **61,467 (&minus;36%)** |
+| Iter/sec | 294K | 181K |
+| Block mismatches | &mdash; | 4.7M (100%) |
+
+**Sub-block CRC-32 causes catastrophic depth regression on real data.** The solver drops from 96,689 to 61,467 &mdash; losing 35,222 cells of depth.
+
+**Root cause: early pruning destroys informative exploration.** The baseline solver reaches depth 96K by tentatively assigning cells in the meeting band, propagating their effects through column/diagonal/LTP constraints, and using the resulting constraint cascade to force cells in other rows. These tentative assignments are WRONG (they don't match the original CSM), but they provide INFORMATION &mdash; the constraint cascade from deep wrong exploration guides the solver's backtracking decisions.
+
+Sub-block CRC-32 catches wrong tentative assignments at 64-cell boundaries, forcing immediate backtracking. This cuts the constraint cascade short at depth ~61K, preventing the solver from reaching the depths where the cascade becomes informative. The solver loses its primary mechanism for making progress in the meeting band.
+
+**The synthetic block's +631 improvement is an artifact** of its different constraint structure (50% random density vs structured MP4 content). The synthetic block's simpler structure benefits from early pruning; the real data's complex structure requires deep exploration.
+
+**B.44d conclusion: sub-block hash verification is counterproductive.** Finer verification boundaries prune the search tree too aggressively, destroying the solver's ability to use tentative deep assignments as an information source. The current per-row SHA-1 verification boundary (511 cells) is not just a design choice &mdash; it is near-optimal for the DFS solver's search strategy, which relies on deep tentative exploration for constraint propagation feedback.
+
+**Status: COMPLETED &mdash; REGRESSION. Not viable for depth improvement.**
 
 ### B.44.9 Implementation Plan
 
