@@ -588,6 +588,159 @@ namespace crsce::decompress::solvers {
             return true;
         };
 
+        // --- B.45 variable-length LTP forcing (sum-based, rho=0 or rho=u) ---
+        // When CRSCE_B45_SIDECAR is set, load 8 uniform + 3 variable-length LTP
+        // partitions and apply sum-based forcing as additional constraints.
+        const char *b45Path = std::getenv("CRSCE_B45_SIDECAR"); // NOLINT(concurrency-mt-unsafe)
+        const bool b45Enabled = (b45Path != nullptr) && (b45Path[0] != '\0'); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        struct B45Line {
+            std::vector<std::uint32_t> cells; ///< @brief Flat cell indices on this line.
+            std::uint16_t target{0};          ///< @brief Target sum.
+            std::uint16_t unknown{0};         ///< @brief Unknown cell count.
+            std::uint16_t assigned{0};        ///< @brief Count of assigned-one cells.
+        };
+        std::vector<B45Line> b45Lines;
+        std::vector<std::vector<std::uint32_t>> b45CellToLines; // [flat cell] -> line indices
+        std::uint64_t b45Forcings = 0;
+        struct B45LogEntry { std::uint32_t lineIdx; std::uint8_t deltaA; }; ///< @brief Undo log entry.
+        std::vector<B45LogEntry> b45Log;
+        std::vector<std::size_t> b45LogMarkers;
+
+        if (b45Enabled) {
+            std::ifstream b45f(b45Path, std::ios::binary); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            if (b45f.is_open()) {
+                std::array<char, 4> b45Magic{};
+                b45f.read(b45Magic.data(), 4);
+                std::uint16_t b45Dim = 0;
+                b45f.read(reinterpret_cast<char *>(&b45Dim), 2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                std::uint8_t nUniform = 0;
+                std::uint8_t nVarlen = 0;
+                b45f.read(reinterpret_cast<char *>(&nUniform), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                b45f.read(reinterpret_cast<char *>(&nVarlen), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+
+                if (b45Dim == kS) {
+                    b45CellToLines.resize(static_cast<std::size_t>(kS) * kS);
+
+                    // Read uniform partitions
+                    for (std::uint8_t p = 0; p < nUniform; ++p) {
+                        std::vector<std::uint16_t> asn(static_cast<std::size_t>(kS) * kS);
+                        b45f.read(reinterpret_cast<char *>(asn.data()), // NOLINT
+                                  static_cast<std::streamsize>(asn.size() * 2));
+                        std::vector<std::uint16_t> sums(kS);
+                        b45f.read(reinterpret_cast<char *>(sums.data()), // NOLINT
+                                  static_cast<std::streamsize>(kS * 2));
+                        const auto baseIdx = static_cast<std::uint32_t>(b45Lines.size());
+                        for (std::uint16_t k = 0; k < kS; ++k) {
+                            B45Line line;
+                            line.target = sums[k];
+                            line.unknown = kS;
+                            b45Lines.push_back(std::move(line));
+                        }
+                        for (std::uint32_t flat = 0; flat < static_cast<std::uint32_t>(kS) * kS; ++flat) {
+                            const auto lineIdx = baseIdx + asn[flat];
+                            b45Lines[lineIdx].cells.push_back(flat);
+                            b45CellToLines[flat].push_back(lineIdx);
+                        }
+                    }
+
+                    // Read variable-length partitions
+                    for (std::uint8_t p = 0; p < nVarlen; ++p) {
+                        std::uint16_t nLines = 0;
+                        b45f.read(reinterpret_cast<char *>(&nLines), 2); // NOLINT
+                        std::vector<std::uint16_t> lengths(nLines);
+                        b45f.read(reinterpret_cast<char *>(lengths.data()), // NOLINT
+                                  static_cast<std::streamsize>(nLines * 2));
+                        std::vector<std::uint16_t> asn(static_cast<std::size_t>(kS) * kS);
+                        b45f.read(reinterpret_cast<char *>(asn.data()), // NOLINT
+                                  static_cast<std::streamsize>(asn.size() * 2));
+                        std::vector<std::uint16_t> sums(nLines);
+                        b45f.read(reinterpret_cast<char *>(sums.data()), // NOLINT
+                                  static_cast<std::streamsize>(nLines * 2));
+                        const auto baseIdx = static_cast<std::uint32_t>(b45Lines.size());
+                        for (std::uint16_t k = 0; k < nLines; ++k) {
+                            B45Line line;
+                            line.target = sums[k];
+                            line.unknown = lengths[k];
+                            b45Lines.push_back(std::move(line));
+                        }
+                        for (std::uint32_t flat = 0; flat < static_cast<std::uint32_t>(kS) * kS; ++flat) {
+                            const auto lineIdx = baseIdx + asn[flat];
+                            b45Lines[lineIdx].cells.push_back(flat);
+                            b45CellToLines[flat].push_back(lineIdx);
+                        }
+                    }
+
+                    // Apply initial assignments (cells already forced by existing propagation)
+                    for (std::uint16_t r = 0; r < kS; ++r) {
+                        for (std::uint16_t c = 0; c < kS; ++c) {
+                            if (cs.getCellState(r, c) != CellState::Unassigned) {
+                                const auto flat = (static_cast<std::uint32_t>(r) * kS) + c;
+                                const auto val = cs.getCellValue(r, c);
+                                for (const auto li : b45CellToLines[flat]) {
+                                    --b45Lines[li].unknown;
+                                    if (val == 1) { ++b45Lines[li].assigned; }
+                                }
+                            }
+                        }
+                    }
+
+                    ::crsce::o11y::O11y::instance().event("b45_sidecar_loaded",
+                        {{"uniform", std::to_string(nUniform)},
+                         {"varlen", std::to_string(nVarlen)},
+                         {"total_lines", std::to_string(b45Lines.size())}});
+                }
+            }
+        }
+        // B.45 assign/undo/check lambdas
+        auto b45Assign = [&](std::uint16_t r, std::uint16_t c, std::uint8_t val) {
+            if (!b45Enabled || b45CellToLines.empty()) { return; }
+            const auto flat = (static_cast<std::uint32_t>(r) * kS) + c;
+            for (const auto li : b45CellToLines[flat]) {
+                --b45Lines[li].unknown;
+                if (val == 1) { ++b45Lines[li].assigned; }
+                b45Log.push_back({li, val});
+            }
+        };
+        auto b45SavePoint = [&]() -> std::size_t { return b45Log.size(); };
+        auto b45UndoTo = [&](std::size_t marker) {
+            while (b45Log.size() > marker) {
+                const auto &e = b45Log.back();
+                ++b45Lines[e.lineIdx].unknown;
+                if (e.deltaA == 1) { --b45Lines[e.lineIdx].assigned; }
+                b45Log.pop_back();
+            }
+        };
+        // Check all B.45 lines for rho=0 or rho=u forcing; returns forced (r,c,v) triples
+        auto b45CheckForcing = [&]() -> std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> {
+            std::vector<std::tuple<std::uint16_t, std::uint16_t, std::uint8_t>> forced;
+            if (!b45Enabled || b45Lines.empty()) { return forced; }
+            for (std::size_t li = 0; li < b45Lines.size(); ++li) {
+                const auto &line = b45Lines[li];
+                if (line.unknown == 0) { continue; }
+                const auto rho = static_cast<std::int32_t>(line.target) - static_cast<std::int32_t>(line.assigned);
+                if (rho == 0) {
+                    // Force all unknowns to 0
+                    for (const auto flat : line.cells) {
+                        const auto cr = static_cast<std::uint16_t>(flat / kS);
+                        const auto cc = static_cast<std::uint16_t>(flat % kS);
+                        if (cs.getCellState(cr, cc) == CellState::Unassigned) {
+                            forced.emplace_back(cr, cc, 0);
+                        }
+                    }
+                } else if (rho > 0 && static_cast<std::uint16_t>(rho) == line.unknown) {
+                    // Force all unknowns to 1
+                    for (const auto flat : line.cells) {
+                        const auto cr = static_cast<std::uint16_t>(flat / kS);
+                        const auto cc = static_cast<std::uint16_t>(flat % kS);
+                        if (cs.getCellState(cr, cc) == CellState::Unassigned) {
+                            forced.emplace_back(cr, cc, 1);
+                        }
+                    }
+                }
+            }
+            return forced;
+        };
+
         // --- Global DFS loop ---
         std::vector<ProbDfsFrame> stack;
         stack.reserve(cellOrder.size());
@@ -660,6 +813,10 @@ namespace crsce::decompress::solvers {
                     b44dUndoTo(b44dLogMarkers.back());
                     b44dLogMarkers.pop_back();
                 }
+                if (b45Enabled && !b45LogMarkers.empty()) {
+                    b45UndoTo(b45LogMarkers.back());
+                    b45LogMarkers.pop_back();
+                }
             }
 
             // Both values exhausted -- backtrack
@@ -678,6 +835,7 @@ namespace crsce::decompress::solvers {
             frame.token = brancher_->saveUndoPoint();
             if (b44cEnabled) { b44cLogMarkers.push_back(b44cSavePoint()); }
             if (b44dEnabled) { b44dLogMarkers.push_back(b44dSavePoint()); }
+            if (b45Enabled) { b45LogMarkers.push_back(b45SavePoint()); }
 
             // B.42c: Both-value probing during DFS.
             // On first attempt (preferred value), probe BOTH values to detect:
@@ -810,6 +968,50 @@ namespace crsce::decompress::solvers {
                     if (frame.nextValue == 1) { ++b42PreferredInfeasible; }
                     else { ++b42AlternateInfeasible; }
                     continue; // backtrack
+                }
+            }
+
+            // B.45: update sidecar LTP state and run sum-based forcing cascade
+            b45Assign(frame.row, frame.col, v);
+            for (const auto &a : forced) {
+                b45Assign(a.r, a.c, cs.getCellValue(a.r, a.c));
+            }
+            if (b45Enabled) {
+                bool b45Feasible = true;
+                for (;;) {
+                    const auto b45Forced = b45CheckForcing();
+                    if (b45Forced.empty()) { break; }
+                    for (const auto &[fr, fc, fv] : b45Forced) {
+                        if (cs.getCellState(fr, fc) != CellState::Unassigned) { continue; }
+                        cs.assign(fr, fc, fv);
+                        brancher_->recordAssignment(fr, fc);
+                        b45Assign(fr, fc, fv);
+                        ++b45Forcings;
+                        bool pf = false;
+                        if (cpuProp != nullptr) {
+                            pf = cpuProp->tryPropagateCell(fr, fc);
+                        } else {
+                            const auto pl = cs.getLinesForCell(fr, fc);
+                            (*propagator_).reset();
+                            pf = propagator_->propagate(
+                                std::span<const LineID>{pl.lines.data(),
+                                    static_cast<std::size_t>(pl.count)});
+                        }
+                        if (!pf) { b45Feasible = false; break; }
+                        const auto &pForced = (cpuProp != nullptr)
+                            ? cpuProp->getForcedAssignments()
+                            : propagator_->getForcedAssignments();
+                        for (const auto &pa : pForced) {
+                            brancher_->recordAssignment(pa.r, pa.c);
+                            b45Assign(pa.r, pa.c, cs.getCellValue(pa.r, pa.c));
+                        }
+                    }
+                    if (!b45Feasible) { break; }
+                }
+                if (!b45Feasible) {
+                    if (frame.nextValue == 1) { ++b42PreferredInfeasible; }
+                    else { ++b42AlternateInfeasible; }
+                    continue;
                 }
             }
 
@@ -1124,7 +1326,8 @@ namespace crsce::decompress::solvers {
                     {"b43_rows_u11to20",        rowsU11to20,           ::crsce::o11y::O11y::MetricKind::Gauge},
                     {"b44c_parity_forcings",    b44cForcings,          ::crsce::o11y::O11y::MetricKind::Counter},
                     {"b44d_block_verifications",b44dVerifications,     ::crsce::o11y::O11y::MetricKind::Counter},
-                    {"b44d_block_mismatches",   b44dMismatches,        ::crsce::o11y::O11y::MetricKind::Counter}});
+                    {"b44d_block_mismatches",   b44dMismatches,        ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b45_forcings",            b45Forcings,           ::crsce::o11y::O11y::MetricKind::Counter}});
 
                 // B.40: flush profiling data every ~100M iterations when enabled.
                 // The outer block fires every ~1M iterations (0x100000). We use a
