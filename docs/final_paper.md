@@ -269,9 +269,43 @@ The regression occurs because the DFS solver relies on deep tentative exploratio
 
 **Key outcome of Phase IV.** Neither adding more constraint families (long lines, no forcing) nor shortening verification boundaries (premature pruning) can extend depth. The constraint density deficit is inescapable within the CRSCE framework.
 
-### 5.5 Complete Experimental Summary
+### 5.5 Phase V: Spatial Targeting and Table Optimization (B.45-B.52)
 
-The following table summarizes all 44 experiments across the four phases:
+Phase V explored two remaining avenues: spatially targeted constraint families and direct depth optimization.
+
+**Variable-length LTP ("rLTP") partitions (B.45-B.51).** A new partition construction was developed where cells are assigned to lines in order of Euclidean distance from a center point, creating a spiral pattern with short lines (length 1-10) near the center. Unlike Fisher-Yates yLTPs (uniform 511-cell lines), rLTPs have variable-length lines following the triangular pattern (1, 2, ..., 511, ..., 2, 1), providing short-line forcing opportunities similar to geometric diagonals but at arbitrary locations.
+
+Seven spatial targeting experiments tested rLTP center placement:
+
+| Experiment | rLTP centers | Short-line rows | Forcings | Depth | $\Delta$ |
+|------------|-------------|----------------|----------|-------|---------|
+| B.47 | row 255 (matrix center) | 251-259 | 425K | 96,510 | $-$0.2% |
+| B.48b | row 255 (2 yLTP + 2 rLTP) | 251-259 | 1.04M | 96,510 | $-$0.2% |
+| B.49 | row 255 (2 yLTP + 4 rLTP) | 251-259 | 3.04M | 85,775 | $-$11.3% |
+| B.48a | row 255 (8 rLTP, no yLTP) | 251-259 | 612K | 80,446 | $-$16.8% |
+| B.50b | row 189 (AT plateau) | 185-193 | 3.27M | 92,538 | $-$4.1% |
+| B.51 | rows 94 + 350 (above/below) | 90-98, 346-354 | 1.34M | 87,971 | $-$9.0% |
+| B.50a | row 255 (baseline) | 251-259 | 970K | 96,510 | $-$0.2% |
+
+The optimal placement is at the matrix center (row 255), approximately 66 rows below the plateau. Placement AT the plateau (B.50b) or above/below it (B.51) both regress depth. This is a spatial corollary of the deep exploration paradox: forcings near the propagation frontier interfere with the solver's tentative deep exploration, while forcings far from the frontier cause minimal interference.
+
+**Direct depth optimization (B.52).** The B.38 proxy-based optimization saturated at depth 96,672 because the proxy-to-depth correlation breaks down near the optimum. B.52b bypassed the proxy entirely, using measured peak depth as the fitness function in a greedy hill-climbing loop. Starting from the B.38 table, the optimizer found a series of improvements:
+
+$$96{,}690 \to 96{,}812 \to 96{,}992 \to 97{,}044 \to 97{,}286 \to 97{,}330 \to 97{,}343$$
+
+converging at a new local optimum of 97,343 (+653 cells over B.38). Kick-and-climb attempts (B.52b-1: 5 kicks of 500 random swaps) failed to escape this basin.
+
+**Multi-block validation (B.52c-d).** The B.52b-optimized table was tested on 5 synthetic blocks and all 83 blocks of the MP4 test file. The results revealed that depth is a property of the (block, table) pair, not of the table alone:
+
+- The B.52b table improved its target block (MP4 block 0: 96,690 $\to$ 98,005) but regressed others (random 40%: $-$908; random 50%: $-$794).
+- Across 83 MP4 blocks at ~50% density, depth ranged from 58,880 to 106,439 on the same B.38 table&mdash;a 47% spread.
+- **Block 70 reached 106,439** on the unmodified B.38 table&mdash;exceeding 100K at 50% density without any per-block optimization.
+- The 30%-density synthetic block reached 114,568.
+- Mean depth across all 83 MP4 blocks: approximately 83,000 (31.8% of the 261,121-cell matrix).
+
+**Key outcome of Phase V.** The depth ceiling is not a fixed constant. It is determined by the unpredictable interaction between each block's cross-sum value distribution and the yLTP partition geometry. Some bit patterns create deep propagation cascades; others create shallow ones. No static constraint system can be universally optimal for arbitrary input data.
+
+### 5.6 Complete Experimental Summary
 
 | Phase | Experiments | Strategy | Peak Depth | Status |
 |-------|------------|----------|-----------|--------|
@@ -279,6 +313,7 @@ The following table summarizes all 44 experiments across the four phases:
 | II | B.22-B.38 | Partition seed optimization | **96,672** | Saturated |
 | III | B.33, B.39-B.43 | Architectural alternatives | 96,672 (unchanged) | All null/infeasible |
 | IV | B.44 | Constraint density | 61,467-86,756 | Regression on real data |
+| V | B.45-B.52 | Spatial targeting + table optimization | 97,343 (block 0), **106,439** (block 70) | Converged |
 
 ## 6. The Information-Theoretic Barrier
 
@@ -353,18 +388,55 @@ These barriers are not specific to CRSCE's particular design choices ($511 \time
 
 ## 8. Conclusion
 
-CRSCE is a theoretically elegant approach to lossless compression that reformulates decompression as constraint satisfaction. The format achieves a nominal 48.2% compression ratio and provides strong collision resistance ($2^{-1,760}$ for the minimum constraint-preserving swap). However, the constraint system's fundamental information deficit &mdash; 5,097 independent constraints over 261,121 cells (2% density), leaving 256,024 unconstrained degrees of freedom &mdash; creates a depth ceiling that prevents the solver from reconstructing arbitrary input blocks.
+### 8.1 What the Research Program Established
 
-A comprehensive 44-experiment research program, spanning constraint system design, partition optimization, architectural alternatives, and constraint density investigation, systematically eliminated every viable path to extending the solver's depth:
+CRSCE is a theoretically elegant approach to lossless compression that reformulates decompression as constraint satisfaction. The format achieves a nominal 48.2% compression ratio and provides strong collision resistance ($2^{-1,760}$ for the minimum constraint-preserving swap). A comprehensive 52-experiment research program spanning five phases systematically characterized the limits of the current DFS-based solver:
 
 - **Phase I** (B.1-B.21) established the 8-family constraint system with Fisher-Yates LTP, achieving ~88,500 depth.
-- **Phase II** (B.22-B.38) optimized LTP tables via ILS/deflation, reaching the production best of 96,672 before saturating.
-- **Phase III** (B.33, B.39-B.43) proved every architectural alternative either infeasible (Complete-Then-Verify, column-serial, RCLA) or throughput-only (pre-branch probing).
-- **Phase IV** (B.44) showed that additional constraint families cannot trigger forcing at the plateau (line length barrier) and finer verification boundaries actively harm depth (deep exploration paradox).
+- **Phase II** (B.22-B.38) optimized LTP tables via ILS/deflation, reaching 96,672 before the proxy-based approach saturated.
+- **Phase III** (B.33, B.39-B.43) proved every architectural alternative within the DFS framework either infeasible (Complete-Then-Verify, column-serial, RCLA) or throughput-only (pre-branch probing).
+- **Phase IV** (B.44) showed that additional constraint families cannot trigger forcing at the plateau (line length barrier) and finer verification boundaries actively harm the DFS solver (deep exploration paradox).
+- **Phase V** (B.45-B.52) explored spatial targeting, direct depth optimization, and per-block analysis. Block 70 of the MP4 file naturally reaches 106,439 on the B.38 table, proving 100K+ depth is achievable for some blocks. Mean depth across 83 blocks is ~83,000.
 
-The depth ceiling is information-theoretic, not algorithmic. No solver technique &mdash; top-down, bottom-up, probing, interval analysis, parity forcing, sub-block hashing, direction switching, or randomized restarts &mdash; can compensate for the structural information deficit inherent to a 2% constraint density system. CRSCE is not viable as a general-purpose compression format.
+The program identified four structural barriers that limit the DFS + propagation architecture:
 
-The research program's principal contribution is not the negative result itself but the detailed characterization of *why* constraint-based binary matrix reconstruction fails at scale. The three structural barriers and the deep exploration paradox provide concrete guidance for future research. Any viable constraint-based compression scheme must either (a) achieve constraint densities orders of magnitude higher than 2% while keeping the payload below the original data size, (b) develop solver architectures that can navigate $2^{256,024}$-dimensional solution spaces without relying on propagation cascades, or (c) abandon the binary matrix formulation entirely in favor of representations where the constraint-to-variable ratio naturally approaches the critical threshold for tractable CSP solving.
+1. **The constraint density barrier.** 5,097 constraints over 261,121 cells (2% density) leaves 256,024 unconstrained degrees of freedom over GF(2).
+
+2. **The line length barrier.** 511-cell constraint lines never trigger forcing at the plateau ($u \approx 300$). Shorter lines trigger forcing but prune the DFS solver's informative deep exploration.
+
+3. **The deep exploration paradox.** The DFS solver's depth depends on tolerating wrong tentative assignments for constraint cascade feedback. Any mechanism that catches errors sooner reduces rather than extends depth.
+
+4. **The block-table interaction barrier.** Depth varies from 58,880 to 106,439 across blocks at the same density on the same table, determined by unpredictable interactions between each block's cross-sum distribution and the partition geometry.
+
+### 8.2 What the Research Program Did NOT Establish
+
+It is essential to distinguish what has been proven from what has been assumed. The research program exhaustively characterized the limits of the **DFS + singleton-propagation solver architecture**. It did not prove that the CRSCE constraint system itself is insufficient for reconstruction. Several fundamental distinctions were not fully explored:
+
+**The GF(2) analysis understates the constraint system's information content.** The B.39a null-space analysis computed rank 5,097 over GF(2), capturing only the parity of each cross-sum. But cross-sums are INTEGER values (0 to 511), each carrying up to 9 bits of information. The total payload stores 87,121 bits of constraint information (43,964 bits of integer cross-sums + 81,760 bits of SHA-1 + 256 bits of SHA-256 + 8 bits of DI) against 261,121 bits of CSM content. The gap is 174,000 bits&mdash;large, but not necessarily insurmountable, because the integer constraints impose far tighter feasibility conditions than the GF(2) analysis captures. The actual number of cross-sum-valid integer matrices is far smaller than $2^{256,024}$.
+
+**The DFS solver exploits only the extremes of each constraint.** The propagation engine forces cells when $\rho = 0$ (force to 0) or $\rho = u$ (force to 1). When $0 < \rho < u$&mdash;which describes EVERY constraint line at the plateau&mdash;the engine extracts zero information. Modern constraint solvers, SAT solvers, and integer programming solvers exploit the intermediate range through techniques that the CRSCE DFS solver does not use:
+
+- **Conflict-Driven Clause Learning (CDCL):** SAT solvers learn from failures, accumulating conflict clauses that globally prune the search space. The CRSCE solver discards all information from failed subtrees (B.40 confirmed zero hash events; every backtrack starts fresh).
+- **LP relaxation and cutting planes:** ILP solvers relax binary variables to $[0,1]$, solve the linear system, and use the fractional solution to derive bounds and cuts. This exploits the full INTEGER constraint structure, not just the $\rho = 0/u$ extremes.
+- **Cardinality constraint propagation:** Specialized SAT encodings for cardinality constraints ($\sum x_i = k$) enable unit propagation and watched-literal techniques that detect forced assignments the DFS propagation engine misses.
+
+**Alternative solver architectures have not been tested.** The following approaches remain viable and untested:
+
+1. **SAT/ILP formulation of the residual problem.** After the DFS solver reaches its plateau (~96K cells assigned), export the remaining ~165K unassigned cells as a cardinality-constrained SAT or ILP instance. The 96K assigned cells provide given constraints that dramatically tighten the residual problem. Modern SAT solvers (CaDiCaL, Kissat) and ILP solvers (Gurobi, CPLEX, HiGHS) bring decades of engineering for exactly this class of problem.
+
+2. **LP relaxation with iterative rounding.** Solve the relaxed system $Ax = b$, $x \in [0,1]^N$ to obtain fractional cell values. Round high-confidence cells (those near 0 or 1), propagate, and iterate. This approach exploits the full integer constraint structure and may identify cells that propagation cannot.
+
+3. **Hierarchical multi-resolution reconstruction.** Solve nested sub-matrices (63$\times$63 $\to$ 127$\times$127 $\to$ 255$\times$255 $\to$ 511$\times$511), where each stage has higher effective constraint density and a smaller search space. The solved inner matrix constrains the outer expansion.
+
+4. **Hybrid DFS + SAT pipeline.** Use the DFS solver for the propagation zone (rows 0-168, which it handles efficiently), then hand off the meeting band to a SAT/ILP solver that can exploit joint constraint reasoning the DFS engine cannot.
+
+### 8.3 Assessment
+
+The CRSCE constraint system stores sufficient information to substantially constrain the solution space. The question is not whether enough information exists in the payload but whether a solver can exploit it within practical time bounds. The DFS + propagation architecture extracts only a fraction of the available constraint information (singleton forcing at $\rho = 0/u$ extremes), leaving the vast intermediate range unexploited.
+
+The research program's 52 experiments conclusively establish that no improvement to the DFS solver&mdash;better heuristics, more constraint families, spatial targeting, table optimization, or verification granularity&mdash;can overcome the architecture's inherent limitation. However, the architecture's limitation is not the format's limitation. The constraint system's integer structure, the SHA-1 hash constraints, and the cross-sum interactions contain exploitable information that fundamentally different solver architectures may be able to use.
+
+Whether CRSCE is ultimately viable as a compression format depends on whether a solver can be designed that extracts enough of this information to reconstruct arbitrary blocks within practical time bounds. The four structural barriers identified by this research are barriers of the DFS architecture, not necessarily of the mathematical problem. The path forward lies in solver innovation, not in further tuning of a solver architecture whose limits have been definitively characterized.
 
 ## References
 

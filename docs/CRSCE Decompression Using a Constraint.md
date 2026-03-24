@@ -11604,6 +11604,2652 @@ This result closes the final open question about constraint family composition: 
 
 ---
 
+## B.46 Variable-Length rLTP5/rLTP6 (Proposed)
+
+### B.46.1 Motivation
+
+B.27 established that LTP5 and LTP6 (uniform 511-cell partitions) are structurally inert: adding them to the 4+4 system produces zero depth improvement. B.45 demonstrated that variable-length LTP partitions ("rLTP") with line lengths following the triangular pattern (1, 2, ..., 511, ..., 2, 1) provide effective short-line forcing that matches or exceeds geometric diagonals.
+
+B.46 combines these findings: replace the inert uniform LTP5/LTP6 with variable-length rLTP5/rLTP6. This modifies two existing but non-contributing constraint families to use the rLTP architecture, adding 2 $\times$ 1,021 = 2,042 lines (including 40 short lines of length $\leq$ 10) while removing 2 $\times$ 511 = 1,022 uniform lines that contribute nothing at the plateau.
+
+**Hypothesis.** The short lines in rLTP5/rLTP6 will force additional cells in the early propagation cascade (as B.45a's correct-path simulation confirmed for rLTP partitions), and the resulting deeper propagation zone will push the solver past the 96,672 depth ceiling.
+
+### B.46.2 Design
+
+**Partition construction.** Each rLTP sub-table partitions all 261,121 cells into 1,021 lines with lengths matching the diagonal pattern:
+
+$$\text{len}(k) = \min(k + 1, \; 511, \; 1021 - k) \quad \text{for } k \in \{0, \ldots, 1020\}$$
+
+Cell-to-line assignment uses the same Fisher-Yates pool-chained shuffle as uniform LTP, but with variable bucket sizes instead of uniform 511.
+
+**Constraint store impact.** The stats array currently allocates 511 entries each for LTP5 and LTP6. rLTP5/rLTP6 need 1,021 entries each. The total line count changes from $3{,}064 + 6 \times 511 = 6{,}130$ to $3{,}064 + 4 \times 511 + 2 \times 1{,}021 = 7{,}150$.
+
+**Payload impact.** Uniform LTP5/LTP6 use 511 $\times$ 9 = 4,599 bits each. Variable-length rLTP5/rLTP6 use the same variable-width encoding as DSM/XSM: $\sum_{k=0}^{1020} \lceil\log_2(\text{len}(k) + 1)\rceil = 8{,}185$ bits each. The payload increases by $2 \times (8{,}185 - 4{,}599) = 7{,}172$ bits (897 bytes). New payload: 133,160 bits (16,645 bytes). Compression ratio: $133{,}160 / 261{,}121 = 51.0\%$ (from 48.2%).
+
+### B.46.3 Implementation
+
+Modifications to three files:
+
+1. **`LtpTable.h` / `LtpTable.cpp`:** Modify `buildAllPartitions()` to construct rLTP5/rLTP6 with variable bucket sizes. Add `ltpLineLen5(k)` and `ltpLineLen6(k)` functions returning `min(k+1, 511, 1021-k)`. Update `LtpMembership` to map cells to 1021-line indices for sub-tables 5 and 6.
+
+2. **`ConstraintStore.h` / `ConstraintStore_ctor.cpp`:** Expand `kTotalLines` to accommodate 2 $\times$ 1,021 entries for rLTP5/rLTP6 (replacing 2 $\times$ 511). Initialize stats with variable line lengths.
+
+3. **`CompressedPayload` serialization:** Encode rLTP5/rLTP6 sums using variable-width bit packing (same as DSM/XSM) instead of uniform 9-bit packing. Update `kBlockPayloadBytes`.
+
+### B.46.4 Implementation Status
+
+The B.46 implementation encountered a **pool-chaining synchronization barrier**. The C++ LTP table construction uses a pool-chained Fisher-Yates shuffle (the pool state from sub-table 0's shuffle carries into sub-table 1's shuffle, etc.). Modifying sub-tables 5/6 to use variable-length buckets requires either:
+
+(a) Modifying the pool-chained construction to handle mixed uniform/variable-length sub-tables, including the LTPB file loading path which validates uniform line lengths; or
+
+(b) Using a standalone Python-generated sidecar, which produces different partition assignments due to the lack of pool chaining.
+
+Option (a) requires extensive refactoring of `LtpTable.cpp`, `buildFromAssignment()`, and the LTPB file format. Option (b) produces inconsistent partition assignments between the compressor and decompressor.
+
+### B.46.5 Conclusion (Blocked; Superseded by B.45)
+
+B.46 is blocked by the pool-chaining infrastructure. However, the B.45 augmented experiment (4+4 base + 8 uniform + 3 variable-length LTP sidecar) already tested the rLTP hypothesis with the correct partition assignments. That experiment found **100,019 rLTP forcings but depth unchanged** (96,673 vs 96,689 baseline). Since B.45's augmented configuration includes strictly MORE rLTP constraint information than B.46 (11 additional families vs 2 replacement families), B.45's null depth result implies B.46 would also produce no depth improvement.
+
+**B.46 status: BLOCKED (pool-chaining barrier). Superseded by B.45 augmented result (depth unchanged despite 100K rLTP forcings).**
+
+---
+
+## B.47 Center-Spiral Variable-Length LTP Partitions (Completed &mdash; Depth Unchanged)
+
+### B.47.1 Motivation
+
+All previous constraint families&mdash;geometric diagonals (DSM/XSM), Fisher-Yates LTP, and random variable-length rLTP&mdash;distribute their short lines (length 1-10) either at the matrix corners (diagonals), uniformly across the matrix (random LTP), or at random positions (rLTP with Fisher-Yates ordering). None specifically target the **plateau region** (~rows 168-340, center of the matrix) where the propagation cascade exhausts and forcing is most needed.
+
+B.47 introduces **center-spiral partitions**: variable-length LTP sub-tables where cells are assigned to lines in order of their Euclidean distance from a center point, rather than in pseudorandom order. This places the shortest lines (length 1-10) directly at the center of the matrix&mdash;in the plateau region&mdash;where they can provide forcing information exactly where the solver stalls.
+
+### B.47.2 Construction
+
+Two spiral partitions are constructed:
+
+- **rLTP-spiral-left:** Center point $(255, 127)$ (center-left of the matrix). Cells sorted by distance from this point. Assigned to 1,021 lines with lengths 1, 2, ..., 511, ..., 2, 1.
+- **rLTP-spiral-right:** Center point $(255, 383)$ (center-right of the matrix). Cells sorted by distance from this point. Same line-length pattern.
+
+For each partition, the construction is:
+
+1. Compute Euclidean distance $d(r, c) = \sqrt{(r - r_0)^2 + (c - c_0)^2}$ for each cell.
+2. Sort all 261,121 cells by ascending distance.
+3. Assign the sorted cells to lines following the 1, 2, ..., 511, ..., 2, 1 pattern.
+
+This ensures:
+- **Line 0** (1 cell) = the center point itself.
+- **Lines 1-9** (2-10 cells) = the innermost rings around the center, all in **rows 251-259**.
+- **Line 510** (511 cells) = a ring of moderate radius, spanning a wide row range.
+- **Line 1020** (1 cell) = the farthest cell from the center (a matrix corner).
+
+### B.47.3 Short-Line Placement Comparison
+
+| Partition type | Short lines (len $\leq$ 10) | Row range of short lines | Distance to plateau (~row 168) |
+|----------------|----------------------------|-------------------------|-------------------------------|
+| DSM/XSM diagonals | 40 | rows 0-9 and 501-510 | ~160 rows away |
+| Fisher-Yates rLTP | 40 | random (uniform) | ~85 rows average |
+| **Spiral from (255, 127)** | **55** | **rows 251-259** | **~85 rows (center of meeting band)** |
+| **Spiral from (255, 383)** | **55** | **rows 251-259** | **~85 rows (center of meeting band)** |
+
+The spiral partitions place 110 short lines in **rows 251-259**, directly within the meeting band.
+
+### B.47.4 Results
+
+The spiral partitions were tested as additional constraints via the B.45 sidecar mechanism (8 uniform LTP + 2 spiral rLTP, loaded via `CRSCE_B45_SIDECAR`). Tested on the MP4 first block with the B.38-optimized LTP table.
+
+| Configuration | Peak Depth | Iter/sec | B.45 Forcings |
+|---------------|-----------|----------|---------------|
+| Baseline (4+4 only) | 96,690 | 294K | N/A |
+| B.45 augmented (8u+3v random rLTP) | 96,673 | 111K | 100,019 |
+| **B.47 spiral (8u + 2 spiral rLTP)** | **96,510** | **117K** | **425,211** |
+
+**425,211 forcings**&mdash;4.25$\times$ more than the random rLTP configuration&mdash;confirm that center-focused short lines trigger forcing far more frequently in the meeting band. The spiral geometry successfully targets the plateau region.
+
+However, **depth is 96,510**&mdash;180 cells below baseline (within noise, not an improvement). The 425K forcings convert branching waste into forced assignments at the plateau but do not extend the propagation cascade into new territory.
+
+### B.47.5 Analysis
+
+The spiral partitions answer a precise question: **does spatially targeting short lines at the plateau region improve depth?** The answer is no. The 4.25$\times$ increase in forcings (425K vs 100K) demonstrates that spatial targeting is mechanically effective&mdash;short spiral lines near the plateau DO trigger forcing. But the forcings do not resolve cells that constraint propagation cannot reach. They resolve cells that the DFS was already going to assign correctly.
+
+This confirms the B.42/B.45 finding from a new angle: the depth ceiling is determined by the constraint system's **global information content** (rank 5,097, null-space dimension 256,024), not by the **spatial distribution** of constraint information. Whether short lines are at the corners (diagonals), distributed uniformly (random rLTP), or concentrated at the plateau (spiral rLTP), the same set of cells remains undetermined by the constraint system. Rearranging where the forcing events occur cannot change which cells are forceable.
+
+### B.47.6 Conclusion
+
+The center-spiral partitions are the most spatially targeted constraint family tested in the research program. Their 425K forcings at the plateau (4.25$\times$ the random rLTP rate) confirm that spatial targeting works mechanically but does not affect depth. The depth ceiling of ~96,672 is an information-theoretic property of the constraint system, invariant to the spatial distribution of constraint lines.
+
+**Tool:** `tools/b46_spiral_sidecar.py`
+
+**Status: COMPLETED &mdash; DEPTH UNCHANGED.**
+
+---
+
+## B.48 All-Spiral rLTP Constraint System (Completed &mdash; Regression)
+
+### B.48.1 Motivation
+
+B.47 demonstrated that center-spiral partitions generate 4.25$\times$ more forcings than random rLTPs by targeting the plateau region. B.48 tests the extreme: replace ALL 8 sidecar LTP sub-tables with spiral rLTPs, using 8 center points distributed across 4 vertical column slices of the matrix. This maximizes spatial targeting at the cost of pseudorandom independence.
+
+### B.48.2 Construction
+
+Eight spiral center points divide the matrix into four vertical quarters, with two spirals per quarter (one at the center row, one offset by 5 rows for diversity):
+
+| Spiral | Center | Column slice | Short-line rows |
+|--------|--------|-------------|----------------|
+| 0 | (255, 63) | 0-126 | 251-259 |
+| 1 | (255, 191) | 127-254 | 251-259 |
+| 2 | (255, 319) | 255-382 | 251-259 |
+| 3 | (255, 447) | 383-510 | 251-259 |
+| 4 | (250, 63) | 0-126 | 246-254 |
+| 5 | (250, 191) | 127-254 | 246-254 |
+| 6 | (260, 319) | 255-382 | 256-264 |
+| 7 | (260, 447) | 383-510 | 256-264 |
+
+Each spiral covers all 261,121 cells with 1,021 variable-length lines (1, 2, ..., 511, ..., 2, 1). Total: 440 short lines (length $\leq$ 10) across rows 246-264.
+
+### B.48.3 Results
+
+Tested via B.45 sidecar (0 uniform LTP + 8 spiral rLTP), augmenting the baseline 4-geometric + 4-LTP constraint system. MP4 first block, B.38-optimized LTP table, 90-second run.
+
+| Configuration | Peak Depth | Iter/sec | Forcings |
+|---------------|-----------|----------|----------|
+| Baseline (4+4) | 96,690 | 294K | N/A |
+| B.47 (8u + 2 spiral) | 96,510 | 117K | 425K |
+| **B.48 (0u + 8 spiral)** | **80,446** | **134K** | **612K** |
+
+### B.48.4 Analysis
+
+**Depth regressed by 16,244 cells (&minus;16.8%)** despite producing the highest forcing count (612K) of any experiment. The regression has two causes:
+
+1. **Loss of pseudorandom independence.** The 8 spiral partitions are geometrically structured (distance-based from nearby center points). Cells near any center point have similar distance rankings across multiple spirals, creating correlated line assignments. This correlation reduces the effective independent constraint count far below the theoretical $8 \times 510 = 4{,}080$.
+
+2. **Overhead without benefit.** The B.45 sidecar scans all 8,168 spiral lines after every propagation cascade. At 134K iter/sec (vs 294K baseline), the 54% throughput penalty reduces total iterations explored, and the correlated forcings don't compensate with deeper propagation.
+
+**Key insight:** Spatial structure in constraint lines is counterproductive. The Fisher-Yates pseudorandom construction's value lies precisely in its LACK of spatial structure&mdash;each partition's line assignments are uncorrelated with every other partition and with the geometric families. Spiral partitions sacrifice this independence for spatial targeting, and the independence loss dominates.
+
+### B.48.5 Terminology
+
+To distinguish the two LTP construction methods used in experiments B.45-B.49 and beyond:
+
+- **yLTP** (plural: yLTPs): A Fisher-Yates LTP sub-table with uniform 511-cell lines. Constructed via pool-chained Fisher-Yates shuffle seeded by a 64-bit LCG constant. All 511 lines have exactly 511 cells. The "y" denotes the Fisher-Yates construction. The B.38-optimized yLTP1/yLTP2 (seeds CRSCLTPV/CRSCLTPP) are the production sub-tables achieving depth 96,672.
+
+- **rLTP** (plural: rLTPs): A variable-length spiral LTP sub-table with 1,021 lines following the triangular pattern (lengths 1, 2, ..., 511, ..., 2, 1). Cells are assigned in order of Euclidean distance from a center point, placing the shortest lines near that center. The "r" denotes the radial/spiral construction.
+
+### B.48.6 Sub-experiment B.48b: 2 yLTP + 2 rLTP Hybrid
+
+B.48a's regression (0 yLTP + 8 rLTP) showed that pseudorandom independence is essential. B.48b tests a hybrid: the 2 B.38-optimized yLTPs (yLTP1/yLTP2) for pseudorandom independence plus 2 center-spiral rLTPs for spatial targeting at the plateau.
+
+**Configuration:** 4 geometric + 4 existing LTP (from payload) + sidecar with 2 yLTP (B.38-optimized) + 2 rLTP (centers (255, 127) and (255, 383)).
+
+| Configuration | Peak Depth | Iter/sec | Forcings |
+|---------------|-----------|----------|----------|
+| Baseline (4 geo + 4 yLTP) | 96,690 | 294K | N/A |
+| B.48a (0 yLTP + 8 rLTP) | 80,446 | 134K | 612K |
+| **B.48b (2 yLTP + 2 rLTP)** | **96,510** | **159K** | **1,044,577** |
+
+The hybrid produces **1.04 million forcings**&mdash;the highest of any experiment&mdash;with depth at 96,510 (within noise of baseline). The 2 optimized yLTPs preserve propagation cascade quality while the 2 rLTPs provide over a million center-targeted forcings. Depth is unchanged: the forcings resolve cells the solver was already going to assign correctly.
+
+### B.48.7 Conclusion
+
+The yLTP/rLTP hybrid (B.48b) is the optimal configuration tested: it maximizes forcings (1.04M) while maintaining baseline depth. However, more forcings do not translate to more depth. The constraint system's information content (rank 5,097, null-space dimension 256,024) is the binding limit regardless of forcing count or spatial targeting.
+
+**Tools:** `tools/b48_quad_spiral_sidecar.py` (B.48a), `tools/b48b_hybrid_sidecar.py` (B.48b)
+
+**Status: COMPLETED &mdash; B.48a REGRESSION (&minus;16.8%), B.48b DEPTH UNCHANGED.**
+
+---
+
+## B.49 Extended Hybrid: 4 Geometric + 2 yLTP + 4 rLTP (Proposed)
+
+### B.49.1 Motivation
+
+B.48b demonstrated that 2 yLTPs + 2 rLTPs produce 1.04M forcings at the plateau without depth regression. B.49 extends this by adding 2 more rLTPs (4 total), each centered on a different vertical quarter of the matrix. The hypothesis is that 4 spatially diverse rLTPs provide denser forcing coverage across the full width of the meeting band, potentially resolving cells that 2 rLTPs miss.
+
+### B.49.2 Constraint System
+
+The B.49 constraint system comprises 10 families (same as B.27's 10-family architecture, but with rLTPs replacing the inert yLTP3-6):
+
+| Family | Type | Lines | Line lengths | Construction |
+|--------|------|-------|-------------|--------------|
+| LSM | Geometric | 511 | 511 (uniform) | Row sums |
+| VSM | Geometric | 511 | 511 (uniform) | Column sums |
+| DSM | Geometric | 1,021 | 1-511-1 (variable) | Diagonal sums |
+| XSM | Geometric | 1,021 | 1-511-1 (variable) | Anti-diagonal sums |
+| yLTP1 | Fisher-Yates | 511 | 511 (uniform) | B.38-optimized seed CRSCLTPV |
+| yLTP2 | Fisher-Yates | 511 | 511 (uniform) | B.38-optimized seed CRSCLTPP |
+| rLTP1 | Center-spiral | 1,021 | 1-511-1 (variable) | Center (255, 63), columns 0-126 |
+| rLTP2 | Center-spiral | 1,021 | 1-511-1 (variable) | Center (255, 191), columns 127-254 |
+| rLTP3 | Center-spiral | 1,021 | 1-511-1 (variable) | Center (255, 319), columns 255-382 |
+| rLTP4 | Center-spiral | 1,021 | 1-511-1 (variable) | Center (255, 447), columns 383-510 |
+
+**Total lines:** 3,064 (geometric) + 1,022 (yLTP) + 4,084 (rLTP) = 8,170.
+
+### B.49.3 rLTP Construction
+
+Each rLTP sub-table divides the CSM into concentric rings around its center point. The center points are placed at row 255 (center row) in each of the four vertical column quarters:
+
+- **rLTP1:** Center (255, 63) &mdash; midpoint of columns 0-126 (127-column slice)
+- **rLTP2:** Center (255, 191) &mdash; midpoint of columns 127-254 (128-column slice)
+- **rLTP3:** Center (255, 319) &mdash; midpoint of columns 255-382 (128-column slice)
+- **rLTP4:** Center (255, 447) &mdash; midpoint of columns 383-510 (128-column slice)
+
+Each spiral starts from its center point (line 0, length 1) and expands outward. The shortest lines (length 1-10) cluster in rows 251-259, directly within the meeting band. The spirals terminate at the farthest matrix corners, with line 1020 (length 1) being the single cell most distant from the center.
+
+### B.49.4 Expected Outcomes
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Improvement) | Depth $>$ 96,690 | Denser rLTP coverage across 4 column quarters resolves cells that 2 rLTPs cannot |
+| H2 (Neutral) | Depth $\approx$ 96,690 | Additional rLTPs provide more forcings but no new resolvable cells |
+| H3 (Regression) | Depth $<$ 96,690 | 4 rLTPs create inter-partition correlations that degrade propagation |
+
+Based on B.48b (2 rLTPs = 1.04M forcings, depth unchanged), H2 is the most likely outcome.
+
+### B.49.5 Results (Completed &mdash; Regression)
+
+Tested via B.45 sidecar (2 yLTP + 4 rLTP), augmenting the baseline 4-geometric + 4-yLTP constraint system. MP4 first block, B.38-optimized yLTP table, 90-second run.
+
+| Configuration | Peak Depth | Iter/sec | Forcings |
+|---------------|-----------|----------|----------|
+| Baseline (4 geo + 4 yLTP) | 96,690 | 294K | N/A |
+| B.48b (2 yLTP + 2 rLTP sidecar) | 96,510 | 159K | 1,044,577 |
+| **B.49 (2 yLTP + 4 rLTP sidecar)** | **85,775** | **122K** | **3,037,004** |
+
+**Depth regressed by 10,915 cells (&minus;11.3%)** despite 3 million forcings&mdash;triple the B.48b count.
+
+### B.49.6 Analysis
+
+The regression follows the same pattern as B.48a (8 rLTP, &minus;16.8%): more rLTPs degrade depth. The mechanism is the deep exploration paradox identified in B.44d: the solver relies on deep tentative wrong assignments for constraint cascade feedback. Aggressive forcing from 4 rLTPs (3M events) overrides the solver's tentative assignments, cutting the cascade short and reducing the depth the solver can reach before backtracking.
+
+**The sweet spot is 2 rLTPs (B.48b).** This configuration produces 1.04M forcings without regression. Scaling to 4 rLTPs pushes past the threshold where forcing volume begins to interfere with the solver's exploration dynamics.
+
+The 4 rLTP centers are all at row 255 (same row, different columns). When the solver assigns cells in the meeting band, all 4 rLTPs trigger forcing on nearby cells simultaneously, creating cascading forced assignments that constrain the solver's path too aggressively. The inter-partition correlations from same-row centers compound this effect.
+
+### B.49.7 Conclusion
+
+Adding more rLTPs beyond 2 degrades depth. The optimal augmented configuration tested is **4 geometric + 4 yLTP (base) + 2 yLTP + 2 rLTP (sidecar)** from B.48b, which achieves 1.04M forcings at baseline depth. The constraint system's information content remains the binding limit; additional spatially targeted forcings cannot push past the ceiling and, in excess, actively harm the solver's search dynamics.
+
+**Tool:** `tools/b49_sidecar.py`
+
+**Status: COMPLETED &mdash; REGRESSION (&minus;11.3%).**
+
+---
+
+## B.50 rLTP Construction Alternatives (Proposed)
+
+### B.50.1 Motivation
+
+Experiments B.47-B.49 established that 2 rLTPs is the optimal count (B.48b: 1.04M forcings, depth unchanged; B.49: 4 rLTPs regresses). However, all rLTPs tested so far use spiral centers at **row 255** (matrix center), placing their short lines at rows 251-259. The solver's plateau is at **row ~189** (depth 96,672 / 511 $\approx$ 189). The short lines are 66 rows beyond where the solver is actually working&mdash;a spatial mismatch that may explain why 1M+ forcings fail to extend depth.
+
+B.50 explores alternative rLTP constructions that maximize information delivery at the plateau row, not the matrix center. Each sub-experiment uses the proven 2-yLTP + 2-rLTP configuration (B.48b sweet spot) with different rLTP geometries.
+
+### B.50.2 Sub-experiment B.50a: Matrix-Center Spirals (Baseline, Completed)
+
+**Construction:** Euclidean-distance spirals centered at (255, 127) and (255, 383). Short lines at rows 251-259.
+
+This is the configuration tested in B.48b and confirmed in the original B.50 run.
+
+| Metric | Value |
+|--------|-------|
+| Peak depth | 96,510 |
+| Forcings | 969,877 |
+| Iter/sec | 158K |
+
+**Tool:** `tools/b50_sidecar.py`
+
+**Status: COMPLETED &mdash; DEPTH UNCHANGED.**
+
+### B.50.3 Sub-experiment B.50b: Plateau-Centered Spirals (Completed &mdash; Regression)
+
+**Construction:** Euclidean-distance spirals centered at **(189, 127)** and **(189, 383)** instead of (255, x). Short lines land at rows 185-193&mdash;directly at the propagation frontier where the solver stalls.
+
+**Hypothesis:** Centering rLTPs at the plateau row places short-line forcing exactly where the propagation cascade exhausts. Every forced cell at row ~189 directly extends the propagation zone, unlike forcings at row ~255 which are too deep for the solver to reach.
+
+**Results:**
+
+| Configuration | rLTP centers | Short-line rows | Peak Depth | Forcings |
+|---------------|-------------|----------------|-----------|----------|
+| B.50a (matrix center) | (255, 127) (255, 383) | 251-259 | 96,510 | 969,877 |
+| **B.50b (plateau center)** | **(189, 127) (189, 383)** | **185-193** | **92,538** | **3,265,306** |
+
+**Depth regressed by 3,972 cells (&minus;4.1%)** despite 3.37$\times$ more forcings (3.27M vs 970K).
+
+**Analysis.** Moving the spiral centers to the plateau row produces the opposite of the expected effect. The 3.27M forcings at the propagation frontier are TOO AGGRESSIVE&mdash;they force cells that the solver was using for tentative deep exploration. The DFS relies on branching at the plateau to explore wrong subtrees whose constraint cascades provide feedback for backtracking decisions (the deep exploration paradox, B.44d). Forcings at rows 185-193 override these branching decisions, cutting the cascade feedback loop and reducing depth.
+
+The matrix-center spirals (B.50a, row 255) perform better precisely BECAUSE their short lines are far from the plateau. Their forcings affect cells in the deep meeting band (rows 251-259) that the solver rarely reaches, causing minimal interference with the solver's exploration strategy at the propagation frontier.
+
+**Key finding: forcings are most useful when they are AWAY from the plateau and counterproductive when they are AT the plateau.** This is a spatial corollary of the deep exploration paradox: the solver needs freedom to make mistakes at the propagation frontier, and any mechanism that constrains this freedom&mdash;whether sub-block hashes (B.44d), excessive rLTPs (B.49), or plateau-targeted forcings (B.50b)&mdash;reduces rather than extends depth.
+
+**Tool:** `tools/b50b_sidecar.py`
+
+**Status: COMPLETED &mdash; REGRESSION (&minus;4.1%).**
+
+### B.50.4 Sub-experiment B.50c: Row-Band rLTPs (Proposed)
+
+**Construction:** Instead of Euclidean-distance rings, use **row-distance** ordering. All cells in row 189 are assigned to line 0 (length 1&mdash;but 511 cells share row 189, so line 0 gets cell (189, 0), line 1 gets cells (189, 1) and (188, 0), etc.). More precisely: sort cells by $|r - 189|$ first, then by column within each row-distance band. This creates horizontal strips centered on row 189.
+
+**Hypothesis:** Horizontal bands spanning the full matrix width within 1-2 rows of the plateau maximize constraint interactions at the propagation frontier. Each short line contains cells from the SAME row neighborhood, providing row-aligned constraint information that complements the geometric row sums (LSM).
+
+### B.50.5 Sub-experiment B.50d: Diagonal-Through-Plateau rLTPs (Proposed)
+
+**Construction:** Lines that pass diagonally through the plateau point (189, 255) at various angles. For angle $\theta$, cells are sorted by their perpendicular distance from the line $r - 189 = \tan(\theta) \cdot (c - 255)$. Short lines contain cells closest to this diagonal. Two rLTPs use angles $\theta = \pi/4$ and $\theta = -\pi/4$ (45-degree diagonals through the plateau point).
+
+**Hypothesis:** Diagonal lines through the plateau provide cross-row constraint coupling at the propagation frontier, similar to DSM/XSM but offset to intersect at row 189 instead of the matrix corners.
+
+### B.50.6 Sub-experiment B.50e: Adaptive Plateau-Centered rLTPs (Proposed)
+
+**Construction:** Two-pass approach. First, run the solver without rLTPs to measure the exact plateau row $k^*$ for this specific block. Then construct rLTPs centered at $(k^*, 127)$ and $(k^*, 383)$.
+
+**Hypothesis:** The plateau row varies by block and LTP table. Adaptive centering ensures the rLTP short lines are at the ACTUAL plateau row, not an estimated one. For the B.38-optimized table on MP4 data, $k^* \approx 189$.
+
+**Note:** This requires the compressor to run the solver twice (once to find $k^*$, once with rLTPs to find DI). The first pass is cheap (runs to plateau, aborts, records $k^*$). The rLTP cross-sums are then computed and stored in the payload or sidecar for the second pass and for decompression.
+
+### B.50.7 Sub-experiment B.50f: Elliptical rLTPs (Proposed)
+
+**Construction:** Use an elliptical distance metric:
+
+$$d(r, c) = \sqrt{\alpha^2 (r - r_0)^2 + (c - c_0)^2}$$
+
+with $\alpha = 4$ (row direction stretched 4$\times$). This produces short lines that are narrow horizontal strips (spanning many columns but few rows) rather than circular rings. Centers at $(189, 127)$ and $(189, 383)$.
+
+**Hypothesis:** Elliptical rLTPs create short lines that are compact horizontal bands at the plateau depth, each covering $\sim$64 columns $\times$ 1-2 rows. These bands are similar to sub-row blocks (B.44b) but with pseudorandom cell ordering within each band, avoiding the premature-pruning problem of B.44d's sub-block hashes.
+
+### B.50.8 Implementation Priority
+
+All B.50 sub-experiments use the same 2-yLTP + 2-rLTP sidecar framework. The only change per sub-experiment is the cell-to-line assignment function in the Python sidecar generator. Priority order:
+
+1. **B.50b** (plateau-centered): directly tests row-255 vs row-189 mismatch. Simplest change.
+2. **B.50f** (elliptical): tests whether horizontal-band geometry is better than circular rings.
+3. **B.50c** (row-band): tests pure row-distance ordering.
+4. **B.50d** (diagonal-through-plateau): tests cross-row coupling at the plateau.
+5. **B.50e** (adaptive): requires two-pass solver; test only if B.50b shows improvement.
+
+**B.50b result invalidates the plateau-targeting hypothesis.** B.50c-f are deprioritized: if centering rLTPs AT the plateau regresses depth, row-band and elliptical constructions (which also target the plateau) are expected to regress similarly. The optimal rLTP placement (B.50a/B.48b) is AWAY from the plateau, not at it.
+
+**Status: B.50a COMPLETED (baseline). B.50b COMPLETED (regression). B.50c-f DEPRIORITIZED.**
+
+---
+
+## B.51 rLTP Spirals Above and Below the Plateau (Completed &mdash; Regression)
+
+### B.51.1 Motivation
+
+B.50b showed that rLTP forcings AT the plateau row (189) regress depth by &minus;4.1%. B.51 tests the opposite extreme: placing rLTP centers well ABOVE and BELOW the plateau to provide constraint information in the propagation zone and deep meeting band while leaving the plateau row entirely free for the solver's DFS exploration.
+
+### B.51.2 Construction
+
+- **rLTP1:** Center (94, 127) &mdash; row 94, midpoint of the propagation zone. Short lines at rows 90-98. Provides constraint information where the solver has already completed most cells via existing propagation.
+- **rLTP2:** Center (350, 383) &mdash; row 350, deep in the meeting band. Short lines at rows 346-354. Provides constraint information where the solver rarely reaches.
+
+Augmented with 2 B.38-optimized yLTPs via sidecar. Baseline: 4 geometric + 4 yLTP (from payload).
+
+### B.51.3 Results
+
+| Configuration | rLTP centers | Short-line rows | Peak Depth | Forcings | Iter/sec |
+|---------------|-------------|----------------|-----------|----------|----------|
+| B.50a (matrix center) | (255,127) (255,383) | 251-259 | 96,510 | 969,877 | 158K |
+| B.50b (plateau center) | (189,127) (189,383) | 185-193 | 92,538 | 3,265,306 | 160K |
+| **B.51 (above/below)** | **(94,127) (350,383)** | **90-98 / 346-354** | **87,971** | **1,340,915** | **282K** |
+
+**Depth regressed by 8,719 cells (&minus;9.0%).**
+
+### B.51.4 Analysis
+
+The above-plateau rLTP (center row 94, short lines rows 90-98) places forcings in the **propagation zone**&mdash;rows 0-168 where the solver has already assigned most cells via existing geometric + yLTP constraint propagation. These forcings are entirely redundant with the existing constraint system. The solver gains no new information because the propagation zone is already solved.
+
+The below-plateau rLTP (center row 350, short lines rows 346-354) places forcings in the **deep meeting band**&mdash;rows the solver never reaches during its DFS exploration (peak depth $\approx$ 96,690 $\approx$ row 189). These forcings resolve cells that are 160+ rows beyond the solver's frontier, providing no benefit.
+
+The throughput improvement (282K vs 158K iter/sec) reflects the reduced forcing interference: with forcings in redundant/unreachable regions, the sidecar check finds fewer lines to force, reducing overhead. But the depth regression shows that even non-interfering forcings can harm the solver, likely through subtle changes in constraint-store state that alter propagation cascade behavior.
+
+### B.51.5 Complete Spatial Targeting Summary
+
+The B.47-B.51 experimental arc establishes a complete map of rLTP center placement vs depth:
+
+| rLTP center row | Position relative to plateau (~189) | Peak Depth | $\Delta$ vs baseline | Forcings |
+|----------------|-------------------------------------|-----------|---------------------|----------|
+| 94 + 350 (B.51) | Far above + far below | 87,971 | &minus;9.0% | 1.34M |
+| 189 (B.50b) | AT plateau | 92,538 | &minus;4.1% | 3.27M |
+| 255 (B.50a) | 66 rows below plateau | **96,510** | **&minus;0.2%** | 970K |
+| 255 (B.47) | 66 rows below (2 rLTP only) | 96,510 | &minus;0.2% | 425K |
+
+**The optimal rLTP placement is at the matrix center (row 255)**, approximately 66 rows below the plateau. This placement minimizes interference with the solver's DFS exploration at the propagation frontier while occasionally resolving cells during deep tentative exploration in the mid-meeting-band. Every other placement tested&mdash;at the plateau, above it, below it, or straddling it&mdash;regresses depth.
+
+The spatial targeting conclusion is definitive: **rLTP center placement cannot improve depth beyond baseline.** The best achievable result (B.50a: 96,510, &minus;0.2%) is within measurement noise of the baseline (96,690). The depth ceiling is invariant to the spatial distribution of constraint information.
+
+**Tool:** `tools/b51_sidecar.py`
+
+**Status: COMPLETED &mdash; REGRESSION (&minus;9.0%).**
+
+---
+
+## B.52 Joint yLTP+rLTP Optimization for 100K Depth (Proposed)
+
+### B.52.1 Motivation
+
+The only technique that genuinely improved depth was LTP table optimization (B.34-B.38: 91,090 &rarr; 96,672, +6.1%). All subsequent experiments (B.39-B.51) tested solver improvements, constraint families, and spatial targeting&mdash;none moved the depth ceiling. Reaching 100K requires 3,400 more cells (+3.5%), a gap comparable to what B.38's optimization chain achieved.
+
+B.38 saturated using a single proxy function (row-concentration score) on a single test block. B.52 re-opens the optimization path with three innovations: a new cross-family interaction proxy (B.52a), joint yLTP+rLTP optimization (B.52b), and multi-block evaluation (B.52c).
+
+### B.52.2 Sub-experiment B.52a: Cross-Family Interaction Proxy
+
+**Motivation.** B.38's row-concentration proxy measures how many of each yLTP line's cells fall in early rows (rows 0-$k$ for threshold $k$). This captures the yLTP-to-row interaction but ignores yLTP-to-diagonal and yLTP-to-yLTP interactions. At the plateau, the propagation cascade depends on CROSS-FAMILY reinforcement: a cell forced by one yLTP line triggers cascading forcings on the cell's diagonal, column, and other yLTP lines. A proxy that measures this cross-family coupling could identify geometries that B.38's proxy missed.
+
+**Method.** Define a new proxy score:
+
+$$S_{\text{cross}} = \sum_{k=1}^{4} \sum_{L \in \text{yLTP}_k} \left( \sum_{L' \in \text{other families}} |\text{cells}(L) \cap \text{cells}(L')| \right)^2$$
+
+where the inner sum counts how many cells each yLTP line $L$ shares with each constraint line $L'$ from a different family. The square emphasizes lines with high cross-family overlap (more cascade potential). The proxy is computed from the yLTP table alone (no solver needed), enabling fast evaluation.
+
+**Implementation.** Modify `tools/b32_ltp_hill_climb.py` (the B.38 hill-climbing tool) to use $S_{\text{cross}}$ instead of row-concentration. Run the deflation-kick ILS chain from the current best table. Measure depth at each checkpoint.
+
+**Expected outcome.** If $S_{\text{cross}}$ correlates with depth better than row-concentration, the optimization may find geometries beyond the 96,672 local optimum. If the correlation is weak or anti-correlated (like B.36's SA failure), the proxy is abandoned.
+
+### B.52.3 Sub-experiment B.52b: Joint yLTP+rLTP Optimization
+
+**Motivation.** B.48b showed that 2 yLTPs + 2 rLTPs (centers at row 255) produce 1.04M forcings at baseline depth. The yLTP table was optimized WITHOUT rLTPs present (B.38). A yLTP table optimized WITH the 2 rLTPs active may find a geometry where yLTP propagation and rLTP forcing SYNERGIZE&mdash;the rLTP forcings resolve cells that enable yLTP propagation to cascade one row further.
+
+**Method.**
+
+1. Fix the 2 rLTPs at centers (255, 127) and (255, 383) (B.50a configuration).
+2. Hill-climb the yLTP1/yLTP2 table using the B.38 deflation-kick ILS.
+3. At each evaluation checkpoint, run the solver WITH the rLTP sidecar active.
+4. Measure depth as the fitness function (not proxy score).
+
+This directly optimizes depth rather than a proxy, at the cost of slower evaluation (~90 seconds per checkpoint vs ~1 second for proxy score). Use shorter evaluation windows (10-30 seconds) for the hill-climbing inner loop, with full 90-second validation at each depth-improvement milestone.
+
+**Implementation.** Create `tools/b52b_joint_climb.py` that:
+- Loads the rLTP sidecar
+- Loads the current best yLTP table
+- Applies swap mutations to yLTP1/yLTP2
+- For each candidate, runs the C++ solver via subprocess with `CRSCE_B45_SIDECAR` and `CRSCE_LTP_TABLE_FILE` pointing to the mutated table
+- Parses depth from the events log
+- Accepts improvements, rejects regressions (greedy hill-climb)
+
+**Expected outcome.** If yLTP-rLTP synergy exists, the joint optimization will find yLTP geometries that exceed 96,672 when the rLTPs are present. The rLTP forcings may "unlock" cascade paths that a yLTP-only solver cannot reach, enabling the optimizer to find tables rated higher in the joint configuration than in isolation.
+
+### B.52.4 Sub-experiment B.52c: Multi-Block Optimization
+
+**Motivation.** The B.38 chain optimized on a single test block (first block of useless-machine.mp4). The depth varies by block: synthetic 50%-density blocks reach ~86K while the MP4 block reaches ~96K. If the optimized table is overfitting to the MP4 block's structure, a multi-block evaluation might find a universally better geometry.
+
+**Method.**
+
+1. Generate 5 test blocks: 1 MP4 block + 4 random blocks at different densities (30%, 40%, 50%, 60%).
+2. For each candidate yLTP table, measure depth on all 5 blocks.
+3. Fitness = minimum depth across all 5 blocks (minimax optimization: maximize the worst case).
+
+This prevents overfitting to a single block's structure. A table that achieves $\geq 97{,}000$ on ALL blocks is more likely to represent a genuine structural improvement than one that achieves 97,000 on the MP4 block but 85,000 on random data.
+
+**Implementation.** Extend the B.52b joint optimization to evaluate on multiple blocks. Each evaluation round runs 5 solver instances (parallelized). Total evaluation time: ~5 $\times$ 10 seconds = 50 seconds per candidate.
+
+### B.52.5 Results
+
+#### B.52a: Cross-Family Interaction Proxy (Completed &mdash; No Discrimination)
+
+The cross-family interaction proxy ($S_{\text{cross}}$) was computed for the B.38-optimized yLTP1+2 (depth 96,672) and the inert yLTP3+4:
+
+| Proxy | yLTP1+2 (optimized) | yLTP3+4 (inert) | Delta |
+|-------|--------------------:|----------------:|------:|
+| Row-concentration (B.38) | 10,280,125 | 9,962,916 | +3.2% |
+| Cross-family interaction | 543,869 | 542,265 | +0.3% |
+| Geometric (row) interaction | 1,191,992 | 1,184,440 | +0.6% |
+
+The cross-family proxy shows only 0.3% discrimination&mdash;no predictive value. The row-concentration proxy (B.38) remains the best available at 3.2% discrimination. B.38 saturated not because its proxy was wrong but because the local optimum at 96,672 is genuine for that proxy landscape.
+
+**Tool:** `tools/b52a_cross_proxy.py`
+
+**Status: COMPLETED &mdash; NO DISCRIMINATION.**
+
+#### B.52b: Direct Depth Hill-Climbing (In Progress &mdash; New Best 97,330)
+
+Direct depth optimization (solver-in-the-loop) bypasses the proxy entirely, using measured peak depth as the fitness function. Starting from the B.38-optimized table (depth 96,690 on the MP4 test block), greedy hill-climbing with small random swap mutations found a series of improvements:
+
+| Round | Iterations | Swaps/mutation | Best depth | $\Delta$ (round) | $\Delta$ (cumulative) |
+|-------|-----------|---------------|-----------|------------------|----------------------|
+| 1 | 20 | 50 | 96,812 | +122 | +122 |
+| 2 | 30 | 30 | 96,992 | +180 | +302 |
+| 3 | 30 | 20 | 97,044 | +52 | +354 |
+| 4 | 40 | 10 | 97,286 | +242 | +596 |
+| 5 | 50 | 10 | **97,330** | +44 | **+640** |
+
+**Production best on MP4 block: 98,005** (measured in B.52c multi-block evaluation with 30-second window).
+
+The direct optimization succeeds where proxy-based optimization failed because the proxy-to-depth correlation breaks down near the optimum. Small mutations (10 cell swaps) that imperceptibly change the proxy score can measurably change depth by altering the propagation cascade at the plateau boundary.
+
+Extended optimization chain (5 rounds + 1 extended + kick-and-climb):
+
+| Round | Iterations | Swaps | Best depth | $\Delta$ (round) | $\Delta$ (cumulative) |
+|-------|-----------|-------|-----------|------------------|----------------------|
+| 1 | 20 | 50 | 96,812 | +122 | +122 |
+| 2 | 30 | 30 | 96,992 | +180 | +302 |
+| 3 | 30 | 20 | 97,044 | +52 | +354 |
+| 4 | 40 | 10 | 97,286 | +242 | +596 |
+| 5 | 50 | 10 | 97,330 | +44 | +640 |
+| 6 (extended) | 9 | 10 | 97,343 | +13 | +653 |
+
+**B.52b-1: Kick-and-Climb (Completed &mdash; No Escape)**
+
+Five kicks of 500 random swaps each, followed by 20 fine-climb iterations per kick. No kick escaped the 97,343 basin:
+
+| Kick | Kick depth | After 20 climbs | Recovery |
+|------|-----------|----------------|----------|
+| 1 | 95,280 | 95,321 | +41 |
+| 2 | 96,406 | 96,440 | +34 |
+| 3 | 95,725 | 96,439 | +714 |
+| 4 | 95,465 | 95,786 | +321 |
+| 5 | 94,870 | 95,126 | +256 |
+
+The 500-swap kicks drop depth by 1,000-2,500 cells. Twenty fine-climb steps recover 40-700 cells but never reach the starting depth. The 97,343 optimum is a genuine local optimum for direct depth hill-climbing on the MP4 block.
+
+**Tool:** `tools/b52b_joint_climb.py`
+
+**Status: COMPLETED &mdash; CONVERGED AT 97,343 (98,005 with 30s measurement window).**
+
+#### B.52c: Multi-Block Validation (Completed)
+
+The B.52b-optimized table was evaluated on 5 test blocks (1 MP4 + 4 random at different densities) and compared against the B.38 baseline table. Each evaluation used a 30-second solver window.
+
+| Block | Density | B.38 baseline | B.52b best | Delta |
+|-------|---------|--------------|-----------|-------|
+| **MP4** | **40.9%** | **96,690** | **98,005** | **+1,315** |
+| Random | 30% | **114,568** | 114,493 | &minus;75 |
+| Random | 40% | 95,134 | 94,226 | &minus;908 |
+| Random | 50% | 83,536 | 82,742 | &minus;794 |
+| Random | 60% | 94,352 | 94,558 | +206 |
+
+**Three key findings:**
+
+**1. The MP4 block reached 98,005** &mdash; the highest depth ever measured in the research program. The B.52b optimization gained +1,315 cells over the B.38 baseline on the target block.
+
+**2. 100K depth is already achievable at 30% density.** The 30%-density random block reaches **114,568** on the B.38 baseline table&mdash;already well past 100K without any optimization. Lower-density blocks have more constraint information (cross-sums further from the midpoint $s/2 = 255$, creating more $\rho = 0$ and $\rho = u$ forcing opportunities). The "100K barrier" is density-specific, not a universal limit.
+
+**3. The B.52b table overfits to the MP4 block.** It improves the MP4 block (+1,315) but regresses Random 40% (&minus;908) and Random 50% (&minus;794). The optimization specifically tuned the yLTP geometry for the MP4 block's structure at the expense of generalization.
+
+**Density-depth relationship.** The multi-block data reveals that depth correlates inversely with density near 50%:
+
+| Density | Depth (B.38) | Distance from 50% |
+|---------|-------------|-------------------|
+| 30% | 114,568 | 20% |
+| 40% | 95,134 | 10% |
+| 40.9% (MP4) | 96,690 | 9.1% |
+| 50% | 83,536 | 0% |
+| 60% | 94,352 | 10% |
+
+The 50%-density block has the LOWEST depth (83,536) because its cross-sums are closest to the midpoint ($\text{LSM}[r] \approx 255$), providing the least forcing information. Blocks with density far from 50% (30% or 70%) have extreme cross-sums that trigger more forcings, enabling deeper propagation.
+
+**Implication for CRSCE viability.** CRSCE can already compress data whose CSM density is significantly below or above 50%. For a 30%-density block, the solver reaches 114,568 cells (43.9% of the matrix)&mdash;and with further optimization, may reach full reconstruction. The format is not universally unviable; it is unviable specifically for high-entropy (near-50% density) data, which is exactly the data that Shannon's theorem predicts cannot be compressed.
+
+**Status: COMPLETED.**
+
+#### B.52d: Per-Block MP4 Analysis (Completed)
+
+All 83 blocks of `useless-machine.mp4` were extracted, and solver depth was measured using both the B.38 baseline and B.52b optimized yLTP tables (15-second evaluation per block per table).
+
+**Summary statistics (B.38 baseline table):**
+
+| Density band | Blocks | Depth range | Mean depth |
+|-------------|--------|-------------|-----------|
+| 0-20% | 1 | 20,875 | 20,875 |
+| 40-50% | 36 | 72,393 - 106,439 | 84,561 |
+| 50-60% | 46 | 58,880 - 91,031 | 81,463 |
+
+**Block 70 reached 106,439 on the B.38 baseline** &mdash; the first MP4 block to exceed 100K. This block is at 50.0% density (130,451 ones), so the 100K+ depth is not explained by low density. The B.52b table achieved only 84,627 on the same block, confirming that B.52b's optimization overfits to block 0.
+
+**Blocks exceeding 100K: 1 of 83** (block 70, depth 106,439 on B.38).
+
+**Key findings:**
+
+1. **100K depth occurs naturally** in the MP4 data without any optimization beyond B.38. Block 70's structure (which is MP4 video content at 50% density) is unusually favorable for the solver's propagation cascade.
+
+2. **Depth varies widely across blocks** at the same density. Within the 40-50% band, depth ranges from 72,393 to 106,439 &mdash; a 47% spread. This variance is driven by the specific bit patterns in each block (how the cross-sum values interact with the yLTP geometry), not by density alone.
+
+3. **The B.52b table is block-specific.** It improves block 0 (+1,315) but regresses block 70 (&minus;21,812). There is no single yLTP table that is optimal for all blocks. The depth ceiling is a per-block property determined by the interaction between the block's bit pattern and the yLTP table geometry.
+
+4. **Mean depth across all 83 blocks is ~83,000** (B.38), far from 100K. While individual blocks can exceed 100K, the AVERAGE block cannot be solved to depth 100K with the current constraint system.
+
+5. **Block 82** (the final partial block) has 9.8% density and only reaches 20,875 &mdash; the short block has too few cells for meaningful propagation.
+
+**Tool:** `tools/b52d_multiblock_mp4.py`
+
+**Status: COMPLETED.**
+
+### B.52.6 Final B.52 Conclusions
+
+The B.52 experimental arc (B.52a through B.52d) resolves the question of whether yLTP table optimization can push depth to 100K for arbitrary input data.
+
+**1. Direct depth optimization works but is block-specific.** B.52b gained +653 cells on the MP4 header block (96,690 &rarr; 97,343) by bypassing the proxy and optimizing depth directly. The optimized table improves its target block but regresses others (B.52c: &minus;908 on 40% random, &minus;794 on 50% random). This is not overfitting in the traditional sense&mdash;it reflects the fundamental nature of the problem.
+
+**2. Depth is a property of the (block, table) pair.** B.52d measured depth across all 83 MP4 blocks and found a 47% spread (58,880 to 106,439) at the same ~50% density on the same B.38 table. Block 70 reaches 106,439 while block 39 reaches 62,479. The difference is not density, not the table, and not the solver&mdash;it is the specific interaction between each block's cross-sum value distribution and the yLTP partition geometry.
+
+**3. There is no universal optimal table.** The B.38 table is better for some blocks; the B.52b table is better for others. A table optimized for one block's bit pattern is suboptimal for another's. Pre-optimized table dictionaries (adaptive table selection) would require foreknowledge of the input data's structure, which is unavailable for arbitrary 32KB blocks from unknown sources. This rules out per-block table selection as a general-purpose strategy.
+
+**4. 100K depth occurs naturally for some blocks.** Block 70 of the MP4 file reaches 106,439 on the unmodified B.38 table at 50% density. The 30%-density synthetic block reaches 114,568. These demonstrate that the 100K barrier is not a universal physical limit of the constraint system&mdash;it is the depth achieved for TYPICAL blocks. Favorable blocks exceed it; unfavorable blocks fall far short.
+
+**5. The mean depth across arbitrary blocks is ~83,000.** The average over all 83 MP4 blocks (B.38 table) is approximately 83,000 cells&mdash;only 31.8% of the 261,121-cell matrix. For CRSCE to function as a general-purpose compressor, the solver would need to consistently reach 261,121 (100%) on every block. The gap between 83K average and 261K required is 3.15$\times$, far beyond what any table optimization or solver improvement can close.
+
+**6. The fundamental barrier is the unpredictable interaction between input data and constraint geometry.** The constraint system's effectiveness on a specific block depends on how that block's cross-sum values distribute across the yLTP partition lines. Some distributions create deep propagation cascades (block 70: 106K); others create shallow ones (block 39: 62K). This distribution is determined by the input data's bit pattern, which is unknown a priori and varies unpredictably between blocks. No static constraint system can be universally optimal.
+
+**Status: B.52 COMPLETED.**
+
+---
+
+## B.54 SMT Hybrid Solver with CRC-32 Row Verification (Proposed)
+
+### B.54.1 Motivation
+
+The DFS + propagation solver exhausts at ~row 189, having assigned approximately 96,000 of 261,121 cells. The remaining ~165,000 cells lie in the meeting band where the DFS solver's singleton propagation ($\rho = 0$ or $\rho = u$) extracts zero constraint information. However, the constraint system carries substantial INTEGER information in this region that the DFS solver ignores: each line's unknown cells must sum to exactly $\rho(L)$, a cardinality constraint that modern SAT/ILP solvers exploit through joint reasoning (CDCL, cutting planes, watched literals) fundamentally different from singleton propagation.
+
+B.54 proposes a **format change** (SHA-1 $\to$ CRC-32 row hashes) combined with a **solver architecture change** (DFS $\to$ SMT hybrid) to break through the depth ceiling.
+
+### B.54.2 Format Change: CRC-32 Row Hashes
+
+Replace the 511 per-row SHA-1 lateral hashes (160 bits each) with CRC-32 (32 bits each). The SHA-256 block hash (BH) is retained as the cryptographic correctness guarantee.
+
+| Component | SHA-1 (current) | CRC-32 (B.54) |
+|-----------|-----------------|----------------|
+| Row hash bits | 511 $\times$ 160 = 81,760 | 511 $\times$ 32 = 16,352 |
+| Block hash (SHA-256) | 256 | 256 |
+| DI | 8 | 8 |
+| Cross-sums | 43,964 | 43,964 |
+| **Total payload** | **125,988 bits (15,749 bytes)** | **60,580 bits (7,573 bytes)** |
+| **Compression ratio** | **48.2%** | **23.2%** |
+
+**Compression improvement:** The payload drops from 125,988 to 60,580 bits&mdash;a 52% reduction&mdash;improving the compression ratio from 48.2% to **23.2%**.
+
+**Collision resistance:** CRC-32 is linear over GF(2) and provides zero adversarial collision resistance on its own. However, the SHA-256 block hash provides full $2^{256}$ second-preimage resistance over the entire CSM. For the minimum constraint-preserving swap (1,528 cells, 11 rows), the combined evasion probability is:
+
+$$P_{\text{collision}} = 2^{-32 \times 11 - 256} = 2^{-608}$$
+
+This is weaker than the current $2^{-2,016}$ (SHA-1) but still astronomically beyond any foreseeable computational capability. The security rests on the SHA-256 BH, which is unaffected by the row hash change.
+
+**Solver pruning:** CRC-32 provides the same pass/fail signal as SHA-1 when a row reaches $u = 0$. The $2^{-32}$ false positive rate per row means the solver encounters a spurious pass approximately once per $4 \times 10^9$ row verifications&mdash;effectively never. The BH catches any false positive at final verification.
+
+### B.54.3 Prior Art: Why Previous CDCL/SAT Attempts Failed
+
+**B.21 CDCL implementation (&sect;B.21.12).** CDCL was implemented within the DFS solver and produced catastrophic depth regression (88,503 $\to$ 52,042, &minus;41%). The failure was caused by applying 1-UIP conflict analysis to SHA-1 hash failures&mdash;a global non-linear constraint over 511 cells. The conflict analysis identified irrelevant decision variables as culprits, producing wrong-direction backjumps that undid correct work. The CDCL learned clauses were too long (predicted 111+ literals) to provide meaningful pruning.
+
+**Why B.54 differs from B.21.** B.21 embedded CDCL INSIDE the DFS solver and applied it to the COMBINED problem (cross-sums + SHA-1). B.54 separates the concerns:
+
+- **Cross-sum constraints** are linear cardinality constraints&mdash;perfectly suited for SAT/ILP solving. The conflict analysis operates on cardinality constraint violations, not SHA-1 hash failures. This eliminates the global-constraint mismatch that destroyed B.21's CDCL.
+- **Row hash verification** is handled as an **SMT theory oracle**: a black-box function called when a row becomes fully assigned. The oracle returns pass/fail and, on failure, generates a blocking clause. This is SAT Modulo Theories (SMT), not CDCL on bit-blasted hashes.
+
+### B.54.4 SMT Formulation
+
+The solver operates in two layers:
+
+**Boolean core (SAT solver).** For each unassigned cell $(r,c)$, a Boolean variable $x_{r,c}$. For each constraint line $L$ with residual $\rho(L)$ and $u(L)$ unknowns, a cardinality constraint:
+
+$$\sum_{\substack{(r,c) \in L \\ \text{unassigned}}} x_{r,c} = \rho(L)$$
+
+encoded via sequential counter or totalizer (standard cardinality-to-CNF encodings). The SAT solver applies CDCL, restarts, and watched-literal propagation to the cardinality constraints. This is the core search mechanism.
+
+**Theory oracle (CRC-32 verification).** When all cells in a row $r$ are assigned ($u(\text{row}_r) = 0$), the theory oracle computes CRC-32 of the 511-bit row and compares to the stored value. On failure, it generates a blocking clause:
+
+$$\neg(x_{r,0} = v_0 \wedge x_{r,1} = v_1 \wedge \ldots \wedge x_{r,510} = v_{510})$$
+
+This is a 511-literal clause blocking the specific wrong row assignment. While long, the CDCL engine propagates implications from this clause through the cardinality constraints to other cells, potentially pruning large portions of the search space.
+
+**Key architectural difference from B.21.** The CDCL engine operates on cardinality constraints (linear, local, well-suited for 1-UIP analysis). The CRC-32 oracle generates blocking clauses WITHOUT invoking conflict analysis on the hash function itself. The hash is a black box; only its pass/fail result enters the SAT solver.
+
+### B.54.5 The Deep Exploration Paradox and SAT Solvers
+
+B.44d established the deep exploration paradox: the DFS solver's depth depends on tolerating wrong tentative assignments for constraint cascade feedback. Sub-block CRC-32 verification (64-cell boundaries) regressed DFS depth by 36% because it pruned the informative deep exploration.
+
+**SAT solvers do not rely on deep exploration.** They use CDCL + restarts, restarting frequently and relying on learned clauses (accumulated from all previous failures) to prune the search space globally. The deep exploration paradox is specific to the DFS architecture's dependence on tentative wrong assignments for constraint cascade feedback. SAT solvers generate this feedback through clause learning instead.
+
+This means the B.44d regression may not apply to B.54's SMT formulation. The CRC-32 row verification (or even sub-block verification) may be productive in the SAT context where it was counterproductive in the DFS context.
+
+### B.54.6 Residual Problem Sizing
+
+After the DFS solver assigns ~96,000 cells (rows 0-~189):
+
+| Parameter | Full problem | Residual problem |
+|-----------|-------------|-----------------|
+| Variables | 261,121 | ~165,000 |
+| Cardinality constraints | 5,108 | 5,108 (tightened) |
+| Row hash verifications | 511 | ~322 (meeting-band rows) |
+| Constraint density | 2.0% | 3.1% |
+
+The residual problem has 55% higher constraint density than the full problem because the same number of constraint lines covers fewer variables. Each line's unknown count is reduced (from 511 to ~300), and the residuals are tighter.
+
+### B.54.7 DI Determinism
+
+CRSCE requires deterministic enumeration: the compressor and decompressor must follow identical search trajectories to agree on DI. Classical SAT solvers use non-deterministic restarts and variable ordering.
+
+**Resolution:** The SMT solver operates on the residual problem AFTER the DFS solver has determined the partial assignment deterministically. The residual problem asks: does a solution exist that extends this partial assignment to satisfy all constraints + CRC-32 hashes? If the answer is yes, that solution IS the DI=0 CSM (with overwhelming probability, since CRC-32 + SHA-256 BH provide $2^{-16,608}$ false positive rate across all rows). The SAT solver does not enumerate solutions; it finds one satisfying assignment. Determinism is preserved because the DFS solver deterministically produces the same partial assignment, and the residual problem has a unique solution (the correct CSM).
+
+If the residual problem has multiple solutions (CRC-32 false positives), the SHA-256 BH distinguishes them. The compressor tries each candidate and selects the one matching BH. With $2^{-32}$ false positive rate per row and 322 meeting-band rows, the expected number of false positives across ALL rows is $2^{-32 \times 322} = 2^{-10,304}$&mdash;essentially zero.
+
+### B.54.8 Method
+
+1. **Format change:** Replace SHA-1 lateral hashes with CRC-32 (32 bits per row). Retain SHA-256 BH.
+2. **DFS phase:** Run the existing DFS solver on the test block. Record the partial assignment and per-line residuals at the plateau.
+3. **Export:** Write the residual problem as a cardinality-constrained SAT instance (PB format) or ILP instance (LP/MPS format).
+4. **SMT solve:** Invoke an SMT solver (or SAT solver + CRC-32 oracle callback) on the residual problem. Time limit: 1 hour.
+5. **Verify:** Check the completed CSM against the SHA-256 block hash.
+6. **Measure:** Solve time, number of CRC-32 oracle calls, number of learned clauses.
+
+### B.54.9 Expected Outcomes
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Full solve) | SMT finds the correct CSM within 1 hour | CRSCE is viable with a hybrid DFS+SMT solver at 23.2% compression ratio |
+| H2 (Partial progress) | SMT assigns additional cells beyond DFS plateau but does not complete | Cardinality constraint reasoning provides value beyond singleton propagation; further solver tuning warranted |
+| H3 (Timeout) | SMT cannot solve within 1 hour | The residual problem (~165K variables, ~5K cardinality constraints) is too under-constrained for CDCL/branch-and-cut |
+| H4 (Immediate solve) | SMT solves in $< 1$ second | The cross-sum cardinality constraints alone (without hash verification) suffice to determine the CSM; the problem was always tractable, the DFS solver was simply the wrong architecture |
+
+### B.54.10 Implementation
+
+**Tools:**
+- `tools/b54_export_residual.py`&mdash;runs the DFS solver, captures the plateau state, exports as PB/LP format.
+- `tools/b54_smt_solve.py`&mdash;invokes PySAT or HiGHS on the exported problem with CRC-32 oracle callback.
+
+**Dependencies:**
+- PySAT (`python-sat`) for cardinality constraint encoding and SAT solving with theory oracle callbacks.
+- HiGHS (`highspy`) for ILP solving with lazy constraint callbacks.
+- The C++ DFS solver (existing) for the propagation-zone phase.
+
+### B.54.11 Results (Completed &mdash; Not Viable in Current Form)
+
+Four solver approaches were tested on the residual problem (164,542 unassigned cells in the meeting band, rows 189-510, with rows 0-188 pre-assigned from the correct CSM):
+
+| Approach | Variables | Constraints | Result | Accuracy | Time |
+|----------|-----------|-------------|--------|----------|------|
+| ILP (all constraints) | 164,526 | 4,533 | Timeout | N/A | $>$600s |
+| LP relaxation (row-only) | 164,542 | 322 | Solved | 49.9% | 0.5s |
+| SAT (all constraints upfront) | 164,542 + 17M aux | 395M clauses | OOM killed | N/A | N/A |
+| Lazy SMT (incremental) | 164,542 + growing | 40 iter $\times$ 20 constraints | 50.4% at iter 40 | 50.4% | 67s (28GB RAM) |
+
+**Key findings:**
+
+**1. LP relaxation is uninformative.** The row-only LP solves in 0.5 seconds and returns an all-integer solution&mdash;but it matches only 49.9% of meeting-band cells (essentially random). The constraint system is so under-determined (322 row equations, 164K variables, 164K free dimensions) that the LP finds an arbitrary vertex of the feasible polytope unrelated to the correct CSM. This also answers B.55: LP relaxation with iterative rounding will not converge because the fractional values carry no information.
+
+**2. Cardinality constraint encoding is too large for SAT.** Each cardinality constraint on ~300 unknowns produces ~54K-95K CNF clauses (depending on encoding). With 2,877 constraint lines, the total is 155M-395M clauses and 5M-17M auxiliary variables. This exceeds available memory. Pseudo-Boolean (PB) solvers that handle cardinality constraints natively would avoid this encoding overhead but were unavailable in the test environment.
+
+**3. Lazy SMT does not converge.** Adding violated constraints incrementally reduces violations (2,877 $\to$ 2,013 in 40 iterations) but accuracy stays at ~50%. Each added constraint locally fixes its line but does not propagate to other lines because the constraints are weakly coupled in the meeting band. After 40 iterations the solver consumed 28GB of RAM from accumulated cardinality encodings.
+
+**4. The fundamental circular dependency persists.** The CRC-32 oracle can only fire when a row is fully assigned ($u = 0$). Completing a meeting-band row requires assigning ~511 cells. The cross-sum constraints alone cannot determine those cells (49.9% accuracy = random). The oracle's guidance is needed to identify the correct row assignment, but the oracle requires the row to be complete before it can evaluate. This is the same barrier the DFS solver faces, and no alternative solver architecture tested here breaks it.
+
+**Implication for the CRC-32 format change.** The CRC-32 row hash improvement (48.2% $\to$ 23.2% compression ratio) remains valid independently of the solver question. It reduces payload size without affecting solver behavior. However, the SMT hybrid solver that motivated the CRC-32 change does not appear viable&mdash;the residual problem is too under-constrained for cross-sum reasoning alone, and the hash oracle faces the same row-completion barrier as the DFS solver.
+
+**Tool:** `tools/b54_residual_ilp.py`
+
+**Status: COMPLETED &mdash; NOT VIABLE. Cross-sum constraints alone are insufficient; CRC-32 oracle faces same row-completion barrier as DFS.**
+
+---
+
+## B.55 LP Relaxation with Iterative Rounding (Answered by B.54)
+
+### B.55.1 Motivation
+
+The CRSCE constraint system is a system of 5,108 linear equations over 261,121 binary variables. The DFS solver treats this as a combinatorial search problem, exploring the binary solution space one variable at a time. An alternative approach treats it as a continuous optimization problem by relaxing the binary constraints to $x_{r,c} \in [0, 1]$ and solving the resulting linear program (LP).
+
+The LP relaxation provides fractional cell values that indicate the "confidence" of each cell's assignment: a cell with LP value 0.01 is almost certainly 0, while a cell with LP value 0.99 is almost certainly 1. Cells with LP value near 0.5 are undetermined by the linear constraints alone. By rounding the high-confidence cells and iterating, the LP relaxation can progressively reduce the number of free variables.
+
+### B.55.2 Method
+
+1. Construct the constraint matrix $A$ ($5{,}108 \times 261{,}121$) and target vector $b$ (cross-sum values).
+2. Solve the LP relaxation: minimize $\mathbf{0}^T x$ subject to $Ax = b$, $0 \leq x \leq 1$. (The objective is a feasibility problem; any feasible point suffices.)
+3. Identify cells with LP value $< \epsilon$ or $> 1 - \epsilon$ (for threshold $\epsilon = 0.01$). Round these cells to 0 or 1 respectively.
+4. Fix the rounded cells, update $A$ and $b$, and re-solve the reduced LP.
+5. Repeat until no more cells can be rounded or all cells are assigned.
+6. Verify the rounded assignment against SHA-1 lateral hashes.
+
+### B.55.3 Analysis
+
+The LP relaxation has $5{,}108$ equality constraints and $261{,}121$ variables. The system is heavily under-determined ($261{,}121 - 5{,}097 = 256{,}024$ degrees of freedom in the null space). A basic feasible solution (vertex of the polytope) would have at most 5,108 non-zero variables, but the LP relaxation finds an INTERIOR point where most variables are fractional.
+
+The key question is whether the LP fractional values are informative. If most cells have LP value near 0.5, the relaxation provides no guidance. If many cells have LP values near 0 or 1, the relaxation identifies cells that the integer constraints determine even though the DFS propagation engine cannot detect them.
+
+**Interaction with SHA-1 hashes.** The SHA-1 constraints are non-linear and cannot be included in the LP directly. They serve as post-rounding verification: after iterative rounding, check whether the assignment satisfies all SHA-1 hashes. If not, the rounded assignment is a candidate for refinement via local search or SAT solving on the remaining mismatched rows.
+
+### B.55.4 Expected Outcomes
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Many cells rounded) | $\geq 50\%$ of cells have LP value $< 0.01$ or $> 0.99$ | LP relaxation extracts substantial information from the integer constraints; iterative rounding may converge |
+| H2 (Few cells rounded) | $< 10\%$ of cells have extreme LP values | The integer constraints are too loose for LP relaxation to provide guidance; the under-determined system admits too many feasible fractional solutions |
+| H3 (Full solve) | Iterative rounding converges to a binary solution satisfying all constraints + SHA-1 | CRSCE is viable with LP-based reconstruction |
+
+### B.55.5 Implementation
+
+**Tool:** `tools/b55_lp_relaxation.py`&mdash;builds the constraint matrix, solves the LP relaxation using SciPy's `linprog` or HiGHS, and performs iterative rounding.
+
+**Computational cost.** Solving a 5,108-constraint LP with 261,121 variables is feasible with modern solvers (HiGHS handles millions of variables). The iterative rounding adds $O(k)$ LP solves where $k$ is the number of rounding iterations.
+
+**Status: ANSWERED BY B.54.** B.54's LP relaxation experiment (row-only, 322 constraints, 164K variables) solved in 0.5 seconds but achieved only 49.9% cell accuracy&mdash;equivalent to random guessing. The constraint system is too under-determined for LP relaxation to provide informative fractional values. All cells land at LP vertices (0 or 1), but the vertex chosen is unrelated to the correct CSM. Iterative rounding cannot converge because the starting point carries no signal. **B.55 is not viable.**
+
+---
+
+## B.56 Hierarchical Multi-Resolution Reconstruction (Proposed)
+
+### B.56.1 Motivation
+
+The CRSCE constraint system's 2% constraint density is computed over the full $511 \times 511$ matrix (5,097 independent constraints / 261,121 cells). For a smaller sub-matrix, the effective constraint density is HIGHER because the geometric constraint families (rows, columns, diagonals) scale linearly with matrix dimension while the cell count scales quadratically:
+
+| Matrix size | Cells | Geometric constraints | Density |
+|------------|-------|----------------------|---------|
+| $63 \times 63$ | 3,969 | 374 | 9.4% |
+| $127 \times 127$ | 16,129 | 758 | 4.7% |
+| $255 \times 255$ | 65,025 | 1,526 | 2.3% |
+| $511 \times 511$ | 261,121 | 3,064 | 1.2% |
+
+At $63 \times 63$, the constraint density is 9.4%&mdash;nearly 5$\times$ higher than the full matrix. If the DFS solver's depth ceiling scales with constraint density, a $63 \times 63$ sub-matrix may be fully solvable.
+
+### B.56.2 Method
+
+**Stage 1: Solve the central 63$\times$63 sub-matrix.** Extract rows 224-286, columns 224-286 (the center of the CSM). Compute cross-sums for this sub-matrix from the known full-matrix cross-sums (each sub-row sum is derivable from the full row sum minus the cells outside the sub-matrix, which are unknowns&mdash;so the sub-matrix cross-sums are NOT directly available).
+
+**Challenge:** The sub-matrix cross-sums cannot be computed independently because they depend on cells outside the sub-matrix. The full-matrix row sum $\text{LSM}[r]$ equals the sum of all 511 cells in row $r$, not just the 63 cells in the sub-matrix.
+
+**Resolution:** Instead of decomposing the problem spatially, decompose it ALGEBRAICALLY. Use Gaussian elimination over the integers to reduce the 5,108-equation system to echelon form, identifying which cells are determined by the constraints and which are free. The determined cells can be assigned without branching; the free cells require search.
+
+**Alternative hierarchical approach:** Process the matrix in row bands rather than sub-matrices. Solve rows 0-63 first (high constraint density from diagonal/anti-diagonal short lines at the matrix edge), then rows 64-127 (using the solved rows 0-63 as additional constraints), then 128-191, etc. This is similar to what the DFS solver already does but with the addition of integer Gaussian elimination at each stage to extract more information than singleton propagation.
+
+### B.56.3 Algebraic Decomposition Variant
+
+Instead of spatial hierarchy, perform **integer Gaussian elimination** on the full constraint matrix $A$ ($5{,}108 \times 261{,}121$, integer entries). This reduces the system to:
+
+- **Determined cells:** Cells whose values are uniquely determined by the integer constraints (not just the GF(2) parity constraints). The integer rank may be higher than the GF(2) rank of 5,097.
+- **Free cells:** Cells that can take either value without violating any cross-sum constraint.
+- **Constrained cells:** Cells that are not fully determined but are constrained by integer relationships (e.g., "if cell A = 1 then cell B must = 0").
+
+The determined cells can be assigned immediately. The constrained cells can be solved via SAT/ILP (B.54) or iterative methods (B.55). The free cells require SHA-1 disambiguation.
+
+### B.56.4 Expected Outcomes
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Integer rank $>$ GF(2) rank) | Integer Gaussian elimination determines more cells than GF(2) analysis predicts | The integer constraints carry information beyond parity; the effective solution space is smaller than $2^{256,024}$ |
+| H2 (Integer rank = GF(2) rank) | No additional cells determined | The integer and GF(2) ranks coincide; the constraint system's information content is accurately captured by the GF(2) analysis |
+| H3 (Hierarchical solve succeeds) | Row-band processing with integer elimination reaches full reconstruction | Hierarchical decomposition with stronger per-stage reasoning overcomes the DFS solver's plateau |
+
+### B.56.5 Implementation
+
+**Tool:** `tools/b56_hierarchical.py`&mdash;integer Gaussian elimination on the constraint matrix, followed by staged reconstruction.
+
+**Dependencies:** NumPy for matrix operations, SciPy for sparse linear algebra, SymPy for exact integer arithmetic (avoiding floating-point rounding errors in Gaussian elimination).
+
+**Computational cost.** Integer Gaussian elimination on a $5{,}108 \times 261{,}121$ matrix is memory-intensive (~2.6 GB for a dense integer matrix) but feasible. Sparse representations and modular arithmetic can reduce memory and computation time.
+
+**Status: PROPOSED.**
+
+---
+
+## B.57 Reduced Matrix Dimension: S=127, b=7, CRC-32 Lateral Hash (Proposed)
+
+### B.57.1 Motivation
+
+The research program (B.1-B.54) established that the DFS solver's depth ceiling at S=511 is an information-theoretic barrier: 2% constraint density leaves 256,024 unconstrained degrees of freedom across 261,121 cells. No solver architecture tested&mdash;DFS, SAT, ILP, or SMT&mdash;can navigate this space efficiently.
+
+Reducing the matrix dimension from S=511 to S=127 fundamentally changes the problem:
+
+| Parameter | S=511 | S=127 | Improvement |
+|-----------|-------|-------|-------------|
+| Cells per block | 261,121 | 16,129 | 16.2$\times$ fewer |
+| Constraint density | 2.0% | 6.2% | 3.1$\times$ denser |
+| Null-space dimension (est.) | 256,024 | ~14,872 | 17.2$\times$ smaller |
+| Bits per cross-sum (b) | 9 | 7 | 22% smaller encoding |
+| Search space | $2^{256,024}$ | $2^{14,872}$ | Astronomically smaller |
+
+At S=127, the constraint density of 6.2% is triple the current system's 2.0%. The DFS solver's propagation cascade, which exhausts at ~37% of the matrix at S=511, may reach 60-100% at S=127 due to the higher constraint density. The solver has 16$\times$ fewer cells to assign, with each cell participating in constraint lines that are 4$\times$ shorter (127 cells per line vs 511).
+
+### B.57.2 Format Specification (S=127)
+
+**Matrix encoding.** Input data is partitioned into blocks of $127^2 = 16{,}129$ bits (2,016 bytes). Each block is loaded into a $127 \times 127$ binary CSM. Rows are stored as two 64-bit words (128 bits, with 1 trailing zero bit).
+
+**Constraint families (6 total).**
+
+| Family | Type | Lines | Length | Bits/element |
+|--------|------|-------|--------|-------------|
+| LSM | Row sums | 127 | 127 | 7 |
+| VSM | Column sums | 127 | 127 | 7 |
+| DSM | Diagonal sums | 253 | 1-127-1 (variable) | 1-7 (variable) |
+| XSM | Anti-diagonal sums | 253 | 1-127-1 (variable) | 1-7 (variable) |
+| yLTP1 | Fisher-Yates uniform | 127 | 127 | 7 |
+| yLTP2 | Fisher-Yates uniform | 127 | 127 | 7 |
+
+**Verification.**
+
+- **Lateral Hash (LH):** 127 CRC-32 digests (32 bits each), one per row.
+- **Block Hash (BH):** 1 SHA-256 digest (256 bits) of the entire CSM row-major.
+- **Disambiguation Index (DI):** 1 uint8 (8 bits).
+
+**Payload.**
+
+| Component | Bits |
+|-----------|------|
+| CRC-32 LH | 127 $\times$ 32 = 4,064 |
+| SHA-256 BH | 256 |
+| DI | 8 |
+| LSM | 127 $\times$ 7 = 889 |
+| VSM | 127 $\times$ 7 = 889 |
+| DSM | ~1,209 (variable-width) |
+| XSM | ~1,209 (variable-width) |
+| yLTP1 | 127 $\times$ 7 = 889 |
+| yLTP2 | 127 $\times$ 7 = 889 |
+| **Total** | **~10,302 bits (1,288 bytes)** |
+
+**Compression ratio:** $10{,}302 / 16{,}129 \approx 63.9\%$ (36.1% space savings).
+
+**Collision resistance:** Minimum-swap evasion (estimated ~3 rows): $2^{-32 \times 3 - 256} = 2^{-352}$. SHA-256 BH provides $2^{-256}$ adversarial resistance. Sufficient for all practical purposes.
+
+### B.57.3 Key Constants
+
+```
+s          = 127            // matrix dimension
+b          = 7              // bits per cross-sum element (ceil(log2(128)))
+kBlockBits = 16,129         // s * s
+kBlockBytes = 2,016         // ceil(kBlockBits / 8)
+kWordsPerRow = 2            // ceil(127 / 64)
+kNumDiags  = 253            // 2s - 1
+kNumAntiDiags = 253
+kNumLtpSubs = 2
+kBasicLines = 760           // s + s + (2s-1) + (2s-1)
+kTotalLines = 1,014         // kBasicLines + 2 * s
+kLHDigestBytes = 4          // CRC-32
+kBHDigestBytes = 32         // SHA-256
+kBlockPayloadBytes = 1,288  // ceil(total_payload_bits / 8)
+```
+
+### B.57.4 Implementation Scope
+
+B.57 requires modifications to the following components:
+
+1. **Constants.** Replace all hardcoded S=511 constants with S=127 equivalents across `ConstraintStore.h`, `LtpTable.h`, `CompressedPayload.h`, `Csm.h`, `FileHeader.h`, and all solver/compressor source files.
+
+2. **Csm.** Change from 8 uint64 words per row (512 bits) to 2 uint64 words per row (128 bits). Update `getRow()`, `getColumn()`, `set()`, `get()`, bit-packing, and hash message construction.
+
+3. **LtpTable.** Reduce from 6 sub-tables (B.27) to 2 sub-tables. Update pool size, line count, and seed management. Retain Fisher-Yates pool-chained construction.
+
+4. **CompressedPayload.** Replace SHA-1 lateral hashes with CRC-32 (4 bytes per row instead of 20). Update serialization/deserialization. Remove LTP3-6 from the payload. Update `kBlockPayloadBytes`.
+
+5. **FileHeader.** Bump format version to 2. Update `kBlockBits` and block count calculation.
+
+6. **ConstraintStore.** Resize stats array for 1,014 lines. Update line index offsets (`kLTP1Base`, `kLTP2Base`). Remove LTP3-6 initialization.
+
+7. **PropagationEngine.** Update `kPropTotalLines` to 1,014. Resize bitsets and queues.
+
+8. **HashVerifier.** Replace SHA-1 computation with CRC-32 for lateral hashes. Retain SHA-256 for block hash.
+
+9. **Tests.** Update all unit and integration tests for S=127 geometry.
+
+## B.57a: Compress and Decompress Round-Trip
+
+**Objective.** Verify that the S=127 format compresses and decompresses correctly.
+
+**Acceptance criteria:**
+
+1. **Compressor works.** Compress `useless-machine.mp4` with `DISABLE_COMPRESS_DI=1`. The output file contains a valid header (version 2, S=127) and correctly serialized block payloads. File size = 28 + (block_count $\times$ kBlockPayloadBytes).
+
+2. **All tests pass.** Unit tests for ConstraintStore, PropagationEngine, HashVerifier, CompressedPayload, and integration round-trip tests all pass at S=127.
+
+3. **Decompressor parses correctly.** The decompressor reads the S=127 .crsce file, deserializes payloads, and constructs the constraint store with correct cross-sum targets.
+
+4. **Depth reaches $\geq$ 30% of the matrix.** The DFS solver on the MP4 block 0 reaches peak depth $\geq 0.30 \times 16{,}129 = 4{,}839$ cells. At S=511, the solver reaches 37% depth. With 3.1$\times$ higher constraint density at S=127, we expect at least 30% depth and potentially much higher.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Full solve) | Depth = 16,129 (100%) | The S=127 matrix is fully solvable; CRSCE is viable at this dimension |
+| H2 (Deep solve) | Depth $>$ 8,064 ($>$ 50%) | Significantly deeper than S=511's 37%; higher density matters |
+| H3 (Comparable) | Depth $\approx$ 4,839-8,064 (30-50%) | Density improvement provides modest gains |
+| H4 (Regression) | Depth $<$ 4,839 ($<$ 30%) | Smaller matrix does not compensate; other factors dominate |
+
+**Status: PROPOSED.**
+
+---
+
+## B.58 Combinator-Based Symbolic Solver at S=127 (Proposed)
+
+### B.58.1 Motivation
+
+Every solver architecture tested by the CRSCE research program&mdash;DFS with constraint propagation (B.1&ndash;B.52), SAT/CDCL (B.21, B.54), ILP (B.54), LP relaxation (B.54/B.55), and SMT (B.54)&mdash;has failed to reconstruct the CSM beyond approximately 37% of the matrix at S=511. The root cause, established algebraically by B.39, is that the cross-sum constraint system has only 2% constraint density (5,097 independent equations over 261,121 cells), leaving a GF(2) null space of 256,024 dimensions. All solver architectures face the same information-theoretic barrier: the stored constraints carry insufficient information to determine the matrix.
+
+B.57 proposed reducing S from 511 to 127 to increase constraint density from 2% to 6.2%. B.58 goes further: it eliminates the DFS solver entirely and replaces it with a **purely algebraic pipeline** of composable constraint-reduction operators (combinators). The key enabler is a previously unexploited property of CRC-32 lateral hashes.
+
+**CRC-32 is a linear function over GF(2).** Unlike SHA-1 (a cryptographic hash with no useful algebraic structure), CRC-32 computes the polynomial remainder of the input treated as an element of GF(2)[x] modulo the CRC-32 generator polynomial. This is a linear map: $\text{CRC32}(a \oplus b) = \text{CRC32}(a) \oplus \text{CRC32}(b)$. Each of the 32 output bits is a linear function of the input bits over GF(2).
+
+**Consequence:** The 127 CRC-32 lateral hashes provide $127 \times 32 = 4{,}064$ linear equations over GF(2) that can be incorporated directly into the constraint matrix *before* any row is complete. This eliminates the **row-completion barrier**&mdash;the fundamental circular dependency identified by B.54 that stymied all prior solver architectures:
+
+> *"The CRC-32 oracle can only fire when a row is fully assigned ($u = 0$). Completing a meeting-band row requires assigning ~511 cells. The cross-sum constraints alone cannot determine those cells. The oracle's guidance is needed to identify the correct row assignment, but the oracle requires the row to be complete before it can evaluate."* &mdash; B.54.11
+
+With CRC-32 as an algebraic (not verification) constraint, the oracle's information is available immediately, not after row completion. This is the architectural distinction between B.58 and all prior experiments: CRC-32 participates in the constraint system from the start, not as a post-hoc verification step.
+
+### B.58.2 Key Innovation: CRC-32 as Algebraic Constraint
+
+#### B.58.2.1 CRC-32 Polynomial Specification
+
+CRSCE uses standard CRC-32 (ISO 3309/ITU-T V.42) with generator polynomial:
+
+$$
+    g(z) = z^{32} + z^{26} + z^{23} + z^{22} + z^{16} + z^{12} + z^{11} + z^{10} + z^8 + z^7 + z^5 + z^4 + z^2 + z + 1
+$$
+
+Hexadecimal representation: `0x04C11DB7` (normal form), `0xEDB88320` (bit-reversed).
+
+**Padding convention.** Each row message is 127 data bits followed by 1 trailing zero bit (128 bits = 16 bytes), matching the B.57 row storage format. The trailing zero is a fixed constant and does not affect the linear relationship between data bits and CRC output.
+
+**Reflection and inversion.** Standard CRC-32 applies bit-reflection on input bytes, bit-reflection on output, and XOR of the output with `0xFFFFFFFF`. These transformations are all affine over GF(2) (linear map plus constant). Bit-reflection permutes columns of the generator matrix. The output inversion adds a constant vector to the target. Both are absorbed into the generator matrix and target vector construction described below.
+
+#### B.58.2.2 CRC-32 Generator Matrix Construction
+
+For row $r$ with cells $x_{r,0}, x_{r,1}, \ldots, x_{r,126}$, the CRC-32 digest $h_r$ is computed as:
+
+$$
+    h_r = \text{CRC32}\!\left(\text{pack}(x_{r,0}, \ldots, x_{r,126}, 0)\right)
+$$
+
+where $\text{pack}$ serializes the 128 bits into 16 bytes MSB-first (matching CSM row storage). Because CRC-32 with fixed initialization and fixed finalization is an affine function of the input bits:
+
+$$
+    h_r = G_{\text{CRC}} \cdot \mathbf{x}_r \oplus \mathbf{c}
+$$
+
+where:
+
+- $G_{\text{CRC}} \in \text{GF}(2)^{32 \times 127}$ is the CRC-32 generator matrix for 127-bit data
+- $\mathbf{x}_r = (x_{r,0}, \ldots, x_{r,126})^T \in \text{GF}(2)^{127}$ is the row data vector
+- $\mathbf{c} = \text{CRC32}(\mathbf{0}_{128}) \in \text{GF}(2)^{32}$ is the constant offset (CRC of the all-zeros row, absorbing initialization and finalization)
+
+**Algorithm to compute $G_{\text{CRC}}$:**
+
+```
+def build_crc32_generator_matrix(n_data_bits=127, n_pad_bits=1):
+    """Build the 32 x n_data_bits GF(2) generator matrix for CRC-32."""
+    G = zeros(32, n_data_bits, dtype=GF2)
+
+    # CRC-32 of the all-zeros message (absorbs init/finalize constants)
+    c = crc32(bytes(ceil((n_data_bits + n_pad_bits) / 8)))
+
+    for col in range(n_data_bits):
+        # Create a message with only bit `col` set to 1
+        msg = bytearray(ceil((n_data_bits + n_pad_bits) / 8))
+        byte_idx = col // 8
+        bit_idx  = 7 - (col % 8)           # MSB-first within each byte
+        msg[byte_idx] |= (1 << bit_idx)
+
+        # CRC of single-bit message XOR CRC of zero message = column of G
+        crc_one = crc32(bytes(msg))
+        G[:, col] = to_gf2_vector(crc_one ^ c)  # XOR removes the constant
+
+    return G, to_gf2_vector(c)
+```
+
+This produces a $32 \times 127$ binary matrix $G_{\text{CRC}}$ and a 32-bit constant vector $\mathbf{c}$. Each row of $G_{\text{CRC}}$ gives one GF(2) linear equation in the 127 cell variables.
+
+**Verification.** For any row vector $\mathbf{x}_r$:
+
+$$
+    \text{CRC32}(\text{pack}(\mathbf{x}_r, 0)) = G_{\text{CRC}} \cdot \mathbf{x}_r \oplus \mathbf{c}
+$$
+
+This identity must hold for all $2^{127}$ possible row values. It can be verified exhaustively for small $n$ (e.g., 8 or 16 bits) and by linearity for arbitrary $n$: if it holds for the zero vector and all unit vectors, it holds for all vectors by superposition.
+
+#### B.58.2.3 Integration into the GF(2) Constraint System
+
+For each row $r \in \{0, \ldots, 126\}$, the stored CRC-32 digest $h_r$ yields 32 linear equations:
+
+$$
+    G_{\text{CRC}} \cdot \mathbf{x}_r = h_r \oplus \mathbf{c} \quad \Longleftrightarrow \quad \forall i \in \{0, \ldots, 31\}: \bigoplus_{c=0}^{126} G_{\text{CRC},i,c} \cdot x_{r,c} = (h_r \oplus \mathbf{c})_i
+$$
+
+Each equation involves only the 127 cells of row $r$. In the global constraint matrix (16,129 columns, one per cell), each CRC-32 equation for row $r$ has non-zero entries only in columns $127r$ through $127r + 126$.
+
+**Row-disjoint structure.** CRC-32 equations for different rows share no variables. This block-diagonal structure is critical for the row-grouped residual search (&sect;B.58.12).
+
+**Independence from cross-sum parity.** The cross-sum parity for row $r$ is $\bigoplus_{c=0}^{126} x_{r,c} = \text{LSM}[r] \bmod 2$. This is the all-ones linear combination. The CRC-32 generator matrix $G_{\text{CRC}}$ has 32 rows; at most one of these is the all-ones vector (it would correspond to $g(1) = 0$, i.e., $z = 1$ being a root of the CRC polynomial). For CRC-32 with polynomial `0x04C11DB7`, evaluation at $z = 1$ gives $g(1) = 1$ (odd number of non-zero coefficients), so $z = 1$ is NOT a root. Therefore the all-ones vector is NOT a row of $G_{\text{CRC}}$, and **all 32 CRC-32 equations per row are linearly independent of the row parity constraint**.
+
+**Net new GF(2) equations from CRC-32:** $127 \times 32 = 4{,}064$ (full independence from cross-sum parity, not $127 \times 31 = 3{,}937$ as conservatively estimated in the Motivation).
+
+### B.58.3 Information-Theoretic Analysis
+
+**GF(2) constraint budget at S=127.**
+
+| Source | Equations | Est. Independent | Notes |
+|--------|-----------|-----------------|-------|
+| Cross-sum parity (6 families) | 1,014 | ~1,006 | Conservation axiom: ~8 dependent |
+| CRC-32 (127 rows $\times$ 32 bits) | 4,064 | ~4,064 | Row-disjoint; fully independent of cross-sum parity (&sect;B.58.2.3) |
+| **Total GF(2)** | **5,078** | **~5,070** | |
+
+| Metric | Value |
+|--------|-------|
+| Total cells (variables) | 16,129 |
+| GF(2) rank (cross-sums only) | ~1,006 |
+| GF(2) null-space (cross-sums only) | ~15,123 (93.8%) |
+| GF(2) rank (cross-sums + CRC-32) | ~5,070 |
+| **GF(2) null-space (cross-sums + CRC-32)** | **~11,059 (68.6%)** |
+
+CRC-32 reduces the GF(2) null-space from 93.8% to 68.6% of the matrix&mdash;a reduction of 4,064 dimensions. This is significant but insufficient for direct enumeration. However, the GF(2) analysis undercounts the total constraint information.
+
+**Integer cross-sum information.** Each cardinality constraint $\sum x_j = k$ on a line of length $n$ eliminates all binary vectors with the wrong Hamming weight. For a line of length 127 at 50% density ($k \approx 63$):
+
+$$
+    I_{\text{cardinality}} = n - \log_2 \binom{n}{k} \approx 127 - 126 \approx 1 \text{ bit}
+$$
+
+At 50% density, the cardinality constraint provides approximately 1 bit of information per line&mdash;essentially just the parity. However, for lines near the matrix edge (short diagonals/anti-diagonals with length 1 to 126), the information content is higher:
+
+- Length 1, sum 0 or 1: 0 bits remaining (fully determined)
+- Length 5, sum 2: $5 - \log_2 \binom{5}{2} = 5 - 3.32 = 1.68$ bits of information
+- Length 20, sum 10: $20 - \log_2 \binom{20}{10} = 20 - 18.0 = 2.0$ bits
+- Length 127, sum 63: $\approx 1.0$ bit
+
+**Short-diagonal cell count at S=127.** Diagonals and anti-diagonals with length $\leq 20$ provide significantly more than 1 bit of information each. At S=127:
+
+| Diagonal lengths | Count (DSM + XSM) | Cells covered | Information/line |
+|-----|-----|-----|-----|
+| 1 | 4 | 4 | 0 bits remaining (fully determined) |
+| 2&ndash;5 | 16 | 56 | 1.0&ndash;1.7 bits each |
+| 6&ndash;20 | 60 | 780 | 1.5&ndash;2.0 bits each |
+| 21&ndash;126 | 424 | ~27,884 | 1.0&ndash;1.5 bits each |
+| 127 | 2 | 254 | 1.0 bit each |
+| **Total** | **506** | ~28,978 | |
+
+The 4 length-1 diagonals (corners) determine 4 cells immediately. The 16 length-2&ndash;5 diagonals provide strong constraints on 56 cells. This "edge effect" is proportionally larger at S=127 than at S=511 because the short diagonals constitute a larger fraction of the total constraint set.
+
+**Combined information estimate.** The total information from all sources:
+
+| Source | Bits | Nature |
+|--------|------|--------|
+| Integer cross-sums (1,014 lines) | ~7,098 | Integer (subsumes GF(2) parity) |
+| CRC-32 (127 rows $\times$ 32 bits) | ~4,064 net | GF(2) (fully independent of cross-sum parity) |
+| SHA-256 BH | 256 | Non-linear (final verification only) |
+| **Total exploitable** | **~11,162** | |
+| Cell entropy | 16,129 | |
+| **Residual free dimensions** | **~4,967** | |
+
+The ~4,967 residual dimensions are an optimistic lower bound (the integer and GF(2) constraints are not fully independent). The true number of free variables lies between 4,967 and 11,059. At S=511, the residual was ~256,024 dimensions&mdash;the S=127 system with CRC-32 represents a 23&ndash;52$\times$ reduction.
+
+**Comparison with S=511.**
+
+| Metric | S=511 (SHA-1) | S=127 (CRC-32) | Improvement |
+|--------|--------------|-----------------|-------------|
+| GF(2) null-space | 256,024 (98%) | ~11,059 (69%) | 23$\times$ smaller |
+| Integer information | ~7,098 bits | ~7,098 bits | (same families) |
+| Exploitable hash info | 0 (SHA-1 non-linear) | 4,064 bits (CRC-32 linear) | $\infty$ (qualitative) |
+| Residual dimensions | ~256,024 | ~4,967&ndash;11,059 | 23&ndash;52$\times$ smaller |
+
+### B.58.4 Combinator Architecture
+
+B.58 replaces the DFS solver with a pipeline of pure, composable constraint-reduction operators. Each combinator is a function $\mathcal{C}: \mathcal{S} \to \mathcal{S}$ that produces a strictly more determined (or equally determined) system. The solver is their composition.
+
+#### B.58.4.1 Data Structures
+
+**Constraint system state.** The state $\mathcal{S}$ is a tuple:
+
+$$
+    \mathcal{S} = (G, b_G, A, b_A, D, F, \text{val}, \text{cell\_lines})
+$$
+
+where:
+
+- $G \in \text{GF}(2)^{m \times n}$: the GF(2) constraint matrix (cross-sum parity + CRC-32 equations), packed as arrays of 64-bit words. Each row is $\lceil 16{,}129 / 64 \rceil = 253$ words.
+- $b_G \in \text{GF}(2)^m$: the GF(2) target vector (one bit per equation).
+- $A$: the integer constraint structure. For each line $L_i$, store:
+  - $\text{target}[i] \in \mathbb{Z}$: the cross-sum value (0 to 127).
+  - $\text{members}[i] \subseteq \{0, \ldots, n-1\}$: the set of cell indices on this line.
+  - $\rho[i] \in \mathbb{Z}$: the residual sum (target minus sum of determined cells on this line).
+  - $u[i] \in \mathbb{Z}$: the count of undetermined cells on this line.
+- $b_A \in \mathbb{Z}^p$: the integer target vector (same as $\text{target}$; kept for notational clarity).
+- $D \subseteq \{0, \ldots, n-1\}$: set of determined cells, with $\text{val}[j] \in \{0, 1\}$ for each $j \in D$.
+- $F \subseteq \{0, \ldots, n-1\}$: set of undetermined cells ($F = \{0, \ldots, n-1\} \setminus D$).
+- $\text{val}[j]$: known value of cell $j$ (defined only for $j \in D$).
+- $\text{cell\_lines}[j]$: the list of line indices (integer constraint lines) containing cell $j$. Pre-computed from $A$. Each cell appears in exactly 6 lines (1 row + 1 column + 1 diagonal + 1 anti-diagonal + 2 yLTP).
+
+Initially, $|D| = 0$, $|F| = 16{,}129$, $m = 5{,}078$, $p = 1{,}014$.
+
+**Memory layout.** The GF(2) matrix $G$ is stored as a dense binary matrix: $5{,}078 \times 253$ uint64 words = $5{,}078 \times 2{,}024$ bytes $\approx 10.3$ MB. The integer structures ($\rho$, $u$, $\text{members}$) are stored as arrays with total size $< 1$ MB. Total memory: ~12 MB.
+
+**Cell index convention.** Cell $(r, c)$ maps to global index $j = 127r + c$. This row-major ordering is canonical for DI enumeration.
+
+#### B.58.4.2 Line Index Convention
+
+| Family | Line index range | Count | Length |
+|--------|-----------------|-------|--------|
+| LSM (rows) | 0&ndash;126 | 127 | 127 |
+| VSM (columns) | 127&ndash;253 | 127 | 127 |
+| DSM (diagonals) | 254&ndash;506 | 253 | 1&ndash;127 |
+| XSM (anti-diagonals) | 507&ndash;759 | 253 | 1&ndash;127 |
+| yLTP1 | 760&ndash;886 | 127 | 127 |
+| yLTP2 | 887&ndash;1,013 | 127 | 127 |
+| **Total** | | **1,014** | |
+
+Line membership (which cells belong to each line):
+
+- LSM line $r$: cells $\{127r + c : c \in \{0, \ldots, 126\}\}$
+- VSM line $c$: cells $\{127r + c : r \in \{0, \ldots, 126\}\}$
+- DSM line $d$ (index $d \in \{0, \ldots, 252\}$): cells $(r, c)$ where $c - r = d - 126$, $0 \leq r, c \leq 126$
+- XSM line $x$ (index $x \in \{0, \ldots, 252\}$): cells $(r, c)$ where $r + c = x$, $0 \leq r, c \leq 126$
+- yLTP$t$ line $k$: cells $\{(r, c) : \text{LTP}_{t}(r, c) = k\}$, determined by Fisher-Yates permutation
+
+#### B.58.4.3 yLTP Construction at S=127
+
+Each yLTP sub-table partitions the 16,129 cells into 127 lines of exactly 127 cells each via the pool-chained Fisher-Yates construction from B.22:
+
+```
+def build_yltp_subtable(seed, s=127):
+    """Fisher-Yates partition of s*s cells into s lines of s cells each."""
+    rng = LCG(seed)                          # 64-bit LCG, same constants as production
+    pool = list(range(s * s))                 # flat cell indices 0..16128
+    membership = [0] * (s * s)               # membership[cell] = line_index
+
+    for line in range(s):
+        for slot in range(s):
+            idx = line * s + slot
+            swap_idx = idx + (rng.next() % (s * s - idx))
+            pool[idx], pool[swap_idx] = pool[swap_idx], pool[idx]
+            membership[pool[idx]] = line
+
+    return membership
+```
+
+**Seed selection.** B.58 uses 2 yLTP sub-tables. The seeds are parameters of the experiment. B.58a tests 10 random seeds per sub-table to characterize rank variance. The optimal seeds from B.58a are fixed for B.58b and B.58c.
+
+**Constraint on yLTP seeds.** The Fisher-Yates construction guarantees Axioms 1&ndash;3 (&sect;2.2.1) by construction: every cell is assigned to exactly one line per sub-table, every line has exactly $s$ cells, and no cell appears twice in any line.
+
+#### B.58.4.4 Core Combinators &mdash; Detailed Specifications
+
+**Combinator 1: GaussElim**
+
+Performs GF(2) Gaussian elimination on the binary constraint matrix $G$ using partial pivoting. Produces the reduced row echelon form (RREF) and identifies pivot/free variables.
+
+```
+def gauss_elim(G, b_G):
+    """GF(2) Gaussian elimination with partial pivoting.
+
+    Args:
+        G: m x n binary matrix (packed as uint64 arrays)
+        b_G: m-element GF(2) target vector
+
+    Returns:
+        pivot_cols: list of column indices that are pivots (length = rank)
+        free_cols:  list of column indices that are free (length = n - rank)
+        rref_G:     reduced row echelon form of [G | b_G]
+        rank:       GF(2) rank of G
+    """
+    m, n = G.shape
+    pivot_row = 0
+    pivot_cols = []
+
+    for col in range(n):
+        # Find a row with a 1 in this column at or below pivot_row
+        found = -1
+        for row in range(pivot_row, m):
+            if G[row, col] == 1:
+                found = row
+                break
+        if found == -1:
+            continue                        # col is free
+
+        # Swap rows
+        G[pivot_row], G[found] = G[found], G[pivot_row]
+        b_G[pivot_row], b_G[found] = b_G[found], b_G[pivot_row]
+
+        # Eliminate all other rows with a 1 in this column
+        for row in range(m):
+            if row != pivot_row and G[row, col] == 1:
+                G[row] ^= G[pivot_row]      # GF(2) row addition = XOR
+                b_G[row] ^= b_G[pivot_row]
+
+        pivot_cols.append(col)
+        pivot_row += 1
+
+    free_cols = [c for c in range(n) if c not in set(pivot_cols)]
+    rank = len(pivot_cols)
+
+    return pivot_cols, free_cols, G[:rank], b_G[:rank], rank
+```
+
+**Cost.** $O(r \cdot m \cdot \lceil n / 64 \rceil)$ where $r$ is the rank, $m$ is the row count, and $n$ is the column count. For the B.58 system: $O(5{,}070 \times 5{,}078 \times 253) \approx 6.5 \times 10^9$ word operations. At ~1 ns/word-XOR, this takes ~6.5 seconds. In practice, cache effects and SIMD (NumPy vectorized XOR) can reduce this to 1&ndash;3 seconds.
+
+**Pivot selection and DI determinism.** The leftmost-column-first pivot strategy is mandatory for DI determinism: it produces a unique RREF for any given matrix, ensuring that the compressor and decompressor agree on which variables are pivots and which are free. The free variables in leftmost-first RREF are exactly those columns that have no leading 1 in the RREF&mdash;a deterministic function of the constraint system, not of the solver implementation.
+
+**Determined cells from GaussElim.** After RREF, a cell $j$ is GF(2)-determined if column $j$ is a pivot column AND its RREF row has no non-zero entries in any free column. In that case, the cell's value equals the target bit directly. If the RREF row has non-zero free-column entries, the cell's value depends on free-variable assignments and is not yet determined.
+
+```
+def extract_determined_from_rref(rref_G, b_G, pivot_cols, free_cols, n):
+    """Identify cells whose values are determined by GF(2) constraints alone.
+
+    A pivot cell is determined iff its RREF row has zero weight in all free columns.
+    """
+    free_set = set(free_cols)
+    determined = {}  # cell_index -> value
+
+    for i, pcol in enumerate(pivot_cols):
+        row = rref_G[i]
+        has_free_dependency = any(row[fc] == 1 for fc in free_cols)
+        if not has_free_dependency:
+            determined[pcol] = b_G[i]
+
+    return determined
+```
+
+**Combinator 2: IntBound**
+
+Applies integer cardinality bounds to all constraint lines. For each line $L_i$ with residual $\rho_i$ and undetermined count $u_i$:
+
+- If $\rho_i = 0$: all undetermined cells on $L_i$ must be 0.
+- If $\rho_i = u_i$: all undetermined cells on $L_i$ must be 1.
+- If $\rho_i < 0$ or $\rho_i > u_i$: the system is **inconsistent** (corrupted payload or hash collision).
+
+Additionally, IntBound applies **interval tightening** beyond the $\rho = 0$ / $\rho = u$ forcing:
+
+For each undetermined cell $j$ on line $L_i$:
+
+- If $j = 1$ and $\rho_i = 0$: contradiction (cell contributes 1 but residual is 0).
+- If $j = 0$ and $\rho_i = u_i$: contradiction (cell contributes 0 but all unknowns must be 1).
+
+These per-cell checks enable the **cell-line interaction** deduction: if cell $j$ is on multiple lines, and setting $j = 0$ would make some line $L_i$ infeasible ($\rho_i > u_i - 1$, which means $\rho_i = u_i$ after removing $j$ with value 0, so the remaining $u_i - 1$ unknowns must sum to $\rho_i$; infeasible if $\rho_i > u_i - 1$), then $j$ must be 1.
+
+```
+def int_bound(lines, D, F, val):
+    """Integer bound propagation.
+
+    Args:
+        lines: list of Line objects with .members, .rho, .u
+        D: set of determined cell indices
+        F: set of free cell indices
+        val: dict of cell_index -> value for determined cells
+
+    Returns:
+        newly_determined: dict of cell_index -> value (newly forced cells)
+        inconsistent: bool (True if system is contradictory)
+    """
+    newly_determined = {}
+    queue = list(range(len(lines)))  # all lines to check
+
+    while queue:
+        i = queue.pop()
+        L = lines[i]
+
+        if L.u == 0:
+            continue    # fully determined, nothing to do
+
+        # Check feasibility
+        if L.rho < 0 or L.rho > L.u:
+            return {}, True  # inconsistent
+
+        forced_value = None
+        if L.rho == 0:
+            forced_value = 0
+        elif L.rho == L.u:
+            forced_value = 1
+
+        if forced_value is not None:
+            for j in L.members:
+                if j in F:
+                    newly_determined[j] = forced_value
+                    F.remove(j)
+                    D.add(j)
+                    val[j] = forced_value
+                    # Update all lines containing j
+                    for li in cell_lines[j]:
+                        lines[li].u -= 1
+                        lines[li].rho -= forced_value
+                        if li not in queue:
+                            queue.append(li)
+
+    # Cell-line interaction: check if any free cell is forced by multi-line reasoning
+    for j in list(F):
+        forced = None
+        for v in (0, 1):
+            feasible = True
+            for li in cell_lines[j]:
+                L = lines[li]
+                new_rho = L.rho - v
+                new_u = L.u - 1
+                if new_rho < 0 or new_rho > new_u:
+                    feasible = False
+                    break
+            if not feasible:
+                if forced is not None:
+                    return {}, True  # both values infeasible
+                forced = 1 - v      # the other value must hold
+        if forced is not None:
+            newly_determined[j] = forced
+            F.remove(j)
+            D.add(j)
+            val[j] = forced
+            for li in cell_lines[j]:
+                lines[li].u -= 1
+                lines[li].rho -= forced
+
+    return newly_determined, False
+```
+
+**Cost.** The basic $\rho = 0$ / $\rho = u$ pass is $O(p)$ where $p = 1{,}014$ is the number of lines. The cell-line interaction pass is $O(|F| \times 6 \times 2)$ per iteration. Total: $O(|F| \times 12 + p) \approx O(16{,}129 \times 12) \approx 194$K operations per iteration. Negligible compared to GaussElim.
+
+**Combinator 3: Propagate**
+
+When GaussElim or IntBound determines new cells, Propagate substitutes their values into the GF(2) system and the integer constraint structures.
+
+```
+def propagate(G, b_G, lines, newly_determined, D, F, val, cell_lines):
+    """Substitute determined cell values into all constraint systems.
+
+    For GF(2): for each determined cell j with value v,
+      - For each equation row with G[row, j] == 1: b_G[row] ^= v
+      - Set column j to all zeros in G (variable eliminated)
+
+    For integer: update rho and u on each line containing the cell.
+    """
+    for j, v in newly_determined.items():
+        # GF(2) substitution
+        for row in range(len(G)):
+            if G[row, j] == 1:
+                b_G[row] ^= v
+                G[row, j] = 0
+
+        # Integer substitution (already done in IntBound, but needed if
+        # the cell was determined by GaussElim rather than IntBound)
+        if j not in int_bound_determined:
+            for li in cell_lines[j]:
+                lines[li].u -= 1
+                lines[li].rho -= v
+```
+
+**Cost.** $O(|\text{newly\_determined}| \times m)$ for GF(2) substitution. Worst case: $O(16{,}129 \times 5{,}078) \approx 82$M operations, but in practice the number of newly determined cells per fixpoint iteration is small.
+
+**Combinator 4: CrossDeduce**
+
+Derives new cell values from pairwise interactions between integer constraint lines. This combinator exploits the fact that at S=127, many pairs of constraint lines from different families share exactly 1 cell (row $r$ and column $c$ share cell $(r, c)$; row $r$ and diagonal $d$ share 0 or 1 cells).
+
+For each pair of lines $(L_i, L_j)$ from different families sharing a set of undetermined cells $S_{ij} = \text{members}(L_i) \cap \text{members}(L_j) \cap F$:
+
+1. Compute bounds on $\sigma_{ij} = \sum_{k \in S_{ij}} x_k$:
+   - From $L_i$: $\max(0, \rho_i - (u_i - |S_{ij}|)) \leq \sigma_{ij} \leq \min(|S_{ij}|, \rho_i)$
+   - From $L_j$: $\max(0, \rho_j - (u_j - |S_{ij}|)) \leq \sigma_{ij} \leq \min(|S_{ij}|, \rho_j)$
+   - Intersect the two intervals.
+2. If $|S_{ij}| = 1$: the intersection directly determines the single shared cell.
+3. If $|S_{ij}| > 1$ and the interval collapses to a single value: the sum is determined, enabling further deduction on subsequent fixpoint passes.
+
+```
+def cross_deduce(lines, D, F, val, cell_lines):
+    """Pairwise cross-line deduction.
+
+    For each cell j in F, check all pairs of lines containing j.
+    If any pair forces j's value, determine it.
+    """
+    newly_determined = {}
+
+    # Pre-compute intersections for all (cell, pair_of_lines) triples
+    for j in list(F):
+        j_lines = cell_lines[j]
+        for a in range(len(j_lines)):
+            for b in range(a + 1, len(j_lines)):
+                Li = lines[j_lines[a]]
+                Lj = lines[j_lines[b]]
+
+                # Shared undetermined cells between Li and Lj
+                shared = set(Li.members) & set(Lj.members) & F
+                if len(shared) != 1 or j not in shared:
+                    continue  # Only handle |S| = 1 for now
+
+                # Bounds on x_j from Li: rho_i - (u_i - 1) <= x_j <= rho_i
+                lo_i = max(0, Li.rho - (Li.u - 1))
+                hi_i = min(1, Li.rho)
+
+                # Bounds on x_j from Lj: rho_j - (u_j - 1) <= x_j <= rho_j
+                lo_j = max(0, Lj.rho - (Lj.u - 1))
+                hi_j = min(1, Lj.rho)
+
+                lo = max(lo_i, lo_j)
+                hi = min(hi_i, hi_j)
+
+                if lo > hi:
+                    return {}, True  # inconsistent
+                if lo == hi:
+                    newly_determined[j] = lo
+                    break
+            if j in newly_determined:
+                break
+
+    # Apply determinations
+    for j, v in newly_determined.items():
+        F.remove(j)
+        D.add(j)
+        val[j] = v
+        for li in cell_lines[j]:
+            lines[li].u -= 1
+            lines[li].rho -= v
+
+    return newly_determined, False
+```
+
+**Cost.** $O(|F| \times \binom{6}{2}) = O(|F| \times 15)$ per iteration. The intersection computation ($|S_{ij}| = 1$ test) requires pre-computed per-line membership sets.
+
+**Efficiency note.** The pairwise intersection test is the bottleneck when $|S_{ij}| > 1$. For S=127, the expected intersection size between two constraint lines from different families of length $n_1$ and $n_2$ is $n_1 \cdot n_2 / 16{,}129$. For two full-length lines ($n_1 = n_2 = 127$): $127^2 / 16{,}129 \approx 1.0$ cell. So most intersections have $|S_{ij}| \leq 2$, and the $|S_{ij}| = 1$ case dominates.
+
+**Extension: multi-cell intersection deduction.** When $|S_{ij}| = k > 1$ and the intersected bounds determine $\sigma_{ij}$ to a single value, the $k$ shared cells satisfy $\sum_{c \in S} x_c = \sigma_{ij}$. If $\sigma_{ij} = 0$ or $\sigma_{ij} = k$, all cells are forced. For $0 < \sigma_{ij} < k$, the constraint is stored as a new cardinality constraint on the $k$-cell subset, which may participate in future CrossDeduce rounds. This creates derived constraints of increasingly small scope, potentially cascading to full determination.
+
+**Combinator 5: Fixpoint**
+
+Iterates all combinators until convergence (no new cells determined in a full round).
+
+```
+def fixpoint(S):
+    """Iterate combinators to convergence.
+
+    Returns the final constraint system state with maximal determined cells.
+    """
+    iteration = 0
+    while True:
+        prev_D_size = len(S.D)
+
+        # Phase A: GF(2) reduction
+        det_gf2 = extract_determined_from_rref(S.G, S.b_G, S.pivot_cols, S.free_cols, S.n)
+        if det_gf2:
+            propagate(S, det_gf2)
+
+        # Phase B: Integer bound propagation
+        det_int, inconsistent = int_bound(S.lines, S.D, S.F, S.val)
+        if inconsistent:
+            return S, False  # infeasible
+        if det_int:
+            propagate(S, det_int)
+            # Re-run GaussElim on reduced system
+            S.pivot_cols, S.free_cols, _, _, S.rank = gauss_elim(S.G, S.b_G)
+            det_gf2_2 = extract_determined_from_rref(S.G, S.b_G, S.pivot_cols, S.free_cols, S.n)
+            if det_gf2_2:
+                propagate(S, det_gf2_2)
+
+        # Phase C: Cross-deduction
+        det_cross, inconsistent = cross_deduce(S.lines, S.D, S.F, S.val, S.cell_lines)
+        if inconsistent:
+            return S, False
+        if det_cross:
+            propagate(S, det_cross)
+            S.pivot_cols, S.free_cols, _, _, S.rank = gauss_elim(S.G, S.b_G)
+
+        iteration += 1
+        new_D_size = len(S.D)
+
+        print(f"  Fixpoint iteration {iteration}: "
+              f"|D|={new_D_size} (+{new_D_size - prev_D_size}), "
+              f"|F|={len(S.F)}, rank={S.rank}")
+
+        if new_D_size == prev_D_size:
+            break  # Convergence
+
+        if new_D_size == S.n:
+            break  # Fully determined
+
+    return S, True
+```
+
+**Convergence guarantee.** Each iteration either increases $|D|$ (strict progress) or terminates. Since $|D| \leq n = 16{,}129$ and each combinator is monotone, the loop terminates in at most $n$ iterations. In practice, convergence is expected in 5&ndash;20 iterations (each GaussElim pass may determine hundreds or thousands of cells via chain reactions between GF(2) and integer reasoning).
+
+**Iteration cap.** As a safety measure, the loop terminates after 200 iterations regardless. If 200 iterations are insufficient, the system is effectively at fixpoint (progress is less than 1 cell per iteration).
+
+**Combinator 6: EnumerateFree**
+
+After fixpoint, the free variables form the null-space basis. To enumerate solutions in DI-consistent order:
+
+```
+def enumerate_free(S, max_solutions=256):
+    """Enumerate solutions over the free variables in lexicographic order.
+
+    Free variables are ordered by cell index (row-major).
+    Values are tried 0 before 1 (canonical lex order).
+
+    Each free-variable assignment determines all pivot variables via RREF.
+    The integer constraints are checked for consistency.
+    SHA-256 block hash is checked for final verification.
+
+    Yields solutions in DI order (0-indexed).
+    """
+    free_cols = sorted(S.free_cols)  # row-major order for DI determinism
+    n_free = len(free_cols)
+
+    if n_free == 0:
+        # Unique solution: all cells determined
+        csm = reconstruct_csm(S.val, S.n)
+        if verify_bh(csm, S.bh):
+            yield csm
+        return
+
+    if n_free > 64:
+        raise TooManyFreeVariables(n_free)  # fallback to row-grouped search
+
+    # RREF gives pivot[i] = b_G[i] XOR sum of (rref_G[i, fc] * free_val[fc])
+    # Pre-extract the dependency matrix
+    dep = {}  # pivot_col -> list of (free_col_index, coefficient) pairs
+    for i, pcol in enumerate(S.pivot_cols):
+        deps = [(fi, S.rref_G[i, fc]) for fi, fc in enumerate(free_cols)
+                if S.rref_G[i, fc] == 1]
+        dep[pcol] = (S.b_G_rref[i], deps)
+
+    solutions_found = 0
+    for assignment in range(2 ** n_free):
+        # Decode assignment: bit 0 = free_cols[0], bit 1 = free_cols[1], ...
+        free_vals = [(assignment >> i) & 1 for i in range(n_free)]
+
+        # Compute all pivot values
+        candidate_val = dict(S.val)  # start with already-determined cells
+        for fc_idx, fc in enumerate(free_cols):
+            candidate_val[fc] = free_vals[fc_idx]
+
+        for pcol, (base, deps) in dep.items():
+            pval = base
+            for fc_idx, coeff in deps:
+                pval ^= (free_vals[fc_idx] & coeff)
+            candidate_val[pcol] = pval
+
+        # Check integer constraints
+        if not check_integer_constraints(candidate_val, S.lines):
+            continue
+
+        # Reconstruct CSM and verify block hash
+        csm = reconstruct_csm(candidate_val, S.n)
+        if verify_bh(csm, S.bh):
+            yield csm
+            solutions_found += 1
+            if solutions_found >= max_solutions:
+                return
+```
+
+**DI determinism.** The enumeration order is canonical:
+
+1. Free variables are sorted by cell index $(r, c)$ in row-major order (ascending $j = 127r + c$).
+2. The binary counter iterates from 0 to $2^{n_{\text{free}}} - 1$, assigning bit $i$ to free variable $i$ in order.
+3. This produces solutions in lexicographic order over the free variables, matching the DFS enumeration order.
+
+**Cost.** $O(2^{n_{\text{free}}} \times (n_{\text{free}} \cdot r + p))$ where $r$ is the GF(2) rank (for pivot computation) and $p = 1{,}014$ (for integer constraint checking). For $n_{\text{free}} \leq 40$: $\leq 2^{40} \times (40 \times 5{,}070 + 1{,}014) \approx 2^{40} \times 204$K $\approx 2.2 \times 10^{17}$ operations. At $10^9$ ops/sec, this is ~$2.2 \times 10^8$ seconds (infeasible). **Therefore, $n_{\text{free}} > 30$ requires the row-grouped search (B.58c) rather than brute-force enumeration.**
+
+Revised tractability threshold: **$n_{\text{free}} \leq 25$** for exhaustive enumeration within 1 hour ($2^{25} \times 204$K $\approx 6.8 \times 10^{12}$ $\approx 6{,}800$ seconds at $10^9$ ops/sec; optimizable to minutes with bitwise tricks).
+
+**Combinator 7: VerifyBH**
+
+Computes SHA-256 over the reconstructed CSM (row-major, 127 rows $\times$ 2 uint64 words = 2,032 bytes) and compares to the stored block hash.
+
+```
+def verify_bh(csm, expected_bh):
+    """Verify SHA-256 block hash of reconstructed CSM."""
+    import hashlib
+    raw = csm.tobytes()              # row-major, 127 * 16 = 2032 bytes
+    actual = hashlib.sha256(raw).digest()
+    return actual == expected_bh
+```
+
+**Cost.** SHA-256 on 2,032 bytes: ~1 &mu;s.
+
+#### B.58.4.5 Solver Pipeline
+
+$$
+    \text{solve} = \text{VerifyBH} \circ \text{EnumerateFree} \circ \text{Fixpoint}(\text{CrossDeduce} \circ \text{Propagate} \circ \text{IntBound} \circ \text{GaussElim}) \circ \text{BuildSystem}
+$$
+
+where BuildSystem constructs $\mathcal{S}$ from the compressed payload (cross-sums, CRC-32 hashes, yLTP tables).
+
+#### B.58.4.6 DI Discovery (Compressor Side)
+
+The compressor knows the original CSM. It runs the combinator pipeline to determine which DI index the original CSM occupies:
+
+```
+def discover_di(original_csm, payload):
+    """Find the DI such that EnumerateFree produces original_csm as the DI-th solution."""
+    S = build_system(payload)
+    S, feasible = fixpoint(S)
+
+    if not feasible:
+        raise CompressionError("Constraint system infeasible")
+
+    di = 0
+    for candidate in enumerate_free(S, max_solutions=256):
+        if candidate == original_csm:
+            return di
+        di += 1
+
+    raise CompressionError(f"Original CSM not found within 256 solutions")
+```
+
+If the fixpoint fully determines the CSM ($|F| = 0$), the solution is unique and DI = 0. This is the ideal case: compression requires only the combinator fixpoint (milliseconds) and produces DI = 0 for every block.
+
+#### B.58.4.7 Error Handling
+
+**Inconsistent system.** If IntBound or CrossDeduce detects $\rho < 0$ or $\rho > u$ on any line, the payload is corrupted (transmission error or hash collision). The decompressor reports a decompression failure. No attempt at partial recovery.
+
+**No solution passes SHA-256.** If EnumerateFree exhausts all $2^{n_{\text{free}}}$ assignments without finding a SHA-256 match, the payload is corrupted. Report decompression failure.
+
+**DI overflow.** If the compressor finds $\geq 256$ solutions before matching the original CSM, compression fails (DI cannot be represented in 8 bits). This is the same semantics as S=511; the combinator approach does not change the DI representation.
+
+**GF(2) inconsistency.** If GaussElim produces a row of the form $[0, 0, \ldots, 0 | 1]$ (zero left-hand side, non-zero right-hand side), the GF(2) system is inconsistent. This indicates a corrupted CRC-32 or cross-sum value. Report decompression failure.
+
+### B.58.5 Worked Example at S=7
+
+To illustrate the combinator pipeline, consider a minimal example with $S = 7$ (49 cells, $b = 3$).
+
+**Setup.** CSM is a $7 \times 7$ binary matrix. Constraint families: LSM (7 rows), VSM (7 columns), DSM (13 diagonals), XSM (13 anti-diagonals), yLTP1 (7 lines), yLTP2 (7 lines). Total: 54 lines. CRC-32 contributes $7 \times 32 = 224$ GF(2) equations. Total GF(2) equations: $54 + 224 = 278$ over 49 variables.
+
+**GF(2) rank estimate.** With 278 equations and 49 variables, the rank is at most 49. If the system has full column rank (rank = 49), every cell is GF(2)-determined and the fixpoint produces a unique solution without search.
+
+**Expected outcome at S=7.** The CRC-32 alone provides $7 \times 32 = 224$ equations on 49 variables. Even accounting for dependencies, this is massively overconstrained in GF(2). The system is almost certainly rank 49. **At S=7, the combinator approach is expected to achieve full determination in a single GaussElim pass.**
+
+**Scaling question.** The ratio of CRC-32 equations to variables is $7 \times 32 / 49 = 4.57$ at S=7, but $127 \times 32 / 16{,}129 = 0.252$ at S=127. At S=127, CRC-32 provides only 0.25 equations per variable (underdetermined in GF(2)). The cross-sum parity adds another $1{,}006 / 16{,}129 = 0.062$ equations per variable. Total: 0.31 equations per variable. This is well below 1.0, so the system is underdetermined. The question is *how* underdetermined&mdash;which is precisely what B.58a measures.
+
+### B.58.6 Method
+
+**Phase 1: Build the GF(2) system.**
+
+(a) **Construct the cross-sum parity matrix.** For each of the 1,014 constraint lines, create a GF(2) row vector of length 16,129 indicating which cells belong to that line (1 if the cell is a member, 0 otherwise). The target bit is the cross-sum value modulo 2. This produces a $1{,}014 \times 16{,}129$ binary matrix.
+
+(b) **Construct the CRC-32 matrix.** Using the algorithm from &sect;B.58.2.2, compute $G_{\text{CRC}}$ (a $32 \times 127$ binary matrix) and $\mathbf{c}$ (the 32-bit constant). For each row $r \in \{0, \ldots, 126\}$:
+
+- Create 32 GF(2) equations, each of length 16,129: non-zero only in columns $127r$ through $127r + 126$, with the bit pattern from the corresponding row of $G_{\text{CRC}}$.
+- The target bit for equation $i$ of row $r$ is $(h_r \oplus \mathbf{c})_i$, where $h_r$ is the stored CRC-32 digest.
+
+This produces a $4{,}064 \times 16{,}129$ binary matrix with block-diagonal structure (each $32 \times 127$ block is non-zero only in the columns of its row).
+
+(c) **Assemble the full GF(2) system.** Stack the cross-sum parity matrix ($1{,}014 \times 16{,}129$) and the CRC-32 matrix ($4{,}064 \times 16{,}129$) vertically to produce the $5{,}078 \times 16{,}129$ matrix $G$ with target vector $b_G$ of length 5,078.
+
+(d) **Construct the integer constraint structures.** For each of the 1,014 lines, store the membership set, target sum, and initialize $\rho = \text{target}$, $u = |\text{members}|$.
+
+(e) **Construct the cell-to-line index.** For each cell $j$, pre-compute the list of line indices $\text{cell\_lines}[j]$ (exactly 6 entries per cell).
+
+**Phase 2: GF(2) Gaussian elimination.**
+
+Apply GaussElim (&sect;B.58.4.4, Combinator 1) to obtain RREF. Record:
+
+- GF(2) rank $r$ (this is the primary measurement for B.58a)
+- Pivot columns (cells that are pivot variables)
+- Free columns (cells that are free variables)
+- Null-space dimension $n - r = 16{,}129 - r$
+- Immediately determined cells (pivots with no free-column dependencies)
+
+**Phase 3: Fixpoint iteration.**
+
+Execute the Fixpoint combinator (&sect;B.58.4.4, Combinator 5). Record per-iteration telemetry:
+
+- $|D|$ (determined cells) after each iteration
+- $|F|$ (free cells) after each iteration
+- Source of each determination (GaussElim, IntBound, or CrossDeduce)
+- Wall time per iteration
+
+**Phase 4: Residual analysis.**
+
+After fixpoint convergence:
+
+- If $|F| = 0$: verify CSM against SHA-256 and report success.
+- If $0 < |F| \leq 25$: execute EnumerateFree to find the DI-indexed solution.
+- If $25 < |F| \leq 1{,}000$: proceed to row-grouped search (B.58c).
+- If $|F| > 1{,}000$: report the free-variable distribution and declare the approach insufficient.
+
+**Phase 5: Output.**
+
+For each block, report:
+
+| Metric | Value |
+|--------|-------|
+| GF(2) rank | (from Phase 2) |
+| Null-space dimension | $16{,}129 - r$ |
+| Fixpoint $\|D\|$ | (after Phase 3) |
+| Fixpoint $\|F\|$ | (after Phase 3) |
+| Fixpoint iterations | (count) |
+| Fixpoint wall time | (seconds) |
+| Cells from GaussElim | (count) |
+| Cells from IntBound | (count) |
+| Cells from CrossDeduce | (count) |
+| DI (if solved) | (0&ndash;255) |
+| SHA-256 verified | (yes/no) |
+
+### B.58.7 Density Sensitivity Analysis
+
+The combinator approach's effectiveness depends critically on the input density (fraction of 1s in the CSM). This section analyzes the expected behavior across densities.
+
+**Information content vs. density.** For a line of length $n$ with sum $k$, the information content is $n - \log_2 \binom{n}{k}$. Aggregated over all lines:
+
+| Density | Avg. sum per line (len 127) | Info/line (bits) | Total integer info (1,014 lines) |
+|---------|---------------------------|------------------|----------------------------------|
+| 10% | 12.7 | ~5.6 | ~5,678 |
+| 20% | 25.4 | ~3.2 | ~3,245 |
+| 30% | 38.1 | ~1.8 | ~1,825 |
+| 40% | 50.8 | ~1.2 | ~1,217 |
+| 50% | 63.5 | ~1.0 | ~1,014 |
+
+At 10% density, the integer constraints carry 5.6$\times$ more information than at 50% density. Combined with CRC-32's fixed 4,064 GF(2) bits, the total exploitable information at 10% density is ~9,742 bits vs. ~5,078 bits at 50% density. With 16,129 cell bits total, this gives:
+
+| Density | Total exploitable bits | Residual free dimensions | Expected outcome |
+|---------|----------------------|--------------------------|------------------|
+| 10% | ~9,742 | ~6,387 | Likely solvable (GF(2) dominant) |
+| 30% | ~5,889 | ~10,240 | Possibly solvable with search |
+| 50% | ~5,078 | ~11,051 | Hardest case; most free variables |
+
+**Prediction.** The combinator approach is most likely to succeed on low-density ($\leq 30\%$) and high-density ($\geq 70\%$) blocks, where the integer constraints carry more information. At 50% density (worst case), the approach depends entirely on the CRC-32 GF(2) equations and the cross-deduction cascade.
+
+**Experimental design.** B.58b should test blocks at multiple densities (10%, 30%, 50%, 70%, 90%) to characterize the density-viability curve.
+
+### B.58.8 Sub-experiment B.58a: GF(2) Rank and Null-Space at S=127 with CRC-32
+
+**Objective.** Determine the exact GF(2) rank of the combined cross-sum + CRC-32 constraint system at S=127 with 2 yLTP sub-tables. This is the foundational measurement that determines whether the combinator approach is viable.
+
+**Method.**
+
+(a) Generate a random $127 \times 127$ binary CSM at 50% density.
+
+(b) Compute cross-sums for all 6 families (LSM, VSM, DSM, XSM, yLTP1, yLTP2).
+
+(c) Compute CRC-32 for all 127 rows.
+
+(d) Construct $G_{\text{CRC}}$ using the algorithm from &sect;B.58.2.2.
+
+(e) Assemble the full GF(2) constraint matrix ($5{,}078 \times 16{,}129$).
+
+(f) Compute GF(2) rank via Gaussian elimination (leftmost-column-first).
+
+(g) Repeat (a)&ndash;(f) with 10 different yLTP seed pairs to characterize seed-dependent variance.
+
+(h) Repeat (a)&ndash;(f) without CRC-32 (cross-sums only, $1{,}014 \times 16{,}129$) to measure the CRC-32 contribution independently.
+
+(i) Perform stratified rank analysis, adding constraint families one at a time:
+
+| Configuration | Expected rank |
+|---------------|---------------|
+| LSM only (127 rows) | 126 |
+| LSM + VSM (254) | ~253 |
+| LSM + VSM + DSM (507) | ~503 |
+| LSM + VSM + DSM + XSM (760) | ~753 |
+| + yLTP1 (887) | ~879 |
+| + yLTP2 (1,014) | ~1,006 |
+| + CRC-32 for all rows (5,078) | **MEASURE** |
+
+The stratified analysis reveals how many independent GF(2) constraints CRC-32 actually adds after the cross-sum system has been established.
+
+**Report.** For each seed pair and configuration:
+
+- GF(2) rank
+- Null-space dimension
+- CRC-32 contribution: rank(cross-sums + CRC-32) $-$ rank(cross-sums only)
+- Basis weight distribution (min, p5, p25, median, mean, p75, p95, max)
+- Minimum-weight null-space vector (via pairwise XOR of lightest basis vectors, as in B.39a)
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (High rank) | GF(2) rank $\geq$ 14,000 | Null-space $\leq$ 2,129; combinators likely achieve full solve |
+| H2 (Moderate rank) | GF(2) rank 8,000&ndash;14,000 | Null-space 2,129&ndash;8,129; residual may be tractable with row-grouped search |
+| H3 (Low rank) | GF(2) rank $\leq$ 5,000 | Null-space $\geq$ 11,129; CRC-32 equations largely redundant; approach unlikely viable |
+
+**Note on H1 plausibility.** Achieving rank $\geq$ 14,000 requires the CRC-32 equations to contribute $\geq$ 12,994 independent GF(2) equations. This would mean 12,994 of the 4,064 CRC-32 equations are independent&mdash;which is impossible (only 4,064 exist). **Therefore, H1 is unachievable from GF(2) rank alone.** The maximum possible GF(2) rank is $\min(5{,}078, 16{,}129) = 5{,}078$. The practical maximum is ~5,070 (accounting for conservation dependencies). This gives a null-space of ~$16{,}129 - 5{,}070 = 11{,}059$.
+
+**Revised expected outcomes (corrected).**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Near-maximum rank) | GF(2) rank $\geq$ 5,000 | CRC-32 is contributing nearly all its 4,064 equations independently; maximum GF(2) exploitation achieved; null-space ~11,059&ndash;11,129 |
+| H2 (Partial CRC contribution) | GF(2) rank 3,000&ndash;5,000 | CRC-32 contributes 2,000&ndash;4,000 independent equations; partial but significant |
+| H3 (Minimal CRC contribution) | GF(2) rank $\leq$ 2,000 | CRC-32 equations mostly redundant with cross-sum parity; approach not viable from GF(2) alone |
+
+**Critical realization.** The GF(2) null-space will remain ~11,000 dimensions regardless of outcome. The combinator approach's viability therefore depends not on GF(2) rank alone but on the **interaction between GF(2) and integer constraints** during the fixpoint loop. The GF(2) rank determines the starting point; IntBound and CrossDeduce must close the remaining gap. This makes B.58b (the full pipeline test) essential regardless of B.58a outcome.
+
+### B.58.9 Sub-experiment B.58b: Full Symbolic Solve Pipeline
+
+**Prerequisite.** B.58a completed (any outcome). B.58b proceeds regardless of B.58a outcome because the GF(2)-integer interaction is the core hypothesis.
+
+**Objective.** Implement the full combinator pipeline and measure the fixpoint: how many cells does the symbolic approach determine without any search?
+
+**Method.**
+
+(a) Select the best yLTP seed pair from B.58a (highest GF(2) rank).
+
+(b) Generate a test CSM. Two sources:
+
+- **Synthetic:** random $127 \times 127$ binary matrix at 50% density (repeat for 10%, 30%, 70%, 90%).
+- **Real data:** compress the first 2,016 bytes of `useless-machine.mp4` into a $127 \times 127$ CSM. Record the actual density.
+
+(c) Compute all projections (cross-sums, CRC-32, SHA-256) and construct the full payload.
+
+(d) Run the combinator pipeline from the decompressor's perspective: given only the payload (not the original CSM), reconstruct.
+
+(e) Execute the fixpoint loop: GaussElim $\to$ IntBound $\to$ Propagate $\to$ CrossDeduce, iterated until stable.
+
+(f) Record per-iteration telemetry (&sect;B.58.6, Phase 5 output table).
+
+(g) If fixpoint does not fully determine the CSM, record the free-variable distribution:
+
+| Row $r$ | Free cells $f_r$ | CRC-32 residual equations | Effective per-row free vars ($f_r - \text{CRC residual}$) |
+|---------|-------------------|--------------------------|------------------------------------------------------|
+| 0 | ... | ... | ... |
+| ... | ... | ... | ... |
+| 126 | ... | ... | ... |
+
+(h) Verify: compare the reconstructed CSM (or the best candidate from EnumerateFree) against the original CSM to confirm correctness.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Full solve) | $|F| = 0$ after fixpoint | CSM fully determined by combinators; no search required; CRSCE is viable at S=127 |
+| H2 (Near-full solve) | $|F| \leq 25$ after fixpoint | Residual enumeration ($\leq 2^{25}$) is tractable; CRSCE viable with seconds of search |
+| H3 (Partial solve) | $25 < |F| \leq 1{,}000$ | Row-grouped search needed; viability depends on per-row distribution (B.58c) |
+| H4 (Minimal solve) | $|F| > 1{,}000$ | Combinator approach does not reduce free variables below DFS-equivalent at S=127 |
+
+**Decision gate.** If H4 on 50% density AND H4 on all other densities: B.58 is not viable. If H3 or better on any density: proceed to B.58c for that density.
+
+### B.58.10 Sub-experiment B.58c: Row-Grouped Residual Search
+
+**Prerequisite.** B.58b reports H3 ($25 < |F| \leq 1{,}000$) on at least one density.
+
+**Objective.** Exploit the row-local structure of CRC-32 constraints to decompose the residual enumeration into per-row sub-problems, then combine via cross-row constraint propagation.
+
+#### B.58.10.1 Per-Row Candidate Generation
+
+After the fixpoint, each row $r$ has $f_r$ free cells. The CRC-32 equations for row $r$ have been partially consumed by GaussElim; let $c_r$ be the number of remaining independent CRC-32 equations that constrain only the free cells of row $r$. The per-row search space is $2^{f_r - c_r}$ (the CRC-32 residual equations reduce the dimension).
+
+For each row $r$:
+
+```
+def generate_row_candidates(r, free_cells_in_row, crc_residual_eqns, row_sum_residual):
+    """Generate all assignments to free cells in row r consistent with
+    CRC-32 residual equations and integer row sum.
+
+    Args:
+        r: row index
+        free_cells_in_row: list of cell indices that are free in row r
+        crc_residual_eqns: GF(2) equations on the free cells (after fixpoint)
+        row_sum_residual: rho for the row's integer constraint
+
+    Returns:
+        candidates: list of assignment dicts {cell_index: value}
+    """
+    f_r = len(free_cells_in_row)
+    c_r = len(crc_residual_eqns)
+
+    # GF(2) null-space of CRC residual equations
+    # (free cells of row r, reduced by c_r equations)
+    row_free_basis = gf2_null_space(crc_residual_eqns)
+    n_row_free = len(row_free_basis)  # = f_r - c_r
+
+    candidates = []
+    for bits in range(2 ** n_row_free):
+        # Construct assignment from null-space basis
+        assignment = base_assignment(crc_residual_eqns)
+        for i in range(n_row_free):
+            if (bits >> i) & 1:
+                assignment ^= row_free_basis[i]
+
+        # Check integer row sum
+        if sum(assignment[c] for c in free_cells_in_row) != row_sum_residual:
+            continue
+
+        candidates.append(assignment)
+
+    return candidates
+```
+
+**Per-row cost.** $O(2^{n_{\text{row\_free}}})$ per row. If $f_r \leq 50$ and $c_r \geq 25$, then $n_{\text{row\_free}} \leq 25$ and per-row search is $\leq 2^{25} \approx 33$M&mdash;tractable in seconds.
+
+**Expected per-row candidates.** The integer row-sum constraint eliminates most GF(2)-consistent assignments. For a row with $f_r = 40$ free cells, row sum residual $\rho = 20$, and $c_r = 30$ CRC-32 equations: the GF(2) search space is $2^{10} = 1{,}024$, and the integer filter retains $\binom{10}{?} / 2^{10}$ fraction (approximately $\binom{40}{20} / 2^{40} \approx 13.2\%$). Expected candidates per row: $\sim 135$.
+
+#### B.58.10.2 Cross-Row Consistency via Arc Consistency
+
+After generating per-row candidates, the cross-row problem is: select one candidate per row such that all inter-row constraints (column sums, diagonal sums, anti-diagonal sums, yLTP sums) are satisfied.
+
+This is a constraint satisfaction problem (CSP) with:
+
+- **Variables:** 127 rows, each with a domain of per-row candidates
+- **Constraints:** ~887 inter-row constraints (127 columns + 253 diagonals + 253 anti-diagonals + 127 yLTP1 + 127 yLTP2)
+
+**Arc consistency propagation.**
+
+```
+def arc_consistency(row_candidates, inter_row_constraints):
+    """Reduce per-row candidate sets via arc consistency (AC-3).
+
+    For each inter-row constraint (e.g., column c with sum target k):
+      For each row r that has cells in column c:
+        Remove candidates for row r that are inconsistent with ALL
+        remaining candidates for all other rows touching column c.
+
+    Iterate until no more candidates are removed.
+    """
+    changed = True
+    while changed:
+        changed = False
+        for constraint in inter_row_constraints:
+            affected_rows = constraint.rows  # rows that have cells in this constraint
+            target = constraint.rho          # residual sum target
+
+            for r in affected_rows:
+                new_candidates = []
+                for cand in row_candidates[r]:
+                    # Check if this candidate is consistent with at least one
+                    # combination of candidates from other affected rows
+                    cand_contribution = constraint.contribution(r, cand)
+                    remaining_target = target - cand_contribution
+                    remaining_rows = [r2 for r2 in affected_rows if r2 != r]
+
+                    if can_achieve_target(remaining_target, remaining_rows,
+                                         row_candidates, constraint):
+                        new_candidates.append(cand)
+
+                if len(new_candidates) < len(row_candidates[r]):
+                    row_candidates[r] = new_candidates
+                    changed = True
+
+                if len(new_candidates) == 0:
+                    return None  # inconsistent
+
+    return row_candidates
+```
+
+**Cost.** Arc consistency on the cross-row CSP has worst-case cost $O(e \cdot d^2)$ where $e$ is the number of constraints and $d$ is the maximum domain size. With $e = 887$ and $d = 135$ (estimated per-row candidates): $O(887 \times 135^2) \approx 16$M operations per pass. With 10&ndash;50 passes for convergence: $\leq$ 800M operations, completing in $< 1$ second.
+
+**If arc consistency reduces all domains to size 1:** the solution is unique (verify with SHA-256).
+
+**If some domains remain $> 1$:** apply DFS over the remaining multi-valued rows. With arc consistency, the residual typically has very small domains (2&ndash;10 candidates per row), making exhaustive search tractable.
+
+#### B.58.10.3 Fallback: DFS on Row-Candidate CSP
+
+If the arc-consistent domain sizes are still too large for direct enumeration:
+
+```
+def dfs_row_csp(row_candidates, inter_row_constraints, row_order):
+    """DFS over per-row candidates with forward-checking.
+
+    row_order: rows sorted by domain size (smallest first = fail-first heuristic)
+    """
+    assignment = {}  # row -> selected candidate
+
+    def backtrack(idx):
+        if idx == len(row_order):
+            # All rows assigned; verify SHA-256
+            csm = reconstruct_csm_from_row_assignments(assignment)
+            return verify_bh(csm, expected_bh)
+
+        r = row_order[idx]
+        for cand in row_candidates[r]:
+            assignment[r] = cand
+
+            # Forward check: does this candidate violate any inter-row constraint?
+            if forward_check(r, cand, assignment, inter_row_constraints, row_candidates):
+                if backtrack(idx + 1):
+                    return True
+
+        del assignment[r]
+        return False
+
+    return backtrack(0)
+```
+
+The DFS over the row-candidate CSP is fundamentally different from the original cell-level DFS: each "branching decision" assigns an entire row (127 cells) simultaneously, and the domain per row is pre-filtered by CRC-32 + integer sum. This is a search over ~$100^{127}$ in the worst case but typically collapses to a small tree after arc consistency.
+
+### B.58.11 Expected Outcomes
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Full algebraic solve) | B.58b H1: $|F| = 0$ | The combinator approach fully solves S=127 CSMs. CRSCE is viable at S=127 with CRC-32 LH. The DFS solver is unnecessary. |
+| H2 (Tractable residual) | B.58b H2 or B.58c succeeds | CRSCE is viable at S=127 with a hybrid approach: symbolic reduction + bounded search. Decompression time dominated by GF(2) Gaussian elimination ($\approx$ seconds). |
+| H3 (Row-decomposable) | B.58c partially succeeds | Some blocks solvable, others not. Viability depends on input density and yLTP table. The approach is density-sensitive: low-entropy blocks (density far from 50%) may solve fully while 50%-density blocks require deeper search. |
+| H4 (Not viable) | B.58a H3 AND B.58b H4 on all densities | CRC-32 equations are insufficiently independent of cross-sum constraints. The GF(2) rank does not increase enough, and integer/cross-deduction reasoning cannot close the gap. |
+
+**H4 implication.** If the CRC-32 equations are largely redundant with cross-sum parity at S=127, then algebraic hash exploitation is not a viable path for CRSCE at any matrix dimension. This would confirm that the hash information (needed to break the null-space ambiguity) is fundamentally inaccessible to polynomial-time algebraic methods, and that the only route to full reconstruction is exponential-time search over the null space&mdash;which is infeasible at all practical matrix sizes.
+
+**H1 implication.** If the combinator approach fully solves S=127 CSMs, the production C++ solver should be rewritten from DFS to the combinator pipeline. Decompression becomes a deterministic algebraic computation (GF(2) Gaussian elimination + integer propagation) with no backtracking. Compression discovers DI = 0 for every block (if the fixpoint is unique) or small DI via bounded enumeration. The format achieves 36.1% compression with provably efficient decompression.
+
+### B.58.12 Performance Analysis
+
+**Decompression time (per block).**
+
+| Phase | Operation | Cost estimate |
+|-------|-----------|--------------|
+| BuildSystem | Construct GF(2) matrix + integer structures | ~10 ms |
+| GaussElim | GF(2) RREF on $5{,}078 \times 16{,}129$ | 1&ndash;3 seconds |
+| IntBound (per fixpoint iteration) | Scan 1,014 lines + 16,129 cells | ~0.2 ms |
+| CrossDeduce (per fixpoint iteration) | Scan $|F| \times 15$ intersections | ~0.5 ms |
+| Fixpoint (total, ~10 iterations) | GaussElim re-run dominates | 5&ndash;15 seconds |
+| EnumerateFree ($|F| \leq 25$) | $2^{25} \times$ pivot computation | 10&ndash;100 seconds |
+| Row-grouped search ($|F| \leq 1{,}000$) | Per-row CRC + arc consistency | 1&ndash;60 seconds |
+| VerifyBH | SHA-256 on 2,032 bytes | ~1 &mu;s |
+
+**Total decompression time estimate:**
+
+- $|F| = 0$ (H1): ~5&ndash;15 seconds per block (GaussElim-dominated)
+- $|F| \leq 25$ (H2): ~15&ndash;120 seconds per block
+- $25 < |F| \leq 1{,}000$ (H3): ~10&ndash;75 seconds per block (row-grouped search)
+
+**Memory.** ~12 MB per block (dominated by the $5{,}078 \times 253$-word GF(2) matrix).
+
+**Compression time (per block).** Same as decompression plus DI discovery overhead. If $|F| = 0$, DI = 0 for all blocks and compression time equals decompression time. If $|F| > 0$, the compressor must verify that the original CSM matches a specific enumerated solution; this adds one SHA-256 comparison per candidate.
+
+**Comparison with DFS at S=511.** The current DFS solver runs for 1,800 seconds per block (max compression time) and reaches ~37% depth. At S=127 with the combinator approach, even the H3 outcome (~75 seconds per block) would be 24$\times$ faster per block. However, S=127 blocks are 16.2$\times$ smaller, so the per-byte cost is comparable. The critical advantage is that the combinator approach is expected to achieve *full reconstruction* (100% depth), not 37%.
+
+### B.58.13 Implementation
+
+**Language:** Python 3.10+ with NumPy for GF(2) matrix operations. The S=127 system is small enough ($5{,}078 \times 16{,}129$ binary matrix $\approx$ 10 MB) for in-memory computation. No C++ dependency.
+
+**Tool:** `tools/b58a_gf2_rank.py`
+
+Implements:
+
+- `build_crc32_generator_matrix(n_data_bits=127)`: returns $G_{\text{CRC}}$ and $\mathbf{c}$
+- `build_cross_sum_parity_matrix(csm, yltp_tables)`: returns the 1,014-row GF(2) matrix
+- `build_full_gf2_system(csm, yltp_tables)`: assembles the $5{,}078 \times 16{,}129$ system
+- `gf2_gauss_elim(G, b)`: GF(2) Gaussian elimination with leftmost-column-first pivoting
+- `stratified_rank_analysis(csm, yltp_tables)`: ranks for each family configuration
+- `null_space_weight_analysis(rref, pivot_cols, free_cols)`: basis weight statistics
+- Main: runs 10 yLTP seed pairs, reports rank statistics
+
+**Tool:** `tools/b58b_symbolic_solve.py`
+
+Implements:
+
+- `class ConstraintSystem`: holds $\mathcal{S}$, all data structures from &sect;B.58.4.1
+- `gauss_elim(S)`: Combinator 1
+- `int_bound(S)`: Combinator 2
+- `propagate(S, newly_determined)`: Combinator 3
+- `cross_deduce(S)`: Combinator 4
+- `fixpoint(S)`: Combinator 5
+- `enumerate_free(S, max_solutions=256)`: Combinator 6
+- `verify_bh(csm, expected_bh)`: Combinator 7
+- `solve(payload)`: full pipeline
+- Main: runs on synthetic 50% block + MP4 block 0 + multiple densities; reports telemetry
+
+**Tool:** `tools/b58c_row_grouped.py`
+
+Implements:
+
+- `generate_row_candidates(r, ...)`: per-row candidate generation (&sect;B.58.10.1)
+- `arc_consistency(row_candidates, constraints)`: AC-3 on cross-row CSP (&sect;B.58.10.2)
+- `dfs_row_csp(row_candidates, constraints)`: fallback DFS (&sect;B.58.10.3)
+- Main: runs on blocks where B.58b reports H3
+
+**Test plan.**
+
+| Test | Verification |
+|------|-------------|
+| CRC-32 generator matrix | Verify $G_{\text{CRC}} \cdot \mathbf{x}_r \oplus \mathbf{c} = \text{CRC32}(\text{pack}(\mathbf{x}_r, 0))$ for 1,000 random rows |
+| GF(2) Gaussian elimination | Verify RREF satisfies $G \cdot \mathbf{x} = b_G$ for all determined cells |
+| IntBound correctness | Verify all forced cells satisfy integer constraints on all 6 lines |
+| Fixpoint monotonicity | Verify $|D|$ is non-decreasing across iterations |
+| Reconstruction correctness | Compare reconstructed CSM to original (compressor has access to both) |
+| DI determinism | Run pipeline twice on same input; verify identical DI |
+| SHA-256 verification | Verify reconstructed CSM matches stored BH |
+| Inconsistency detection | Corrupt one cross-sum value; verify the pipeline reports infeasibility |
+| Small-scale exhaustive | At S=7: verify the pipeline produces the unique correct CSM for 100 random matrices |
+
+### B.58.14 Relationship to Prior Work
+
+**B.54 (SMT Hybrid Solver).** B.54 used CRC-32 as a **verification oracle**: the solver called CRC-32 only when a row was fully assigned ($u = 0$), obtaining a binary pass/fail signal. B.58 uses CRC-32 as an **algebraic constraint**: the 32 linear equations per row are incorporated into the GF(2) system at initialization, participating in Gaussian elimination alongside cross-sum parity. This is the fundamental architectural distinction. B.54's failure was due to the row-completion barrier; B.58 eliminates that barrier entirely.
+
+**B.55 (LP Relaxation).** B.55 solved the cross-sum system as a continuous LP and found that the LP values were uninformative (49.9% accuracy). B.58's GF(2) approach is fundamentally different: it operates over a finite field, not the reals, and CRC-32 adds ~4,064 *new* constraints that the LP did not have. The LP failure was caused by an underdetermined system; B.58 attacks the underdetermination directly by adding algebraically exploitable constraints.
+
+**B.56 (Hierarchical Multi-Resolution).** B.56 proposed integer Gaussian elimination on the constraint matrix. B.58 subsumes B.56's algebraic decomposition variant but operates primarily over GF(2) (where CRC-32 is natively representable) rather than the integers. Integer reasoning is retained via the IntBound combinator for cardinality constraints that carry information beyond parity.
+
+**B.39 (N-Dimensional Constraint Geometry).** B.39 established the GF(2) null-space dimension at S=511 as 256,024. B.58a will compute the corresponding quantity at S=127 *with CRC-32 included*. The CRC-32 contribution (~4,064 new GF(2) equations) was not considered in B.39 because SHA-1 lateral hashes have no useful GF(2) structure.
+
+**B.44 (Constraint Density Breakthrough).** B.44 concluded that no viable path exists to increase constraint density at S=511 without counterproductive side effects (deep exploration paradox). B.58 operates in a fundamentally different regime: the "constraint density" is not the DFS propagation density (singleton forcing) but the GF(2) rank as a fraction of cell count. CRC-32 increases GF(2) constraint density from ~6.2% (cross-sums only) to ~31.4% (cross-sums + CRC-32) at S=127. The deep exploration paradox does not apply because there is no DFS.
+
+**B.57 (S=127 Format).** B.58 adopts B.57's format specification but proposes a completely different solver. B.57 assumed the existing DFS solver would be tested at S=127 to measure depth improvement from higher constraint density. B.58 abandons DFS altogether. If B.58 succeeds, B.57's DFS depth measurement (B.57a) becomes moot.
+
+**B.42 (Pre-Branch Pruning Spectrum).** B.42c's both-value probing is the DFS equivalent of B.58's IntBound cell-line interaction check: testing both values of a cell before committing. B.42c achieved H2 (neutral: no depth improvement despite eliminating all wasted branches). B.58 generalizes this idea from single-cell probing to full algebraic reasoning across the entire constraint system simultaneously.
+
+**Status: PROPOSED.**
+
+---
+
+## B.59 Repeat Experiments at S=127 (Proposed)
+
+### B.59.0 Motivation
+
+The B.57 format change (S=511 $\to$ S=127, b=7, 4 geometric + 2 yLTP, CRC-32 LH, SHA-256 BH) fundamentally alters the experimental landscape. Experiments that were infeasible, inconclusive, or negative at S=511 may produce qualitatively different results at S=127 due to five regime shifts: (1) 16$\times$ fewer cells make expensive techniques computationally tractable; (2) 3.1$\times$ higher constraint density reduces or eliminates the forcing dead zone; (3) 4$\times$ shorter lines cause forcing thresholds to be reached sooner; (4) CRC-32 linearity over GF(2) eliminates the row-completion barrier; (5) 17$\times$ smaller null-space may make swap-based and SAT-based approaches viable. This section enumerates 26 experiments (B.59a&ndash;B.59z) selected from the B.1&ndash;B.56 corpus, prioritized by the magnitude of the expected regime-shift effect.
+
+Experiments are organized into six phases with internal dependencies flowing downward. Each phase can begin as soon as its prerequisite phases complete. The entire program targets two weeks.
+
+---
+
+### B.59a GF(2) Null-Space at S=127, Cross-Sums Only (from B.39)
+
+**Source:** B.39 (N-Dimensional Constraint Geometry). At S=511: GF(2) rank = 5,097, null-space = 256,024.
+
+**Why B.57 changes the outcome.** At S=127 with 6 families (4 geometric + 2 yLTP), the constraint matrix is $1{,}014 \times 16{,}129$. The null-space dimension, minimum-weight null-space vector, and basis weight distribution are all unknown. These are foundational quantities that govern every subsequent experiment.
+
+**Method.** Rerun the B.39a analysis: construct the GF(2) incidence matrix for 6 families at S=127, compute rank via Gaussian elimination, extract null-space basis, compute minimum-weight vector via pairwise XOR of lightest basis vectors.
+
+**Report.** GF(2) rank, null-space dimension, stratified rank (adding families one at a time), basis weight distribution (min, p5, median, p95, max), minimum swap size upper bound.
+
+**Phase:** 0 (foundational). **Duration:** 1 hour. **Depends on:** nothing.
+
+---
+
+### B.59b GF(2) Null-Space with CRC-32 (from B.58a)
+
+**Source:** B.58 (Combinator Solver), sub-experiment B.58a. No prior S=511 equivalent (SHA-1 is non-linear).
+
+**Why B.57 changes the outcome.** CRC-32 provides 4,064 GF(2) equations that did not exist in the S=511 system. The combined cross-sum + CRC-32 GF(2) rank determines the ceiling of the B.58 combinator approach and informs the viability of every algebraic technique.
+
+**Method.** Execute B.58a as specified: construct the $5{,}078 \times 16{,}129$ GF(2) matrix, compute rank, compare to B.59a (cross-sums-only rank) to measure the net CRC-32 contribution. Test 10 yLTP seed pairs.
+
+**Report.** GF(2) rank (with/without CRC-32), CRC-32 net contribution, null-space dimension, seed-dependent variance.
+
+**Phase:** 0. **Duration:** 2 hours. **Depends on:** nothing (run in parallel with B.59a).
+
+---
+
+### B.59c DFS Baseline Depth at S=127 (from B.57a)
+
+**Source:** B.57 sub-experiment B.57a. The DFS solver has never been run at S=127.
+
+**Why B.57 changes the outcome.** At S=511, DFS reaches ~37% depth (96,672 of 261,121). At S=127 with 3.1$\times$ higher constraint density and 4$\times$ shorter lines, the DFS propagation cascade should extend significantly deeper. The baseline depth is the denominator for all subsequent improvement measurements.
+
+**Method.** Build and run the DFS solver at S=127 with default Fisher-Yates yLTP seeds on: (1) a random 50% density block, (2) MP4 block 0 (first 2,016 bytes of `useless-machine.mp4`), (3) random blocks at 10%, 30%, 70%, 90% density. Record peak depth, iteration count, iter/sec, meeting-band entry row, propagation forcing count.
+
+**Report.** Peak depth and percentage for each test case. Density-depth curve.
+
+**Phase:** 0. **Duration:** 30 minutes per block (may need C++ implementation first). **Depends on:** B.57 C++ implementation (or Python DFS prototype).
+
+---
+
+### B.59d yLTP Seed Search at S=127 (from B.22/B.26)
+
+**Source:** B.22 (Partition Seed Search) and B.26 (Joint Seed Search). At S=511: best pair CRSCLTPV+CRSCLTPP achieved 91,090.
+
+**Why B.57 changes the outcome.** The S=127 Fisher-Yates landscape is entirely different: 16,129 cells partitioned into 127 lines of 127 cells per sub-table. The optimal seeds are unknown. With 16$\times$ faster per-evaluation cost, exhaustive joint search is feasible over a much larger seed space.
+
+**Method.** Joint exhaustive search over printable-ASCII seed pairs (95$\times$95 = 9,025 pairs). Each evaluation: compress + decompress one MP4 block at S=127, record peak depth. Use the B.59c DFS solver.
+
+**Report.** Best seed pair, depth landscape heatmap, top-10 pairs, depth variance across seeds.
+
+**Phase:** 0. **Duration:** 9,025 evals $\times$ ~5s = ~12.5 hours (parallelizable to ~3 hours on 4 cores). **Depends on:** B.59c (DFS solver).
+
+---
+
+### B.59e Full Combinator Pipeline (from B.58b)
+
+**Source:** B.58 sub-experiment B.58b. No prior S=511 equivalent.
+
+**Why B.57 changes the outcome.** The combinator approach (GF(2) Gaussian elimination + integer bounds + cross-deduction + CRC-32 algebraic constraints) is entirely new and only possible because CRC-32 is linear over GF(2).
+
+**Method.** Execute B.58b as specified: build the constraint system, run the fixpoint loop, measure determined vs. free cells. Test at 10%, 30%, 50%, 70%, 90% density. Use the best yLTP seeds from B.59d.
+
+**Report.** Per-density: fixpoint $|D|$ (determined), $|F|$ (free), cells from each combinator (GaussElim, IntBound, CrossDeduce), fixpoint iterations, wall time.
+
+**Phase:** 1 (algebraic). **Duration:** 1 hour. **Depends on:** B.59b (GF(2) rank), B.59d (best seeds).
+
+---
+
+### B.59f Minimum Swap Size at S=127 (from B.33/B.39)
+
+**Source:** B.39a (minimum-weight null-space vector). At S=511: minimum swap = 1,528 cells (11 rows, 492 columns). B.33 abandoned because swap size made Complete-Then-Verify infeasible.
+
+**Why B.57 changes the outcome.** The S=127 null-space is 17$\times$ smaller (~15,123 dimensions vs 256,024). The minimum-weight vector scales roughly as $\sim 3s$ for 8 families (B.39 result: $3 \times 511 = 1{,}533 \approx 1{,}528$ observed). For 6 families at S=127, the prediction is $\sim 2 \times 127 = 254$ cells or $\sim 3 \times 127 = 381$ cells. If the actual minimum is below ~100 cells spanning $\leq 10$ rows, Complete-Then-Verify (B.59s) becomes viable.
+
+**Method.** Extract B.59a's null-space basis. Compute minimum-weight vector via: (a) exhaustive individual basis vectors, (b) pairwise XOR of the 2,000 lightest, (c) 3-way through 6-way random XOR (40K samples each). Record minimum weight, row span, column span.
+
+**Report.** Minimum swap size, row span, column span, cells/row distribution. Comparison with $3n$ scaling model ($n = 6$: predicted 12&ndash;18 cells for geometric-only, unknown with yLTP).
+
+**Phase:** 1. **Duration:** 30 minutes. **Depends on:** B.59a (null-space basis).
+
+---
+
+### B.59g SAT/ILP on S=127 Residual (from B.54)
+
+**Source:** B.54 (SMT Hybrid Solver). At S=511: ILP timeout, SAT OOM at 395M clauses, LP = random guessing.
+
+**Why B.57 changes the outcome.** The S=127 residual (cells not determined by DFS propagation) is at most 16,129 cells (vs 164,542 at S=511). If DFS reaches 60% at S=127, the residual is ~6,400 cells with ~600 active constraint lines. Cardinality constraint encoding: ~600 lines $\times$ ~50 unknowns per line $\to$ ~30K clauses $\times$ ~600 = ~18M total clauses (vs 395M at S=511). This fits in memory.
+
+Additionally, CRC-32 is a linear function over GF(2). Instead of treating CRC-32 as a verification oracle (B.54's approach), encode CRC-32 as 32 XOR-clauses per row directly in the SAT instance. This adds 127 $\times$ 32 = 4,064 2-literal XOR-clauses&mdash;essentially free for XOR-aware SAT solvers (CryptoMiniSat).
+
+**Method.** (a) Run DFS to plateau at S=127 (from B.59c). (b) Extract the residual: unassigned cells + their active constraints. (c) Encode as SAT instance with cardinality constraints (sequential counter encoding) + CRC-32 XOR-clauses. (d) Run CryptoMiniSat with 10-minute timeout. (e) If SAT finds a solution, verify against SHA-256 BH. (f) Also test PB solver (RoundingSat) and ILP (HiGHS) formulations.
+
+**Report.** SAT: clause count, variable count, solve time, result. PB: constraint count, solve time. ILP: LP relaxation accuracy, solve time. For each: accuracy on residual cells vs. correct CSM.
+
+**Phase:** 1. **Duration:** 2 hours. **Depends on:** B.59c (DFS baseline, for residual extraction).
+
+---
+
+### B.59h Interval-Tightening Potential at S=127 (from B.16/B.42a)
+
+**Source:** B.42a (waste instrumentation) and B.16 (partial row constraint tightening, PRCT). At S=511: 0% interval-tightening potential. Every cell had $v_{\min} = 0$, $v_{\max} = 1$ on all constraint lines at the plateau.
+
+**Why B.57 changes the outcome.** The forcing dead zone at S=511 existed because 511-cell lines at 50% density have $\rho / u \approx 0.5$, leaving maximum uncertainty per cell. At S=127, lines are 4$\times$ shorter and constraint density is 3.1$\times$ higher. A 127-cell line with $\rho = 10$ and $u = 20$ gives per-cell bounds: $v_{\min} = \max(0, 10 - 19) = 0$, $v_{\max} = \min(1, 10) = 1$ &mdash; still uninformative for this individual line. But **joint multi-line bounds** become tighter: if cell $j$ is on 6 lines and all 6 lines independently constrain $j$, the intersection may force $j$. At S=127, intersections between different families average ~1 cell (same as S=511), but lines reach the forcing regime ($\rho \leq 3$ or $u - \rho \leq 3$) sooner because they are shorter.
+
+**Method.** Run the B.42a waste instrumentation at S=127: at each branching decision during DFS, record (a) whether the preferred value is infeasible, (b) whether both values are infeasible, (c) whether joint multi-line interval tightening forces the cell. Compute the interval-tightening potential: fraction of cells where $v_{\min} = v_{\max}$ under joint analysis but not under single-line analysis.
+
+**Report.** Preferred-infeasible rate, both-infeasible rate, interval-tightening potential (%), comparison with B.42a results at S=511 (56.6%, 43.2%, 0%).
+
+**Phase:** 2 (propagation). **Duration:** 30 minutes. **Depends on:** B.59c (DFS solver).
+
+---
+
+### B.59i Singleton Arc Consistency at S=127 (from B.6)
+
+**Source:** B.6 (Singleton Arc Consistency). At S=511: per-assignment cost ~1.7 seconds (prohibitive).
+
+**Why B.57 changes the outcome.** SAC cost scales as $O(n \times s \times p)$ where $n$ is unassigned cells, $s$ is values per cell (2), and $p$ is propagation cost. At S=127: $n \leq 16{,}129$, propagation touches 6 lines of 127 cells $= 762$ cells per assignment. Cost: $16{,}129 \times 2 \times 762 \approx 25$M operations $\approx 25$ ms per SAC pass. This is feasible as preprocessing (before DFS) and potentially during DFS at the plateau.
+
+**Method.** (a) Implement SAC-1 preprocessing: before DFS, iterate SAC passes until fixpoint. Record: cells forced by SAC but not by standard propagation, SAC iterations, wall time. (b) Implement SAC-during-DFS: at each branching decision, run one SAC pass. Record: depth improvement, throughput impact.
+
+**Report.** SAC-forced cells (count), SAC fixpoint iterations, wall time, depth with/without SAC, iter/sec with/without SAC.
+
+**Phase:** 2. **Duration:** 2 hours. **Depends on:** B.59c (DFS solver).
+
+---
+
+### B.59j Both-Value Probing at S=127 (from B.42c)
+
+**Source:** B.42c. At S=511: eliminated all branching waste (56.6% $\to$ 0%), +40% throughput, depth unchanged (86,125).
+
+**Why B.57 changes the outcome.** At S=511, both-value probing saved throughput but not depth because the plateau was constraint-exhausted. At S=127, if the plateau occurs at higher relative depth (60&ndash;80%), probing may detect infeasibility that propagation misses. The throughput gain alone is valuable for the smaller block size.
+
+**Method.** Implement B.42c at S=127. Measure: branching rate, preferred-infeasible rate, both-infeasible rate, depth, iter/sec, comparison with B.59c baseline.
+
+**Report.** Same metrics as B.42c. Decision: retain in production if throughput improves $\geq$ 20%.
+
+**Phase:** 2. **Duration:** 1 hour. **Depends on:** B.59c.
+
+---
+
+### B.59k Row-Completion Look-Ahead at S=127 (from B.17/B.43)
+
+**Source:** B.17 (RCLA) and B.43 (Bottom-Up RCLA). At S=511: at most 1 RCLA-eligible row at any time; meeting-band rows had $u \approx 300$&ndash;400.
+
+**Why B.57 changes the outcome.** At S=127, rows have 127 cells (not 511). If DFS reaches row 80 (63% depth), the remaining rows have $u = 127$ minus propagation-forced cells. With 3.1$\times$ higher constraint density, the propagation cascade may reduce $u$ to 20&ndash;40 in several meeting-band rows simultaneously, making RCLA tractable ($\binom{30}{15} = 155$M &mdash; borderline; $\binom{20}{10} = 184$K &mdash; easy).
+
+**Method.** Instrument the DFS solver at S=127 to record, at peak depth, the per-row $u$ values for all 127 rows. Count RCLA-eligible rows at thresholds $u \leq 10, 15, 20, 25, 30$. If any rows are eligible, implement RCLA: enumerate $\binom{u}{\rho}$ completions, check each against CRC-32 (not SHA-1 &mdash; CRC-32 is 4 bytes vs 20, and is the B.57 LH), prune infeasible completions.
+
+**Report.** Per-row $u$ distribution at plateau, RCLA-eligible row count at each threshold, RCLA pruning power (fraction of completions passing CRC-32), depth with RCLA enabled.
+
+**Phase:** 2. **Duration:** 2 hours. **Depends on:** B.59c.
+
+---
+
+### B.59l Belief Propagation at S=127 (from B.12)
+
+**Source:** B.12 (Survey Propagation and BP-Guided Decimation). At S=511: BP converged with damping, but marginals were uninformative for branch-value ordering at the plateau.
+
+**Why B.57 changes the outcome.** The S=127 factor graph has 16,129 variable nodes and 1,014 factor nodes (constraint lines). Factor graph diameter is smaller and constraint density is 3.1$\times$ higher. BP on denser, smaller graphs produces more accurate marginals. Additionally, CRC-32 constraints can be represented as degree-127 factor nodes in GF(2) (product-sum over the CRC polynomial), providing 4,064 additional factors that BP can exploit.
+
+**Method.** (a) Construct the factor graph for S=127 (6 cross-sum families + CRC-32 factors). (b) Run loopy BP with damping ($\alpha = 0.5$) to convergence. Record: convergence iterations, per-cell marginal distribution (fraction of cells with marginal $> 0.9$ or $< 0.1$). (c) Decimation: fix cells with extreme marginals, re-run BP, iterate until all cells fixed or BP fails to converge. (d) Verify decimated solution against SHA-256 BH.
+
+**Report.** BP convergence (yes/no, iterations), fraction of cells with informative marginals ($> 0.9$ or $< 0.1$), decimation depth (cells fixed before failure), accuracy of decimated solution.
+
+**Phase:** 3 (search strategy). **Duration:** 4 hours. **Depends on:** B.59b (CRC-32 factor construction).
+
+---
+
+### B.59m Adaptive Lookahead at Higher $k$ (from B.8)
+
+**Source:** B.8 (Adaptive Lookahead). At S=511: $k = 4$ was the maximum practical depth (~12&ndash;30K iter/sec, no depth improvement).
+
+**Why B.57 changes the outcome.** At S=127, the per-probe cost is $\sim 127 / 511 = 0.25\times$ per line update. Higher $k$ values ($k = 6, 8, 10$) become feasible. At $k = 10$: $2^{10} = 1{,}024$ probes per decision, each propagating through 6 lines of 127 cells. Cost: $1{,}024 \times 762 \approx 780$K operations per decision $\approx$ 0.8 ms. At 1,250 decisions/sec, the solver explores 1,250 subtrees of depth 10 per second. If depth-10 subtrees detect infeasibilities that depth-4 subtrees miss, depth may improve.
+
+**Method.** Run the DFS solver at S=127 with $k \in \{0, 2, 4, 6, 8, 10, 12\}$. For each $k$: record peak depth, iter/sec, wall time to reach plateau.
+
+**Report.** Depth vs. $k$ curve. Optimal $k$ (maximum depth $\times$ iter/sec product). Comparison with B.8 results at S=511.
+
+**Phase:** 3. **Duration:** 3 hours. **Depends on:** B.59c.
+
+---
+
+### B.59n CDCL Integration at S=127 (from B.1)
+
+**Source:** B.1 (Conflict-Driven Clause Learning). At S=511: CDCL infrastructure built but never integrated. The forcing dead zone produced no useful antecedent chains. Clause length ~111 literals (unreusable).
+
+**Why B.57 changes the outcome.** At S=127, lines have 127 cells (not 511). Forcing events ($\rho = 0$ or $\rho = u$) occur when ~127 cells are assigned on a line. At the plateau, if the solver has assigned 60&ndash;80% of cells, many lines have $u \leq 30$. Forcing events WILL occur in the meeting band (unlike S=511 where $u \geq 200$ at the plateau). Antecedent chains will be short (line length 127, not 511). Learned clauses will contain ~30&ndash;60 literals (not 111), making them 4$\times$ more reusable.
+
+**Method.** (a) Integrate the existing CDCL infrastructure (ConflictAnalyzer, ReasonGraph) into the DFS loop at S=127. (b) When a CRC-32 row check fails or a constraint becomes infeasible, analyze the conflict, learn a clause, backjump non-chronologically. (c) Record: conflict count, average clause length, backjump distance, clause reuse rate, depth with/without CDCL.
+
+**Report.** Forcing event count at plateau (comparison with S=511's zero events), clause length distribution, depth improvement, overhead per conflict analysis.
+
+**Phase:** 3. **Duration:** 6 hours (implementation + testing). **Depends on:** B.59c.
+
+---
+
+### B.59o Lightweight Nogoods at S=127 (from B.14)
+
+**Source:** B.14. At S=511: proposed but never implemented. Estimated clause length ~111 literals.
+
+**Why B.57 changes the outcome.** At S=127, CRC-32 failures (when they occur) involve only 127 cells per row. A partial-row nogood capturing the 20&ndash;40 most recent decisions in the failing row would be 20&ndash;40 literals. At 127 cells per row, the probability of encountering the same partial assignment in a different subtree is $\sim (20/127)^{20} \approx 10^{-16}$ &mdash; low, but with $10^8$ iterations, some reuse is expected for short nogoods ($\leq 10$ literals).
+
+**Method.** Record CRC-32 failures during DFS at S=127. For each failure, extract the decision cells of the failing row (subset of cells whose values were chosen by branching, not forcing). Store as a nogood clause. Before each CRC-32 check, test against the nogood database. Record: nogoods stored, nogoods fired (pruned a subtree), depth impact.
+
+**Report.** Nogood count, average length, fire rate, depth with/without nogoods.
+
+**Phase:** 3. **Duration:** 3 hours. **Depends on:** B.59c.
+
+---
+
+### B.59p Deterministic Restarts at S=127 (from B.11)
+
+**Source:** B.11 (Randomized Restarts). At S=511: proposed but never implemented.
+
+**Why B.57 changes the outcome.** If the DFS solver at S=127 stalls at 60&ndash;80% depth, a Luby restart schedule may escape the local plateau. The restart cost is lower at S=127: re-propagating from scratch takes ~16K cell assignments (vs ~261K at S=511). With deterministic restart triggers (functions of search history), DI consistency is preserved.
+
+**Method.** Implement Luby-schedule restarts: restart after $L_i$ backtracks where $L_i$ follows the Luby sequence (1, 1, 2, 1, 1, 2, 4, ...) scaled by a base $b = 1{,}000$. After restart, re-run propagation from scratch with phase saving (remember the last value assigned to each cell and try that value first). Record: restart count, max depth per run, overall best depth, wall time.
+
+**Report.** Best depth with restarts vs. without. Restart count to reach best depth. Heavy-tail analysis: depth distribution across restart episodes.
+
+**Phase:** 3. **Duration:** 3 hours. **Depends on:** B.59c.
+
+---
+
+### B.59q Multi-Line Tightness Cell Ordering at S=127 (from B.10)
+
+**Source:** B.10 (Constraint-Tightness-Driven Cell Ordering). At S=511: proposed but never isolated; B.4 (row-only priority) was the only implemented variant.
+
+**Why B.57 changes the outcome.** At S=127 with 6 constraint lines per cell (not 8), the tightness score is cheaper to compute. Lines are shorter, so tightness changes more rapidly per assignment. Multi-line scoring ($\theta(r,c) = w_{\text{row}} \cdot t_{\text{row}} + w_{\text{col}} \cdot t_{\text{col}} + \ldots$) may provide significant guidance where single-line (row-only) scoring does not.
+
+**Method.** Replace static row-major cell ordering with dynamic multi-line tightness priority queue. Weight vector: equal weights initially, then grid-search over $w \in \{0, 0.5, 1, 2\}^6$ (row, col, diag, anti-diag, yLTP1, yLTP2). Evaluate depth for each weight vector.
+
+**Report.** Best weight vector, depth at best weights vs. row-major baseline, iter/sec impact.
+
+**Phase:** 3. **Duration:** 4 hours. **Depends on:** B.59c.
+
+---
+
+### B.59r Bidirectional DFS at S=127 (from B.31)
+
+**Source:** B.31 (Pincer Option B). At S=511: proposed but never implemented.
+
+**Why B.57 changes the outcome.** At S=127, bottom-up DFS starting from row 126 encounters short diagonals and anti-diagonals (length 1&ndash;20) that provide strong propagation, mirroring the top-down advantage at row 0. CRC-32 verification fires on each completed row. If top-down DFS plateaus at row 80 and bottom-up plateaus at row 100, the two passes together cover 80 + 27 = 107 of 127 rows, leaving only a 20-row meeting band.
+
+**Method.** (a) Run top-down DFS to plateau. Record plateau row $r_t$. (b) Without clearing the constraint store, initialize a bottom-up DFS from row 126. Assign cells in reverse row-major order. Verify CRC-32 on each completed bottom row. Run to plateau. Record plateau row $r_b$. (c) If $r_t + (126 - r_b) \geq 127$: the meeting band is empty and the CSM is fully reconstructed. (d) If a gap remains: alternate passes, tightening the meeting band from both ends.
+
+**Report.** $r_t$ (top-down plateau), $r_b$ (bottom-up plateau), gap size, total solved cells.
+
+**Phase:** 4 (architecture). **Duration:** 4 hours. **Depends on:** B.59c.
+
+---
+
+### B.59s Complete-Then-Verify at S=127 (from B.33)
+
+**Source:** B.33 (Complete-Then-Verify). At S=511: abandoned. Minimum swap = 1,528 cells (B.39a), making Phase 3 (null-space navigation) infeasible.
+
+**Why B.57 changes the outcome.** B.59f will measure the minimum swap at S=127. If it is $\leq 100$ cells spanning $\leq 10$ rows, Phase 3 may be feasible: each swap disturbs $\leq 10$ CRC-32 hashes (not 11 SHA-1 hashes as at S=511). CRC-32 verification is 20$\times$ cheaper than SHA-1 (4 bytes vs 20 bytes, plus CRC-32 hardware on modern CPUs). The null-space navigation problem has 17$\times$ fewer dimensions.
+
+**Prerequisite.** B.59f minimum swap $\leq 200$ cells.
+
+**Method.** (a) Phase 1: DFS to plateau, then extend through meeting band using cross-sum feasibility only (no CRC-32 check). Produce a complete 16,129-cell candidate. (b) Phase 2: Verify CRC-32 on all 127 rows. Record passing/failing row counts. (c) Phase 3: Navigate the null space via minimum swaps (from B.59f), accepting swaps that increase the passing-row count.
+
+**Report.** Phase 1 time, Phase 2 passing rows (expected: rows 0&ndash;$r_t$ pass, rest fail), Phase 3 convergence (passing rows vs. swap count), total solve time.
+
+**Phase:** 4. **Duration:** 4 hours. **Depends on:** B.59f ($\leq 200$ cell minimum swap).
+
+---
+
+### B.59t Column Hashing and Column-Serial Pass at S=127 (from B.41)
+
+**Source:** B.41 (Cross-Dimensional Hashing). At S=511: min column unknowns = 206 at plateau, columns_complete = 8/511. Column-serial passes needed 206+ assignments before any hash pruning. Infeasible for depth.
+
+**Why B.57 changes the outcome.** At S=127, if DFS reaches 80% depth (row ~101 of 127), columns have been exposed to ~101 assigned rows. A column has $u = 127 - (\text{assigned cells in column}) \approx 127 - 101 = 26$ unknowns. CRC-32 column hashes (32 bits per column) would fire at $u = 0$, requiring only 26 more assignments. A column-serial pass could complete these 26 cells per column efficiently. This is a qualitative change from S=511's 206 unknowns per column.
+
+**Method.** (a) Add column CRC-32 hashes to the payload (127 $\times$ 32 = 4,064 additional bits, increasing payload by ~508 bytes). (b) After top-down DFS plateaus, switch to column-serial DFS: process columns left-to-right, assigning the remaining unknowns per column and verifying each column's CRC-32. (c) Record: columns completed, depth after column pass, meeting-band reduction.
+
+**Payload impact.** Adding column CRC-32 increases block payload from 1,288 to ~1,796 bytes. Compression ratio changes from 63.9% to 49.9% (still positive compression). If depth improvement is large, the tradeoff is justified.
+
+**Report.** Per-column $u$ distribution at DFS plateau, column-serial depth, total cells solved, compression ratio.
+
+**Phase:** 4. **Duration:** 4 hours. **Depends on:** B.59c.
+
+---
+
+### B.59u CRC-32 Failure Correlation at S=127 (from B.40)
+
+**Source:** B.40 (Hash-Failure Correlation). At S=511: zero SHA-1 events at plateau after 200M+ iterations. Solver backtracks on constraint infeasibility before any row completes.
+
+**Why B.57 changes the outcome.** At S=127, rows have 127 cells. If DFS reaches 80% depth, many rows are fully assigned ($u = 0$) in the meeting band during tentative exploration&mdash;even if those assignments are wrong. CRC-32 failures WILL occur (unlike S=511 where rows never reached $u = 0$ at the plateau). These failures produce actionable information: which rows fail, which cell assignments correlate with failure.
+
+**Method.** Instrument the S=127 DFS solver to log every CRC-32 check (row index, pass/fail, current depth, iteration count). Run for 100M iterations. Compute: (a) CRC-32 event rate (events per iteration), (b) per-row failure frequency, (c) phi correlation between cell assignments and subsequent row failures.
+
+**Report.** CRC-32 event rate (vs S=511's zero). Failure distribution across rows. Phi correlation matrix. Actionable correlations (if any) for branching heuristic.
+
+**Phase:** 4. **Duration:** 2 hours. **Depends on:** B.59c.
+
+---
+
+### B.59v Direct Depth Hill-Climbing on yLTP (from B.52b)
+
+**Source:** B.52b (Direct Depth Hill-Climbing). At S=511: achieved 97,343 (+653 over B.38 baseline). Each depth evaluation took ~30 seconds (solver-in-the-loop), limiting to ~100 swaps per hour.
+
+**Why B.57 changes the outcome.** At S=127, each depth evaluation takes ~1&ndash;5 seconds (16$\times$ fewer cells). This enables 720&ndash;3,600 swaps per hour instead of ~100. The yLTP table at S=127 is smaller ($2 \times 127 \times 127 = 32{,}258$ entries vs $4 \times 511 \times 511 = 1{,}044{,}484$), so the swap landscape is more tractable. With 10$\times$ more evaluations per hour, deeper local optima can be found.
+
+**Method.** Starting from the best seed pair (B.59d), perform single-swap hill-climbing on the 2 yLTP sub-tables. Each swap: move one cell from LTP line $a$ to line $b$ within one sub-table; evaluate depth via full DFS solve; accept if depth improves. Chain until convergence. Apply kick-and-climb (B.52b-1) if the local optimum is reached.
+
+**Report.** Depth chain (initial $\to$ final), swap count, swaps per hour, local optimum confirmation.
+
+**Phase:** 5 (table optimization). **Duration:** 8 hours. **Depends on:** B.59d (best seeds), B.59c (DFS solver).
+
+---
+
+### B.59w Adding yLTP3/yLTP4 at S=127 (from B.27)
+
+**Source:** B.27 (LTP5+LTP6). At S=511: adding LTP5+LTP6 was structurally inert (depth invariant at 91,090). 4 sub-tables already saturated the constraint ceiling.
+
+**Why B.57 changes the outcome.** B.57 uses only 2 yLTP sub-tables (not 4). Adding a 3rd and 4th sub-table brings the system to 8 families (matching S=511's production configuration) at higher base density. At S=127, each new sub-table contributes $S - 1 = 126$ independent GF(2) constraints&mdash;a larger fraction of the 16,129-cell problem than the 510 constraints contributed at S=511. The marginal value of sub-table 3 may be non-zero.
+
+**Method.** (a) Evaluate DFS depth with 2 yLTP (baseline from B.59d). (b) Add yLTP3 with 10 random seeds; record depth for each. (c) Add yLTP4 with 10 random seeds (holding yLTP3 fixed at best seed); record depth. (d) Compare: does adding sub-tables improve depth, and if so, does the improvement justify the payload cost?
+
+**Payload impact.** Each additional yLTP adds $127 \times 7 = 889$ bits (111 bytes) to the payload. 4 yLTPs: payload grows from 1,288 to ~1,510 bytes. Compression ratio: 63.9% $\to$ 56.5%.
+
+**Report.** Depth with 2, 3, 4 yLTP sub-tables. Marginal depth gain per sub-table. Optimal sub-table count at S=127.
+
+**Phase:** 5. **Duration:** 4 hours. **Depends on:** B.59d, B.59c.
+
+---
+
+### B.59x Variable-Length LTP at S=127 (from B.21/B.45)
+
+**Source:** B.21 (Joint-Tiled Variable-Length LTP) and B.45 (LTP-Only / Variable-Length LTP). At S=511: B.21 caused catastrophic depth regression (88K $\to$ 50K). B.45: 8u+3v configuration showed +5.9% correct-path propagation but depth unchanged.
+
+**Why B.57 changes the outcome.** At S=511, variable-length LTP reduced constraint density below the forcing threshold. At S=127, the base density is 3.1$\times$ higher. The density reduction from variable-length lines may be tolerable. Short lines (1&ndash;20 cells) that exhausted uselessly at S=511 may cascade productively at S=127 because adjacent long lines are closer to their forcing thresholds.
+
+**Method.** Replace one of the 2 yLTP sub-tables with a variable-length rLTP (triangular length distribution, 1&ndash;127 cells, matching DSM/XSM geometry). Test: (a) 1 yLTP + 1 rLTP, (b) 2 rLTP only, (c) 2 yLTP + 1 rLTP sidecar. Record depth for each.
+
+**Report.** Depth and propagation forcing count for each configuration. Comparison with uniform-only baseline (B.59d).
+
+**Phase:** 5. **Duration:** 3 hours. **Depends on:** B.59c, B.59d.
+
+---
+
+### B.59y Parity Partitions at S=127 (from B.44c)
+
+**Source:** B.44c (Parity Partitions). At S=511: zero parity-forced cells. 511-cell lines never reached $u = 1$ at the plateau.
+
+**Why B.57 changes the outcome.** Parity partitions provide 1 bit of constraint per line at near-zero storage cost (1 bit per line, vs 7 bits for a cross-sum). At S=127, the parity of a 127-cell line provides useful information when $u \leq 1$ &mdash; just like a cross-sum. The question is whether any parity-line reaches $u = 1$ at the S=127 plateau. If DFS reaches 90% depth, many 127-cell lines have $u \leq 13$; some may reach $u = 1$ during propagation cascades.
+
+The key advantage is cost: parity partitions can be added to the payload at 1 bit per line (instead of 7 bits for a full cross-sum), enabling many more constraint families within the same payload budget.
+
+**Method.** (a) Add 127 parity partitions (random GF(2) partitions of cells, each covering all 16,129 cells with 2 lines of ~8,064 cells). Record stored parity bit per line. (b) During DFS, maintain parity residuals. When $u = 1$ on a parity line, force the remaining cell. (c) Record: parity forcing events (count and depth), depth improvement.
+
+**Payload impact.** 127 parity lines add 127 bits (16 bytes) to the payload. Negligible.
+
+**Report.** Parity forcing event count, depth with parity partitions vs. without.
+
+**Phase:** 5. **Duration:** 2 hours. **Depends on:** B.59c.
+
+---
+
+### B.59z Row-Grouped Residual Search (from B.58c)
+
+**Source:** B.58 sub-experiment B.58c. No prior S=511 equivalent.
+
+**Why B.57 changes the outcome.** If B.59e (combinator pipeline) leaves 40&ndash;1,000 free cells, and B.59g (SAT on residual) does not converge, the row-grouped search exploits the block-diagonal structure of CRC-32 to decompose the residual into per-row sub-problems. Each row's free cells are constrained by CRC-32 (32 GF(2) equations) and the row sum (1 integer equation). Per-row enumeration is tractable if the per-row free count $f_r \leq 50$. Cross-row consistency is enforced via arc consistency on column/diagonal/yLTP constraints.
+
+**Prerequisite.** B.59e reports 40 $< |F| \leq$ 1,000.
+
+**Method.** Execute B.58c as specified (&sect;B.58.10): per-row candidate generation with CRC-32 filtering, integer row-sum filtering, arc consistency on the cross-row CSP, fallback DFS on the row-candidate CSP.
+
+**Report.** Per-row free cell count $f_r$, per-row candidate count after CRC-32 + sum filtering, domain sizes after arc consistency, solve time, SHA-256 verification result.
+
+**Phase:** 1 (algebraic, after B.59e). **Duration:** 2 hours. **Depends on:** B.59e ($|F| > 40$).
+
+---
+
+### B.59 Execution Schedule
+
+**Phase 0: Foundational Measurements (Days 1&ndash;3)**
+
+| Exp | Duration | Parallel? | Depends on |
+|-----|----------|-----------|------------|
+| B.59a (GF(2) rank, cross-sums) | 1h | Yes | &mdash; |
+| B.59b (GF(2) rank, + CRC-32) | 2h | Yes | &mdash; |
+| B.59c (DFS baseline) | 4h | Yes | B.57 impl |
+| B.59d (Seed search) | 12h | After B.59c | B.59c |
+
+**Phase 1: Algebraic (Days 3&ndash;5)**
+
+| Exp | Duration | Parallel? | Depends on |
+|-----|----------|-----------|------------|
+| B.59e (Combinator pipeline) | 1h | Yes | B.59b, B.59d |
+| B.59f (Minimum swap) | 0.5h | Yes | B.59a |
+| B.59g (SAT/ILP residual) | 2h | Yes | B.59c |
+| B.59z (Row-grouped search) | 2h | After B.59e | B.59e |
+
+**Phase 2: Propagation Power (Days 4&ndash;6)**
+
+| Exp | Duration | Parallel? | Depends on |
+|-----|----------|-----------|------------|
+| B.59h (Interval tightening) | 0.5h | Yes | B.59c |
+| B.59i (SAC) | 2h | Yes | B.59c |
+| B.59j (Both-value probing) | 1h | Yes | B.59c |
+| B.59k (RCLA) | 2h | Yes | B.59c |
+
+**Phase 3: Search Strategy (Days 6&ndash;9)**
+
+| Exp | Duration | Parallel? | Depends on |
+|-----|----------|-----------|------------|
+| B.59l (Belief propagation) | 4h | Yes | B.59b |
+| B.59m (Higher-k lookahead) | 3h | Yes | B.59c |
+| B.59n (CDCL) | 6h | Yes | B.59c |
+| B.59o (Nogoods) | 3h | Yes | B.59c |
+| B.59p (Restarts) | 3h | Yes | B.59c |
+| B.59q (Cell ordering) | 4h | Yes | B.59c |
+
+**Phase 4: Architecture (Days 8&ndash;11)**
+
+| Exp | Duration | Parallel? | Depends on |
+|-----|----------|-----------|------------|
+| B.59r (Bidirectional DFS) | 4h | Yes | B.59c |
+| B.59s (Complete-Then-Verify) | 4h | Conditional | B.59f ($\leq 200$) |
+| B.59t (Column hashing) | 4h | Yes | B.59c |
+| B.59u (CRC-32 correlation) | 2h | Yes | B.59c |
+
+**Phase 5: Table Optimization (Days 10&ndash;14)**
+
+| Exp | Duration | Parallel? | Depends on |
+|-----|----------|-----------|------------|
+| B.59v (Direct depth climbing) | 8h | Yes | B.59d, B.59c |
+| B.59w (yLTP3/yLTP4) | 4h | Yes | B.59d, B.59c |
+| B.59x (Variable-length LTP) | 3h | Yes | B.59c |
+| B.59y (Parity partitions) | 2h | Yes | B.59c |
+
+**Total estimated effort:** ~90 hours of compute. With 4-core parallelism: ~25 hours of wall time spread across 14 days, leaving ample time for analysis and iteration.
+
+### B.59 Decision Tree
+
+The 26 experiments form a decision tree. Early results gate later experiments:
+
+1. If **B.59e** (combinator) achieves $|F| = 0$: CRSCE is solved at S=127. Cancel B.59g&ndash;B.59z (DFS-based experiments are moot).
+2. If **B.59e** achieves $|F| \leq 25$: run B.59z for residual search. Cancel DFS experiments.
+3. If **B.59g** (SAT residual) solves the meeting band: CRSCE is solved via DFS + SAT hybrid. Cancel B.59h&ndash;B.59y.
+4. If **B.59r** (bidirectional DFS) closes the meeting band: CRSCE is solved. Cancel remaining.
+5. If **B.59f** shows minimum swap $\leq 100$: run B.59s (Complete-Then-Verify).
+6. If none of the above: depth ceiling at S=127 is structural. CRSCE requires either (a) further dimension reduction (S=63), (b) more constraint families, or (c) acceptance that CRSCE is viable only for low-density data (B.52c showed 30% density reaches 114K at S=511; analogous result expected at S=127).
+
+**Status: PROPOSED.**
+
+---
+
 ## Appendix C: Open Questions Consolidated
 
 This appendix consolidates all open questions from Appendices A and B into a single reference. Each question is reproduced from its original context, followed by a *Discovered Data* subsection summarizing relevant experimental evidence gathered during the research program, and a *Conclusions* subsection stating what can be inferred. Questions are grouped by their source section to preserve traceability. The principal data sources are: B.8 telemetry (depth plateau ~87,500, 37% hash mismatch, min_nz_row_unknown = 1); B.20.9 Configuration C results (depth ~88,503, mismatch 25.2%, iter/sec ~198K); B.21 observed results (depth 50,272, mismatch 0.20%, iter/sec ~687K); the B.12.6(a) BP convergence experiment; and the CDCL infrastructure assessment (B.1.10).
