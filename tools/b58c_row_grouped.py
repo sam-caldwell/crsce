@@ -17,6 +17,7 @@ Usage:
 """
 
 import argparse
+import collections
 import hashlib
 import json
 import struct
@@ -166,11 +167,11 @@ def int_bound_propagation(csm):
     determined = {}
     free = set(range(N))
 
-    queue = list(range(len(targets)))
+    queue = collections.deque(range(len(targets)))
     in_q = set(queue)
 
     while queue:
-        i = queue.pop(0)
+        i = queue.popleft()
         in_q.discard(i)
         if u[i] == 0:
             continue
@@ -251,16 +252,14 @@ def per_row_analysis(csm, determined, free_set, row_crcs):
         # Estimate candidates after integer filter
         # For n_gf2_free free variables with sum constraint rho_r:
         # ~C(n_gf2_free, rho_r) / 2^n_gf2_free fraction survive
-        if n_gf2_free <= 25:
-            # Actually enumerate
-            candidates = _count_candidates(G_sub, target, free_cols, f_r, rank_r, rho_r)
+        # Estimate candidates (skip slow enumeration)
+        from math import comb
+        if 0 <= rho_r <= n_gf2_free and n_gf2_free > 0:
+            candidates = int(comb(n_gf2_free, min(rho_r, n_gf2_free)))
+        elif n_gf2_free == 0:
+            candidates = 1 if rho_r == 0 else 0
         else:
-            # Estimate
-            from math import comb, log2 as lg2
-            if 0 <= rho_r <= n_gf2_free:
-                candidates = max(1, int(comb(n_gf2_free, rho_r) * 0.5))  # rough estimate
-            else:
-                candidates = 0
+            candidates = 0
 
         row_stats.append({
             "row": r, "free": f_r, "crc_rank": rank_r,

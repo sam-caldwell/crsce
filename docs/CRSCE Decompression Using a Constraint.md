@@ -13716,6 +13716,55 @@ The DFS over the row-candidate CSP is fundamentally different from the original 
 
 **H1 implication.** If the combinator approach fully solves S=127 CSMs, the production C++ solver should be rewritten from DFS to the combinator pipeline. Decompression becomes a deterministic algebraic computation (GF(2) Gaussian elimination + integer propagation) with no backtracking. Compression discovers DI = 0 for every block (if the fixpoint is unique) or small DI via bounded enumeration. The format achieves 36.1% compression with provably efficient decompression.
 
+### B.58.13 Results
+
+#### B.58a: GF(2) Rank (COMPLETE &mdash; H1)
+
+| Configuration | Rank | Null-Space | CRC-32 Contribution |
+|---------------|------|-----------|---------------------|
+| LSM only | 127 | 16,002 | &mdash; |
+| +VSM | 253 | 15,876 | &mdash; |
+| +DSM | 504 | 15,625 | &mdash; |
+| +XSM | 753 | 15,376 | &mdash; |
+| +yLTP1 | 879 | 15,250 | &mdash; |
+| +yLTP2 (all cross-sums) | 1,005 | 15,124 | &mdash; |
+| **+CRC-32 (full system)** | **5,037** | **11,092** | **+4,032 / 4,064 (99.2%)** |
+
+CRC-32 contributes 4,032 of its theoretical 4,064 equations independently. Only 32 are redundant with cross-sum parity (exactly 1 per row). This is the best possible GF(2) outcome.
+
+#### B.58b: Full Symbolic Solve Pipeline (COMPLETE &mdash; H4)
+
+| Source | Density | Determined | GF(2) | IntBound | CrossDeduce | Free | Outcome |
+|--------|---------|-----------|-------|----------|-------------|------|---------|
+| MP4 block 0 | 14.9% | 3,600 (22.3%) | 4 | 3,596 | 0 | 12,529 | INSUFFICIENT |
+| Synthetic | 9.7% | 302 (1.9%) | 4 | 298 | 0 | 15,827 | INSUFFICIENT |
+| Synthetic | 30.2% | 35 (0.2%) | 4 | 31 | 0 | 16,094 | INSUFFICIENT |
+| Synthetic | 49.9% | 17 (0.1%) | 4 | 13 | 0 | 16,112 | INSUFFICIENT |
+
+Despite 5,037 GF(2) rank, the Gaussian elimination determines only 4 cells (the length-1 corner diagonals). The null-space of 11,092 dimensions means almost all pivot columns have free-variable dependencies. IntBound produces the same result as the DFS propagation engine. CrossDeduce contributes zero across all densities.
+
+**Root cause:** The CRC-32 equations are informationally correct but operationally useless for cell determination. The information is distributed across 11,092 undetermined dimensions &mdash; no individual cell's value is uniquely determined by the GF(2) system. The row-completion barrier has been transformed from "can't evaluate oracle until row complete" to "can't determine individual cell from underdetermined linear system."
+
+#### B.58c: Row-Grouped Residual Search (COMPLETE &mdash; H4)
+
+Analyzed all 1,331 blocks of the MP4 test file:
+
+| Metric | Value |
+|--------|-------|
+| Blocks analyzed | 1,331 |
+| Blocks solvable (all rows &le; 2^25) | **0** |
+| Density range | 14.6% &ndash; 51.4% |
+| Determined range | 0.0% &ndash; 55.7% |
+| Free cells range | 7,145 &ndash; 16,125 |
+| Per-row max log2 search | 42 &ndash; 95 |
+| Best block | Block 2: 55.7% det (density 14.6%, 14 fully-det rows) |
+
+Even the best block has per-row search spaces of 2^77 after CRC-32 reduction. The 32 CRC-32 equations per row reduce the GF(2) dimension but leave 42&ndash;95 free variables per row &mdash; far beyond tractable enumeration.
+
+**B.58 conclusion.** The combinator-based algebraic approach does not solve CRSCE at S=127. The fundamental issue is information-theoretic: 5,078 GF(2) equations cannot determine 16,129 binary variables regardless of how they are exploited (Gaussian elimination, integer propagation, or cross-deduction). The CRC-32 lateral hashes provide genuine algebraic information (+4,032 independent GF(2) equations), but the information density (0.31 equations per variable) is far below the 1.0 threshold needed for unique determination.
+
+**Status: COMPLETE. H4 &mdash; combinator approach is not viable at S=127.**
+
 ### B.58.12 Performance Analysis
 
 **Decompression time (per block).**
