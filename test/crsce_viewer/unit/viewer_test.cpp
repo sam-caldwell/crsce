@@ -149,7 +149,7 @@ TEST(ViewerTest, ZeroBlocksFile) {
 TEST(ViewerTest, SingleBlockOutputContainsAllFields) {
     // Build a file with originalSize that maps to exactly 1 block
     // 1 block = 261,121 bits = 32,641 bytes (ceil)
-    constexpr std::uint64_t kOneBlockBytes = (511ULL * 511ULL + 7ULL) / 8ULL; // 32,641
+    constexpr std::uint64_t kOneBlockBytes = (127ULL * 127ULL + 7ULL) / 8ULL; // 32,641
     const auto data = buildValidContainer(kOneBlockBytes, 1);
     const TempFile tmp;
     tmp.writeBytes(data);
@@ -163,17 +163,17 @@ TEST(ViewerTest, SingleBlockOutputContainsAllFields) {
     const auto &output = out.str();
     // Header
     EXPECT_TRUE(output.find("=== CRSCE Header ===") != std::string::npos);
-    EXPECT_TRUE(output.find("original_file_size: 32641 bytes") != std::string::npos);
+    EXPECT_TRUE(output.find("original_file_size: 2017 bytes") != std::string::npos);
     EXPECT_TRUE(output.find("block_count:        1") != std::string::npos);
 
     // Block 0
     EXPECT_TRUE(output.find("=== Block 0 ===") != std::string::npos);
     EXPECT_TRUE(output.find("DI: 0") != std::string::npos);
-    EXPECT_TRUE(output.find("LSM[0..510]:") != std::string::npos);
-    EXPECT_TRUE(output.find("VSM[0..510]:") != std::string::npos);
-    EXPECT_TRUE(output.find("DSM[0..1020]:") != std::string::npos);
-    EXPECT_TRUE(output.find("XSM[0..1020]:") != std::string::npos);
-    EXPECT_TRUE(output.find("LH[0..510]:") != std::string::npos);
+    EXPECT_TRUE(output.find("LSM[0..126]:") != std::string::npos);
+    EXPECT_TRUE(output.find("VSM[0..126]:") != std::string::npos);
+    EXPECT_TRUE(output.find("DSM[0..252]:") != std::string::npos);
+    EXPECT_TRUE(output.find("XSM[0..252]:") != std::string::npos);
+    EXPECT_TRUE(output.find("LH[0..126]:") != std::string::npos);
 
     // Check the recognizable sum values we set
     EXPECT_TRUE(output.find(" 42 ") != std::string::npos); // LSM[0] = 42
@@ -181,7 +181,7 @@ TEST(ViewerTest, SingleBlockOutputContainsAllFields) {
 }
 
 TEST(ViewerTest, TwoBlocksOutputContainsBothBlocks) {
-    constexpr std::uint64_t kTwoBlockBytes = 2 * ((511ULL * 511ULL + 7ULL) / 8ULL); // 65,282
+    constexpr std::uint64_t kTwoBlockBytes = 2 * ((127ULL * 127ULL + 7ULL) / 8ULL); // 65,282
     const auto data = buildValidContainer(kTwoBlockBytes, 2);
     const TempFile tmp;
     tmp.writeBytes(data);
@@ -201,7 +201,7 @@ TEST(ViewerTest, TwoBlocksOutputContainsBothBlocks) {
 }
 
 TEST(ViewerTest, LHOutputContainsHexDigests) {
-    constexpr std::uint64_t kOneBlockBytes = (511ULL * 511ULL + 7ULL) / 8ULL;
+    constexpr std::uint64_t kOneBlockBytes = (127ULL * 127ULL + 7ULL) / 8ULL;
     const auto data = buildValidContainer(kOneBlockBytes, 1);
     const TempFile tmp;
     tmp.writeBytes(data);
@@ -214,8 +214,8 @@ TEST(ViewerTest, LHOutputContainsHexDigests) {
     const auto &output = out.str();
     // LH digests are 64-char hex strings; row [  0] should be present
     EXPECT_TRUE(output.find("[  0]") != std::string::npos);
-    // Row [510] should be the last row
-    EXPECT_TRUE(output.find("[510]") != std::string::npos);
+    // Row [126] should be the last row
+    EXPECT_TRUE(output.find("[126]") != std::string::npos);
 }
 
 } // namespace

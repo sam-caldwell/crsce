@@ -24,7 +24,7 @@ namespace {
 
     using CellVec = std::vector<std::pair<std::uint16_t, std::uint16_t>>;
 
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
 
     // =======================================================================
     // RowSum::cells() tests
@@ -42,7 +42,7 @@ namespace {
 
     TEST(RowSumCellsTest, CellsLengthMatchesLen) {
         const RowSum rs(kS);
-        for (const std::uint16_t row : {0, 1, 255, 509, 510}) {
+        for (const std::uint16_t row : {0, 1, 63, 125, 126}) {
             const CellVec result = rs.cells(row, 0);
             EXPECT_EQ(result.size(), rs.len(row));
         }
@@ -52,28 +52,28 @@ namespace {
         const RowSum rs(kS);
         // Calling cells() with different c values for the same row should produce identical results.
         const CellVec a = rs.cells(42, 0);
-        const CellVec b = rs.cells(42, 100);
-        const CellVec c = rs.cells(42, 510);
+        const CellVec b = rs.cells(42, 50);
+        const CellVec c = rs.cells(42, 126);
         EXPECT_EQ(a, b);
         EXPECT_EQ(b, c);
     }
 
     TEST(RowSumCellsTest, CellsMiddleRow) {
         const RowSum rs(kS);
-        const CellVec result = rs.cells(255, 100);
+        const CellVec result = rs.cells(63, 50);
         ASSERT_EQ(result.size(), kS);
         for (std::uint16_t col = 0; col < kS; ++col) {
-            EXPECT_EQ(result[col].first, 255);
+            EXPECT_EQ(result[col].first, 63);
             EXPECT_EQ(result[col].second, col);
         }
     }
 
     TEST(RowSumCellsTest, CellsLastRow) {
         const RowSum rs(kS);
-        const CellVec result = rs.cells(510, 510);
+        const CellVec result = rs.cells(126, 126);
         ASSERT_EQ(result.size(), kS);
-        EXPECT_EQ(result.front(), std::make_pair(static_cast<std::uint16_t>(510), static_cast<std::uint16_t>(0)));
-        EXPECT_EQ(result.back(), std::make_pair(static_cast<std::uint16_t>(510), static_cast<std::uint16_t>(510)));
+        EXPECT_EQ(result.front(), std::make_pair(static_cast<std::uint16_t>(126), static_cast<std::uint16_t>(0)));
+        EXPECT_EQ(result.back(), std::make_pair(static_cast<std::uint16_t>(126), static_cast<std::uint16_t>(126)));
     }
 
     TEST(RowSumCellsTest, SmallMatrixCells) {
@@ -99,7 +99,7 @@ namespace {
 
     TEST(ColSumCellsTest, CellsLengthMatchesLen) {
         const ColSum cs(kS);
-        for (const std::uint16_t col : {0, 1, 255, 509, 510}) {
+        for (const std::uint16_t col : {0, 1, 63, 125, 126}) {
             const CellVec result = cs.cells(0, col);
             EXPECT_EQ(result.size(), cs.len(col));
         }
@@ -109,28 +109,28 @@ namespace {
         const ColSum cs(kS);
         // Calling cells() with different r values for the same column should produce identical results.
         const CellVec a = cs.cells(0, 42);
-        const CellVec b = cs.cells(100, 42);
-        const CellVec c = cs.cells(510, 42);
+        const CellVec b = cs.cells(50, 42);
+        const CellVec c = cs.cells(126, 42);
         EXPECT_EQ(a, b);
         EXPECT_EQ(b, c);
     }
 
     TEST(ColSumCellsTest, CellsMiddleColumn) {
         const ColSum cs(kS);
-        const CellVec result = cs.cells(100, 255);
+        const CellVec result = cs.cells(50, 63);
         ASSERT_EQ(result.size(), kS);
         for (std::uint16_t row = 0; row < kS; ++row) {
             EXPECT_EQ(result[row].first, row);
-            EXPECT_EQ(result[row].second, 255);
+            EXPECT_EQ(result[row].second, 63);
         }
     }
 
     TEST(ColSumCellsTest, CellsLastColumn) {
         const ColSum cs(kS);
-        const CellVec result = cs.cells(0, 510);
+        const CellVec result = cs.cells(0, 126);
         ASSERT_EQ(result.size(), kS);
-        EXPECT_EQ(result.front(), std::make_pair(static_cast<std::uint16_t>(0), static_cast<std::uint16_t>(510)));
-        EXPECT_EQ(result.back(), std::make_pair(static_cast<std::uint16_t>(510), static_cast<std::uint16_t>(510)));
+        EXPECT_EQ(result.front(), std::make_pair(static_cast<std::uint16_t>(0), static_cast<std::uint16_t>(126)));
+        EXPECT_EQ(result.back(), std::make_pair(static_cast<std::uint16_t>(126), static_cast<std::uint16_t>(126)));
     }
 
     TEST(ColSumCellsTest, SmallMatrixCells) {
@@ -145,30 +145,30 @@ namespace {
     // =======================================================================
 
     TEST(DiagSumCellsTest, CellsIndex0SingleCell) {
-        // Diagonal index 0 corresponds to the bottom-left corner cell (510, 0).
-        // lineIndex(510, 0) = 0 - 510 + 510 = 0. Length = 1.
+        // Diagonal index 0 corresponds to the bottom-left corner cell (126, 0).
+        // lineIndex(126, 0) = 0 - 126 + 126 = 0. Length = 1.
         const DiagSum ds(kS);
-        const CellVec result = ds.cells(510, 0);
+        const CellVec result = ds.cells(126, 0);
         ASSERT_EQ(result.size(), 1);
-        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(510), static_cast<std::uint16_t>(0)));
+        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(126), static_cast<std::uint16_t>(0)));
     }
 
-    TEST(DiagSumCellsTest, CellsIndex1020SingleCell) {
-        // Diagonal index 1020 corresponds to the top-right corner cell (0, 510).
-        // lineIndex(0, 510) = 510 - 0 + 510 = 1020. Length = 1.
+    TEST(DiagSumCellsTest, CellsIndex252SingleCell) {
+        // Diagonal index 252 corresponds to the top-right corner cell (0, 126).
+        // lineIndex(0, 126) = 126 - 0 + 126 = 252. Length = 1.
         const DiagSum ds(kS);
-        const CellVec result = ds.cells(0, 510);
+        const CellVec result = ds.cells(0, 126);
         ASSERT_EQ(result.size(), 1);
-        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(0), static_cast<std::uint16_t>(510)));
+        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(0), static_cast<std::uint16_t>(126)));
     }
 
-    TEST(DiagSumCellsTest, CellsMainDiagonalIndex510) {
-        // Diagonal index 510 is the main diagonal. lineIndex(0,0) = 0 - 0 + 510 = 510.
-        // Length = 511, cells from (0,0) to (510,510).
+    TEST(DiagSumCellsTest, CellsMainDiagonalIndex126) {
+        // Diagonal index 126 is the main diagonal. lineIndex(0,0) = 0 - 0 + 126 = 126.
+        // Length = 127, cells from (0,0) to (126,126).
         const DiagSum ds(kS);
         const CellVec result = ds.cells(0, 0);
-        ASSERT_EQ(result.size(), 511);
-        for (std::uint16_t i = 0; i < 511; ++i) {
+        ASSERT_EQ(result.size(), 127);
+        for (std::uint16_t i = 0; i < 127; ++i) {
             EXPECT_EQ(result[i].first, i);
             EXPECT_EQ(result[i].second, i);
         }
@@ -177,54 +177,54 @@ namespace {
     TEST(DiagSumCellsTest, CellsLengthMatchesLen) {
         const DiagSum ds(kS);
         // For a few representative cells, verify cells().size() == len(lineIndex(r,c)).
-        // Diagonal index 0: cell (510, 0)
-        EXPECT_EQ(ds.cells(510, 0).size(), ds.len(0));
-        // Diagonal index 1: cell (510, 1) or (509, 0)
-        EXPECT_EQ(ds.cells(510, 1).size(), ds.len(1));
-        // Diagonal index 510 (main diagonal)
-        EXPECT_EQ(ds.cells(0, 0).size(), ds.len(510));
-        // Diagonal index 1020: cell (0, 510)
-        EXPECT_EQ(ds.cells(0, 510).size(), ds.len(1020));
+        // Diagonal index 0: cell (126, 0)
+        EXPECT_EQ(ds.cells(126, 0).size(), ds.len(0));
+        // Diagonal index 1: cell (126, 1) or (125, 0)
+        EXPECT_EQ(ds.cells(126, 1).size(), ds.len(1));
+        // Diagonal index 126 (main diagonal)
+        EXPECT_EQ(ds.cells(0, 0).size(), ds.len(126));
+        // Diagonal index 252: cell (0, 126)
+        EXPECT_EQ(ds.cells(0, 126).size(), ds.len(252));
     }
 
     TEST(DiagSumCellsTest, CellsIndex1TwoCells) {
-        // Diagonal index 1: lineIndex(r,c) = c - r + 510 = 1, so c = r - 509.
-        // Valid cells: r=509 -> c=0, r=510 -> c=1. Length = 2.
+        // Diagonal index 1: lineIndex(r,c) = c - r + 126 = 1, so c = r - 125.
+        // Valid cells: r=125 -> c=0, r=126 -> c=1. Length = 2.
         const DiagSum ds(kS);
-        const CellVec result = ds.cells(509, 0);
+        const CellVec result = ds.cells(125, 0);
         ASSERT_EQ(result.size(), 2);
-        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(509), static_cast<std::uint16_t>(0)));
-        EXPECT_EQ(result[1], std::make_pair(static_cast<std::uint16_t>(510), static_cast<std::uint16_t>(1)));
+        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(125), static_cast<std::uint16_t>(0)));
+        EXPECT_EQ(result[1], std::make_pair(static_cast<std::uint16_t>(126), static_cast<std::uint16_t>(1)));
     }
 
-    TEST(DiagSumCellsTest, CellsIndex1019TwoCells) {
-        // Diagonal index 1019: lineIndex(r,c) = c - r + 510 = 1019, so c = r + 509.
-        // Valid cells: r=0 -> c=509, r=1 -> c=510. Length = 2.
+    TEST(DiagSumCellsTest, CellsIndex251TwoCells) {
+        // Diagonal index 251: lineIndex(r,c) = c - r + 126 = 251, so c = r + 125.
+        // Valid cells: r=0 -> c=125, r=1 -> c=126. Length = 2.
         const DiagSum ds(kS);
-        const CellVec result = ds.cells(0, 509);
+        const CellVec result = ds.cells(0, 125);
         ASSERT_EQ(result.size(), 2);
-        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(0), static_cast<std::uint16_t>(509)));
-        EXPECT_EQ(result[1], std::make_pair(static_cast<std::uint16_t>(1), static_cast<std::uint16_t>(510)));
+        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(0), static_cast<std::uint16_t>(125)));
+        EXPECT_EQ(result[1], std::make_pair(static_cast<std::uint16_t>(1), static_cast<std::uint16_t>(126)));
     }
 
     TEST(DiagSumCellsTest, CellsAllOnSameDiagonal) {
         // All cells returned should map to the same diagonal index.
         const DiagSum ds(kS);
-        const CellVec result = ds.cells(100, 200);
-        // lineIndex(100, 200) = 200 - 100 + 510 = 610
+        const CellVec result = ds.cells(30, 80);
+        // lineIndex(30, 80) = 80 - 30 + 126 = 176
         for (const auto &[r, c] : result) {
             // For diagonal: c - r + (s-1) should be constant
-            const auto d = static_cast<std::int32_t>(c) - static_cast<std::int32_t>(r) + 510;
-            EXPECT_EQ(d, 610);
+            const auto d = static_cast<std::int32_t>(c) - static_cast<std::int32_t>(r) + 126;
+            EXPECT_EQ(d, 176);
         }
     }
 
     TEST(DiagSumCellsTest, CellsConsistentForDifferentInputsOnSameDiagonal) {
         // Two cells on the same diagonal should return the same cells() vector.
         const DiagSum ds(kS);
-        const CellVec a = ds.cells(0, 0);    // lineIndex = 510
-        const CellVec b = ds.cells(255, 255); // lineIndex = 510
-        const CellVec c = ds.cells(510, 510); // lineIndex = 510
+        const CellVec a = ds.cells(0, 0);     // lineIndex = 126
+        const CellVec b = ds.cells(63, 63);   // lineIndex = 126
+        const CellVec c = ds.cells(126, 126); // lineIndex = 126
         EXPECT_EQ(a, b);
         EXPECT_EQ(b, c);
     }
@@ -276,24 +276,24 @@ namespace {
         EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(0), static_cast<std::uint16_t>(0)));
     }
 
-    TEST(AntiDiagSumCellsTest, CellsIndex1020SingleCell) {
-        // Anti-diagonal index 1020 corresponds to the bottom-right corner cell (510, 510).
-        // lineIndex(510, 510) = 1020. Length = 1.
+    TEST(AntiDiagSumCellsTest, CellsIndex252SingleCell) {
+        // Anti-diagonal index 252 corresponds to the bottom-right corner cell (126, 126).
+        // lineIndex(126, 126) = 252. Length = 1.
         const AntiDiagSum xs(kS);
-        const CellVec result = xs.cells(510, 510);
+        const CellVec result = xs.cells(126, 126);
         ASSERT_EQ(result.size(), 1);
-        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(510), static_cast<std::uint16_t>(510)));
+        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(126), static_cast<std::uint16_t>(126)));
     }
 
-    TEST(AntiDiagSumCellsTest, CellsMainAntiDiagonalIndex510) {
-        // Anti-diagonal index 510 is the main anti-diagonal. lineIndex(0, 510) = 510.
-        // Length = 511, cells from (0, 510) to (510, 0).
+    TEST(AntiDiagSumCellsTest, CellsMainAntiDiagonalIndex126) {
+        // Anti-diagonal index 126 is the main anti-diagonal. lineIndex(0, 126) = 126.
+        // Length = 127, cells from (0, 126) to (126, 0).
         const AntiDiagSum xs(kS);
-        const CellVec result = xs.cells(0, 510);
-        ASSERT_EQ(result.size(), 511);
-        for (std::uint16_t i = 0; i < 511; ++i) {
+        const CellVec result = xs.cells(0, 126);
+        ASSERT_EQ(result.size(), 127);
+        for (std::uint16_t i = 0; i < 127; ++i) {
             EXPECT_EQ(result[i].first, i);
-            EXPECT_EQ(result[i].second, static_cast<std::uint16_t>(510 - i));
+            EXPECT_EQ(result[i].second, static_cast<std::uint16_t>(126 - i));
         }
     }
 
@@ -303,10 +303,10 @@ namespace {
         EXPECT_EQ(xs.cells(0, 0).size(), xs.len(0));
         // Anti-diagonal index 1: cells (0, 1) and (1, 0)
         EXPECT_EQ(xs.cells(0, 1).size(), xs.len(1));
-        // Anti-diagonal index 510 (main anti-diagonal)
-        EXPECT_EQ(xs.cells(0, 510).size(), xs.len(510));
-        // Anti-diagonal index 1020: cell (510, 510)
-        EXPECT_EQ(xs.cells(510, 510).size(), xs.len(1020));
+        // Anti-diagonal index 126 (main anti-diagonal)
+        EXPECT_EQ(xs.cells(0, 126).size(), xs.len(126));
+        // Anti-diagonal index 252: cell (126, 126)
+        EXPECT_EQ(xs.cells(126, 126).size(), xs.len(252));
     }
 
     TEST(AntiDiagSumCellsTest, CellsIndex1TwoCells) {
@@ -319,32 +319,32 @@ namespace {
         EXPECT_EQ(result[1], std::make_pair(static_cast<std::uint16_t>(1), static_cast<std::uint16_t>(0)));
     }
 
-    TEST(AntiDiagSumCellsTest, CellsIndex1019TwoCells) {
-        // Anti-diagonal index 1019: lineIndex(r,c) = r + c = 1019.
-        // Valid cells: r=509 -> c=510, r=510 -> c=509. Length = 2.
+    TEST(AntiDiagSumCellsTest, CellsIndex251TwoCells) {
+        // Anti-diagonal index 251: lineIndex(r,c) = r + c = 251.
+        // Valid cells: r=125 -> c=126, r=126 -> c=125. Length = 2.
         const AntiDiagSum xs(kS);
-        const CellVec result = xs.cells(509, 510);
+        const CellVec result = xs.cells(125, 126);
         ASSERT_EQ(result.size(), 2);
-        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(509), static_cast<std::uint16_t>(510)));
-        EXPECT_EQ(result[1], std::make_pair(static_cast<std::uint16_t>(510), static_cast<std::uint16_t>(509)));
+        EXPECT_EQ(result[0], std::make_pair(static_cast<std::uint16_t>(125), static_cast<std::uint16_t>(126)));
+        EXPECT_EQ(result[1], std::make_pair(static_cast<std::uint16_t>(126), static_cast<std::uint16_t>(125)));
     }
 
     TEST(AntiDiagSumCellsTest, CellsAllOnSameAntiDiagonal) {
         // All cells returned should map to the same anti-diagonal index.
         const AntiDiagSum xs(kS);
-        const CellVec result = xs.cells(100, 200);
-        // lineIndex(100, 200) = 300
+        const CellVec result = xs.cells(30, 80);
+        // lineIndex(30, 80) = 110
         for (const auto &[r, c] : result) {
-            EXPECT_EQ(static_cast<std::uint16_t>(r + c), 300);
+            EXPECT_EQ(static_cast<std::uint16_t>(r + c), 110);
         }
     }
 
     TEST(AntiDiagSumCellsTest, CellsConsistentForDifferentInputsOnSameAntiDiagonal) {
         // Two cells on the same anti-diagonal should return the same cells() vector.
         const AntiDiagSum xs(kS);
-        const CellVec a = xs.cells(0, 510);   // lineIndex = 510
-        const CellVec b = xs.cells(255, 255); // lineIndex = 510
-        const CellVec c = xs.cells(510, 0);   // lineIndex = 510
+        const CellVec a = xs.cells(0, 126);   // lineIndex = 126
+        const CellVec b = xs.cells(63, 63);   // lineIndex = 126
+        const CellVec c = xs.cells(126, 0);   // lineIndex = 126
         EXPECT_EQ(a, b);
         EXPECT_EQ(b, c);
     }
@@ -390,16 +390,16 @@ namespace {
     TEST(CrossSumCellsTest, RowAndColCellsIntersectAtGivenCell) {
         const RowSum rs(kS);
         const ColSum cs(kS);
-        const CellVec row_cells = rs.cells(100, 200);
-        const CellVec col_cells = cs.cells(100, 200);
+        const CellVec row_cells = rs.cells(30, 80);
+        const CellVec col_cells = cs.cells(30, 80);
 
-        // The intersection of a row's cells and a column's cells should be exactly the cell (100, 200).
+        // The intersection of a row's cells and a column's cells should be exactly the cell (30, 80).
         bool found = false;
         for (const auto &rc : row_cells) {
             for (const auto &cc : col_cells) {
                 if (rc == cc) {
-                    EXPECT_EQ(rc.first, 100);
-                    EXPECT_EQ(rc.second, 200);
+                    EXPECT_EQ(rc.first, 30);
+                    EXPECT_EQ(rc.second, 80);
                     found = true;
                 }
             }
@@ -413,12 +413,12 @@ namespace {
         const DiagSum ds(kS);
         const AntiDiagSum xs(kS);
 
-        const auto cell = std::make_pair(static_cast<std::uint16_t>(200), static_cast<std::uint16_t>(300));
+        const auto cell = std::make_pair(static_cast<std::uint16_t>(50), static_cast<std::uint16_t>(80));
 
-        const CellVec rv = rs.cells(200, 300);
-        const CellVec cv = cs.cells(200, 300);
-        const CellVec dv = ds.cells(200, 300);
-        const CellVec xv = xs.cells(200, 300);
+        const CellVec rv = rs.cells(50, 80);
+        const CellVec cv = cs.cells(50, 80);
+        const CellVec dv = ds.cells(50, 80);
+        const CellVec xv = xs.cells(50, 80);
 
         EXPECT_NE(std::ranges::find(rv, cell), rv.end());
         EXPECT_NE(std::ranges::find(cv, cell), cv.end());
@@ -440,21 +440,21 @@ namespace {
         };
 
         check_bounds(rs.cells(0, 0), kS);
-        check_bounds(cs.cells(510, 510), kS);
-        check_bounds(ds.cells(0, 510), kS);
-        check_bounds(ds.cells(510, 0), kS);
+        check_bounds(cs.cells(126, 126), kS);
+        check_bounds(ds.cells(0, 126), kS);
+        check_bounds(ds.cells(126, 0), kS);
         check_bounds(xs.cells(0, 0), kS);
-        check_bounds(xs.cells(510, 510), kS);
+        check_bounds(xs.cells(126, 126), kS);
     }
 
     TEST(CrossSumCellsTest, DiagAndAntiDiagCellsIntersectAtQueryCell) {
         const DiagSum ds(kS);
         const AntiDiagSum xs(kS);
-        const CellVec diag_cells = ds.cells(200, 300);
-        const CellVec anti_cells = xs.cells(200, 300);
+        const CellVec diag_cells = ds.cells(50, 80);
+        const CellVec anti_cells = xs.cells(50, 80);
 
-        // The intersection should contain the query cell (200, 300).
-        const auto target = std::make_pair(static_cast<std::uint16_t>(200), static_cast<std::uint16_t>(300));
+        // The intersection should contain the query cell (50, 80).
+        const auto target = std::make_pair(static_cast<std::uint16_t>(50), static_cast<std::uint16_t>(80));
         bool found = false;
         for (const auto &dc : diag_cells) {
             for (const auto &ac : anti_cells) {

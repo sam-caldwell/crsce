@@ -22,11 +22,11 @@ namespace {
         const Csm csm;
         // Spot-check several cells across the matrix
         EXPECT_EQ(csm.get(0, 0), 0);
-        EXPECT_EQ(csm.get(0, 510), 0);
-        EXPECT_EQ(csm.get(510, 0), 0);
-        EXPECT_EQ(csm.get(510, 510), 0);
-        EXPECT_EQ(csm.get(255, 255), 0);
-        EXPECT_EQ(csm.get(100, 400), 0);
+        EXPECT_EQ(csm.get(0, 126), 0);
+        EXPECT_EQ(csm.get(126, 0), 0);
+        EXPECT_EQ(csm.get(126, 126), 0);
+        EXPECT_EQ(csm.get(63, 63), 0);
+        EXPECT_EQ(csm.get(50, 100), 0);
     }
 
     // -----------------------------------------------------------------------
@@ -50,7 +50,7 @@ namespace {
     }
 
     // -----------------------------------------------------------------------
-    // Boundary: cells at (0,0), (510,510), (0,510), (510,0)
+    // Boundary: cells at (0,0), (126,126), (0,126), (126,0)
     // -----------------------------------------------------------------------
     TEST(CsmTest, BoundaryCorners) {
         Csm csm;
@@ -59,17 +59,17 @@ namespace {
         csm.set(0, 0, 1);
         EXPECT_EQ(csm.get(0, 0), 1);
 
-        // (510, 510)
-        csm.set(510, 510, 1);
-        EXPECT_EQ(csm.get(510, 510), 1);
+        // (126, 126)
+        csm.set(126, 126, 1);
+        EXPECT_EQ(csm.get(126, 126), 1);
 
-        // (0, 510)
-        csm.set(0, 510, 1);
-        EXPECT_EQ(csm.get(0, 510), 1);
+        // (0, 126)
+        csm.set(0, 126, 1);
+        EXPECT_EQ(csm.get(0, 126), 1);
 
-        // (510, 0)
-        csm.set(510, 0, 1);
-        EXPECT_EQ(csm.get(510, 0), 1);
+        // (126, 0)
+        csm.set(126, 0, 1);
+        EXPECT_EQ(csm.get(126, 0), 1);
     }
 
     // -----------------------------------------------------------------------
@@ -91,8 +91,8 @@ namespace {
     TEST(CsmTest, PopcountEmptyMatrix) {
         const Csm csm;
         EXPECT_EQ(csm.popcount(0), 0);
-        EXPECT_EQ(csm.popcount(255), 0);
-        EXPECT_EQ(csm.popcount(510), 0);
+        EXPECT_EQ(csm.popcount(63), 0);
+        EXPECT_EQ(csm.popcount(126), 0);
     }
 
     // -----------------------------------------------------------------------
@@ -103,7 +103,7 @@ namespace {
         // Set 3 bits in row 7
         csm.set(7, 0, 1);
         csm.set(7, 63, 1);
-        csm.set(7, 510, 1);
+        csm.set(7, 126, 1);
         EXPECT_EQ(csm.popcount(7), 3);
 
         // Row 8 should still be 0
@@ -132,8 +132,8 @@ namespace {
     TEST(CsmTest, VecEmptyMatrix) {
         const Csm csm;
         const auto v = csm.vec();
-        // Total bits = 511 * 511 = 261121; total bytes = ceil(261121/8) = 32641
-        EXPECT_EQ(v.size(), 32641U);
+        // Total bits = 127 * 127 = 16129; total bytes = ceil(16129/8) = 2017
+        EXPECT_EQ(v.size(), 2017U);
         // All bytes should be 0 for an empty matrix
         for (const auto byte : v) {
             EXPECT_EQ(byte, 0);
@@ -154,11 +154,11 @@ namespace {
         v = csm.vec();
         EXPECT_EQ(v[0] & 0x01U, 0x01U) << "Bit (0,7) should be LSB of byte 0";
 
-        // Set bit (1, 0): row-major bit 511 => byte 511/8 = 63, bit position 7 - (511 % 8) = 7 - 7 = 0.
+        // Set bit (1, 0): row-major bit 127 => byte 127/8 = 15, bit position 7 - (127 % 8) = 7 - 7 = 0.
         csm.set(1, 0, 1);
         v = csm.vec();
-        const std::uint32_t bitIdx = 511;
-        const std::uint32_t byteIdx = bitIdx / 8; // 63
+        const std::uint32_t bitIdx = 127;
+        const std::uint32_t byteIdx = bitIdx / 8; // 15
         const auto bitPos = static_cast<std::uint8_t>(7 - (bitIdx % 8)); // 0
         EXPECT_NE(v[byteIdx] & (1U << bitPos), 0U) << "Bit (1,0) should be set in the vec output";
     }
@@ -192,10 +192,10 @@ namespace {
         row = csm.getRow(5);
         EXPECT_NE(row[1] & (1ULL << 63), 0ULL) << "Column 64 should set bit 63 of word 1";
 
-        // Column 510 maps to word 7 (510/64 = 7), bit 63 - (510 % 64) = 63 - 62 = 1.
-        csm.set(5, 510, 1);
+        // Column 126 maps to word 1 (126/64 = 1), bit 63 - (126 % 64) = 63 - 62 = 1.
+        csm.set(5, 126, 1);
         row = csm.getRow(5);
-        EXPECT_NE(row[7] & (1ULL << 1), 0ULL) << "Column 510 should set bit 1 of word 7";
+        EXPECT_NE(row[1] & (1ULL << 1), 0ULL) << "Column 126 should set bit 1 of word 1";
     }
 
     TEST(CsmTest, GetRowIsolation) {
@@ -218,23 +218,20 @@ namespace {
     // -----------------------------------------------------------------------
     TEST(CsmTest, MultipleBitsAcrossWords) {
         Csm csm;
-        // Set bits at column boundaries: 0, 63, 64, 127, 128, ...
+        // Set bits at column boundaries: 0, 63, 64, 126
         csm.set(0, 0, 1);
         csm.set(0, 63, 1);
         csm.set(0, 64, 1);
-        csm.set(0, 127, 1);
-        csm.set(0, 128, 1);
-        EXPECT_EQ(csm.popcount(0), 5);
+        csm.set(0, 126, 1);
+        EXPECT_EQ(csm.popcount(0), 4);
 
         const auto row = csm.getRow(0);
         // word 0 should have bits 63 and 0 set
         EXPECT_NE(row[0] & (1ULL << 63), 0ULL);
         EXPECT_NE(row[0] & 1ULL, 0ULL);
-        // word 1 should have bits 63 and 0 set
+        // word 1 should have bit 63 set (column 64) and bit 1 set (column 126)
         EXPECT_NE(row[1] & (1ULL << 63), 0ULL);
-        EXPECT_NE(row[1] & 1ULL, 0ULL);
-        // word 2 should have bit 63 set
-        EXPECT_NE(row[2] & (1ULL << 63), 0ULL);
+        EXPECT_NE(row[1] & (1ULL << 1), 0ULL);
     }
 
 } // namespace

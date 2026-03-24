@@ -120,14 +120,14 @@ TEST(CompressedPayloadTest, GetLHOutOfRangeThrows) {
 
 TEST(CompressedPayloadTest, SetLSMGetLSMRoundTrip) {
     CompressedPayload payload;
-    payload.setLSM(0, 511);
-    EXPECT_EQ(payload.getLSM(0), 511);
+    payload.setLSM(0, 127);
+    EXPECT_EQ(payload.getLSM(0), 127);
 }
 
 TEST(CompressedPayloadTest, SetLSMGetLSMMiddleIndex) {
     CompressedPayload payload;
-    payload.setLSM(255, 300);
-    EXPECT_EQ(payload.getLSM(255), 300);
+    payload.setLSM(63, 100);
+    EXPECT_EQ(payload.getLSM(63), 100);
 }
 
 TEST(CompressedPayloadTest, SetLSMOutOfRangeThrows) {
@@ -146,8 +146,8 @@ TEST(CompressedPayloadTest, GetLSMOutOfRangeThrows) {
 
 TEST(CompressedPayloadTest, SetVSMGetVSMRoundTrip) {
     CompressedPayload payload;
-    payload.setVSM(0, 256);
-    EXPECT_EQ(payload.getVSM(0), 256);
+    payload.setVSM(0, 64);
+    EXPECT_EQ(payload.getVSM(0), 64);
 }
 
 TEST(CompressedPayloadTest, SetVSMGetVSMLastIndex) {
@@ -180,9 +180,9 @@ TEST(CompressedPayloadTest, SetDSMGetDSMRoundTrip) {
 
 TEST(CompressedPayloadTest, SetDSMGetDSMMiddleDiagonal) {
     CompressedPayload payload;
-    // Diagonal kS-1 (index 510) has length min(511, 511, 511) = 511, so max value is 511.
-    payload.setDSM(CompressedPayload::kS - 1, 255);
-    EXPECT_EQ(payload.getDSM(CompressedPayload::kS - 1), 255);
+    // Diagonal kS-1 (index 126) has length min(127, 127, 127) = 127, so max value is 127.
+    payload.setDSM(CompressedPayload::kS - 1, 100);
+    EXPECT_EQ(payload.getDSM(CompressedPayload::kS - 1), 100);
 }
 
 TEST(CompressedPayloadTest, SetDSMOutOfRangeThrows) {
@@ -207,8 +207,8 @@ TEST(CompressedPayloadTest, SetXSMGetXSMRoundTrip) {
 
 TEST(CompressedPayloadTest, SetXSMGetXSMMiddleDiagonal) {
     CompressedPayload payload;
-    payload.setXSM(CompressedPayload::kS - 1, 400);
-    EXPECT_EQ(payload.getXSM(CompressedPayload::kS - 1), 400);
+    payload.setXSM(CompressedPayload::kS - 1, 100);
+    EXPECT_EQ(payload.getXSM(CompressedPayload::kS - 1), 100);
 }
 
 TEST(CompressedPayloadTest, SetXSMOutOfRangeThrows) {
@@ -269,22 +269,22 @@ TEST(CompressedPayloadTest, SerializeDeserializeRoundTripWithValues) {
     }
     original.setLH(CompressedPayload::kS - 1, digestLast);
 
-    // Set some LSM/VSM values (9-bit range: 0..511)
-    original.setLSM(0, 511);
-    original.setLSM(100, 256);
+    // Set some LSM/VSM values (7-bit range: 0..127)
+    original.setLSM(0, 127);
+    original.setLSM(50, 64);
     original.setLSM(CompressedPayload::kS - 1, 1);
 
     original.setVSM(0, 1);
-    original.setVSM(200, 300);
-    original.setVSM(CompressedPayload::kS - 1, 511);
+    original.setVSM(60, 100);
+    original.setVSM(CompressedPayload::kS - 1, 127);
 
-    // Set some DSM/XSM values. Diagonal index 510 (center) has length 511, max value 511.
+    // Set some DSM/XSM values. Diagonal index 126 (center) has length 127, max value 127.
     original.setDSM(0, 1);
-    original.setDSM(CompressedPayload::kS - 1, 200);
+    original.setDSM(CompressedPayload::kS - 1, 80);
     original.setDSM(CompressedPayload::kDiagCount - 1, 1);
 
     original.setXSM(0, 0);
-    original.setXSM(CompressedPayload::kS - 1, 100);
+    original.setXSM(CompressedPayload::kS - 1, 50);
     original.setXSM(CompressedPayload::kDiagCount - 1, 0);
 
     // Serialize
@@ -305,23 +305,23 @@ TEST(CompressedPayloadTest, SerializeDeserializeRoundTripWithValues) {
     EXPECT_EQ(restored.getLH(CompressedPayload::kS - 1), digestLast);
 
     // Verify LSM
-    EXPECT_EQ(restored.getLSM(0), 511);
-    EXPECT_EQ(restored.getLSM(100), 256);
+    EXPECT_EQ(restored.getLSM(0), 127);
+    EXPECT_EQ(restored.getLSM(50), 64);
     EXPECT_EQ(restored.getLSM(CompressedPayload::kS - 1), 1);
 
     // Verify VSM
     EXPECT_EQ(restored.getVSM(0), 1);
-    EXPECT_EQ(restored.getVSM(200), 300);
-    EXPECT_EQ(restored.getVSM(CompressedPayload::kS - 1), 511);
+    EXPECT_EQ(restored.getVSM(60), 100);
+    EXPECT_EQ(restored.getVSM(CompressedPayload::kS - 1), 127);
 
     // Verify DSM
     EXPECT_EQ(restored.getDSM(0), 1);
-    EXPECT_EQ(restored.getDSM(CompressedPayload::kS - 1), 200);
+    EXPECT_EQ(restored.getDSM(CompressedPayload::kS - 1), 80);
     EXPECT_EQ(restored.getDSM(CompressedPayload::kDiagCount - 1), 1);
 
     // Verify XSM
     EXPECT_EQ(restored.getXSM(0), 0);
-    EXPECT_EQ(restored.getXSM(CompressedPayload::kS - 1), 100);
+    EXPECT_EQ(restored.getXSM(CompressedPayload::kS - 1), 50);
     EXPECT_EQ(restored.getXSM(CompressedPayload::kDiagCount - 1), 0);
 }
 
@@ -329,7 +329,7 @@ TEST(CompressedPayloadTest, SerializeDeserializeRoundTripAllMaxValues) {
     CompressedPayload original;
     original.setDI(0xFF);
 
-    // Set all LSM/VSM to max (511)
+    // Set all LSM/VSM to max (127)
     for (std::uint16_t k = 0; k < CompressedPayload::kS; ++k) {
         original.setLSM(k, CompressedPayload::kS);
         original.setVSM(k, CompressedPayload::kS);
@@ -370,17 +370,17 @@ TEST(CompressedPayloadTest, DiagonalVariableWidthEncodingRoundTrip) {
     // Diagonal 0: length 1, bit_width(1) = 1 bit, max value = 1
     // Diagonal 1: length 2, bit_width(2) = 2 bits, max value = 2
     // Diagonal 9: length 10, bit_width(10) = 4 bits, max value = 10
-    // Diagonal 510 (kS-1): length 511, bit_width(511) = 9 bits, max value = 511
+    // Diagonal 126 (kS-1): length 127, bit_width(127) = 7 bits, max value = 127
     CompressedPayload original;
     original.setDSM(0, 1);   // 1-bit diagonal: max value is 1
     original.setDSM(1, 2);   // 2-bit diagonal: max value is 2
     original.setDSM(9, 10);  // 4-bit diagonal: max value is 10
-    original.setDSM(CompressedPayload::kS - 1, 511); // 9-bit center diagonal
+    original.setDSM(CompressedPayload::kS - 1, 127); // 7-bit center diagonal
 
     original.setXSM(0, 0);   // 1-bit diagonal: value 0
     original.setXSM(1, 1);   // 2-bit diagonal: value 1
     original.setXSM(9, 5);   // 4-bit diagonal: value 5
-    original.setXSM(CompressedPayload::kS - 1, 333); // 9-bit center diagonal
+    original.setXSM(CompressedPayload::kS - 1, 99); // 7-bit center diagonal
 
     const auto buf = original.serializeBlock();
     CompressedPayload restored;
@@ -389,12 +389,12 @@ TEST(CompressedPayloadTest, DiagonalVariableWidthEncodingRoundTrip) {
     EXPECT_EQ(restored.getDSM(0), 1);
     EXPECT_EQ(restored.getDSM(1), 2);
     EXPECT_EQ(restored.getDSM(9), 10);
-    EXPECT_EQ(restored.getDSM(CompressedPayload::kS - 1), 511);
+    EXPECT_EQ(restored.getDSM(CompressedPayload::kS - 1), 127);
 
     EXPECT_EQ(restored.getXSM(0), 0);
     EXPECT_EQ(restored.getXSM(1), 1);
     EXPECT_EQ(restored.getXSM(9), 5);
-    EXPECT_EQ(restored.getXSM(CompressedPayload::kS - 1), 333);
+    EXPECT_EQ(restored.getXSM(CompressedPayload::kS - 1), 99);
 }
 
 // ---------------------------------------------------------------------------
@@ -402,9 +402,9 @@ TEST(CompressedPayloadTest, DiagonalVariableWidthEncodingRoundTrip) {
 // ---------------------------------------------------------------------------
 
 TEST(CompressedPayloadTest, ConstantsAreCorrect) {
-    EXPECT_EQ(CompressedPayload::kS, 511);
-    EXPECT_EQ(CompressedPayload::kDiagCount, 1021);
-    EXPECT_EQ(CompressedPayload::kBlockPayloadBytes, 16899);
+    EXPECT_EQ(CompressedPayload::kS, 127);
+    EXPECT_EQ(CompressedPayload::kDiagCount, 253);
+    EXPECT_EQ(CompressedPayload::kBlockPayloadBytes, 1369);
 }
 
 } // namespace

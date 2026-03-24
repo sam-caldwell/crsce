@@ -20,10 +20,10 @@ namespace {
 
     using CellVec = std::vector<std::pair<std::uint16_t, std::uint16_t>>;
 
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
 
-    /// The four slopes used in the B.5 partitions.
-    constexpr std::array<std::uint16_t, 4> kSlopes = {256, 255, 2, 509};
+    /// The four slopes used in the B.5 partitions (chosen to be distinct mod 127).
+    constexpr std::array<std::uint16_t, 4> kSlopes = {2, 5, 64, 125};
 
     // =======================================================================
     // Helper: compute expected line index in test code independently.
@@ -41,80 +41,78 @@ namespace {
     // =======================================================================
 
     /**
-     * @name SlopeLineIndexSlope256
-     * @brief Verify slopeLineIndex for slope 256 with known (r,c) pairs.
-     */
-    TEST(ToroidalSlopeSumTest, SlopeLineIndexSlope256) {
-        // k = ((c - 256*r) % 511 + 511) % 511
-        // (0, 0) -> 0
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 0, 256, kS), 0);
-        // (0, 100) -> 100
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 100, 256, kS), 100);
-        // (1, 0) -> ((-256) % 511 + 511) % 511 = (511 - 256) = 255
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 256, kS), 255);
-        // (2, 0) -> ((-512) % 511 + 511) % 511 = ((-1) % 511 + 511) % 511 = 510
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(2, 0, 256, kS), 510);
-        // (1, 256) -> ((256 - 256) % 511 + 511) % 511 = 0
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 256, 256, kS), 0);
-        // (510, 510) -> ((510 - 256*510) % 511 + 511) % 511
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(510, 510, 256, kS),
-                  expectedLineIndex(510, 510, 256, kS));
-    }
-
-    /**
-     * @name SlopeLineIndexSlope255
-     * @brief Verify slopeLineIndex for slope 255 with known (r,c) pairs.
-     */
-    TEST(ToroidalSlopeSumTest, SlopeLineIndexSlope255) {
-        // (0, 0) -> 0
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 0, 255, kS), 0);
-        // (1, 0) -> ((-255) % 511 + 511) % 511 = 256
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 255, kS), 256);
-        // (1, 255) -> ((255 - 255) % 511 + 511) % 511 = 0
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 255, 255, kS), 0);
-        // (2, 1) -> ((1 - 510) % 511 + 511) % 511 = ((-509) % 511 + 511) % 511 = 2
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(2, 1, 255, kS), 2);
-        // General case
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(300, 400, 255, kS),
-                  expectedLineIndex(300, 400, 255, kS));
-    }
-
-    /**
      * @name SlopeLineIndexSlope2
      * @brief Verify slopeLineIndex for slope 2 with known (r,c) pairs.
      */
     TEST(ToroidalSlopeSumTest, SlopeLineIndexSlope2) {
+        // k = ((c - 2*r) % 127 + 127) % 127
         // (0, 0) -> 0
         EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 0, 2, kS), 0);
-        // (1, 0) -> ((-2) % 511 + 511) % 511 = 509
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 2, kS), 509);
-        // (0, 2) -> 2
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 2, 2, kS), 2);
-        // (1, 2) -> ((2 - 2) % 511 + 511) % 511 = 0
+        // (0, 100) -> 100
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 100, 2, kS), 100);
+        // (1, 0) -> ((-2) % 127 + 127) % 127 = 125
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 2, kS), 125);
+        // (2, 0) -> ((-4) % 127 + 127) % 127 = 123
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(2, 0, 2, kS), 123);
+        // (1, 2) -> ((2 - 2) % 127 + 127) % 127 = 0
         EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 2, 2, kS), 0);
-        // (255, 100) -> ((100 - 510) % 511 + 511) % 511 = ((-410) % 511 + 511) % 511 = 101
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(255, 100, 2, kS), 101);
-        // General case
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(400, 50, 2, kS),
-                  expectedLineIndex(400, 50, 2, kS));
+        // (126, 126) -> general case
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(126, 126, 2, kS),
+                  expectedLineIndex(126, 126, 2, kS));
     }
 
     /**
-     * @name SlopeLineIndexSlope509
-     * @brief Verify slopeLineIndex for slope 509 with known (r,c) pairs.
+     * @name SlopeLineIndexSlope5
+     * @brief Verify slopeLineIndex for slope 5 with known (r,c) pairs.
      */
-    TEST(ToroidalSlopeSumTest, SlopeLineIndexSlope509) {
+    TEST(ToroidalSlopeSumTest, SlopeLineIndexSlope5) {
         // (0, 0) -> 0
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 0, 509, kS), 0);
-        // (1, 0) -> ((-509) % 511 + 511) % 511 = 2
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 509, kS), 2);
-        // (0, 509) -> 509
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 509, 509, kS), 509);
-        // (1, 509) -> ((509 - 509) % 511 + 511) % 511 = 0
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 509, 509, kS), 0);
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 0, 5, kS), 0);
+        // (1, 0) -> ((-5) % 127 + 127) % 127 = 122
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 5, kS), 122);
+        // (1, 5) -> ((5 - 5) % 127 + 127) % 127 = 0
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 5, 5, kS), 0);
+        // (2, 1) -> ((1 - 10) % 127 + 127) % 127 = 118
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(2, 1, 5, kS), 118);
         // General case
-        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(100, 200, 509, kS),
-                  expectedLineIndex(100, 200, 509, kS));
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(80, 50, 5, kS),
+                  expectedLineIndex(80, 50, 5, kS));
+    }
+
+    /**
+     * @name SlopeLineIndexSlope64
+     * @brief Verify slopeLineIndex for slope 64 with known (r,c) pairs.
+     */
+    TEST(ToroidalSlopeSumTest, SlopeLineIndexSlope64) {
+        // (0, 0) -> 0
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 0, 64, kS), 0);
+        // (1, 0) -> ((-64) % 127 + 127) % 127 = 63
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 64, kS), 63);
+        // (0, 64) -> 64
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 64, 64, kS), 64);
+        // (1, 64) -> ((64 - 64) % 127 + 127) % 127 = 0
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 64, 64, kS), 0);
+        // General case
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(100, 50, 64, kS),
+                  expectedLineIndex(100, 50, 64, kS));
+    }
+
+    /**
+     * @name SlopeLineIndexSlope125
+     * @brief Verify slopeLineIndex for slope 125 with known (r,c) pairs.
+     */
+    TEST(ToroidalSlopeSumTest, SlopeLineIndexSlope125) {
+        // (0, 0) -> 0
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 0, 125, kS), 0);
+        // (1, 0) -> ((-125) % 127 + 127) % 127 = 2
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 0, 125, kS), 2);
+        // (0, 125) -> 125
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(0, 125, 125, kS), 125);
+        // (1, 125) -> ((125 - 125) % 127 + 127) % 127 = 0
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(1, 125, 125, kS), 0);
+        // General case
+        EXPECT_EQ(ToroidalSlopeSum::slopeLineIndex(50, 80, 125, kS),
+                  expectedLineIndex(50, 80, 125, kS));
     }
 
     // =======================================================================
@@ -133,8 +131,8 @@ namespace {
             ToroidalSlopeSum ts(kS, slope);
 
             // Set a value at a sample cell and check getByIndex at the expected line.
-            constexpr std::uint16_t r = 123;
-            constexpr std::uint16_t c = 456;
+            constexpr std::uint16_t r = 42;
+            constexpr std::uint16_t c = 99;
             const std::uint16_t expectedK = ToroidalSlopeSum::slopeLineIndex(r, c, slope, kS);
 
             ts.set(r, c, 1);
@@ -152,11 +150,11 @@ namespace {
 
     /**
      * @name LineIndexMatchesSlopeLineIndexBoundary
-     * @brief Verify lineIndex at boundary coordinates (0,0), (0,510), (510,0), (510,510).
+     * @brief Verify lineIndex at boundary coordinates (0,0), (0,126), (126,0), (126,126).
      */
     TEST(ToroidalSlopeSumTest, LineIndexMatchesSlopeLineIndexBoundary) {
         constexpr std::array<std::pair<std::uint16_t, std::uint16_t>, 4> corners = {{
-            {0, 0}, {0, 510}, {510, 0}, {510, 510}
+            {0, 0}, {0, 126}, {126, 0}, {126, 126}
         }};
 
         for (const std::uint16_t slope : kSlopes) {
@@ -171,14 +169,14 @@ namespace {
     }
 
     // =======================================================================
-    // 3. len(k) always returns 511
+    // 3. len(k) always returns 127
     // =======================================================================
 
     /**
-     * @name LenAlwaysReturns511
-     * @brief Verify len(k) returns kS (511) for all valid k in [0, 510].
+     * @name LenAlwaysReturns127
+     * @brief Verify len(k) returns kS (127) for all valid k in [0, 126].
      */
-    TEST(ToroidalSlopeSumTest, LenAlwaysReturns511) {
+    TEST(ToroidalSlopeSumTest, LenAlwaysReturns127) {
         for (const std::uint16_t slope : kSlopes) {
             const ToroidalSlopeSum ts(kS, slope);
             for (std::uint16_t k = 0; k < kS; ++k) {
@@ -190,36 +188,36 @@ namespace {
 
     /**
      * @name LenBoundaryValues
-     * @brief Verify len at boundary line indices 0 and 510.
+     * @brief Verify len at boundary line indices 0 and 126.
      */
     TEST(ToroidalSlopeSumTest, LenBoundaryValues) {
         for (const std::uint16_t slope : kSlopes) {
             const ToroidalSlopeSum ts(kS, slope);
             EXPECT_EQ(ts.len(0), kS) << "slope=" << slope;
-            EXPECT_EQ(ts.len(510), kS) << "slope=" << slope;
+            EXPECT_EQ(ts.len(126), kS) << "slope=" << slope;
         }
     }
 
     // =======================================================================
-    // 4. cells(k) returns exactly 511 cells, all unique, all in bounds
+    // 4. cells(k) returns exactly 127 cells, all unique, all in bounds
     // =======================================================================
 
     /**
-     * @name CellsReturns511UniqueCellsInBounds
-     * @brief For each slope and several line indices, cells() returns 511 unique in-bounds cells.
+     * @name CellsReturns127UniqueCellsInBounds
+     * @brief For each slope and several line indices, cells() returns 127 unique in-bounds cells.
      */
-    TEST(ToroidalSlopeSumTest, CellsReturns511UniqueCellsInBounds) {
-        constexpr std::array<std::uint16_t, 6> testLines = {0, 1, 100, 255, 400, 510};
+    TEST(ToroidalSlopeSumTest, CellsReturns127UniqueCellsInBounds) {
+        constexpr std::array<std::uint16_t, 6> testLines = {0, 1, 50, 63, 100, 126};
 
         for (const std::uint16_t slope : kSlopes) {
             const ToroidalSlopeSum ts(kS, slope);
 
             for (const std::uint16_t k : testLines) {
                 // To call cells(r,c), we need a cell on line k.
-                // Cell (0, k) has lineIndex = ((k - slope*0) % 511 + 511) % 511 = k.
+                // Cell (0, k) has lineIndex = ((k - slope*0) % 127 + 127) % 127 = k.
                 const CellVec result = ts.cells(0, k);
 
-                // Exactly 511 cells.
+                // Exactly 127 cells.
                 ASSERT_EQ(result.size(), kS)
                     << "slope=" << slope << " k=" << k;
 
@@ -245,7 +243,7 @@ namespace {
      * @brief Every cell returned by cells() for line k maps back to k via slopeLineIndex.
      */
     TEST(ToroidalSlopeSumTest, CellsMapBackToCorrectLine) {
-        constexpr std::array<std::uint16_t, 6> testLines = {0, 1, 50, 255, 400, 510};
+        constexpr std::array<std::uint16_t, 6> testLines = {0, 1, 50, 63, 100, 126};
 
         for (const std::uint16_t slope : kSlopes) {
             const ToroidalSlopeSum ts(kS, slope);
@@ -272,7 +270,7 @@ namespace {
             const ToroidalSlopeSum ts(kS, slope);
 
             // Pick line k = 42. Cell (0, 42) is on this line.
-            // Cell (1, (42 + slope) % 511) is also on this line.
+            // Cell (1, (42 + slope) % 127) is also on this line.
             constexpr std::uint16_t k = 42;
             const auto c2 = static_cast<std::uint16_t>((k + static_cast<std::uint32_t>(slope)) % kS);
 
@@ -288,9 +286,9 @@ namespace {
 
     /**
      * @name PartitionAxiomEveryCellOnExactlyOneLine
-     * @brief For each slope, every cell (r,c) in [0,511)^2 belongs to exactly one line.
+     * @brief For each slope, every cell (r,c) in [0,127)^2 belongs to exactly one line.
      *
-     * We verify by checking that the union of all 511 lines contains exactly 511*511 = 261121
+     * We verify by checking that the union of all 127 lines contains exactly 127*127 = 16129
      * cells and that no cell appears in two different lines.
      */
     TEST(ToroidalSlopeSumTest, PartitionAxiomEveryCellOnExactlyOneLine) {
@@ -306,7 +304,7 @@ namespace {
                 }
             }
 
-            // Count cells per line. Each of the 511 lines should have exactly 511 cells.
+            // Count cells per line. Each of the 127 lines should have exactly 127 cells.
             std::vector<std::uint16_t> cellsPerLine(kS, 0);
             for (std::uint16_t r = 0; r < kS; ++r) {
                 for (std::uint16_t c = 0; c < kS; ++c) {
@@ -329,7 +327,7 @@ namespace {
      *        maps to that line, verifying consistency between cells() and the partition formula.
      */
     TEST(ToroidalSlopeSumTest, PartitionAxiomCellsEnumerationMatchesSlopeLineIndex) {
-        // Test a single slope exhaustively (all 511 lines). Use slope 2 as representative.
+        // Test a single slope exhaustively (all 127 lines). Use slope 2 as representative.
         constexpr std::uint16_t slope = 2;
         const ToroidalSlopeSum ts(kS, slope);
 
@@ -357,10 +355,10 @@ namespace {
     // =======================================================================
 
     /**
-     * @name SizeEquals511
-     * @brief ToroidalSlopeSum has 511 lines (size() == kS).
+     * @name SizeEquals127
+     * @brief ToroidalSlopeSum has 127 lines (size() == kS).
      */
-    TEST(ToroidalSlopeSumTest, SizeEquals511) {
+    TEST(ToroidalSlopeSumTest, SizeEquals127) {
         for (const std::uint16_t slope : kSlopes) {
             const ToroidalSlopeSum ts(kS, slope);
             EXPECT_EQ(ts.size(), kS) << "slope=" << slope;
