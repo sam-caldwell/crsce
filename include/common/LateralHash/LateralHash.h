@@ -28,13 +28,13 @@ namespace crsce::common {
          * @name kS
          * @brief Default matrix dimension (number of rows).
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kDigestBytes
          * @brief Size of a SHA-1 digest in bytes.
          */
-        static constexpr std::size_t kDigestBytes = 20;
+        static constexpr std::size_t kDigestBytes = 4;
 
         /**
          * @name LateralHash
@@ -51,7 +51,7 @@ namespace crsce::common {
          * @return 32-byte SHA-1 digest.
          * @throws None
          */
-        static std::array<std::uint8_t, kDigestBytes> compute(const std::array<std::uint64_t, 8> &row);
+        static std::array<std::uint8_t, kDigestBytes> compute(const std::array<std::uint64_t, 2> &row);
 
         /**
          * @name store

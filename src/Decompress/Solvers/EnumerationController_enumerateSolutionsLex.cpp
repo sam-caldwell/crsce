@@ -90,12 +90,7 @@ namespace crsce::decompress::solvers {
         for (std::uint16_t i = 0; i < kS; ++i) {
             allLines.push_back({.type = LineType::LTP2, .index = i});
         }
-        for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::LTP3, .index = i});
-        }
-        for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::LTP4, .index = i});
-        }
+        // B.57: only 2 LTP sub-tables (LTP3-6 removed).
 
         (*propagator_).reset();
         if (!propagator_->propagate(allLines)) {

@@ -231,7 +231,7 @@ namespace crsce::decompress::solvers {
         // --- Initial propagation: queue all constraint lines ---
         std::vector<LineID> allLines;
         constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
-        allLines.reserve(kS + kS + kNumDiags + kNumDiags + (4 * kS));
+        allLines.reserve(kS + kS + kNumDiags + kNumDiags + (2 * kS));
         for (std::uint16_t i = 0; i < kS; ++i) {
             allLines.push_back({.type = LineType::Row, .index = i});
         }
@@ -250,12 +250,7 @@ namespace crsce::decompress::solvers {
         for (std::uint16_t i = 0; i < kS; ++i) {
             allLines.push_back({.type = LineType::LTP2, .index = i});
         }
-        for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::LTP3, .index = i});
-        }
-        for (std::uint16_t i = 0; i < kS; ++i) {
-            allLines.push_back({.type = LineType::LTP4, .index = i});
-        }
+        // B.57: only 2 LTP sub-tables (LTP3-6 removed).
 
         (*propagator_).reset();
         if (!propagator_->propagate(allLines)) {

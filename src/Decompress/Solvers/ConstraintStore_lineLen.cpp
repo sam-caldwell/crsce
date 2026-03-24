@@ -16,7 +16,7 @@ namespace crsce::decompress::solvers {
      * @name lineLen
      * @brief Compute the length of a line (number of cells).
      *
-     * B.23: LTP lines have uniform length kS = 511 cells (ltpLineLen always returns kLtpS).
+     * B.23: LTP lines have uniform length kS = 127 cells (ltpLineLen always returns kLtpS).
      *
      * @param line The line identifier.
      * @return Number of cells on the line.

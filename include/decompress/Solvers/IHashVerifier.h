@@ -38,7 +38,7 @@ namespace crsce::decompress::solvers {
          * @return 32-byte digest.
          * @throws None
          */
-        [[nodiscard]] virtual auto computeHash(const std::array<std::uint64_t, 8> &row) const
+        [[nodiscard]] virtual auto computeHash(const std::array<std::uint64_t, 2> &row) const
             -> std::array<std::uint8_t, 32> = 0;
 
         /**
@@ -50,7 +50,7 @@ namespace crsce::decompress::solvers {
          * @throws None
          */
         [[nodiscard]] virtual bool verifyRow(std::uint16_t r,
-                                             const std::array<std::uint64_t, 8> &row) const = 0;
+                                             const std::array<std::uint64_t, 2> &row) const = 0;
 
         /**
          * @name setExpected
@@ -70,7 +70,7 @@ namespace crsce::decompress::solvers {
          * @throws None
          */
         [[nodiscard]] virtual bool verifyColumn(std::uint16_t c,
-                                                const std::array<std::uint64_t, 8> &col) const {
+                                                const std::array<std::uint64_t, 2> &col) const {
             (void)c; (void)col;
             return true; // Default: no column verification (backward compatible)
         }

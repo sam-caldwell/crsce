@@ -36,7 +36,7 @@ namespace crsce::decompress {
          * @name kS
          * @brief Matrix dimension (number of rows and columns).
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kBlockBits

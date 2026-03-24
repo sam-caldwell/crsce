@@ -47,7 +47,7 @@ namespace crsce::decompress::solvers {
          * @name kMsgStride
          * @brief Number of line-type message slots per cell (matches BeliefPropagator::kLineTypes).
          */
-        constexpr std::uint32_t kMsgStride = 8U;
+        constexpr std::uint32_t kMsgStride = 6U;
 
         /**
          * @name sigmoid
@@ -169,17 +169,17 @@ namespace crsce::decompress::solvers {
          * @name kTypes
          * @brief Ordered array of all 8 LineType values for iteration.
          */
-        constexpr std::array<LineType, 8> kTypes = {
+        constexpr std::array<LineType, 6> kTypes = {
             LineType::Row, LineType::Column, LineType::Diagonal, LineType::AntiDiagonal,
-            LineType::LTP1, LineType::LTP2, LineType::LTP3, LineType::LTP4
+            LineType::LTP1, LineType::LTP2
         };
 
         /**
          * @name kLineCounts
          * @brief Number of lines in each family, indexed parallel to kTypes.
          */
-        constexpr std::array<std::uint16_t, 8> kLineCounts = {
-            511U, 511U, 1021U, 1021U, 511U, 511U, 511U, 511U
+        constexpr std::array<std::uint16_t, 6> kLineCounts = {
+            127U, 127U, 253U, 253U, 127U, 127U
         };
 
     } // anonymous namespace

@@ -27,13 +27,13 @@ namespace crsce::decompress::solvers {
          * @name kS
          * @brief Matrix dimension.
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kSha1DigestBytes
          * @brief Number of bytes in a SHA-1 digest.
          */
-        static constexpr std::size_t kSha1DigestBytes = 20;
+        static constexpr std::size_t kSha1DigestBytes = 4;
 
         /**
          * @name Sha1HashVerifier
@@ -50,7 +50,7 @@ namespace crsce::decompress::solvers {
          * @return 32-byte array with SHA-1 digest in bytes [0..19], zeros in [20..31].
          * @throws None
          */
-        [[nodiscard]] auto computeHash(const std::array<std::uint64_t, 8> &row) const
+        [[nodiscard]] auto computeHash(const std::array<std::uint64_t, 2> &row) const
             -> std::array<std::uint8_t, 32> override;
 
         /**
@@ -62,7 +62,7 @@ namespace crsce::decompress::solvers {
          * @throws None
          */
         [[nodiscard]] bool verifyRow(std::uint16_t r,
-                                     const std::array<std::uint64_t, 8> &row) const override;
+                                     const std::array<std::uint64_t, 2> &row) const override;
 
         /**
          * @name setExpected

@@ -83,7 +83,7 @@ bool validate_container(const std::filesystem::path &cx_path, std::string &err) 
     }
 
     // Recompute expected block count from original size
-    constexpr std::uint64_t kBitsPerBlock = 511ULL * 511ULL;
+    constexpr std::uint64_t kBitsPerBlock = 127ULL * 127ULL;
     const std::uint64_t total_bits = original_size_bytes * 8ULL;
     const std::uint64_t expect_blocks = (total_bits == 0ULL) ? 0ULL : ((total_bits + kBitsPerBlock - 1ULL) / kBitsPerBlock);
     if (block_count != expect_blocks) {
@@ -92,7 +92,7 @@ bool validate_container(const std::filesystem::path &cx_path, std::string &err) 
     }
 
     // File size must match header + blocks * block_bytes
-    static constexpr std::size_t kBlockBytes = 16899; // CompressedPayload::kBlockPayloadBytes
+    static constexpr std::size_t kBlockBytes = 1369; // CompressedPayload::kBlockPayloadBytes
     const std::uint64_t expect_size = static_cast<std::uint64_t>(kHeaderSize)
                                       + (block_count * static_cast<std::uint64_t>(kBlockBytes));
     if (fsz != static_cast<std::uintmax_t>(expect_size)) {

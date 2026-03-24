@@ -21,8 +21,8 @@ namespace crsce::decompress::solvers {
      * @return 8 uint64 words containing the 511 bits of column c packed MSB-first.
      * @throws None
      */
-    auto ConstraintStore::getColumn(const std::uint16_t c) const -> std::array<std::uint64_t, 8> {
-        std::array<std::uint64_t, 8> result{};
+    auto ConstraintStore::getColumn(const std::uint16_t c) const -> std::array<std::uint64_t, 2> {
+        std::array<std::uint64_t, 2> result{};
 
         // Locate column c within the row's uint64 words (MSB-first layout)
         const auto srcWord = c / 64U;

@@ -188,38 +188,30 @@ namespace {
     LtpData buildAllPartitions() {
         LtpData data;
         data.fwd.resize(kN);
-        for (std::size_t sub = 0; sub < 6; ++sub) {
+        // B.57: only 2 LTP sub-tables
+        for (std::size_t sub = 0; sub < 2; ++sub) {
             data.csrCells[sub].resize(kTotalPerSubtable); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
-        // All 6 sub-tables share the same CSR offset structure
+        // Uniform CSR offsets
         std::array<std::uint32_t, 512> sharedOffsets{};
         buildCsrOffsets(sharedOffsets);
-        for (std::size_t sub = 0; sub < 6; ++sub) {
+        for (std::size_t sub = 0; sub < 2; ++sub) {
             data.csrOffsets[sub] = sharedOffsets; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
-        // Lines processed in natural order 0..510 (all same length, no need to sort)
-        std::array<std::uint16_t, kLtpNumLines> sortedLines{};
-        { std::uint16_t v = 0; for (auto &e : sortedLines) { e = v++; } }
-
-        // Per-pass LCG seeds (B.22/B.27: runtime-overridable via CRSCE_LTP_SEED_1..6)
-        const std::array<std::uint64_t, 6> seeds = {
+        // B.57: 2 LTP sub-tables
+        const std::array<std::uint64_t, 2> seeds = {
             parseOptEnvSeed("CRSCE_LTP_SEED_1", kSeed1),
             parseOptEnvSeed("CRSCE_LTP_SEED_2", kSeed2),
-            parseOptEnvSeed("CRSCE_LTP_SEED_3", kSeed3),
-            parseOptEnvSeed("CRSCE_LTP_SEED_4", kSeed4),
-            parseOptEnvSeed("CRSCE_LTP_SEED_5", kSeed5),
-            parseOptEnvSeed("CRSCE_LTP_SEED_6", kSeed6),
         };
-        // Flat stat bases for each sub-table
-        const std::array<std::uint32_t, 6> bases = {kLtp1Base, kLtp2Base, kLtp3Base, kLtp4Base, kLtp5Base, kLtp6Base};
+        const std::array<std::uint32_t, 2> bases = {kLtp1Base, kLtp2Base};
 
         // Full cell pool: every cell exactly once per pass
         std::vector<std::uint32_t> pool(kN);
         { std::uint32_t v = 0; for (auto &e : pool) { e = v++; } }
 
-        for (std::size_t k = 0; k < 6; ++k) {
+        for (std::size_t k = 0; k < 2; ++k) {
             // Fisher-Yates shuffle with per-pass LCG seed
             std::uint64_t state = seeds[k]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             for (std::uint32_t i = kN - 1U; i >= 1U; --i) {
@@ -232,11 +224,11 @@ namespace {
                 // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             }
 
-            // Assign consecutive chunks of the shuffled pool to lines
+            // Assign consecutive uniform chunks of the shuffled pool to lines
             std::uint32_t pos = 0;
-            for (const std::uint16_t lineIdx : sortedLines) {
+            for (std::uint16_t lineIdx = 0; lineIdx < kLtpNumLines; ++lineIdx) {
                 const std::uint32_t len = ltpLineLen(lineIdx);
-                const std::uint32_t csrOff = sharedOffsets[lineIdx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const std::uint32_t csrOff = data.csrOffsets[k][lineIdx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
                 for (std::uint32_t j = 0; j < len; ++j) {
                     const std::uint32_t flat = pool[pos + j]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -287,7 +279,7 @@ namespace {
     [[nodiscard]] std::optional<LtpData>
     buildFromAssignment(const std::uint32_t numSub,
                         const std::array<std::vector<std::uint16_t>, 6> &assign) {
-        if (numSub < 1 || numSub > 6) { return std::nullopt; }
+        if (numSub < 1 || numSub > 2) { return std::nullopt; }
 
         // Validate: each line in each supplied sub-table must have exactly kLtpS cells
         for (std::uint32_t sub = 0; sub < numSub; ++sub) {
@@ -308,15 +300,14 @@ namespace {
         // Build CSR offsets (same for all sub-tables under uniform-511)
         std::array<std::uint32_t, 512> sharedOffsets{};
         buildCsrOffsets(sharedOffsets);
-        for (std::size_t sub = 0; sub < 6; ++sub) {
+        for (std::size_t sub = 0; sub < 2; ++sub) {
             data.csrOffsets[sub] = sharedOffsets; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
-        for (std::size_t sub = 0; sub < 6; ++sub) {
+        for (std::size_t sub = 0; sub < 2; ++sub) {
             data.csrCells[sub].resize(kTotalPerSubtable); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
-        const std::array<std::uint32_t, 6> bases = {
-            kLtp1Base, kLtp2Base, kLtp3Base, kLtp4Base, kLtp5Base, kLtp6Base};
+        const std::array<std::uint32_t, 2> bases = {kLtp1Base, kLtp2Base};
 
         // Build sub-tables from the supplied assignment arrays
         for (std::uint32_t sub = 0; sub < numSub; ++sub) {
@@ -337,53 +328,7 @@ namespace {
             }
         }
 
-        // Build remaining sub-tables using independent Fisher-Yates (fresh pool per
-        // sub-table — deterministic from seed alone, no cross-pass pool sharing).
-        if (numSub < 6) {
-            const std::array<std::uint64_t, 6> seeds = {
-                parseOptEnvSeed("CRSCE_LTP_SEED_1", kSeed1),
-                parseOptEnvSeed("CRSCE_LTP_SEED_2", kSeed2),
-                parseOptEnvSeed("CRSCE_LTP_SEED_3", kSeed3),
-                parseOptEnvSeed("CRSCE_LTP_SEED_4", kSeed4),
-                parseOptEnvSeed("CRSCE_LTP_SEED_5", kSeed5),
-                parseOptEnvSeed("CRSCE_LTP_SEED_6", kSeed6),
-            };
-            std::array<std::uint16_t, kLtpNumLines> sortedLines{};
-            { std::uint16_t v = 0; for (auto &e : sortedLines) { e = v++; } }
-            std::vector<std::uint32_t> pool(kN);
-
-            for (std::size_t k = numSub; k < 6; ++k) {
-                // Fresh pool from identity permutation — independent of other passes
-                { std::uint32_t v = 0; for (auto &e : pool) { e = v++; } }
-                std::uint64_t state = seeds[k]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                for (std::uint32_t i = kN - 1U; i >= 1U; --i) {
-                    state = (state * kLcgA) + kLcgC;
-                    const auto j = static_cast<std::uint32_t>(
-                        state % (static_cast<std::uint64_t>(i) + 1ULL));
-                    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                    const std::uint32_t tmp = pool[i];
-                    pool[i] = pool[j];
-                    pool[j] = tmp;
-                    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                }
-                std::uint32_t pos = 0;
-                for (const std::uint16_t lineIdx : sortedLines) {
-                    const std::uint32_t len  = ltpLineLen(lineIdx);
-                    const std::uint32_t csrOff = sharedOffsets[lineIdx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                    for (std::uint32_t j = 0; j < len; ++j) {
-                        const std::uint32_t flat = pool[pos + j]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                        const auto row = static_cast<std::uint16_t>(flat / kLtpS);
-                        const auto col = static_cast<std::uint16_t>(flat % kLtpS);
-                        data.csrCells[k][csrOff + j] = {.r = row, .c = col}; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                        auto &mem = data.fwd[flat]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                        mem.flat[k] = static_cast<std::uint16_t>( // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                            bases[k] + lineIdx); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                        ++mem.count;
-                    }
-                    pos += len;
-                }
-            }
-        }
+        // B.57: no remaining sub-tables to fill (max 2).
 
         return data;
     }
@@ -430,7 +375,7 @@ namespace {
             if (hdr.magic != kMagic) { return std::nullopt; }
             if (hdr.version != kFileVersion) { return std::nullopt; }
             if (hdr.S != static_cast<std::uint32_t>(kLtpS)) { return std::nullopt; }
-            if (hdr.num_subtables < 1 || hdr.num_subtables > 6) { return std::nullopt; }
+            if (hdr.num_subtables < 1 || hdr.num_subtables > 2) { return std::nullopt; }
 
             const auto expectedBytes = sizeof(FileHeader)
                 + ((static_cast<std::uint64_t>(hdr.num_subtables) * kN) * sizeof(std::uint16_t));

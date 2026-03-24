@@ -78,7 +78,7 @@ namespace crsce::decompress::solvers {
      * @name kS
      * @brief Matrix dimension constant.
      */
-    static constexpr std::uint16_t kMetalS = 511;
+    static constexpr std::uint16_t kMetalS = 127;
 
     /**
      * @name kTotalLines

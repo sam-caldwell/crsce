@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "common/Util/crc32_ieee.h"
+#include "decompress/Solvers/LtpTable.h"
 
 #include "common/exceptions/CompressInputOpenError.h"
 #include "common/exceptions/CompressInputReadError.h"
@@ -172,6 +173,8 @@ namespace crsce::compress {
                     }
                 }
             }
+
+            // B.57: B.46 rLTP sidecar removed (only 2 uniform LTP sub-tables).
 
             // Discover the disambiguation index (or skip if disabled).
             const std::uint8_t di = disableDI_ ? std::uint8_t{0}

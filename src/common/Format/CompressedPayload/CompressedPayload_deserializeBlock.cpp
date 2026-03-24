@@ -3,8 +3,7 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  * @brief CompressedPayload::deserializeBlock() implementation.
  *
- * Deserializes a kBlockPayloadBytes-byte buffer back into a CompressedPayload,
- * reading LH digests, BH digest, the DI byte, and ten bit-packed cross-sum vectors.
+ * B.57: S=127, CRC-32 LH (4 bytes), 2 LTP sub-tables, b=7 bits per uniform element.
  */
 #include "common/Format/CompressedPayload/CompressedPayload.h"
 
@@ -30,9 +29,13 @@ namespace crsce::common::format {
             throw exceptions::DecompressHeaderInvalid("CompressedPayload::deserializeBlock: buffer too small");
         }
 
+        // Bits per uniform cross-sum element: ceil(log2(kS+1)) = bit_width(kS)
+        const auto kBitsPerElement = static_cast<std::uint8_t>(
+            std::bit_width(static_cast<unsigned>(kS)));
+
         std::size_t offset = 0;
 
-        // 1. Read 511 LH digests (20 bytes each)
+        // 1. Read kS LH digests (kLHDigestBytes each)
         for (std::uint16_t r = 0; r < kS; ++r) {
             std::memcpy(lh_[r].data(), data + offset, kLHDigestBytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             offset += kLHDigestBytes;
@@ -46,71 +49,43 @@ namespace crsce::common::format {
         di_ = data[offset]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         offset += 1;
 
-        // 4-11. Unpack cross-sum vectors from the bitstream
+        // 4-9. Unpack cross-sum vectors from the bitstream
         std::size_t bitOffset = offset * 8;
 
-        // 4. LSM: 511 x 9 bits
+        // 4. LSM: kS × b bits
         for (std::uint16_t k = 0; k < kS; ++k) {
-            lsm_[k] = unpackBits(data, bitOffset, 9);
+            lsm_[k] = unpackBits(data, bitOffset, kBitsPerElement);
         }
 
-        // 5. VSM: 511 x 9 bits
+        // 5. VSM: kS × b bits
         for (std::uint16_t k = 0; k < kS; ++k) {
-            vsm_[k] = unpackBits(data, bitOffset, 9);
+            vsm_[k] = unpackBits(data, bitOffset, kBitsPerElement);
         }
 
-        // 6. DSM: 1021 variable-width
+        // 6. DSM: kDiagCount variable-width
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             const auto n = diagBits(k);
             dsm_[k] = unpackBits(data, bitOffset, n);
         }
 
-        // 7. XSM: 1021 variable-width
+        // 7. XSM: kDiagCount variable-width
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             const auto n = diagBits(k);
             xsm_[k] = unpackBits(data, bitOffset, n);
         }
 
-        // 8. LTP1SM: 9 bits per element (B.23: bit_width(511) = 9 for all k)
+        // 8. LTP1SM: b bits per element
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
                 std::bit_width(decompress::solvers::ltpLineLen(k)));
             ltp1sm_[k] = unpackBits(data, bitOffset, n);
         }
 
-        // 9. LTP2SM: variable-width
+        // 9. LTP2SM: b bits per element
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
                 std::bit_width(decompress::solvers::ltpLineLen(k)));
             ltp2sm_[k] = unpackBits(data, bitOffset, n);
-        }
-
-        // 10. LTP3SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            ltp3sm_[k] = unpackBits(data, bitOffset, n);
-        }
-
-        // 11. LTP4SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            ltp4sm_[k] = unpackBits(data, bitOffset, n);
-        }
-
-        // 12. LTP5SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            ltp5sm_[k] = unpackBits(data, bitOffset, n);
-        }
-
-        // 13. LTP6SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            ltp6sm_[k] = unpackBits(data, bitOffset, n);
         }
     }
 

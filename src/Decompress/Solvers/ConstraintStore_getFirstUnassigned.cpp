@@ -15,7 +15,7 @@ namespace crsce::decompress::solvers {
      * @name kLastWordMask
      * @brief Mask for the last word of each row (only bits 0..kS%64-1 are valid).
      *
-     * kS = 511, so 511 % 64 = 63, meaning bits 0..62 are valid in word 7.
+     * kS = 127, so 511 % 64 = 63, meaning bits 0..62 are valid in word 7.
      * The mask has 63 low bits set: (1ULL << 63) - 1.
      */
     static constexpr std::uint64_t kLastWordMask = (std::uint64_t{1} << (ConstraintStore::kS % 64)) - 1;
@@ -36,12 +36,12 @@ namespace crsce::decompress::solvers {
                 continue;
             }
 
-            for (std::uint16_t w = 0; w < 8; ++w) {
+            for (std::uint16_t w = 0; w < 2; ++w) {
                 // Unassigned bits are 0 in assigned_, so invert to find them
                 std::uint64_t free = ~assigned_[r][w];
 
                 // Mask invalid bits in the last word (bits >= kS%64)
-                if (w == 7) {
+                if (w == 1) {
                     free &= kLastWordMask;
                 }
 

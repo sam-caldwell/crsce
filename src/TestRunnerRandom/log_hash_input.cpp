@@ -28,7 +28,7 @@ namespace crsce::testrunner::detail {
         const auto in_sz = std::filesystem::file_size(input, ec_isz);
         // Compute padded input size in bytes for full CRSCE blocks (511x511 bits per block)
         const std::uint64_t raw_bytes = ec_isz ? 0ULL : static_cast<std::uint64_t>(in_sz);
-        static constexpr std::uint64_t S = 511ULL;
+        static constexpr std::uint64_t S = 127ULL;
         const std::uint64_t bits_per_block = S * S;
         const std::uint64_t bits = raw_bytes * 8ULL;
         const std::uint64_t blocks = (bits == 0ULL) ? 0ULL : ((bits + bits_per_block - 1ULL) / bits_per_block);
