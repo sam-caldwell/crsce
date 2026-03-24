@@ -33,14 +33,10 @@ using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
 using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
-using crsce::decompress::solvers::kLtp3Base;
-using crsce::decompress::solvers::kLtp4Base;
-using crsce::decompress::solvers::kLtp5Base;
-using crsce::decompress::solvers::kLtp6Base;
 using crsce::decompress::solvers::ltpMembership;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 
     /**
@@ -54,8 +50,8 @@ namespace {
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{},
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{}};
     }
 
     /**
@@ -76,8 +72,8 @@ namespace {
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, antiDiagVal);
         return {rowSums, colSums, diagSums, antiDiagSums,
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{},
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{}};
     }
 } // namespace
 
@@ -271,7 +267,7 @@ TEST(BranchingControllerTest, NextCellReturnsNulloptWhenAllAssigned) {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Row lines have length kS (511) as seen through initial unknown count.
+ * @brief Row lines have length kS (127) as seen through initial unknown count.
  */
 TEST(ConstraintStoreLineLenTest, RowLineLenIsS) {
     auto store = makeAllZeroStore();
@@ -284,7 +280,7 @@ TEST(ConstraintStoreLineLenTest, RowLineLenIsS) {
 }
 
 /**
- * @brief Column lines have length kS (511) as seen through initial unknown count.
+ * @brief Column lines have length kS (127) as seen through initial unknown count.
  */
 TEST(ConstraintStoreLineLenTest, ColumnLineLenIsS) {
     auto store = makeAllZeroStore();
@@ -299,10 +295,10 @@ TEST(ConstraintStoreLineLenTest, ColumnLineLenIsS) {
 /**
  * @brief Diagonal line lengths follow min(d+1, kS, kNumDiags-d) formula.
  *
- * Diagonal 0: min(1, 511, 1020) = 1
- * Diagonal 510 (main): min(511, 511, 511) = 511
- * Diagonal 1020 (last): min(1021, 511, 1) = 1
- * Diagonal 255: min(256, 511, 766) = 256
+ * Diagonal 0: min(1, 127, 252) = 1
+ * Diagonal 126 (main): min(127, 127, 127) = 127
+ * Diagonal 252 (last): min(253, 127, 1) = 1
+ * Diagonal 63: min(64, 127, 190) = 64
  */
 TEST(ConstraintStoreLineLenTest, DiagonalLineLenFollowsFormula) {
     auto store = makeAllZeroStore();
@@ -311,25 +307,25 @@ TEST(ConstraintStoreLineLenTest, DiagonalLineLenFollowsFormula) {
     const LineID diag0{.type = LineType::Diagonal, .index = 0};
     EXPECT_EQ(store.getUnknownCount(diag0), 1);
 
-    // Main diagonal (index 510) has length 511
-    const LineID diagMain{.type = LineType::Diagonal, .index = 510};
+    // Main diagonal (index 126) has length 127
+    const LineID diagMain{.type = LineType::Diagonal, .index = 126};
     EXPECT_EQ(store.getUnknownCount(diagMain), kS);
 
-    // Last diagonal (index 1020) has length 1
+    // Last diagonal (index 252) has length 1
     const LineID diagLast{.type = LineType::Diagonal, .index = static_cast<std::uint16_t>(kNumDiags - 1)};
     EXPECT_EQ(store.getUnknownCount(diagLast), 1);
 
-    // Diagonal 255: min(256, 511, 766) = 256
-    const LineID diag255{.type = LineType::Diagonal, .index = 255};
-    EXPECT_EQ(store.getUnknownCount(diag255), 256);
+    // Diagonal 63: min(64, 127, 190) = 64
+    const LineID diag63{.type = LineType::Diagonal, .index = 63};
+    EXPECT_EQ(store.getUnknownCount(diag63), 64);
 }
 
 /**
  * @brief Anti-diagonal line lengths follow the same min(x+1, kS, kNumAntiDiags-x) formula.
  *
- * Anti-diagonal 0: min(1, 511, 1020) = 1
- * Anti-diagonal 510 (main): min(511, 511, 511) = 511
- * Anti-diagonal 1020 (last): min(1021, 511, 1) = 1
+ * Anti-diagonal 0: min(1, 127, 252) = 1
+ * Anti-diagonal 126 (main): min(127, 127, 127) = 127
+ * Anti-diagonal 252 (last): min(253, 127, 1) = 1
  */
 TEST(ConstraintStoreLineLenTest, AntiDiagonalLineLenFollowsFormula) {
     auto store = makeAllZeroStore();
@@ -338,11 +334,11 @@ TEST(ConstraintStoreLineLenTest, AntiDiagonalLineLenFollowsFormula) {
     const LineID antiDiag0{.type = LineType::AntiDiagonal, .index = 0};
     EXPECT_EQ(store.getUnknownCount(antiDiag0), 1);
 
-    // Main anti-diagonal (index 510) has length 511
-    const LineID antiDiagMain{.type = LineType::AntiDiagonal, .index = 510};
+    // Main anti-diagonal (index 126) has length 127
+    const LineID antiDiagMain{.type = LineType::AntiDiagonal, .index = 126};
     EXPECT_EQ(store.getUnknownCount(antiDiagMain), kS);
 
-    // Last anti-diagonal (index 1020) has length 1
+    // Last anti-diagonal (index 252) has length 1
     const LineID antiDiagLast{.type = LineType::AntiDiagonal, .index = static_cast<std::uint16_t>(kNumDiags - 1)};
     EXPECT_EQ(store.getUnknownCount(antiDiagLast), 1);
 }
@@ -417,8 +413,8 @@ TEST(ConstraintStoreUnassignTest, UnassignOneClearsRowBit) {
 TEST(ConstraintStoreUnassignTest, UnassignUpdatesDiagAndAntiDiagStats) {
     auto store = makeAllZeroStore();
 
-    // Cell (5, 10): diagonal index = 10 - 5 + 510 = 515, anti-diag index = 5 + 10 = 15
-    const LineID diagLine{.type = LineType::Diagonal, .index = 515};
+    // Cell (5, 10): diagonal index = 10 - 5 + 126 = 131, anti-diag index = 5 + 10 = 15
+    const LineID diagLine{.type = LineType::Diagonal, .index = 131};
     const LineID antiDiagLine{.type = LineType::AntiDiagonal, .index = 15};
 
     const auto diagUnknownBefore = store.getUnknownCount(diagLine);
@@ -467,7 +463,7 @@ TEST(ConstraintStoreUnassignTest, MultipleAssignUnassignCycles) {
 TEST(Sha256HashVerifierTest, ConstructorCreatesVerifier) {
     const Sha256HashVerifier verifier(kS);
     // Construction should not throw. Verify basic function by computing a hash.
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto digest = verifier.computeHash(zeroRow);
     EXPECT_EQ(digest.size(), 32U);
 }
@@ -478,7 +474,7 @@ TEST(Sha256HashVerifierTest, ConstructorCreatesVerifier) {
 TEST(Sha256HashVerifierTest, ComputeHashIsDeterministic) {
     const Sha256HashVerifier verifier(kS);
 
-    const std::array<std::uint64_t, 8> row = {0x0123456789ABCDEFULL, 0, 0, 0, 0, 0, 0, 0};
+    const std::array<std::uint64_t, 2> row = {0x0123456789ABCDEFULL};
     const auto digest1 = verifier.computeHash(row);
     const auto digest2 = verifier.computeHash(row);
     EXPECT_EQ(digest1, digest2);
@@ -490,8 +486,8 @@ TEST(Sha256HashVerifierTest, ComputeHashIsDeterministic) {
 TEST(Sha256HashVerifierTest, ComputeHashDiffersForDifferentInputs) {
     const Sha256HashVerifier verifier(kS);
 
-    const std::array<std::uint64_t, 8> rowA = {};
-    const std::array<std::uint64_t, 8> rowB = {1, 0, 0, 0, 0, 0, 0, 0};
+    const std::array<std::uint64_t, 2> rowA = {};
+    const std::array<std::uint64_t, 2> rowB = {1};
     const auto digestA = verifier.computeHash(rowA);
     const auto digestB = verifier.computeHash(rowB);
     EXPECT_NE(digestA, digestB);
@@ -503,7 +499,7 @@ TEST(Sha256HashVerifierTest, ComputeHashDiffersForDifferentInputs) {
 TEST(Sha256HashVerifierTest, ComputeHashOfZeroRow) {
     const Sha256HashVerifier verifier(kS);
 
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto digest = verifier.computeHash(zeroRow);
 
     // SHA-256("" padded to 64 zero bytes) is a known constant.
@@ -524,7 +520,7 @@ TEST(Sha256HashVerifierTest, ComputeHashOfZeroRow) {
 TEST(Sha256HashVerifierTest, SetExpectedAndVerifyRowMatch) {
     Sha256HashVerifier verifier(kS);
 
-    const std::array<std::uint64_t, 8> row = {0xDEADBEEFCAFEBABEULL, 0, 0, 0, 0, 0, 0, 0};
+    const std::array<std::uint64_t, 2> row = {0xDEADBEEFCAFEBABEULL};
     const auto digest = verifier.computeHash(row);
 
     verifier.setExpected(0, digest);
@@ -537,8 +533,8 @@ TEST(Sha256HashVerifierTest, SetExpectedAndVerifyRowMatch) {
 TEST(Sha256HashVerifierTest, VerifyRowReturnsFalseOnMismatch) {
     Sha256HashVerifier verifier(kS);
 
-    const std::array<std::uint64_t, 8> rowA = {0xDEADBEEFCAFEBABEULL, 0, 0, 0, 0, 0, 0, 0};
-    const std::array<std::uint64_t, 8> rowB = {0x1111111111111111ULL, 0, 0, 0, 0, 0, 0, 0};
+    const std::array<std::uint64_t, 2> rowA = {0xDEADBEEFCAFEBABEULL};
+    const std::array<std::uint64_t, 2> rowB = {0x1111111111111111ULL};
 
     const auto digestA = verifier.computeHash(rowA);
     verifier.setExpected(0, digestA);
@@ -554,7 +550,7 @@ TEST(Sha256HashVerifierTest, VerifyRowFailsWithDefaultExpected) {
     const Sha256HashVerifier verifier(kS);
 
     // Default expected is all zeros. A non-zero row's hash will not be all zeros.
-    const std::array<std::uint64_t, 8> row = {1, 0, 0, 0, 0, 0, 0, 0};
+    const std::array<std::uint64_t, 2> row = {1};
     EXPECT_FALSE(verifier.verifyRow(0, row));
 }
 
@@ -564,8 +560,8 @@ TEST(Sha256HashVerifierTest, VerifyRowFailsWithDefaultExpected) {
 TEST(Sha256HashVerifierTest, SetExpectedForMultipleRows) {
     Sha256HashVerifier verifier(kS);
 
-    const std::array<std::uint64_t, 8> row0 = {};
-    const std::array<std::uint64_t, 8> row1 = {0xFFFFFFFFFFFFFFFFULL, 0, 0, 0, 0, 0, 0, 0};
+    const std::array<std::uint64_t, 2> row0 = {};
+    const std::array<std::uint64_t, 2> row1 = {0xFFFFFFFFFFFFFFFFULL};
 
     const auto digest0 = verifier.computeHash(row0);
     const auto digest1 = verifier.computeHash(row1);
@@ -587,7 +583,7 @@ TEST(Sha256HashVerifierTest, SetExpectedForMultipleRows) {
 TEST(Sha256HashVerifierTest, ConstructorSmallDimension) {
     Sha256HashVerifier verifier(3);
 
-    const std::array<std::uint64_t, 8> row = {};
+    const std::array<std::uint64_t, 2> row = {};
     const auto digest = verifier.computeHash(row);
 
     verifier.setExpected(0, digest);
@@ -614,10 +610,10 @@ TEST(EnumerationControllerTest, ResetIsNoOp) {
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0)
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{}
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
@@ -646,17 +642,17 @@ TEST(EnumerationControllerTest, EnumerateAllZerosSingleSolution) {
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0)
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{}
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
     // Set expected hashes for all rows to match the all-zero row hash
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher->computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, zeroDigest);
@@ -698,16 +694,16 @@ TEST(EnumerationControllerTest, EnumerateStopsOnCallbackFalse) {
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0)
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{}
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher->computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, zeroDigest);
@@ -738,16 +734,16 @@ TEST(EnumerationControllerTest, EnumerateSolutionsLexAllZeros) {
         std::vector<std::uint16_t>(kNumDiags, 0),
         std::vector<std::uint16_t>(kS, 0),
         std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0),
-        std::vector<std::uint16_t>(kS, 0)
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{},
+        std::vector<std::uint16_t>{}
     );
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher->computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, zeroDigest);
@@ -788,10 +784,10 @@ TEST(EnumerationControllerTest, EnumerateSolutionsLexInfeasible) {
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
                                                     std::vector<std::uint16_t>(kS, 0),
                                                     std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0));
+                                                    std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{});
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
@@ -823,10 +819,10 @@ TEST(EnumerationControllerTest, EnumerateInfeasibleNoCallback) {
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
                                                     std::vector<std::uint16_t>(kS, 0),
                                                     std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0),
-                                                    std::vector<std::uint16_t>(kS, 0));
+                                                    std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{});
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
@@ -857,12 +853,12 @@ namespace {
  * Solution: (0,0)=1, (1,1)=1, all other cells 0.
  * Row sums: row 0=1, row 1=1, rest=0
  * Col sums: col 0=1, col 1=1, rest=0
- * Diag 510 ((0,0) and (1,1)): sum=2
+ * Diag 126 ((0,0) and (1,1)): sum=2
  * Anti-diag 0 ((0,0)): sum=1
  * Anti-diag 2 ((1,1)): sum=1
  * All other diag/anti-diag sums=0.
  *
- * Initial propagation forces rows 2..510 and cols 2..510 to 0, leaving
+ * Initial propagation forces rows 2..126 and cols 2..126 to 0, leaving
  * a 2x2 sub-problem at (0,0),(0,1),(1,0),(1,1) that needs DFS.
  */
 void fillTwoByTwoCorner(std::vector<std::uint16_t> &rowSums,
@@ -870,47 +866,31 @@ void fillTwoByTwoCorner(std::vector<std::uint16_t> &rowSums,
                          std::vector<std::uint16_t> &diagSums,
                          std::vector<std::uint16_t> &antiDiagSums,
                          std::vector<std::uint16_t> &ltp1Sums,
-                         std::vector<std::uint16_t> &ltp2Sums,
-                         std::vector<std::uint16_t> &ltp3Sums,
-                         std::vector<std::uint16_t> &ltp4Sums,
-                         std::vector<std::uint16_t> &ltp5Sums,
-                         std::vector<std::uint16_t> &ltp6Sums) {
+                         std::vector<std::uint16_t> &ltp2Sums) {
     rowSums.assign(kS, 0);
     colSums.assign(kS, 0);
     diagSums.assign(kNumDiags, 0);
     antiDiagSums.assign(kNumDiags, 0);
     ltp1Sums.assign(kS, 0);
     ltp2Sums.assign(kS, 0);
-    ltp3Sums.assign(kS, 0);
-    ltp4Sums.assign(kS, 0);
-    ltp5Sums.assign(kS, 0);
-    ltp6Sums.assign(kS, 0);
 
     rowSums[0] = 1;
     rowSums[1] = 1;
     colSums[0] = 1;
     colSums[1] = 1;
-    // Diagonal index for (r,c) = c - r + 510
-    // (0,0) → diag 510, (1,1) → diag 510 → total 2
-    diagSums[510] = 2;
+    // Diagonal index for (r,c) = c - r + 126
+    // (0,0) → diag 126, (1,1) → diag 126 → total 2
+    diagSums[126] = 2;
     // Anti-diagonal index for (r,c) = r + c
     // (0,0) → anti-diag 0, (1,1) → anti-diag 2
     antiDiagSums[0] = 1;
     antiDiagSums[2] = 1;
-    // Set LTP targets for cells (0,0) and (1,1) using B.21 membership (1-2 sub-tables per cell).
+    // Set LTP targets for cells (0,0) and (1,1) using B.57 membership (2 sub-tables per cell).
     auto incLtpFlat = [&](std::uint16_t f) {
         if (f < static_cast<std::uint16_t>(kLtp2Base)) {
             ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))]++;
-        } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
-            ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))]++;
-        } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
-            ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))]++;
-        } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
-            ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))]++;
-        } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
-            ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))]++;
         } else {
-            ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))]++;
+            ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))]++;
         }
     };
     const auto &mem00 = ltpMembership(0, 0);
@@ -925,7 +905,7 @@ void fillTwoByTwoCorner(std::vector<std::uint16_t> &rowSums,
  * @brief enumerateSolutionsLex exercises the DFS loop and finds the unique solution.
  *
  * The 2x2 corner constraint system has exactly one solution: (0,0)=1, (1,1)=1.
- * The DFS must branch on cell (0,0), try value 0 (which fails because diag 510
+ * The DFS must branch on cell (0,0), try value 0 (which fails because diag 126
  * can't reach target 2), then try value 1 (which succeeds via propagation).
  */
 TEST(EnumerationControllerDfsTest, TwoByTwoCornerFindsUniqueSolution) {
@@ -935,16 +915,13 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFindsUniqueSolution) {
     std::vector<std::uint16_t> antiDiagSums;
     std::vector<std::uint16_t> ltp1Sums;
     std::vector<std::uint16_t> ltp2Sums;
-    std::vector<std::uint16_t> ltp3Sums;
-    std::vector<std::uint16_t> ltp4Sums;
-    std::vector<std::uint16_t> ltp5Sums;
-    std::vector<std::uint16_t> ltp6Sums;
     fillTwoByTwoCorner(rowSums, colSums, diagSums, antiDiagSums,
-                        ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums);
+                        ltp1Sums, ltp2Sums);
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
-                                                    ltp5Sums, ltp6Sums);
+                                                    ltp1Sums, ltp2Sums,
+                                                    std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{});
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
@@ -952,20 +929,20 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFindsUniqueSolution) {
     // Compute expected hashes for each row of the solution.
     // Row 0: bit 0 (MSB of first uint64) set = 1, rest 0.
     // Row 1: bit 1 (second bit of first uint64) set = 1, rest 0.
-    // Rows 2..510: all zeros.
+    // Rows 2..126: all zeros.
     {
         // Row 0: cell(0,0)=1 → bit 0 (MSB)
-        std::array<std::uint64_t, 8> row0{};
+        std::array<std::uint64_t, 2> row0{};
         row0[0] = std::uint64_t{1} << 63U; // MSB of first word
         hasher->setExpected(0, hasher->computeHash(row0));
 
         // Row 1: cell(1,1)=1 → bit 1
-        std::array<std::uint64_t, 8> row1{};
+        std::array<std::uint64_t, 2> row1{};
         row1[0] = std::uint64_t{1} << 62U;
         hasher->setExpected(1, hasher->computeHash(row1));
 
-        // Rows 2..510: all zeros
-        const std::array<std::uint64_t, 8> zeroRow{};
+        // Rows 2..126: all zeros
+        const std::array<std::uint64_t, 2> zeroRow{};
         const auto zeroDigest = hasher->computeHash(zeroRow);
         for (std::uint16_t r = 2; r < kS; ++r) {
             hasher->setExpected(r, zeroDigest);
@@ -994,7 +971,7 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFindsUniqueSolution) {
 /**
  * @brief 2x2 corner is fully determined by initial propagation (diag forces both cells).
  *
- * Verifies that the diagonal target=2 with only 2 unknowns on diag 510
+ * Verifies that the diagonal target=2 with only 2 unknowns on diag 126
  * forces both (0,0) and (1,1) to 1 during initial propagation, so
  * nextCell() returns nullopt and the solution is yielded immediately.
  */
@@ -1005,23 +982,20 @@ TEST(EnumerationControllerDfsTest, TwoByTwoCornerFullyDetermined) {
     std::vector<std::uint16_t> antiDiagSums;
     std::vector<std::uint16_t> ltp1Sums;
     std::vector<std::uint16_t> ltp2Sums;
-    std::vector<std::uint16_t> ltp3Sums;
-    std::vector<std::uint16_t> ltp4Sums;
-    std::vector<std::uint16_t> ltp5Sums;
-    std::vector<std::uint16_t> ltp6Sums;
     fillTwoByTwoCorner(rowSums, colSums, diagSums, antiDiagSums,
-                        ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums);
+                        ltp1Sums, ltp2Sums);
 
     auto store = std::make_unique<ConstraintStore>(rowSums, colSums, diagSums, antiDiagSums,
-                                                    ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
-                                                    ltp5Sums, ltp6Sums);
+                                                    ltp1Sums, ltp2Sums,
+                                                    std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{},
+                                                    std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{});
     auto propagator = std::make_unique<PropagationEngine>(*store);
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
     // Set expected hashes to all-zeros (wrong for rows 0 and 1, but the
     // initial-propagation-complete path does not check hashes).
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher->computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, zeroDigest);

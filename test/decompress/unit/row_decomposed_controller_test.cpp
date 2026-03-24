@@ -37,7 +37,7 @@ using crsce::decompress::solvers::ltpLineLen;
 using crsce::decompress::solvers::ltpMembership;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 } // namespace
 
@@ -102,7 +102,7 @@ TEST(RowDecomposedControllerTest, AllZerosYieldsSingleSolution) {
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
     // Set expected hashes for the all-zero row
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher->computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, zeroDigest);
@@ -153,7 +153,7 @@ TEST(RowDecomposedControllerTest, EnumerateSolutionsLexAllZeros) {
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher->computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, zeroDigest);
@@ -273,7 +273,7 @@ TEST(RowDecomposedControllerTest, TwoByTwoCornerFindsUniqueSolution) {
     rowSums[1] = 1;
     colSums[0] = 1;
     colSums[1] = 1;
-    diagSums[510] = 2;
+    diagSums[126] = 2;
     antiDiagSums[0] = 1;
     antiDiagSums[2] = 1;
 
@@ -316,15 +316,15 @@ TEST(RowDecomposedControllerTest, TwoByTwoCornerFindsUniqueSolution) {
 
     // Compute expected hashes for each row
     {
-        std::array<std::uint64_t, 8> row0{};
+        std::array<std::uint64_t, 2> row0{};
         row0[0] = std::uint64_t{1} << 63U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         hasher->setExpected(0, hasher->computeHash(row0));
 
-        std::array<std::uint64_t, 8> row1{};
+        std::array<std::uint64_t, 2> row1{};
         row1[0] = std::uint64_t{1} << 62U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         hasher->setExpected(1, hasher->computeHash(row1));
 
-        const std::array<std::uint64_t, 8> zeroRow{};
+        const std::array<std::uint64_t, 2> zeroRow{};
         const auto zeroDigest = hasher->computeHash(zeroRow);
         for (std::uint16_t r = 2; r < kS; ++r) {
             hasher->setExpected(r, zeroDigest);
@@ -370,7 +370,7 @@ TEST(RowDecomposedControllerTest, EnumerateStopsOnCallbackFalse) {
     auto brancher = std::make_unique<BranchingController>(*store, *propagator);
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher->computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, zeroDigest);
@@ -426,12 +426,11 @@ TEST(RowDecomposedControllerTest, AllOnesYieldsSingleSolution) {
     auto hasher = std::make_unique<Sha256HashVerifier>(kS);
 
     // Compute expected hashes for all-ones rows
-    std::array<std::uint64_t, 8> onesRow{};
-    for (std::size_t w = 0; w < 7; ++w) {
-        onesRow.at(w) = 0xFFFFFFFFFFFFFFFFULL;
-    }
-    // Last word: 511 - 7*64 = 511 - 448 = 63 bits set (MSB-first)
-    onesRow.at(7) = 0xFFFFFFFFFFFFFFFEULL; // top 63 bits set, bottom bit 0
+    // S=127: 127 bits = 1*64 + 63, stored MSB-first in 2 words
+    std::array<std::uint64_t, 2> onesRow{};
+    onesRow.at(0) = 0xFFFFFFFFFFFFFFFFULL; // first 64 bits all set
+    // Last word: 127 - 64 = 63 bits set (MSB-first), bottom bit 0
+    onesRow.at(1) = 0xFFFFFFFFFFFFFFFEULL; // top 63 bits set, bottom bit 0
     const auto onesDigest = hasher->computeHash(onesRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher->setExpected(r, onesDigest);

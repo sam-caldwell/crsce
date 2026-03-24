@@ -36,7 +36,7 @@ using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 
     /**
@@ -90,8 +90,8 @@ namespace {
             ltpSums[k] = static_cast<std::uint16_t>(ltpLineLen(k) / 2U);
         }
         return makeStore(
-            std::vector<std::uint16_t>(kS, 255),
-            std::vector<std::uint16_t>(kS, 255),
+            std::vector<std::uint16_t>(kS, static_cast<std::uint16_t>(kS / 2)),
+            std::vector<std::uint16_t>(kS, static_cast<std::uint16_t>(kS / 2)),
             diagSums,
             antiDiagSums,
             ltpSums, ltpSums, ltpSums, ltpSums, ltpSums, ltpSums
@@ -102,7 +102,7 @@ namespace {
      * @brief Set expected hashes for all-zero rows on a hasher.
      */
     void setAllZeroExpectedHashes(Sha256HashVerifier &hasher) {
-        const std::array<std::uint64_t, 8> zeroRow{};
+        const std::array<std::uint64_t, 2> zeroRow{};
         const auto zeroDigest = hasher.computeHash(zeroRow);
         for (std::uint16_t r = 0; r < kS; ++r) {
             hasher.setExpected(r, zeroDigest);
@@ -132,7 +132,7 @@ TEST(FailedLiteralProberTest, ConstructionDoesNotThrow) {
 /**
  * @brief When both values are feasible, probeCell returns forcedValue=255 and bothInfeasible=false.
  *
- * Uses an interior cell (255, 255) where all lines have mid-range targets and sufficient
+ * Uses an interior cell (63, 63) where all lines have mid-range targets and sufficient
  * length, so neither value triggers forcing or infeasibility.
  */
 TEST(FailedLiteralProberTest, ProbeCellBothFeasible) {
@@ -142,10 +142,10 @@ TEST(FailedLiteralProberTest, ProbeCellBothFeasible) {
     Sha256HashVerifier hasher(kS);
     FailedLiteralProber prober(store, propagator, brancher, hasher);
 
-    // Use interior cell (255, 255) — all 8 lines have length >= 256 and mid-range targets
-    const auto result = prober.probeCell(255, 255);
-    EXPECT_EQ(result.row, 255);
-    EXPECT_EQ(result.col, 255);
+    // Use interior cell (63, 63) — all lines have mid-range targets
+    const auto result = prober.probeCell(63, 63);
+    EXPECT_EQ(result.row, 63);
+    EXPECT_EQ(result.col, 63);
     EXPECT_EQ(result.forcedValue, 255);
     EXPECT_FALSE(result.bothInfeasible);
 }
@@ -188,33 +188,22 @@ TEST(FailedLiteralProberTest, ProbeCellForcesOne) {
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
-    diagSums[510] = 1; // diagonal for (0,0)
+    diagSums[126] = 1; // diagonal for (0,0): d = c - r + (S-1) = 0 - 0 + 126 = 126
     // Set LTP targets for cell (0,0): each LTP line containing (0,0) needs target 1.
     std::vector<std::uint16_t> ltp1Sums(kS, 0);
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
-    std::vector<std::uint16_t> ltp3Sums(kS, 0);
-    std::vector<std::uint16_t> ltp4Sums(kS, 0);
-    std::vector<std::uint16_t> ltp5Sums(kS, 0);
-    std::vector<std::uint16_t> ltp6Sums(kS, 0);
     {
         const auto &mem = ltpMembership(0, 0);
         for (std::uint8_t j = 0; j < mem.count; ++j) {
             const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             if (f < static_cast<std::uint16_t>(kLtp2Base)) {
                 ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
-                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
-                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
-                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
-                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))] = 1;
             } else {
-                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))] = 1;
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
             }
         }
     }
+    const std::vector<std::uint16_t> ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums;
 
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
                            ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
@@ -225,13 +214,13 @@ TEST(FailedLiteralProberTest, ProbeCellForcesOne) {
 
     // Set expected hashes: row 0 has cell (0,0) = 1, rest = 0.
     // All other rows are all-zero.
-    const std::array<std::uint64_t, 8> zeroRow{};
+    const std::array<std::uint64_t, 2> zeroRow{};
     const auto zeroDigest = hasher.computeHash(zeroRow);
     for (std::uint16_t r = 0; r < kS; ++r) {
         hasher.setExpected(r, zeroDigest);
     }
     // Row 0 with cell (0,0) = 1: bit 0 is at word 0, bit 63 (MSB-first)
-    std::array<std::uint64_t, 8> row0WithOne{};
+    std::array<std::uint64_t, 2> row0WithOne{};
     row0WithOne[0] = std::uint64_t{1} << 63; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     hasher.setExpected(0, hasher.computeHash(row0WithOne));
 
@@ -334,8 +323,8 @@ TEST(FailedLiteralProberTest, ProbeAlternateFeasible) {
     Sha256HashVerifier hasher(kS);
     FailedLiteralProber prober(store, propagator, brancher, hasher);
 
-    // With mid-range sums, assigning 0 to interior cell (255,255) should be feasible
-    EXPECT_TRUE(prober.probeAlternate(255, 255, 0));
+    // With mid-range sums, assigning 0 to interior cell (63,63) should be feasible
+    EXPECT_TRUE(prober.probeAlternate(63, 63, 0));
 }
 
 /**
@@ -369,14 +358,14 @@ TEST(FailedLiteralProberTest, ProbeDoesNotMutateState) {
     FailedLiteralProber prober(store, propagator, brancher, hasher);
 
     // Record state before probing
-    const auto stateBefore = store.getCellState(255, 255);
-    const auto rowUnknownBefore = store.getStatDirect(255).unknown;
+    const auto stateBefore = store.getCellState(63, 63);
+    const auto rowUnknownBefore = store.getStatDirect(63).unknown;
 
-    static_cast<void>(prober.probeCell(255, 255));
+    static_cast<void>(prober.probeCell(63, 63));
 
     // State should be identical
-    EXPECT_EQ(store.getCellState(255, 255), stateBefore);
-    EXPECT_EQ(store.getStatDirect(255).unknown, rowUnknownBefore);
+    EXPECT_EQ(store.getCellState(63, 63), stateBefore);
+    EXPECT_EQ(store.getStatDirect(63).unknown, rowUnknownBefore);
 
     // Check a few more cells to be sure
     EXPECT_EQ(store.getCellState(0, 0), CellState::Unassigned);

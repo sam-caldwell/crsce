@@ -8,21 +8,20 @@
  *                           verify ltp1CellsForLine(k) returns the expected cells.
  *   FileLoadInvalidMagic  — wrong magic bytes → ltpFileIsValid returns false.
  *   FileLoadTruncated     — valid header but truncated body → ltpFileIsValid returns false.
- *   FileLoadWrongDimension — header S=512 (not 511) → ltpFileIsValid returns false.
+ *   FileLoadWrongDimension — header S=128 (not 127) → ltpFileIsValid returns false.
  *
  * The LTPB binary format:
  *   Offset   Size   Field
  *   0        4      magic = "LTPB"
  *   4        4      version = 1  (uint32_t LE)
- *   8        4      S = 511      (uint32_t LE)
+ *   8        4      S = 127      (uint32_t LE)
  *   12       4      num_subtables (uint32_t LE)
  *   16       N*2*num_subtables  uint16_t assignment[sub][flat]
  *
  * The trivial assignment used in the round-trip test:
  *   assignment[sub][flat] = flat / kLtpS   (cell flat index → line = row index)
- * So ltp1CellsForLine(k) = all 511 cells in row k: (k,0), (k,1), …, (k,510).
- * All four sub-tables use the same trivial assignment; sub-tables 5+6 fall back to
- * Fisher-Yates defaults (the file only carries num_subtables=4).
+ * So ltp1CellsForLine(k) = all 127 cells in row k: (k,0), (k,1), ..., (k,126).
+ * Both sub-tables use the same trivial assignment.
  *
  * Environment-variable strategy:
  *   FileLoadRoundTrip calls setenv() before the first ltpXCellsForLine() call in the
@@ -52,8 +51,8 @@ using crsce::decompress::solvers::ltpMembership;
 
 namespace {
 
-    constexpr std::uint32_t kN            = static_cast<std::uint32_t>(kLtpS) * kLtpS;  // 261,121
-    constexpr std::uint32_t kNumSubTables = 4;
+    constexpr std::uint32_t kN            = static_cast<std::uint32_t>(kLtpS) * kLtpS;  // 16,129
+    constexpr std::uint32_t kNumSubTables = 2;
 
     /// @brief Path to the temp LTPB file written by the round-trip test setup.
     std::string gTmpFilePath;   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
@@ -66,7 +65,7 @@ namespace {
      * @brief Write a minimal valid LTPB file to path.
      *
      * Uses the trivial row-based assignment: assignment[sub][flat] = flat / kLtpS.
-     * Writes kNumSubTables (4) sub-tables, all identical.
+     * Writes kNumSubTables (2) sub-tables, all identical.
      *
      * @param path Filesystem path to write.
      * @param magic Four-byte magic string (pass "LTPB" for valid, other for error tests).
@@ -117,7 +116,7 @@ namespace {
  *   - ltp1CellsForLine(k).size() == kLtpS for all sampled k.
  *   - Every cell in ltp1CellsForLine(k) has r == k (row-based assignment was loaded).
  *   - ltp2CellsForLine(k) also reflects the same trivial assignment (sub-table 2).
- *   - ltpMembership(r,c).count == 6 (sub-tables 5+6 still default Fisher-Yates).
+ *   - ltpMembership(r,c).count == 2 (B.57: only 2 sub-tables).
  */
 TEST(LtpFileLoadTest, FileLoadRoundTrip) {
     // Write the trivial LTPB file.
@@ -131,9 +130,9 @@ TEST(LtpFileLoadTest, FileLoadRoundTrip) {
 
     // First call to ltp1CellsForLine triggers static initialization from the file.
     for (const std::uint16_t k : {static_cast<std::uint16_t>(0),
-                                   static_cast<std::uint16_t>(100),
-                                   static_cast<std::uint16_t>(255),
-                                   static_cast<std::uint16_t>(510)}) {
+                                   static_cast<std::uint16_t>(50),
+                                   static_cast<std::uint16_t>(63),
+                                   static_cast<std::uint16_t>(126)}) {
         const auto cells = ltp1CellsForLine(k);
         ASSERT_EQ(cells.size(), static_cast<std::size_t>(kLtpS))
             << "ltp1CellsForLine(" << k << ") has wrong size";
@@ -145,8 +144,8 @@ TEST(LtpFileLoadTest, FileLoadRoundTrip) {
 
     // ltp2CellsForLine should also reflect the trivial row-based assignment.
     for (const std::uint16_t k : {static_cast<std::uint16_t>(0),
-                                   static_cast<std::uint16_t>(255),
-                                   static_cast<std::uint16_t>(510)}) {
+                                   static_cast<std::uint16_t>(63),
+                                   static_cast<std::uint16_t>(126)}) {
         const auto cells = ltp2CellsForLine(k);
         ASSERT_EQ(cells.size(), static_cast<std::size_t>(kLtpS));
         for (const auto &cell : cells) {
@@ -155,10 +154,10 @@ TEST(LtpFileLoadTest, FileLoadRoundTrip) {
         }
     }
 
-    // ltpMembership count is always 6 (sub-tables 5+6 from default Fisher-Yates).
-    EXPECT_EQ(ltpMembership(0, 0).count,       static_cast<std::uint8_t>(6));
-    EXPECT_EQ(ltpMembership(255, 100).count,   static_cast<std::uint8_t>(6));
-    EXPECT_EQ(ltpMembership(510, 510).count,   static_cast<std::uint8_t>(6));
+    // ltpMembership count is always 2 (B.57: only 2 sub-tables).
+    EXPECT_EQ(ltpMembership(0, 0).count,       static_cast<std::uint8_t>(2));
+    EXPECT_EQ(ltpMembership(63, 50).count,     static_cast<std::uint8_t>(2));
+    EXPECT_EQ(ltpMembership(126, 126).count,   static_cast<std::uint8_t>(2));
 
     // Clean up temp file.
     std::filesystem::remove(tmpPath);
@@ -190,11 +189,11 @@ TEST(LtpFileLoadTest, FileLoadTruncated) {
 }
 
 /**
- * @brief A file with S=512 (wrong dimension) is rejected by ltpFileIsValid.
+ * @brief A file with S=128 (wrong dimension) is rejected by ltpFileIsValid.
  */
 TEST(LtpFileLoadTest, FileLoadWrongDimension) {
     const auto tmpPath = std::filesystem::temp_directory_path() / "crsce_b32_wrong_dim.ltpb";
-    writeLtpbFile(tmpPath.string(), {'L','T','P','B'}, 1, 512, kNumSubTables, false);
+    writeLtpbFile(tmpPath.string(), {'L','T','P','B'}, 1, 128, kNumSubTables, false);
     EXPECT_FALSE(ltpFileIsValid(tmpPath.string().c_str()));
     std::filesystem::remove(tmpPath);
 }

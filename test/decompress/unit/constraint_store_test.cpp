@@ -19,7 +19,7 @@ using crsce::decompress::solvers::LineID;
 using crsce::decompress::solvers::LineType;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 
     /**
@@ -33,8 +33,8 @@ namespace {
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{},
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{}};
     }
 
     /**
@@ -50,8 +50,8 @@ namespace {
         const std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
         return {rowSums, colSums, diagSums, antiDiagSums,
                 std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0),
-                std::vector<std::uint16_t>(kS, 0), std::vector<std::uint16_t>(kS, 0)};
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{},
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{}};
     }
 } // namespace
 
@@ -63,9 +63,9 @@ TEST(ConstraintStoreTest, AllCellsStartUnassigned) {
 
     // Spot-check a few cells
     EXPECT_EQ(store.getCellState(0, 0), CellState::Unassigned);
-    EXPECT_EQ(store.getCellState(0, 510), CellState::Unassigned);
-    EXPECT_EQ(store.getCellState(255, 255), CellState::Unassigned);
-    EXPECT_EQ(store.getCellState(510, 510), CellState::Unassigned);
+    EXPECT_EQ(store.getCellState(0, 126), CellState::Unassigned);
+    EXPECT_EQ(store.getCellState(63, 63), CellState::Unassigned);
+    EXPECT_EQ(store.getCellState(126, 126), CellState::Unassigned);
 }
 
 /**
@@ -75,8 +75,8 @@ TEST(ConstraintStoreTest, InitialRowUnknownCountIsS) {
     auto store = makeAllZeroStore();
 
     EXPECT_EQ(store.getRowUnknownCount(0), kS);
-    EXPECT_EQ(store.getRowUnknownCount(255), kS);
-    EXPECT_EQ(store.getRowUnknownCount(510), kS);
+    EXPECT_EQ(store.getRowUnknownCount(63), kS);
+    EXPECT_EQ(store.getRowUnknownCount(126), kS);
 }
 
 /**
@@ -210,12 +210,12 @@ TEST(ConstraintStoreTest, GetRowSetsBitsCorrectly) {
 }
 
 /**
- * @brief getLinesForCell returns exactly 10 lines (row, col, diag, anti-diag, 6 LTP) per B.27.
+ * @brief getLinesForCell returns exactly 6 lines (row, col, diag, anti-diag, 2 LTP) per B.57.
  */
-TEST(ConstraintStoreTest, GetLinesForCellReturnsTenLines) {
+TEST(ConstraintStoreTest, GetLinesForCellReturnsSixLines) {
     auto store = makeAllZeroStore();
     const auto lines = store.getLinesForCell(0, 0);
-    EXPECT_EQ(lines.count, static_cast<std::uint8_t>(10));
+    EXPECT_EQ(lines.count, static_cast<std::uint8_t>(6));
 }
 
 /**
@@ -224,7 +224,7 @@ TEST(ConstraintStoreTest, GetLinesForCellReturnsTenLines) {
  * For cell (0,0):
  *   Row index = 0
  *   Column index = 0
- *   Diagonal index = c - r + (kS-1) = 0 - 0 + 510 = 510
+ *   Diagonal index = c - r + (kS-1) = 0 - 0 + 126 = 126
  *   Anti-diagonal index = r + c = 0
  */
 TEST(ConstraintStoreTest, GetLinesForCellCorrectForOrigin) {
@@ -238,7 +238,7 @@ TEST(ConstraintStoreTest, GetLinesForCellCorrectForOrigin) {
     EXPECT_EQ(lines.lines[1].index, 0);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
     EXPECT_EQ(lines.lines[2].type, LineType::Diagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    EXPECT_EQ(lines.lines[2].index, 510);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[2].index, 126);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
     EXPECT_EQ(lines.lines[3].type, LineType::AntiDiagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     EXPECT_EQ(lines.lines[3].index, 0);                     // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -249,7 +249,7 @@ TEST(ConstraintStoreTest, GetLinesForCellCorrectForOrigin) {
  *
  * For cell (5,10):
  *   Row = 5, Column = 10
- *   Diagonal = 10 - 5 + 510 = 515
+ *   Diagonal = 10 - 5 + 126 = 131
  *   Anti-diagonal = 5 + 10 = 15
  */
 TEST(ConstraintStoreTest, GetLinesForCellCorrectForArbitraryCell) {
@@ -263,7 +263,7 @@ TEST(ConstraintStoreTest, GetLinesForCellCorrectForArbitraryCell) {
     EXPECT_EQ(lines.lines[1].index, 10);              // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
     EXPECT_EQ(lines.lines[2].type, LineType::Diagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    EXPECT_EQ(lines.lines[2].index, 515);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    EXPECT_EQ(lines.lines[2].index, 131);               // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
     EXPECT_EQ(lines.lines[3].type, LineType::AntiDiagonal); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     EXPECT_EQ(lines.lines[3].index, 15);                    // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -291,9 +291,9 @@ TEST(ConstraintStoreTest, ColumnUnknownCountDecreases) {
 TEST(ConstraintStoreTest, DiagonalUnknownCountDecreases) {
     auto store = makeAllZeroStore();
 
-    // Cell (0, 0) is on diagonal index 510 (c - r + 510 = 510).
-    // The main diagonal (index 510) has length kS = 511.
-    const LineID diagLine{.type = LineType::Diagonal, .index = 510};
+    // Cell (0, 0) is on diagonal index 126 (c - r + 126 = 126).
+    // The main diagonal (index 126) has length kS = 127.
+    const LineID diagLine{.type = LineType::Diagonal, .index = 126};
     EXPECT_EQ(store.getUnknownCount(diagLine), kS);
 
     store.assign(0, 0, 1);

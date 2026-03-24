@@ -15,7 +15,7 @@ using crsce::decompress::solvers::BeliefPropagator;
 using crsce::decompress::solvers::ConstraintStore;
 
 namespace {
-    constexpr std::uint16_t kS        = 511;
+    constexpr std::uint16_t kS        = 127;
     constexpr std::uint16_t kNumDiags = (2U * kS) - 1U;
 
     /**
@@ -48,8 +48,8 @@ TEST(BeliefPropagatorTest, FreshBeliefsAreHalf) {
     const BeliefPropagator bp(cs);
 
     EXPECT_FLOAT_EQ(bp.belief(0, 0), 0.5F);
-    EXPECT_FLOAT_EQ(bp.belief(255, 255), 0.5F);
-    EXPECT_FLOAT_EQ(bp.belief(510, 510), 0.5F);
+    EXPECT_FLOAT_EQ(bp.belief(63, 63), 0.5F);
+    EXPECT_FLOAT_EQ(bp.belief(126, 126), 0.5F);
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ TEST(BeliefPropagatorTest, ResetRestoresHalf) {
     bp.reset();
 
     EXPECT_FLOAT_EQ(bp.belief(0, 0), 0.5F);
-    EXPECT_FLOAT_EQ(bp.belief(200, 100), 0.5F);
+    EXPECT_FLOAT_EQ(bp.belief(100, 63), 0.5F);
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ TEST(BeliefPropagatorTest, ZeroTargetDrivesBeliefsBelowHalf) {
     EXPECT_GT(result.maxBias, 0.01F);
     // With rho=0 on all lines, beliefs should be pushed below 0.5
     EXPECT_LT(bp.belief(0, 0), 0.5F);
-    EXPECT_LT(bp.belief(255, 255), 0.5F);
+    EXPECT_LT(bp.belief(63, 63), 0.5F);
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ TEST(BeliefPropagatorTest, ZeroTargetDrivesBeliefsBelowHalf) {
  * @brief RunResult.maxDelta and maxBias are non-negative; iterationsRun matches request.
  */
 TEST(BeliefPropagatorTest, RunResultFieldsAreValid) {
-    const auto cs = makeUniformStore(255, 255);
+    const auto cs = makeUniformStore(63, 63);
     BeliefPropagator bp(cs);
     const auto result = bp.run(0.5F, 10U);
 

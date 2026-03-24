@@ -63,7 +63,7 @@ namespace {
      * @brief Compute and set the correct SHA-256 digest for the all-zero row on every row.
      */
     void setCorrectAllZeroHashes(Sha256HashVerifier &hasher) {
-        const std::array<std::uint64_t, 8> zeroRow{};
+        const std::array<std::uint64_t, 2> zeroRow{};
         const auto digest = hasher.computeHash(zeroRow);
         for (std::uint16_t r = 0; r < kS; ++r) {
             hasher.setExpected(r, digest);
@@ -78,7 +78,7 @@ namespace {
      */
     void setWrongHashes(Sha256HashVerifier &hasher) {
         // Hash a row with bit 0 set — guaranteed ≠ all-zero row hash.
-        std::array<std::uint64_t, 8> nonzeroRow{};
+        std::array<std::uint64_t, 2> nonzeroRow{};
         nonzeroRow[0] = std::uint64_t{1} << 63; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         const auto wrongDigest = hasher.computeHash(nonzeroRow);
         for (std::uint16_t r = 0; r < kS; ++r) {

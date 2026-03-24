@@ -14,7 +14,7 @@
 using crsce::decompress::solvers::Sha1HashVerifier;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
 } // namespace
 
 /**
@@ -22,7 +22,7 @@ namespace {
  */
 TEST(Sha1HashVerifierTest, ComputeHashReturnsDeterministicResult) {
     const Sha1HashVerifier verifier(kS);
-    const std::array<std::uint64_t, 8> row{};
+    const std::array<std::uint64_t, 2> row{};
 
     const auto hash1 = verifier.computeHash(row);
     const auto hash2 = verifier.computeHash(row);
@@ -35,7 +35,7 @@ TEST(Sha1HashVerifierTest, ComputeHashReturnsDeterministicResult) {
  */
 TEST(Sha1HashVerifierTest, ComputeHashZeroPadsTo32Bytes) {
     const Sha1HashVerifier verifier(kS);
-    const std::array<std::uint64_t, 8> row{};
+    const std::array<std::uint64_t, 2> row{};
 
     const auto hash = verifier.computeHash(row);
 
@@ -50,7 +50,7 @@ TEST(Sha1HashVerifierTest, ComputeHashZeroPadsTo32Bytes) {
  */
 TEST(Sha1HashVerifierTest, VerifyRowReturnsTrueForCorrectHash) {
     Sha1HashVerifier verifier(kS);
-    const std::array<std::uint64_t, 8> row{};
+    const std::array<std::uint64_t, 2> row{};
     constexpr std::uint16_t rowIndex = 0;
 
     const auto expectedHash = verifier.computeHash(row);
@@ -64,7 +64,7 @@ TEST(Sha1HashVerifierTest, VerifyRowReturnsTrueForCorrectHash) {
  */
 TEST(Sha1HashVerifierTest, VerifyRowReturnsFalseForWrongHash) {
     Sha1HashVerifier verifier(kS);
-    const std::array<std::uint64_t, 8> row{};
+    const std::array<std::uint64_t, 2> row{};
     constexpr std::uint16_t rowIndex = 0;
 
     auto tamperedHash = verifier.computeHash(row);
@@ -80,8 +80,8 @@ TEST(Sha1HashVerifierTest, VerifyRowReturnsFalseForWrongHash) {
 TEST(Sha1HashVerifierTest, DifferentRowsDifferentHashes) {
     const Sha1HashVerifier verifier(kS);
 
-    const std::array<std::uint64_t, 8> row1{};
-    std::array<std::uint64_t, 8> row2{};
+    const std::array<std::uint64_t, 2> row1{};
+    std::array<std::uint64_t, 2> row2{};
     row2.at(0) = 0x8000000000000000ULL;
 
     const auto hash1 = verifier.computeHash(row1);
