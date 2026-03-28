@@ -38,6 +38,7 @@ int main(const int argc, const char *const argv[]) { // NOLINT
     std::string configName = "lh_vh";
     int dhMaxDiags = 0;
     int xhMaxDiags = 0;
+    int preassignCols = 0;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i]; // NOLINT
@@ -46,6 +47,7 @@ int main(const int argc, const char *const argv[]) { // NOLINT
         else if (arg == "-config" && i + 1 < argc) { configName = argv[++i]; } // NOLINT
         else if (arg == "-dh-diags" && i + 1 < argc) { dhMaxDiags = std::atoi(argv[++i]); } // NOLINT
         else if (arg == "-xh-diags" && i + 1 < argc) { xhMaxDiags = std::atoi(argv[++i]); } // NOLINT
+        else if (arg == "-preassign-cols" && i + 1 < argc) { preassignCols = std::atoi(argv[++i]); } // NOLINT
     }
     if (inputPath.empty()) {
         std::fprintf(stderr, "usage: combinatorSolver -in <file> [-block <N>] [-config <name>] [-dh-diags <N>] [-xh-diags <N>]\n");
@@ -175,14 +177,34 @@ int main(const int argc, const char *const argv[]) { // NOLINT
 
     // Solve
     decompress::solvers::CombinatorSolver solver(csm, config);
-    std::fprintf(stderr, "System: %s\n\n", solver.configName().c_str());
+    std::fprintf(stderr, "System: %s\n", solver.configName().c_str());
+
+    // Pre-assign leftmost n columns (simulates overlap donation from solved neighbor)
+    std::uint32_t preassignedCount = 0;
+    if (preassignCols > 0) {
+        for (std::uint16_t c = 0; c < static_cast<std::uint16_t>(preassignCols) && c < kS; ++c) {
+            for (std::uint16_t r = 0; r < kS; ++r) {
+                solver.preAssign(r, c, csm.get(r, c));
+                ++preassignedCount;
+            }
+        }
+        std::fprintf(stderr, "Pre-assigned: %u cells (%d cols)\n", preassignedCount, preassignCols);
+    }
+    std::fprintf(stderr, "\n");
 
     const auto result = config.cascade ? solver.solveCascade(csm) : solver.solve();
 
+    const auto totalKnown = result.determined + preassignedCount;
     std::fprintf(stderr, "\nResult:\n");
     std::fprintf(stderr, "  Determined:  %u / %u (%.1f%%)\n",
                  result.determined, kBlockBits,
                  100.0 * result.determined / kBlockBits);
+    if (preassignedCount > 0) {
+        std::fprintf(stderr, "  Pre-assigned:%u\n", preassignedCount);
+        std::fprintf(stderr, "  Total known: %u / %u (%.1f%%)\n",
+                     totalKnown, kBlockBits,
+                     100.0 * totalKnown / kBlockBits);
+    }
     std::fprintf(stderr, "  Free:        %u\n", result.free);
     std::fprintf(stderr, "  GaussElim:   %u\n", result.fromGaussElim);
     std::fprintf(stderr, "  IntBound:    %u\n", result.fromIntBound);

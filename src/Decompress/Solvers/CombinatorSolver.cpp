@@ -1037,16 +1037,22 @@ namespace crsce::decompress::solvers {
             }
         }
 
-        // SHA-256 block hash verification (only if fully solved)
-        if (result.determined == kN) {
-            common::Csm reconstructed;
-            for (std::uint16_t r = 0; r < kS; ++r) {
-                for (std::uint16_t c = 0; c < kS; ++c) {
-                    reconstructed.set(r, c, static_cast<std::uint8_t>(
-                        cellState_[static_cast<std::uint32_t>(r) * kS + c]));
-                }
+        // SHA-256 block hash verification (only if all cells assigned)
+        {
+            bool allAssigned = true;
+            for (std::uint32_t flat = 0; flat < kN; ++flat) {
+                if (cellState_[flat] < 0) { allAssigned = false; break; }
             }
-            result.bhVerified = common::BlockHash::verify(reconstructed, expectedBH_);
+            if (allAssigned) {
+                common::Csm reconstructed;
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    for (std::uint16_t c = 0; c < kS; ++c) {
+                        reconstructed.set(r, c, static_cast<std::uint8_t>(
+                            cellState_[static_cast<std::uint32_t>(r) * kS + c]));
+                    }
+                }
+                result.bhVerified = common::BlockHash::verify(reconstructed, expectedBH_);
+            }
         }
 
         return result;
@@ -1453,16 +1459,22 @@ namespace crsce::decompress::solvers {
             }
         }
 
-        // SHA-256 block hash verification (only if fully solved)
-        if (result.determined == kN) {
-            common::Csm reconstructed;
-            for (std::uint16_t r = 0; r < kS; ++r) {
-                for (std::uint16_t c = 0; c < kS; ++c) {
-                    reconstructed.set(r, c, static_cast<std::uint8_t>(
-                        cellState_[static_cast<std::uint32_t>(r) * kS + c]));
-                }
+        // SHA-256 block hash verification (only if all cells assigned)
+        {
+            bool allAssigned = true;
+            for (std::uint32_t flat = 0; flat < kN; ++flat) {
+                if (cellState_[flat] < 0) { allAssigned = false; break; }
             }
-            result.bhVerified = common::BlockHash::verify(reconstructed, expectedBH_);
+            if (allAssigned) {
+                common::Csm reconstructed;
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    for (std::uint16_t c = 0; c < kS; ++c) {
+                        reconstructed.set(r, c, static_cast<std::uint8_t>(
+                            cellState_[static_cast<std::uint32_t>(r) * kS + c]));
+                    }
+                }
+                result.bhVerified = common::BlockHash::verify(reconstructed, expectedBH_);
+            }
         }
 
         return result;
