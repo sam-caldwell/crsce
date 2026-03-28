@@ -31,7 +31,7 @@ namespace crsce::decompress::solvers {
          * @name kS
          * @brief Matrix dimension.
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name PropagationEngine
@@ -64,7 +64,8 @@ namespace crsce::decompress::solvers {
          * @name kPropTotalLines
          * @brief Total number of constraint lines: 12s - 2 = 6130 (4 basic + 6 LTP).
          */
-        static constexpr std::size_t kPropTotalLines = (12 * kS) - 2;
+        // B.46: expanded to accommodate rLTP5/rLTP6 variable-length lines (1021 each vs 511)
+        static constexpr std::size_t kPropTotalLines = 1014;
 
         /**
          * @name store_

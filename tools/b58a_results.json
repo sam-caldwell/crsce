@@ -1,0 +1,45 @@
+{
+  "experiment": "B.58a",
+  "config": {
+    "S": 127,
+    "N": 16129,
+    "diag_count": 253
+  },
+  "results": [
+    {
+      "seed1": "0x435253434c545056",
+      "seed2": "0x435253434c545050",
+      "stratified": {
+        "LSM": {
+          "rank": 127,
+          "null_dim": 16002
+        },
+        "LSM+VSM": {
+          "rank": 253,
+          "null_dim": 15876
+        },
+        "LSM+VSM+DSM": {
+          "rank": 504,
+          "null_dim": 15625
+        },
+        "LSM+VSM+DSM+XSM": {
+          "rank": 753,
+          "null_dim": 15376
+        },
+        "+yLTP1": {
+          "rank": 879,
+          "null_dim": 15250
+        },
+        "+yLTP2 (all cross-sums)": {
+          "rank": 1005,
+          "null_dim": 15124
+        }
+      },
+      "full_rank": 5037,
+      "full_null_dim": 11092,
+      "crosssum_rank": 1005,
+      "crc32_contribution": 4032,
+      "crc32_max_possible": 4064
+    }
+  ]
+}

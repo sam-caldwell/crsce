@@ -33,7 +33,7 @@ using crsce::decompress::solvers::kLtp6Base;
 using crsce::decompress::solvers::ltpMembership;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 
     /**
@@ -113,7 +113,7 @@ TEST(MetalPropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
-    diagSums[510] = 1;
+    diagSums[126] = 1;
     // Set LTP targets for cell (0,0) using precomputed partition tables.
     {
         const auto &mem = ltpMembership(0, 0);
@@ -179,7 +179,7 @@ TEST(MetalPropagationEngineTest, ResetClearsForcedAssignments) {
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
-    diagSums[510] = 1;
+    diagSums[126] = 1;
     // Set LTP targets for cell (0,0) using precomputed partition tables.
     {
         const auto &mem = ltpMembership(0, 0);
@@ -279,8 +279,8 @@ TEST(MetalPropagationEngineTest, EmptyQueueIsFeasible) {
 TEST(MetalPropagationEngineTest, NoForcingWhenRhoBetweenZeroAndU) {
     skipIfNoMetal();
 
-    const std::vector<std::uint16_t> rowSums(kS, 255);
-    const std::vector<std::uint16_t> colSums(kS, 255);
+    const std::vector<std::uint16_t> rowSums(kS, static_cast<std::uint16_t>(kS / 2));
+    const std::vector<std::uint16_t> colSums(kS, static_cast<std::uint16_t>(kS / 2));
     std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
     const std::vector<std::uint16_t> ltp1Sums(kS, static_cast<std::uint16_t>(kS / 2));

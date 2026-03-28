@@ -28,7 +28,7 @@ using crsce::decompress::solvers::kRowWords;
 using crsce::decompress::solvers::kTotalLines;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 
     /**

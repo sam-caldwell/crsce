@@ -43,7 +43,7 @@ namespace crsce::common::format {
          * @name kS
          * @brief Matrix dimension (number of rows and columns).
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kBlockPayloadBytes
@@ -53,7 +53,7 @@ namespace crsce::common::format {
          * Fixed 107,592 bits (LH+BH+DI+LSM+VSM+DSM+XSM) + 27,594 LTP bits = 135,186 bits.
          * ceil(135,186 / 8) = 16,898.25 → 16,899 bytes.
          */
-        static constexpr std::size_t kBlockPayloadBytes = 16899;
+        static constexpr std::size_t kBlockPayloadBytes = 1369;
 
         /**
          * @name kDiagCount
@@ -72,7 +72,7 @@ namespace crsce::common::format {
          * @name kLHDigestBytes
          * @brief Size of a per-row lateral hash digest (SHA-1) in bytes.
          */
-        static constexpr std::size_t kLHDigestBytes = 20;
+        static constexpr std::size_t kLHDigestBytes = 4;
 
         /**
          * @name kBHDigestBytes

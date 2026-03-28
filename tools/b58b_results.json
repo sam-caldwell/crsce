@@ -1,0 +1,41 @@
+{
+  "experiment": "B.58b",
+  "source": "mp4_block_0",
+  "density": 0.1487,
+  "popcount": 2398,
+  "n_determined": 3600,
+  "n_free": 12529,
+  "pct_determined": 22.32,
+  "feasible": true,
+  "total_time_s": 48.76,
+  "iterations": 2,
+  "outcome": "INSUFFICIENT",
+  "stats": [
+    {
+      "iteration": 1,
+      "D": 3600,
+      "F": 12529,
+      "gain": 3600,
+      "from_gauss": 4,
+      "from_intbound": 3596,
+      "from_crossdeduce": 0,
+      "rank": 5037,
+      "t_gauss": 26.317,
+      "t_int": 0.002,
+      "t_cross": 0.01
+    },
+    {
+      "iteration": 2,
+      "D": 3600,
+      "F": 12529,
+      "gain": 0,
+      "from_gauss": 0,
+      "from_intbound": 0,
+      "from_crossdeduce": 0,
+      "rank": 4922,
+      "t_gauss": 21.044,
+      "t_int": 0.0,
+      "t_cross": 0.01
+    }
+  ]
+}

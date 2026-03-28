@@ -34,7 +34,7 @@ namespace crsce::decompress::solvers {
          * @name kS
          * @brief Matrix dimension (511).
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kNumRows
@@ -64,7 +64,7 @@ namespace crsce::decompress::solvers {
          * @name kNumLtpPartitions
          * @brief Number of non-linear lookup-table partitions (6: LTP1–LTP6).
          */
-        static constexpr std::uint16_t kNumLtpPartitions = 6;
+        static constexpr std::uint16_t kNumLtpPartitions = 2;
 
         /**
          * @name kBasicLines
@@ -104,15 +104,21 @@ namespace crsce::decompress::solvers {
 
         /**
          * @name kLTP6Base
-         * @brief Flat index base for the LTP6 non-linear partition (11s-2 = 5619).
+         * @brief Flat index base for the LTP6 partition.
+         *
+         * B.46: when rLTP5 is active, LTP5 has 2s-1=1021 lines instead of s=511,
+         * shifting LTP6's base from 5619 to 6129. kLTP6Base uses the MAXIMUM
+         * (rLTP-capable) offset; in uniform mode the extra slots are unused.
          */
-        static constexpr std::uint32_t kLTP6Base = kLTP5Base + kS;
+        static constexpr std::uint32_t kNumVarlenLines = (2 * kS) - 1; // 253
+        static constexpr std::uint32_t kLTP6Base = kLTP5Base + kNumVarlenLines;
 
         /**
          * @name kTotalLines
-         * @brief Total number of constraint lines: 12s - 2 = 6130.
+         * @brief Total constraint lines: kBasicLines + kNumLtpPartitions * kS.
+         * B.57: 760 + 2 * 127 = 1,014.
          */
-        static constexpr std::uint32_t kTotalLines = kBasicLines + (kNumLtpPartitions * kS);
+        static constexpr std::uint32_t kTotalLines = kBasicLines + (kNumLtpPartitions * kS); // 1014
 
         /**
          * @name lineIndex
@@ -236,7 +242,15 @@ namespace crsce::decompress::solvers {
         [[nodiscard]] CellState getCellState(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint8_t getCellValue(std::uint16_t r, std::uint16_t c) const override;
         [[nodiscard]] std::uint16_t getRowUnknownCount(std::uint16_t r) const override;
-        [[nodiscard]] const std::array<std::uint64_t, 8> &getRow(std::uint16_t r) const override;
+        [[nodiscard]] const std::array<std::uint64_t, 2> &getRow(std::uint16_t r) const override;
+
+        /**
+         * @name getColumn
+         * @brief Assemble column c from rowBits_ as 8 uint64 words (MSB-first, matching getRow format).
+         * @param c Column index in [0, 510].
+         * @return 8 uint64 words containing the 511 bits of column c packed MSB-first.
+         */
+        [[nodiscard]] std::array<std::uint64_t, 2> getColumn(std::uint16_t c) const;
 
         /**
          * @name getFirstUnassigned
@@ -282,6 +296,53 @@ namespace crsce::decompress::solvers {
             return stats_[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
+        /**
+         * @struct Snapshot
+         * @name Snapshot
+         * @brief Complete mutable state snapshot for backtracking (~26 KB).
+         */
+        struct Snapshot {
+            /**
+             * @name cells
+             * @brief Copy of cells_ vector.
+             */
+            std::vector<CellState> cells;
+
+            /**
+             * @name stats
+             * @brief Copy of stats_ array.
+             */
+            std::array<LineStat, kTotalLines> stats;
+
+            /**
+             * @name rowBits
+             * @brief Copy of rowBits_ vector.
+             */
+            std::vector<std::array<std::uint64_t, 2>> rowBits;
+
+            /**
+             * @name assigned
+             * @brief Copy of assigned_ bitset.
+             */
+            std::array<std::array<std::uint64_t, 2>, kS> assigned;
+        };
+
+        /**
+         * @name takeSnapshot
+         * @brief Save the complete mutable state for later restoration.
+         * @return Snapshot containing copies of all mutable members.
+         * @throws None
+         */
+        [[nodiscard]] Snapshot takeSnapshot() const;
+
+        /**
+         * @name restoreSnapshot
+         * @brief Restore the mutable state from a previously taken snapshot.
+         * @param snap The snapshot to restore.
+         * @throws None
+         */
+        void restoreSnapshot(const Snapshot &snap);
+
     private:
 
         /**
@@ -312,7 +373,7 @@ namespace crsce::decompress::solvers {
          * @name rowBits_
          * @brief Row bit storage for hash verification (8 x uint64 per row, MSB-first).
          */
-        std::vector<std::array<std::uint64_t, 8>> rowBits_;
+        std::vector<std::array<std::uint64_t, 2>> rowBits_;
 
         /**
          * @name assigned_
@@ -323,6 +384,6 @@ namespace crsce::decompress::solvers {
          * Note: uses LSB-first bit addressing (unlike MSB-first rowBits_) for
          * efficient ctzll scanning in getFirstUnassigned().
          */
-        std::array<std::array<std::uint64_t, 8>, kS> assigned_{};
+        std::array<std::array<std::uint64_t, 2>, kS> assigned_{};
     };
 } // namespace crsce::decompress::solvers

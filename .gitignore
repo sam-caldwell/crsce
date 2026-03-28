@@ -19,6 +19,7 @@ Thumbs.db
 *.dll
 *.lib
 *.exe
+*.bin
 
 # Executables
 *.out

@@ -5,12 +5,18 @@
  */
 #include "compress/Compressor/Compressor.h"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <ios>
 #include <string>
 #include <vector>
+
+#include "common/Util/crc32_ieee.h"
+#include "decompress/Solvers/LtpTable.h"
 
 #include "common/exceptions/CompressInputOpenError.h"
 #include "common/exceptions/CompressInputReadError.h"
@@ -114,6 +120,61 @@ namespace crsce::compress {
             computeCrossSums(csm, payload);
             computeLH(csm, payload);
             computeBH(csm, payload);
+
+            // B.44d: write sub-block CRC-32 sidecar for this block's CSM
+            {
+                const char *b44dPath = std::getenv("CRSCE_B44D_SUBBLOCK"); // NOLINT(concurrency-mt-unsafe)
+                if (b44dPath != nullptr && b44dPath[0] != '\0') { // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    constexpr std::uint16_t bSize = 64;
+                    constexpr std::uint8_t  bPerRow = 8;
+                    std::ofstream sf(b44dPath, std::ios::binary | std::ios::trunc); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    if (sf.is_open()) {
+                        sf.write("B44D", 4);
+                        const auto dim = static_cast<std::uint16_t>(kS);
+                        sf.write(reinterpret_cast<const char *>(&dim), 2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        sf.write(reinterpret_cast<const char *>(&bPerRow), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        sf.write(reinterpret_cast<const char *>(&bSize), 2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        // Note: header is 4+2+1+2 = 9 bytes (slightly different from Python's 8)
+                        // Fix: use uint8 for bSize to match Python format
+                    }
+                    // Rewrite with correct format matching Python tool
+                    sf.close();
+                    sf.open(b44dPath, std::ios::binary | std::ios::trunc); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    if (sf.is_open()) {
+                        sf.write("B44D", 4);
+                        const auto dim = static_cast<std::uint16_t>(kS);
+                        sf.write(reinterpret_cast<const char *>(&dim), 2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        const auto bpr = static_cast<std::uint8_t>(bPerRow);
+                        sf.write(reinterpret_cast<const char *>(&bpr), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        const auto bs = static_cast<std::uint8_t>(bSize);
+                        sf.write(reinterpret_cast<const char *>(&bs), 1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                        for (std::uint16_t r = 0; r < kS; ++r) {
+                            const auto row = csm.getRow(r);
+                            for (std::uint8_t blk = 0; blk < bPerRow; ++blk) {
+                                const auto cStart = static_cast<std::uint16_t>(blk * bSize);
+                                const auto cEnd = std::min(static_cast<std::uint16_t>(cStart + bSize), kS);
+                                // Pack block bits MSB-first
+                                std::array<std::uint8_t, 8> blockBytes{};
+                                for (auto c = cStart; c < cEnd; ++c) {
+                                    const auto word = c / 64U;
+                                    const auto bit = 63U - (c % 64U);
+                                    if ((row[word] >> bit) & 1U) { // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                                        const auto bitIdx = static_cast<std::uint16_t>(c - cStart);
+                                        const auto byteIdx = bitIdx / 8U;
+                                        const auto bitPos = 7U - (bitIdx % 8U);
+                                        blockBytes[byteIdx] |= (1U << bitPos); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                                    }
+                                }
+                                const auto numBytes = static_cast<std::size_t>((cEnd - cStart) + 7) / 8;
+                                const auto crc = common::util::crc32_ieee(blockBytes.data(), numBytes);
+                                sf.write(reinterpret_cast<const char *>(&crc), 4); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // B.57: B.46 rLTP sidecar removed (only 2 uniform LTP sub-tables).
 
             // Discover the disambiguation index (or skip if disabled).
             const std::uint8_t di = disableDI_ ? std::uint8_t{0}

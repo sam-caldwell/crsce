@@ -1,0 +1,71 @@
+{
+  "experiment": "B.60d",
+  "config": {
+    "S": 127,
+    "N": 16129,
+    "geo_lines": 508,
+    "total_eq": 8636
+  },
+  "results": [
+    {
+      "LSM only": {
+        "rank": 127,
+        "null_dim": 16002,
+        "density": 0.0079
+      },
+      "LSM + VSM": {
+        "rank": 253,
+        "null_dim": 15876,
+        "density": 0.0157
+      },
+      "4 geometric (toroidal)": {
+        "rank": 505,
+        "null_dim": 15624,
+        "density": 0.0313
+      },
+      "+ LH": {
+        "rank": 4537,
+        "null_dim": 11592,
+        "density": 0.2813
+      },
+      "+ VH (full system)": {
+        "rank": 7545,
+        "null_dim": 8584,
+        "density": 0.4678
+      }
+    },
+    {
+      "LSM only": {
+        "rank": 127,
+        "null_dim": 16002,
+        "density": 0.0079
+      },
+      "LSM + VSM": {
+        "rank": 253,
+        "null_dim": 15876,
+        "density": 0.0157
+      },
+      "4 geometric (toroidal)": {
+        "rank": 505,
+        "null_dim": 15624,
+        "density": 0.0313
+      },
+      "+ LH": {
+        "rank": 4537,
+        "null_dim": 11592,
+        "density": 0.2813
+      },
+      "+ VH (full system)": {
+        "rank": 7545,
+        "null_dim": 8584,
+        "density": 0.4678
+      }
+    }
+  ],
+  "outcome": "H3 (Lower rank)",
+  "comparison": {
+    "b60a_rank": 7793,
+    "b60d_rank": 7545,
+    "delta": -248
+  }
+}

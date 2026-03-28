@@ -38,7 +38,7 @@ namespace crsce::decompress::solvers {
          * @return 32-byte digest.
          * @throws None
          */
-        [[nodiscard]] virtual auto computeHash(const std::array<std::uint64_t, 8> &row) const
+        [[nodiscard]] virtual auto computeHash(const std::array<std::uint64_t, 2> &row) const
             -> std::array<std::uint8_t, 32> = 0;
 
         /**
@@ -50,7 +50,7 @@ namespace crsce::decompress::solvers {
          * @throws None
          */
         [[nodiscard]] virtual bool verifyRow(std::uint16_t r,
-                                             const std::array<std::uint64_t, 8> &row) const = 0;
+                                             const std::array<std::uint64_t, 2> &row) const = 0;
 
         /**
          * @name setExpected
@@ -60,6 +60,53 @@ namespace crsce::decompress::solvers {
          * @throws None
          */
         virtual void setExpected(std::uint16_t r, const std::array<std::uint8_t, 32> &digest) = 0;
+
+        /**
+         * @name verifyColumn
+         * @brief Verify that a fully-assigned column matches its expected digest.
+         * @param c Column index.
+         * @param col The column data as 8 uint64 words (MSB-first, same format as row).
+         * @return True if the computed hash matches the stored expected column digest.
+         * @throws None
+         */
+        [[nodiscard]] virtual bool verifyColumn(std::uint16_t c,
+                                                const std::array<std::uint64_t, 2> &col) const {
+            (void)c; (void)col;
+            return true; // Default: no column verification (backward compatible)
+        }
+
+        /**
+         * @name setExpectedColumn
+         * @brief Store the expected digest for a column.
+         * @param c Column index.
+         * @param digest The 32-byte expected digest.
+         * @throws None
+         */
+        virtual void setExpectedColumn(std::uint16_t c, const std::array<std::uint8_t, 32> &digest) {
+            (void)c; (void)digest; // Default: no-op (backward compatible)
+        }
+
+        /**
+         * @name hasRowHash
+         * @brief Check whether row r has a hash stored.
+         * @param r Row index.
+         * @return True if row r has an expected digest.
+         */
+        [[nodiscard]] virtual bool hasRowHash(std::uint16_t r) const {
+            (void)r;
+            return true; // Default: all rows hashed (backward compatible with v1)
+        }
+
+        /**
+         * @name hasColumnHash
+         * @brief Check whether column c has a hash stored.
+         * @param c Column index.
+         * @return True if column c has an expected column digest.
+         */
+        [[nodiscard]] virtual bool hasColumnHash(std::uint16_t c) const {
+            (void)c;
+            return false; // Default: no column hashes (backward compatible)
+        }
 
     protected:
         IHashVerifier() = default;

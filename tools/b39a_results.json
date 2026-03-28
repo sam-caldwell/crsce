@@ -1,0 +1,103 @@
+{
+  "experiment": "B.39a",
+  "description": "N-Dimensional Constraint Geometry \u2014 Null-Space Analysis with Minimum-Weight Vector Search",
+  "S": 511,
+  "N": 261121,
+  "ltp_source": "tools/b38e_t31000000_best_s137.bin",
+  "num_ltp": 4,
+  "stratified": {
+    "geo": {
+      "description": "Geometric only (rows+cols+diags+anti-diags)",
+      "constraint_lines": 3064,
+      "rank": 3057,
+      "null_dim": 258064,
+      "independent_pct": 99.77
+    },
+    "geo+ltp1": {
+      "description": "Geometric + LTP1",
+      "constraint_lines": 3575,
+      "rank": 3567,
+      "null_dim": 257554,
+      "independent_pct": 99.78
+    },
+    "geo+ltp12": {
+      "description": "Geometric + LTP1 + LTP2",
+      "constraint_lines": 4086,
+      "rank": 4077,
+      "null_dim": 257044,
+      "independent_pct": 99.78
+    },
+    "all": {
+      "description": "All 8 families (geo + 4 LTP)",
+      "constraint_lines": 5108,
+      "rank": 5097,
+      "null_dim": 256024,
+      "independent_pct": 99.78
+    }
+  },
+  "minimum_weight_search": {
+    "overall_minimum_weight": 1528,
+    "min_individual": {
+      "weight": 1548,
+      "free_col": 6428,
+      "row": 12,
+      "col": 296
+    },
+    "min_pairwise": {
+      "weight": 1528,
+      "free_cols": [
+        43944,
+        204909
+      ]
+    },
+    "min_random": {
+      "weight": 1530,
+      "k": 3,
+      "n_samples": 200000
+    },
+    "basis_weight_distribution": {
+      "min": 1548,
+      "max": 2868,
+      "mean": 1982.0689935318564,
+      "median": 1938.0,
+      "p5": 1688.0,
+      "p10": 1718.0,
+      "p25": 1798.0,
+      "p75": 2116.0,
+      "p90": 2322.0,
+      "p95": 2458.0
+    },
+    "lightest_10_weights": [
+      1548,
+      1560,
+      1572,
+      1572,
+      1574,
+      1574,
+      1576,
+      1576,
+      1580,
+      1580
+    ],
+    "per_k_minimums": {
+      "2": 1556,
+      "3": 1530,
+      "4": 1554,
+      "5": 1574,
+      "6": 1576
+    },
+    "swap_analysis": {
+      "label": "pairwise",
+      "weight": 1528,
+      "rows_touched": 11,
+      "cols_touched": 492,
+      "row_span": 401,
+      "col_span": 511,
+      "min_row": 0,
+      "max_row": 400,
+      "cells_per_row_min": 2,
+      "cells_per_row_max": 226,
+      "cells_per_row_mean": 138.9090909090909
+    }
+  }
+}

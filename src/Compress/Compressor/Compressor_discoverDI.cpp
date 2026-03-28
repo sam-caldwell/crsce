@@ -49,20 +49,12 @@ namespace crsce::compress {
         std::vector<std::uint16_t> antiDiagSums(kDiagCount);
         std::vector<std::uint16_t> ltp1Sums(kS);
         std::vector<std::uint16_t> ltp2Sums(kS);
-        std::vector<std::uint16_t> ltp3Sums(kS);
-        std::vector<std::uint16_t> ltp4Sums(kS);
-        std::vector<std::uint16_t> ltp5Sums(kS);
-        std::vector<std::uint16_t> ltp6Sums(kS);
 
         for (std::uint16_t k = 0; k < kS; ++k) {
             rowSums[k] = payload.getLSM(k);
             colSums[k] = payload.getVSM(k);
             ltp1Sums[k] = payload.getLTP1SM(k);
             ltp2Sums[k] = payload.getLTP2SM(k);
-            ltp3Sums[k] = payload.getLTP3SM(k);
-            ltp4Sums[k] = payload.getLTP4SM(k);
-            ltp5Sums[k] = payload.getLTP5SM(k);
-            ltp6Sums[k] = payload.getLTP6SM(k);
         }
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             diagSums[k] = payload.getDSM(k);
@@ -70,6 +62,8 @@ namespace crsce::compress {
         }
 
         // Create solver components as unique_ptrs.
+        // B.57: pass empty vectors for unused LTP3-6
+        const std::vector<std::uint16_t> ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums;
         auto store = std::make_unique<decompress::solvers::ConstraintStore>(
             rowSums, colSums, diagSums, antiDiagSums,
             ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums);
@@ -77,11 +71,13 @@ namespace crsce::compress {
         auto brancher = std::make_unique<decompress::solvers::BranchingController>(*store, *propagator);
         auto hasher = std::make_unique<decompress::solvers::Sha1HashVerifier>(kS);
 
-        // Set expected lateral hashes for each row (20-byte LH → 32-byte interface).
+        // Set expected lateral hashes for each row (4-byte CRC-32 LH → 32-byte interface).
         for (std::uint16_t r = 0; r < kS; ++r) {
-            const auto lh20 = payload.getLH(r);
+            const auto lh4 = payload.getLH(r);
             std::array<std::uint8_t, 32> lh32{};
-            std::ranges::copy(lh20, lh32.begin());
+            for (std::size_t i = 0; i < lh4.size(); ++i) {
+                lh32[i] = lh4[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            }
             hasher->setExpected(r, lh32);
         }
 

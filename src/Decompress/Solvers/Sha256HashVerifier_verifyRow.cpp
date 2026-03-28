@@ -18,7 +18,7 @@ namespace crsce::decompress::solvers {
      * @throws None
      */
     auto Sha256HashVerifier::verifyRow(const std::uint16_t r,
-                                        const std::array<std::uint64_t, 8> &row) const -> bool {
+                                        const std::array<std::uint64_t, 2> &row) const -> bool {
         return computeHash(row) == expected_[r];
     }
 } // namespace crsce::decompress::solvers

@@ -9,6 +9,9 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
+#include <ios>
 #include <vector>
 
 #include "decompress/Solvers/CellState.h"
@@ -41,7 +44,7 @@ namespace crsce::decompress::solvers {
                                      const std::vector<std::uint16_t> &ltp5Sums,
                                      const std::vector<std::uint16_t> &ltp6Sums)
         : cells_(static_cast<std::size_t>(kS) * kS, CellState::Unassigned),
-          rowBits_(kS, std::array<std::uint64_t, 8>{}) {
+          rowBits_(kS, std::array<std::uint64_t, 2>{}) {
 
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 
@@ -94,33 +97,8 @@ namespace crsce::decompress::solvers {
             stats_[kLTP2Base + k].assigned = 0;
         }
 
-        // Initialize LTP3 partition stats: stats_[kLTP3Base .. kLTP3Base + kS)
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            stats_[kLTP3Base + k].target = ltp3Sums[k];
-            stats_[kLTP3Base + k].unknown = static_cast<std::uint16_t>(ltpLineLen(k));
-            stats_[kLTP3Base + k].assigned = 0;
-        }
-
-        // Initialize LTP4 partition stats: stats_[kLTP4Base .. kLTP4Base + kS)
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            stats_[kLTP4Base + k].target = ltp4Sums[k];
-            stats_[kLTP4Base + k].unknown = static_cast<std::uint16_t>(ltpLineLen(k));
-            stats_[kLTP4Base + k].assigned = 0;
-        }
-
-        // Initialize LTP5 partition stats: stats_[kLTP5Base .. kLTP5Base + kS)
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            stats_[kLTP5Base + k].target = ltp5Sums[k];
-            stats_[kLTP5Base + k].unknown = static_cast<std::uint16_t>(ltpLineLen(k));
-            stats_[kLTP5Base + k].assigned = 0;
-        }
-
-        // Initialize LTP6 partition stats: stats_[kLTP6Base .. kLTP6Base + kS)
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            stats_[kLTP6Base + k].target = ltp6Sums[k];
-            stats_[kLTP6Base + k].unknown = static_cast<std::uint16_t>(ltpLineLen(k));
-            stats_[kLTP6Base + k].assigned = 0;
-        }
+        // B.57: only 2 LTP sub-tables. LTP3-6 parameters are unused.
+        (void)ltp3Sums; (void)ltp4Sums; (void)ltp5Sums; (void)ltp6Sums;
 
         // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
     }

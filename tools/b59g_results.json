@@ -1,0 +1,29 @@
+{
+  "experiment": "B.59g",
+  "block": 0,
+  "density": 0.1487,
+  "determined": 3600,
+  "free": 12529,
+  "results": [
+    {
+      "method": "LP",
+      "n_vars": 12529,
+      "n_constraints": 931,
+      "time_s": 60.01,
+      "accuracy_pct": 0,
+      "success": false
+    },
+    {
+      "method": "SAT",
+      "n_vars": 12529,
+      "total_vars": 773045,
+      "n_clauses": 4005128,
+      "card_clauses": 4005128,
+      "xor_clauses": 0,
+      "time_s": 1.84,
+      "solve_time_s": 0.01,
+      "accuracy_pct": null,
+      "result": "UNSAT"
+    }
+  ]
+}

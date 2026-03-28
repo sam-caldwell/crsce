@@ -60,21 +60,15 @@ namespace crsce::decompress {
             xsm[k] = payload.getXSM(k);
         }
 
-        // Build the six LTP partition sum vectors from the payload.
+        // B.57: 2 LTP partition sum vectors from the payload.
         std::vector<std::uint16_t> ltp1(kS);
         std::vector<std::uint16_t> ltp2(kS);
-        std::vector<std::uint16_t> ltp3(kS);
-        std::vector<std::uint16_t> ltp4(kS);
-        std::vector<std::uint16_t> ltp5(kS);
-        std::vector<std::uint16_t> ltp6(kS);
         for (std::uint16_t k = 0; k < kS; ++k) {
             ltp1[k] = payload.getLTP1SM(k);
             ltp2[k] = payload.getLTP2SM(k);
-            ltp3[k] = payload.getLTP3SM(k);
-            ltp4[k] = payload.getLTP4SM(k);
-            ltp5[k] = payload.getLTP5SM(k);
-            ltp6[k] = payload.getLTP6SM(k);
         }
+        // Empty vectors for unused LTP3-6 parameters
+        const std::vector<std::uint16_t> ltp3, ltp4, ltp5, ltp6;
 
         // Create solver components.
         auto store = std::make_unique<solvers::ConstraintStore>(
@@ -95,13 +89,15 @@ namespace crsce::decompress {
 #endif
         auto brancher = std::make_unique<solvers::BranchingController>(*store, *propagator);
 
-        // Build hash verifier: SHA-1 for per-row verification.
-        // getLH() returns 20-byte arrays; setExpected() takes 32-byte arrays (IHashVerifier interface).
+        // Build hash verifier: CRC-32 for per-row verification (B.57).
+        // getLH() returns 4-byte CRC-32 arrays; setExpected() takes 32-byte arrays (IHashVerifier interface).
         auto hasher = std::make_unique<solvers::Sha1HashVerifier>(kS);
         for (std::uint16_t r = 0; r < kS; ++r) {
-            const auto lh20 = payload.getLH(r);
+            const auto lh4 = payload.getLH(r);
             std::array<std::uint8_t, 32> lh32{};
-            std::ranges::copy(lh20, lh32.begin());
+            for (std::size_t i = 0; i < lh4.size(); ++i) {
+                lh32[i] = lh4[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            }
             hasher->setExpected(r, lh32);
         }
 

@@ -35,7 +35,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <ios>
+#include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace crsce::decompress::solvers {
@@ -183,38 +188,30 @@ namespace {
     LtpData buildAllPartitions() {
         LtpData data;
         data.fwd.resize(kN);
-        for (std::size_t sub = 0; sub < 6; ++sub) {
+        // B.57: only 2 LTP sub-tables
+        for (std::size_t sub = 0; sub < 2; ++sub) {
             data.csrCells[sub].resize(kTotalPerSubtable); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
-        // All 6 sub-tables share the same CSR offset structure
+        // Uniform CSR offsets
         std::array<std::uint32_t, 512> sharedOffsets{};
         buildCsrOffsets(sharedOffsets);
-        for (std::size_t sub = 0; sub < 6; ++sub) {
+        for (std::size_t sub = 0; sub < 2; ++sub) {
             data.csrOffsets[sub] = sharedOffsets; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
-        // Lines processed in natural order 0..510 (all same length, no need to sort)
-        std::array<std::uint16_t, kLtpNumLines> sortedLines{};
-        { std::uint16_t v = 0; for (auto &e : sortedLines) { e = v++; } }
-
-        // Per-pass LCG seeds (B.22/B.27: runtime-overridable via CRSCE_LTP_SEED_1..6)
-        const std::array<std::uint64_t, 6> seeds = {
+        // B.57: 2 LTP sub-tables
+        const std::array<std::uint64_t, 2> seeds = {
             parseOptEnvSeed("CRSCE_LTP_SEED_1", kSeed1),
             parseOptEnvSeed("CRSCE_LTP_SEED_2", kSeed2),
-            parseOptEnvSeed("CRSCE_LTP_SEED_3", kSeed3),
-            parseOptEnvSeed("CRSCE_LTP_SEED_4", kSeed4),
-            parseOptEnvSeed("CRSCE_LTP_SEED_5", kSeed5),
-            parseOptEnvSeed("CRSCE_LTP_SEED_6", kSeed6),
         };
-        // Flat stat bases for each sub-table
-        const std::array<std::uint32_t, 6> bases = {kLtp1Base, kLtp2Base, kLtp3Base, kLtp4Base, kLtp5Base, kLtp6Base};
+        const std::array<std::uint32_t, 2> bases = {kLtp1Base, kLtp2Base};
 
         // Full cell pool: every cell exactly once per pass
         std::vector<std::uint32_t> pool(kN);
         { std::uint32_t v = 0; for (auto &e : pool) { e = v++; } }
 
-        for (std::size_t k = 0; k < 6; ++k) {
+        for (std::size_t k = 0; k < 2; ++k) {
             // Fisher-Yates shuffle with per-pass LCG seed
             std::uint64_t state = seeds[k]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             for (std::uint32_t i = kN - 1U; i >= 1U; --i) {
@@ -227,11 +224,11 @@ namespace {
                 // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             }
 
-            // Assign consecutive chunks of the shuffled pool to lines
+            // Assign consecutive uniform chunks of the shuffled pool to lines
             std::uint32_t pos = 0;
-            for (const std::uint16_t lineIdx : sortedLines) {
+            for (std::uint16_t lineIdx = 0; lineIdx < kLtpNumLines; ++lineIdx) {
                 const std::uint32_t len = ltpLineLen(lineIdx);
-                const std::uint32_t csrOff = sharedOffsets[lineIdx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const std::uint32_t csrOff = data.csrOffsets[k][lineIdx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
                 for (std::uint32_t j = 0; j < len; ++j) {
                     const std::uint32_t flat = pool[pos + j]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -255,12 +252,169 @@ namespace {
     }
 
     /**
+     * @name kMagic
+     * @brief 4-byte magic identifier for LTPB binary table files.
+     */
+    constexpr std::array<char, 4> kMagic = {'L', 'T', 'P', 'B'};
+
+    /**
+     * @name kFileVersion
+     * @brief Version field written and expected in LTPB binary files.
+     */
+    constexpr std::uint32_t kFileVersion = 1;
+
+    /**
+     * @name buildFromAssignment
+     * @brief Reconstruct LtpData from an explicit per-cell line-index assignment.
+     *
+     * Validates that every line in the first numSub sub-tables has exactly kLtpS
+     * cells. Builds fwd + csrCells from the assignment arrays. Sub-tables beyond
+     * numSub are built by independent Fisher-Yates using their configured seeds
+     * (deterministic: both compress and decompress produce identical geometry).
+     *
+     * @param numSub  Number of sub-tables supplied in assign (1..6).
+     * @param assign  assign[sub][flat] = line index (0..510) for each cell.
+     * @return Optional LtpData; nullopt if any validation check fails.
+     */
+    [[nodiscard]] std::optional<LtpData>
+    buildFromAssignment(const std::uint32_t numSub,
+                        const std::array<std::vector<std::uint16_t>, 6> &assign) {
+        if (numSub < 1 || numSub > 2) { return std::nullopt; }
+
+        // Validate: each line in each supplied sub-table must have exactly kLtpS cells
+        for (std::uint32_t sub = 0; sub < numSub; ++sub) {
+            if (assign[sub].size() != kN) { return std::nullopt; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            std::array<std::uint16_t, kLtpNumLines> cnt{};
+            for (const auto lineIdx : assign[sub]) { // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                if (lineIdx >= kLtpNumLines) { return std::nullopt; }
+                ++cnt[lineIdx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            }
+            for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+                if (cnt[k] != kLtpS) { return std::nullopt; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            }
+        }
+
+        LtpData data;
+        data.fwd.resize(kN);
+
+        // Build CSR offsets (same for all sub-tables under uniform-511)
+        std::array<std::uint32_t, 512> sharedOffsets{};
+        buildCsrOffsets(sharedOffsets);
+        for (std::size_t sub = 0; sub < 2; ++sub) {
+            data.csrOffsets[sub] = sharedOffsets; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+        for (std::size_t sub = 0; sub < 2; ++sub) {
+            data.csrCells[sub].resize(kTotalPerSubtable); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+
+        const std::array<std::uint32_t, 2> bases = {kLtp1Base, kLtp2Base};
+
+        // Build sub-tables from the supplied assignment arrays
+        for (std::uint32_t sub = 0; sub < numSub; ++sub) {
+            std::array<std::uint32_t, kLtpNumLines> writePos{};
+            for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
+                writePos[k] = sharedOffsets[k]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            }
+            for (std::uint32_t flat = 0; flat < kN; ++flat) {
+                const std::uint16_t lineIdx = assign[sub][flat]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const auto row = static_cast<std::uint16_t>(flat / kLtpS);
+                const auto col = static_cast<std::uint16_t>(flat % kLtpS);
+                data.csrCells[sub][writePos[lineIdx]] = {.r = row, .c = col}; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                ++writePos[lineIdx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                auto &mem = data.fwd[flat]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                mem.flat[sub] = static_cast<std::uint16_t>( // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                    bases[sub] + lineIdx); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                ++mem.count;
+            }
+        }
+
+        // B.57: no remaining sub-tables to fill (max 2).
+
+        return data;
+    }
+
+    /**
+     * @name tryLoadFromFile
+     * @brief Try to load LTP sub-table assignments from a binary LTPB file.
+     *
+     * File layout (all integers little-endian):
+     *   Offset  Size       Field
+     *   0       4          magic = "LTPB"
+     *   4       4 uint32   version = 1
+     *   8       4 uint32   S (must equal kLtpS = 511)
+     *   12      4 uint32   num_subtables (1..6)
+     *   16      num_subtables * kN * 2  uint16[] assignment arrays, sub-major
+     *
+     * Returns nullopt on any error (file not found, wrong size, bad magic, etc.).
+     *
+     * @param path Filesystem path to the LTPB file.
+     * @return Optional LtpData; nullopt on any failure.
+     */
+    [[nodiscard]] std::optional<LtpData> tryLoadFromFile(const char *const path) noexcept {
+        try {
+            std::ifstream fin(path, std::ios::binary | std::ios::ate);
+            if (!fin.is_open()) { return std::nullopt; }
+
+            struct FileHeader {
+                std::array<char, 4> magic{};  // "LTPB"
+                std::uint32_t version{0};
+                std::uint32_t S{0};
+                std::uint32_t num_subtables{0};
+            };
+            static_assert(sizeof(FileHeader) == 16);
+
+            const auto fileSize = static_cast<std::uint64_t>(fin.tellg());
+            if (fileSize < sizeof(FileHeader)) { return std::nullopt; }
+            fin.seekg(0);
+
+            FileHeader hdr{};
+            fin.read(reinterpret_cast<char *>(&hdr), sizeof(FileHeader)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            if (!fin.good()) { return std::nullopt; }
+
+            // Validate header fields
+            if (hdr.magic != kMagic) { return std::nullopt; }
+            if (hdr.version != kFileVersion) { return std::nullopt; }
+            if (hdr.S != static_cast<std::uint32_t>(kLtpS)) { return std::nullopt; }
+            if (hdr.num_subtables < 1 || hdr.num_subtables > 2) { return std::nullopt; }
+
+            const auto expectedBytes = sizeof(FileHeader)
+                + ((static_cast<std::uint64_t>(hdr.num_subtables) * kN) * sizeof(std::uint16_t));
+            if (fileSize != expectedBytes) { return std::nullopt; }
+
+            std::array<std::vector<std::uint16_t>, 6> assign;
+            for (std::uint32_t sub = 0; sub < hdr.num_subtables; ++sub) {
+                assign[sub].resize(kN); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                fin.read( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                    reinterpret_cast<char *>(assign[sub].data()), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-constant-array-index)
+                    static_cast<std::streamsize>(kN * sizeof(std::uint16_t)));
+                if (!fin.good()) { return std::nullopt; }
+            }
+
+            return buildFromAssignment(hdr.num_subtables, assign);
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+
+    /**
      * @name getLtpData
      * @brief Return reference to the shared (lazily-initialized) LTP tables.
+     *
+     * Checks CRSCE_LTP_TABLE_FILE environment variable first. If set and the file
+     * parses successfully, uses the hill-climber-optimized table. Otherwise falls
+     * back to the standard seed-based build (buildAllPartitions). The result is
+     * cached in a function-local static for thread-safe single initialization.
+     *
      * @return Const reference to the one-time initialized LtpData.
      */
     const LtpData &getLtpData() {
-        static const LtpData data = buildAllPartitions();
+        static const LtpData data = []() -> LtpData {
+            const char *const path = std::getenv("CRSCE_LTP_TABLE_FILE"); // NOLINT(concurrency-mt-unsafe)
+            if (path != nullptr && *path != '\0') {
+                if (auto loaded = tryLoadFromFile(path)) { return std::move(*loaded); }
+            }
+            return buildAllPartitions();
+        }();
         return data;
     }
 
@@ -341,6 +495,20 @@ std::span<const LtpCell> ltp5CellsForLine(const std::uint16_t k) {
 std::span<const LtpCell> ltp6CellsForLine(const std::uint16_t k) {
     const auto &d = getLtpData();
     return {d.csrCells[5].data() + d.csrOffsets[5][k], ltpLineLen(k)}; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}
+
+/**
+ * @name ltpFileIsValid
+ * @brief Return true iff the file at path can be parsed as a valid LTPB LTP table.
+ *
+ * Calls tryLoadFromFile without touching the shared getLtpData() singleton.
+ * Used by tests and health-check tooling.
+ *
+ * @param path Filesystem path to an LTPB file.
+ * @return True if the file parses successfully; false on any error.
+ */
+bool ltpFileIsValid(const char *const path) noexcept {
+    return tryLoadFromFile(path).has_value();
 }
 
 } // namespace crsce::decompress::solvers

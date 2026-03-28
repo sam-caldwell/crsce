@@ -17,7 +17,7 @@
 
 namespace crsce::testrunner_alternating01::cli {
 
-    constexpr std::size_t kCsmS = 511;
+    constexpr std::size_t kCsmS = 127;
 
     /**
      * @name preflight_check_alternating01

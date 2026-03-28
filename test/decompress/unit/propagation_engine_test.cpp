@@ -23,14 +23,10 @@ using crsce::decompress::solvers::LineType;
 using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::kLtp1Base;
 using crsce::decompress::solvers::kLtp2Base;
-using crsce::decompress::solvers::kLtp3Base;
-using crsce::decompress::solvers::kLtp4Base;
-using crsce::decompress::solvers::kLtp5Base;
-using crsce::decompress::solvers::kLtp6Base;
 using crsce::decompress::solvers::ltpMembership;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 
     /**
@@ -41,13 +37,11 @@ namespace {
                               const std::vector<std::uint16_t> &diagSums,
                               const std::vector<std::uint16_t> &antiDiagSums,
                               const std::vector<std::uint16_t> &ltp1Sums = std::vector<std::uint16_t>(kS, 0),
-                              const std::vector<std::uint16_t> &ltp2Sums = std::vector<std::uint16_t>(kS, 0),
-                              const std::vector<std::uint16_t> &ltp3Sums = std::vector<std::uint16_t>(kS, 0),
-                              const std::vector<std::uint16_t> &ltp4Sums = std::vector<std::uint16_t>(kS, 0),
-                              const std::vector<std::uint16_t> &ltp5Sums = std::vector<std::uint16_t>(kS, 0),
-                              const std::vector<std::uint16_t> &ltp6Sums = std::vector<std::uint16_t>(kS, 0)) {
+                              const std::vector<std::uint16_t> &ltp2Sums = std::vector<std::uint16_t>(kS, 0)) {
         return {rowSums, colSums, diagSums, antiDiagSums,
-                ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums, ltp5Sums, ltp6Sums};
+                ltp1Sums, ltp2Sums,
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{},
+                std::vector<std::uint16_t>{}, std::vector<std::uint16_t>{}};
     }
 } // namespace
 
@@ -108,37 +102,24 @@ TEST(PropagationEngineTest, RhoEqualsUForcesAllUnknownsToOne) {
     rowSums[0] = 1;
     colSums[0] = 1;
 
-    // Diagonal for (0,0) is index 510. Set its target to 1.
-    diagSums[510] = 1;
+    // Diagonal for (0,0) is index 126. Set its target to 1.
+    diagSums[126] = 1;
     // LTP line targets for (0,0): must equal 1 to allow assigning (0,0)=1 without infeasibility.
     std::vector<std::uint16_t> ltp1Sums(kS, 0);
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
-    std::vector<std::uint16_t> ltp3Sums(kS, 0);
-    std::vector<std::uint16_t> ltp4Sums(kS, 0);
-    std::vector<std::uint16_t> ltp5Sums(kS, 0);
-    std::vector<std::uint16_t> ltp6Sums(kS, 0);
     {
         const auto &mem = ltpMembership(0, 0);
         for (std::uint8_t j = 0; j < mem.count; ++j) {
             const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             if (f < static_cast<std::uint16_t>(kLtp2Base)) {
                 ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
-                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
-                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
-                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
-                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))] = 1;
             } else {
-                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))] = 1;
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
             }
         }
     }
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
-                      ltp5Sums, ltp6Sums);
+                           ltp1Sums, ltp2Sums);
     PropagationEngine engine(store);
 
     const std::vector<LineID> queue = {
@@ -172,36 +153,23 @@ TEST(PropagationEngineTest, GetForcedAssignmentsReturnsList) {
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
-    diagSums[510] = 1;
+    diagSums[126] = 1;
     // LTP line targets for (0,0): must equal 1 to allow assigning (0,0)=1 without infeasibility.
     std::vector<std::uint16_t> ltp1Sums(kS, 0);
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
-    std::vector<std::uint16_t> ltp3Sums(kS, 0);
-    std::vector<std::uint16_t> ltp4Sums(kS, 0);
-    std::vector<std::uint16_t> ltp5Sums(kS, 0);
-    std::vector<std::uint16_t> ltp6Sums(kS, 0);
     {
         const auto &mem = ltpMembership(0, 0);
         for (std::uint8_t j = 0; j < mem.count; ++j) {
             const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             if (f < static_cast<std::uint16_t>(kLtp2Base)) {
                 ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
-                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
-                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
-                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
-                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))] = 1;
             } else {
-                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))] = 1;
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
             }
         }
     }
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
-                      ltp5Sums, ltp6Sums);
+                           ltp1Sums, ltp2Sums);
     PropagationEngine engine(store);
 
     // Before propagation, forced list should be empty
@@ -227,36 +195,23 @@ TEST(PropagationEngineTest, ResetClearsForcedAssignments) {
     antiDiagSums[0] = 1;
     rowSums[0] = 1;
     colSums[0] = 1;
-    diagSums[510] = 1;
+    diagSums[126] = 1;
     // LTP line targets for (0,0): must equal 1 to allow assigning (0,0)=1 without infeasibility.
     std::vector<std::uint16_t> ltp1Sums(kS, 0);
     std::vector<std::uint16_t> ltp2Sums(kS, 0);
-    std::vector<std::uint16_t> ltp3Sums(kS, 0);
-    std::vector<std::uint16_t> ltp4Sums(kS, 0);
-    std::vector<std::uint16_t> ltp5Sums(kS, 0);
-    std::vector<std::uint16_t> ltp6Sums(kS, 0);
     {
         const auto &mem = ltpMembership(0, 0);
         for (std::uint8_t j = 0; j < mem.count; ++j) {
             const auto f = mem.flat[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             if (f < static_cast<std::uint16_t>(kLtp2Base)) {
                 ltp1Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp1Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp3Base)) {
-                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp4Base)) {
-                ltp3Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp3Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp5Base)) {
-                ltp4Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp4Base))] = 1;
-            } else if (f < static_cast<std::uint16_t>(kLtp6Base)) {
-                ltp5Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp5Base))] = 1;
             } else {
-                ltp6Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp6Base))] = 1;
+                ltp2Sums[static_cast<std::uint16_t>(f - static_cast<std::uint16_t>(kLtp2Base))] = 1;
             }
         }
     }
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums,
-                           ltp1Sums, ltp2Sums, ltp3Sums, ltp4Sums,
-                      ltp5Sums, ltp6Sums);
+                           ltp1Sums, ltp2Sums);
     PropagationEngine engine(store);
 
     const std::vector<LineID> queue = {
@@ -312,7 +267,7 @@ TEST(PropagationEngineTest, InfeasibleWhenRhoGreaterThanU) {
     for (std::uint16_t c = 0; c < kS - 1; ++c) {
         store.assign(0, c, 0);
     }
-    // Now u = 1, rho = kS - 0 = 511 > 1 => infeasible
+    // Now u = 1, rho = kS - 0 = 127 > 1 => infeasible
 
     PropagationEngine engine(store);
 
@@ -343,13 +298,13 @@ TEST(PropagationEngineTest, EmptyQueueIsFeasible) {
  * @brief When neither rho=0 nor rho=u, no forcing occurs and the result is feasible.
  */
 TEST(PropagationEngineTest, NoForcingWhenRhoBetweenZeroAndU) {
-    const std::vector<std::uint16_t> rowSums(kS, 255);
-    const std::vector<std::uint16_t> colSums(kS, 255);
+    const std::vector<std::uint16_t> rowSums(kS, 63);
+    const std::vector<std::uint16_t> colSums(kS, 63);
     std::vector<std::uint16_t> diagSums(kNumDiags, 0);
     std::vector<std::uint16_t> antiDiagSums(kNumDiags, 0);
 
     // Set diag/anti-diag targets to reasonable values so no line is infeasible.
-    // The main diagonal (index 510) has length 511, so target 255 is fine.
+    // The main diagonal (index 126) has length 127, so target 63 is fine.
     for (std::uint16_t d = 0; d < kNumDiags; ++d) {
         // Compute diagonal length: min(d+1, kS, kNumDiags - d)
         const auto len = std::min({static_cast<int>(d + 1),
@@ -363,7 +318,7 @@ TEST(PropagationEngineTest, NoForcingWhenRhoBetweenZeroAndU) {
     auto store = makeStore(rowSums, colSums, diagSums, antiDiagSums);
     PropagationEngine engine(store);
 
-    // Propagate row 0: rho = 255, u = 511. 0 < 255 < 511, so no forcing.
+    // Propagate row 0: rho = 63, u = 127. 0 < 63 < 127, so no forcing.
     const std::vector<LineID> queue = {{.type = LineType::Row, .index = 0}};
     const bool feasible = engine.propagate(queue);
     EXPECT_TRUE(feasible);

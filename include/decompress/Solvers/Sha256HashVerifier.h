@@ -26,7 +26,7 @@ namespace crsce::decompress::solvers {
          * @name kS
          * @brief Matrix dimension.
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name Sha256HashVerifier
@@ -36,10 +36,10 @@ namespace crsce::decompress::solvers {
          */
         explicit Sha256HashVerifier(std::uint16_t s);
 
-        [[nodiscard]] auto computeHash(const std::array<std::uint64_t, 8> &row) const
+        [[nodiscard]] auto computeHash(const std::array<std::uint64_t, 2> &row) const
             -> std::array<std::uint8_t, 32> override;
         [[nodiscard]] bool verifyRow(std::uint16_t r,
-                                     const std::array<std::uint64_t, 8> &row) const override;
+                                     const std::array<std::uint64_t, 2> &row) const override;
         void setExpected(std::uint16_t r, const std::array<std::uint8_t, 32> &digest) override;
 
     private:

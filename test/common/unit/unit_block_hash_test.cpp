@@ -71,7 +71,7 @@ namespace {
     TEST(BlockHashTest, DifferentCsmsDifferentHashes) {
         const Csm csm_zeros;
         Csm csm_one_bit_set;
-        csm_one_bit_set.set(100, 200, 1);
+        csm_one_bit_set.set(50, 100, 1);
 
         const auto hash_zeros = BlockHash::compute(csm_zeros);
         const auto hash_one_bit = BlockHash::compute(csm_one_bit_set);

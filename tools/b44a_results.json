@@ -1,0 +1,64 @@
+{
+  "baseline": {
+    "rank": 5097,
+    "null_dim": 256024,
+    "lines": 5108,
+    "payload_bits": 43964
+  },
+  "candidates": {
+    "C1a_subrow_B2": {
+      "description": "Sub-row blocks B=2",
+      "lines_added": 1022,
+      "payload_bits": 8176,
+      "rank": 5607,
+      "rank_gain": 510,
+      "null_dim": 255514,
+      "efficiency": 0.062378
+    },
+    "C1b_subrow_B4": {
+      "description": "Sub-row blocks B=4",
+      "lines_added": 2044,
+      "payload_bits": 10731,
+      "rank": 6627,
+      "rank_gain": 1530,
+      "null_dim": 254494,
+      "efficiency": 0.142578
+    },
+    "C2a_parity_1": {
+      "description": "1 parity partition",
+      "lines_added": 511,
+      "payload_bits": 511,
+      "rank": 5607,
+      "rank_gain": 510,
+      "null_dim": 255514,
+      "efficiency": 0.998043
+    },
+    "C2b_parity_8": {
+      "description": "8 parity partitions",
+      "lines_added": 4088,
+      "payload_bits": 4088,
+      "rank": 9177,
+      "rank_gain": 4080,
+      "null_dim": 251944,
+      "efficiency": 0.998043
+    },
+    "C4a_mols_1": {
+      "description": "1 MOLS(511) partition",
+      "lines_added": 511,
+      "payload_bits": 4599,
+      "rank": 5097,
+      "rank_gain": 0,
+      "null_dim": 256024,
+      "efficiency": 0.0
+    },
+    "C4b_mols_6": {
+      "description": "6 MOLS(511) partitions",
+      "lines_added": 3066,
+      "payload_bits": 27594,
+      "rank": 7641,
+      "rank_gain": 2544,
+      "null_dim": 253480,
+      "efficiency": 0.092194
+    }
+  }
+}

@@ -3,20 +3,8 @@
  * @copyright (c) 2026 Sam Caldwell. See LICENSE.txt for details.
  * @brief CompressedPayload::serializeBlock() implementation.
  *
- * Serializes one compressed block into exactly kBlockPayloadBytes (16,899) bytes:
- *   1. 511 x 20-byte LH digests (SHA-1)     (10,220 bytes)
- *   2. 32-byte BH digest (SHA-256)           (32 bytes)
- *   3. 1-byte DI                             (1 byte)
- *   4. LSM:    511 x 9 bits, MSB-first packed   (4,599 bits)
- *   5. VSM:    511 x 9 bits, MSB-first packed   (4,599 bits)
- *   6. DSM:    1021 variable-width, MSB-first   (8,185 bits)
- *   7. XSM:    1021 variable-width, MSB-first   (8,185 bits)
- *   8. LTP1SM: variable-width (bit_width(ltp_len(k)) per element) (4,600 bits)
- *   9. LTP2SM: variable-width                                      (4,600 bits)
- *  10. LTP3SM: variable-width                                      (4,600 bits)
- *  11. LTP4SM: variable-width                                      (4,600 bits)
- *   Total cross-sum region: 43,968 bits (partial byte zero-padded)
- *   Grand total: 10,220 + 32 + 1 + ceil(43,968/8) = 15,749 bytes
+ * B.57: S=127, CRC-32 LH (4 bytes), 2 LTP sub-tables, b=7 bits per uniform element.
+ * Payload: 127×4 LH + 32 BH + 1 DI + bit-packed (LSM+VSM+DSM+XSM+LTP1+LTP2).
  */
 #include "common/Format/CompressedPayload/CompressedPayload.h"
 
@@ -39,7 +27,11 @@ namespace crsce::common::format {
         std::vector<std::uint8_t> buf(kBlockPayloadBytes, 0);
         std::size_t offset = 0;
 
-        // 1. Write 511 LH digests (20 bytes each)
+        // Bits per uniform cross-sum element: ceil(log2(kS+1)) = bit_width(kS)
+        const auto kBitsPerElement = static_cast<std::uint8_t>(
+            std::bit_width(static_cast<unsigned>(kS)));
+
+        // 1. Write kS LH digests (kLHDigestBytes each)
         for (std::uint16_t r = 0; r < kS; ++r) {
             std::memcpy(buf.data() + offset, lh_[r].data(), kLHDigestBytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             offset += kLHDigestBytes;
@@ -53,71 +45,43 @@ namespace crsce::common::format {
         buf[offset] = di_;
         offset += 1;
 
-        // 4-11. Bit-pack cross-sum vectors starting at byte offset
+        // 4-9. Bit-pack cross-sum vectors starting at byte offset
         std::size_t bitOffset = offset * 8;
 
-        // 4. LSM: 511 x 9 bits
+        // 4. LSM: kS × b bits
         for (std::uint16_t k = 0; k < kS; ++k) {
-            packBits(buf, bitOffset, lsm_[k], 9); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            packBits(buf, bitOffset, lsm_[k], kBitsPerElement); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
-        // 5. VSM: 511 x 9 bits
+        // 5. VSM: kS × b bits
         for (std::uint16_t k = 0; k < kS; ++k) {
-            packBits(buf, bitOffset, vsm_[k], 9); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            packBits(buf, bitOffset, vsm_[k], kBitsPerElement); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
-        // 6. DSM: 1021 variable-width
+        // 6. DSM: kDiagCount variable-width
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             const auto n = diagBits(k);
             packBits(buf, bitOffset, dsm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
-        // 7. XSM: 1021 variable-width
+        // 7. XSM: kDiagCount variable-width
         for (std::uint16_t k = 0; k < kDiagCount; ++k) {
             const auto n = diagBits(k);
             packBits(buf, bitOffset, xsm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
-        // 8. LTP1SM: 9 bits per element (B.23: bit_width(511) = 9 for all k)
+        // 8. LTP1SM: b bits per element
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
                 std::bit_width(decompress::solvers::ltpLineLen(k)));
             packBits(buf, bitOffset, ltp1sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
-        // 9. LTP2SM: variable-width
+        // 9. LTP2SM: b bits per element
         for (std::uint16_t k = 0; k < kS; ++k) {
             const auto n = static_cast<std::uint8_t>(
                 std::bit_width(decompress::solvers::ltpLineLen(k)));
             packBits(buf, bitOffset, ltp2sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        }
-
-        // 10. LTP3SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            packBits(buf, bitOffset, ltp3sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        }
-
-        // 11. LTP4SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            packBits(buf, bitOffset, ltp4sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        }
-
-        // 12. LTP5SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            packBits(buf, bitOffset, ltp5sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        }
-
-        // 13. LTP6SM: variable-width
-        for (std::uint16_t k = 0; k < kS; ++k) {
-            const auto n = static_cast<std::uint8_t>(
-                std::bit_width(decompress::solvers::ltpLineLen(k)));
-            packBits(buf, bitOffset, ltp6sm_[k], n); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
         return buf;

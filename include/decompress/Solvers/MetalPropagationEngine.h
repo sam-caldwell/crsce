@@ -35,7 +35,7 @@ namespace crsce::decompress::solvers {
          * @name kS
          * @brief Matrix dimension.
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kMaxIncrementalSteps
@@ -91,7 +91,8 @@ namespace crsce::decompress::solvers {
          * @name kMetalPropTotalLines
          * @brief Total number of constraint lines: 12s - 2 = 6130 (row, col, diag, anti-diag, LTP1-6).
          */
-        static constexpr std::size_t kMetalPropTotalLines = (12 * kS) - 2;
+        // B.46: expanded to accommodate rLTP5/rLTP6 variable-length lines
+        static constexpr std::size_t kMetalPropTotalLines = 1014;
 
         /**
          * @name work_

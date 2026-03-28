@@ -19,6 +19,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <span>
@@ -29,49 +30,56 @@ namespace crsce::decompress::solvers {
      * @name kLtpS
      * @brief Matrix dimension (511).
      */
-    inline constexpr std::uint16_t kLtpS = 511;
+    inline constexpr std::uint16_t kLtpS = 127;
 
     /**
      * @name kLtpNumLines
      * @brief Lines per LTP partition (511).
      */
-    inline constexpr std::uint16_t kLtpNumLines = 511;
+    inline constexpr std::uint16_t kLtpNumLines = 127;
 
     /**
      * @name kLtp1Base
      * @brief Flat stat-array base for LTP1 lines (= kBasicLines = 6s-2 = 3064).
      */
-    inline constexpr std::uint32_t kLtp1Base = 3064;
+    // B.57: kBasicLines = s + s + (2s-1) + (2s-1) = 6s-2 = 760 for S=127
+    inline constexpr std::uint32_t kLtp1Base = 760;
 
     /**
      * @name kLtp2Base
-     * @brief Flat stat-array base for LTP2 lines (7s-2 = 3575).
+     * @brief Flat stat-array base for LTP2 lines (kLtp1Base + s = 887).
      */
-    inline constexpr std::uint32_t kLtp2Base = 3575;
+    inline constexpr std::uint32_t kLtp2Base = kLtp1Base + kLtpS; // 887
 
     /**
      * @name kLtp3Base
-     * @brief Flat stat-array base for LTP3 lines (8s-2 = 4086).
+     * @brief Flat stat-array base for LTP3 lines (unused in B.57, 2-LTP config).
      */
-    inline constexpr std::uint32_t kLtp3Base = 4086;
+    inline constexpr std::uint32_t kLtp3Base = kLtp2Base + kLtpS; // 1014
 
     /**
      * @name kLtp4Base
-     * @brief Flat stat-array base for LTP4 lines (9s-2 = 4597).
+     * @brief Flat stat-array base for LTP4 lines (unused in B.57).
      */
-    inline constexpr std::uint32_t kLtp4Base = 4597;
+    inline constexpr std::uint32_t kLtp4Base = kLtp3Base + kLtpS; // 1141
 
     /**
      * @name kLtp5Base
-     * @brief Flat stat-array base for LTP5 lines (10s-2 = 5108).
+     * @brief Flat stat-array base for LTP5 lines (unused in B.57).
      */
-    inline constexpr std::uint32_t kLtp5Base = 5108;
+    inline constexpr std::uint32_t kLtp5Base = kLtp4Base + kLtpS; // 1268
+
+    /**
+     * @name kLtpNumVarlenLines
+     * @brief Lines per variable-length rLTP partition (2s-1 = 1021, B.46).
+     */
+    inline constexpr std::uint16_t kLtpNumVarlenLines = (2 * kLtpS) - 1;
 
     /**
      * @name kLtp6Base
-     * @brief Flat stat-array base for LTP6 lines (11s-2 = 5619).
+     * @brief Flat stat-array base for LTP6 lines. B.46: offset by 1021 (rLTP5 capacity).
      */
-    inline constexpr std::uint32_t kLtp6Base = 5619;
+    inline constexpr std::uint32_t kLtp6Base = kLtp5Base + kLtpNumVarlenLines; // 6129
 
     /**
      * @struct LtpCell
@@ -130,6 +138,23 @@ namespace crsce::decompress::solvers {
      */
     [[nodiscard]] inline std::uint32_t ltpLineLen([[maybe_unused]] const std::uint16_t k) noexcept {
         return static_cast<std::uint32_t>(kLtpS);
+    }
+
+    /**
+     * @name ltpVarLineLen
+     * @brief Return the length of variable-length rLTP line k (B.46).
+     *
+     * Follows the diagonal/anti-diagonal pattern: min(k+1, 511, 1021-k).
+     * Line 0 has 1 cell, line 510 has 511 cells, line 1020 has 1 cell.
+     *
+     * @param k Line index in [0, kLtpNumVarlenLines).
+     * @return Length of line k.
+     */
+    [[nodiscard]] inline std::uint32_t ltpVarLineLen(const std::uint16_t k) noexcept {
+        const auto kp1 = static_cast<std::uint32_t>(k) + 1U;
+        const auto s = static_cast<std::uint32_t>(kLtpS);
+        const auto mirror = static_cast<std::uint32_t>(kLtpNumVarlenLines) - static_cast<std::uint32_t>(k);
+        return std::min({kp1, s, mirror});
     }
 
     /**
@@ -192,5 +217,17 @@ namespace crsce::decompress::solvers {
      * @return Span of ltpLineLen(k) LtpCell entries.
      */
     [[nodiscard]] std::span<const LtpCell> ltp6CellsForLine(std::uint16_t k);
+
+    /**
+     * @name ltpFileIsValid
+     * @brief Return true iff the file at path can be parsed as a valid LTPB LTP table.
+     *
+     * Does NOT cache or modify the shared LTP singleton.  Used by tests and
+     * health-check tooling to verify file integrity independently of getLtpData().
+     *
+     * @param path Filesystem path to an LTPB file.
+     * @return True if the file parses successfully; false on any error.
+     */
+    [[nodiscard]] bool ltpFileIsValid(const char *path) noexcept;
 
 } // namespace crsce::decompress::solvers

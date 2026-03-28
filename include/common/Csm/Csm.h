@@ -32,13 +32,13 @@ namespace crsce::common {
          * @name kS
          * @brief Matrix dimension (number of rows and columns).
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kWordsPerRow
          * @brief Number of 64-bit words per row (512 / 64 = 8).
          */
-        static constexpr std::uint16_t kWordsPerRow = 8;
+        static constexpr std::uint16_t kWordsPerRow = 2;
 
         /**
          * @name Csm

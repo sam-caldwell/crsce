@@ -19,7 +19,7 @@ namespace {
     using crsce::common::DiagSum;
     using crsce::common::RowSum;
 
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
 
     // =======================================================================
     // RowSum tests
@@ -33,19 +33,19 @@ namespace {
     TEST(RowSumTest, InitialSumsAreZero) {
         const RowSum rs(kS);
         EXPECT_EQ(rs.get(0, 0), 0);
-        EXPECT_EQ(rs.get(255, 100), 0);
-        EXPECT_EQ(rs.get(510, 510), 0);
+        EXPECT_EQ(rs.get(63, 50), 0);
+        EXPECT_EQ(rs.get(126, 126), 0);
     }
 
     TEST(RowSumTest, SetAccumulatesInRow) {
         RowSum rs(kS);
-        // Accumulate value 1 at cells (5, 0), (5, 100), (5, 510)
+        // Accumulate value 1 at cells (5, 0), (5, 50), (5, 126)
         rs.set(5, 0, 1);
-        rs.set(5, 100, 1);
-        rs.set(5, 510, 1);
+        rs.set(5, 50, 1);
+        rs.set(5, 126, 1);
         // get(5, anything) should return 3 (all share row 5)
         EXPECT_EQ(rs.get(5, 0), 3);
-        EXPECT_EQ(rs.get(5, 200), 3);
+        EXPECT_EQ(rs.get(5, 80), 3);
         // Different row should still be 0
         EXPECT_EQ(rs.get(6, 0), 0);
     }
@@ -53,8 +53,8 @@ namespace {
     TEST(RowSumTest, LenAlwaysReturnsS) {
         const RowSum rs(kS);
         EXPECT_EQ(rs.len(0), kS);
-        EXPECT_EQ(rs.len(255), kS);
-        EXPECT_EQ(rs.len(510), kS);
+        EXPECT_EQ(rs.len(63), kS);
+        EXPECT_EQ(rs.len(126), kS);
     }
 
     TEST(RowSumTest, GetByIndexAndSetByIndex) {
@@ -78,19 +78,19 @@ namespace {
     TEST(ColSumTest, InitialSumsAreZero) {
         const ColSum cs(kS);
         EXPECT_EQ(cs.get(0, 0), 0);
-        EXPECT_EQ(cs.get(100, 255), 0);
-        EXPECT_EQ(cs.get(510, 510), 0);
+        EXPECT_EQ(cs.get(50, 63), 0);
+        EXPECT_EQ(cs.get(126, 126), 0);
     }
 
     TEST(ColSumTest, SetAccumulatesInColumn) {
         ColSum cs(kS);
-        // Accumulate value 1 at cells (0, 7), (100, 7), (510, 7)
+        // Accumulate value 1 at cells (0, 7), (50, 7), (126, 7)
         cs.set(0, 7, 1);
-        cs.set(100, 7, 1);
-        cs.set(510, 7, 1);
+        cs.set(50, 7, 1);
+        cs.set(126, 7, 1);
         // get(anything, 7) should return 3 (all share column 7)
         EXPECT_EQ(cs.get(0, 7), 3);
-        EXPECT_EQ(cs.get(200, 7), 3);
+        EXPECT_EQ(cs.get(80, 7), 3);
         // Different column should still be 0
         EXPECT_EQ(cs.get(0, 8), 0);
     }
@@ -98,8 +98,8 @@ namespace {
     TEST(ColSumTest, LenAlwaysReturnsS) {
         const ColSum cs(kS);
         EXPECT_EQ(cs.len(0), kS);
-        EXPECT_EQ(cs.len(255), kS);
-        EXPECT_EQ(cs.len(510), kS);
+        EXPECT_EQ(cs.len(63), kS);
+        EXPECT_EQ(cs.len(126), kS);
     }
 
     TEST(ColSumTest, GetByIndexAndSetByIndex) {
@@ -113,93 +113,88 @@ namespace {
     // DiagSum tests
     // =======================================================================
 
-    TEST(DiagSumTest, SizeEquals1021) {
+    TEST(DiagSumTest, SizeEquals253) {
         const DiagSum ds(kS);
-        // 2 * 511 - 1 = 1021
-        EXPECT_EQ(ds.size(), 1021);
+        // 2 * 127 - 1 = 253
+        EXPECT_EQ(ds.size(), 253);
     }
 
     TEST(DiagSumTest, InitialSumsAreZero) {
         const DiagSum ds(kS);
         EXPECT_EQ(ds.get(0, 0), 0);
-        EXPECT_EQ(ds.get(255, 255), 0);
-        EXPECT_EQ(ds.get(510, 510), 0);
+        EXPECT_EQ(ds.get(63, 63), 0);
+        EXPECT_EQ(ds.get(126, 126), 0);
     }
 
     TEST(DiagSumTest, LineIndexFormula) {
         // lineIndex(r, c) = c - r + (s - 1)
         DiagSum ds(kS);
 
-        // (0, 0): lineIndex = 0 - 0 + 510 = 510
+        // (0, 0): lineIndex = 0 - 0 + 126 = 126
         ds.set(0, 0, 1);
-        EXPECT_EQ(ds.getByIndex(510), 1);
+        EXPECT_EQ(ds.getByIndex(126), 1);
 
-        // (0, 510): lineIndex = 510 - 0 + 510 = 1020
-        ds.set(0, 510, 1);
-        EXPECT_EQ(ds.getByIndex(1020), 1);
+        // (0, 126): lineIndex = 126 - 0 + 126 = 252
+        ds.set(0, 126, 1);
+        EXPECT_EQ(ds.getByIndex(252), 1);
 
-        // (510, 0): lineIndex = 0 - 510 + 510 = 0
-        ds.set(510, 0, 1);
+        // (126, 0): lineIndex = 0 - 126 + 126 = 0
+        ds.set(126, 0, 1);
         EXPECT_EQ(ds.getByIndex(0), 1);
 
-        // (510, 510): lineIndex = 510 - 510 + 510 = 510
+        // (126, 126): lineIndex = 126 - 126 + 126 = 126
         // This shares the diagonal with (0, 0), so that index should now be 2
-        ds.set(510, 510, 1);
-        EXPECT_EQ(ds.getByIndex(510), 2);
+        ds.set(126, 126, 1);
+        EXPECT_EQ(ds.getByIndex(126), 2);
     }
 
     TEST(DiagSumTest, SetAccumulatesOnDiagonal) {
         DiagSum ds(kS);
-        // Cells (0, 0) and (1, 1) are on the same diagonal (lineIndex = 510)
+        // Cells (0, 0) and (1, 1) are on the same diagonal (lineIndex = 126)
         ds.set(0, 0, 1);
         ds.set(1, 1, 1);
         EXPECT_EQ(ds.get(0, 0), 2);
         EXPECT_EQ(ds.get(1, 1), 2);
-        // Cell (0, 1) is on a different diagonal (lineIndex = 511)
+        // Cell (0, 1) is on a different diagonal (lineIndex = 127)
         EXPECT_EQ(ds.get(0, 1), 0);
     }
 
     TEST(DiagSumTest, LenCornerDiagonals) {
         const DiagSum ds(kS);
-        // k = 0: min(1, 511, 1020) = 1
+        // k = 0: min(1, 127, 252) = 1
         EXPECT_EQ(ds.len(0), 1);
-        // k = 1020 (last diagonal): min(1021, 511, 0) = 0? No: 2*511-1-1020 = 0. min(1021,511,0) = 0?
-        // Actually 2*511-1 = 1021, 1021-1-1020 = 0. But a diagonal of length 0 is suspicious.
-        // Wait: k ranges [0, 2s-2] = [0, 1020]. k=1020: min(1021, 511, 1021-1-1020) = min(1021,511,0) = 0.
-        // Actually that's wrong. Let me recalculate: 2*s - 1 - k = 2*511 - 1 - 1020 = 1022 - 1 - 1020 = 1.
-        // So min(1021, 511, 1) = 1.
-        EXPECT_EQ(ds.len(1020), 1);
-        // k = 510 (main diagonal): min(511, 511, 1021-1-510) = min(511, 511, 510) = 510?
-        // 2*511-1-510 = 1022-1-510 = 511. min(511, 511, 511) = 511.
-        EXPECT_EQ(ds.len(510), 511);
+        // k = 252 (last diagonal): 2*127 - 1 - 252 = 254 - 1 - 252 = 1. min(253, 127, 1) = 1.
+        EXPECT_EQ(ds.len(252), 1);
+        // k = 126 (main diagonal): 2*127 - 1 - 126 = 127. min(127, 127, 127) = 127.
+        EXPECT_EQ(ds.len(126), 127);
     }
 
     TEST(DiagSumTest, LenSymmetric) {
         const DiagSum ds(kS);
         // Diagonal lengths should be symmetric: len(k) == len(2s-2-k)
-        EXPECT_EQ(ds.len(0), ds.len(1020));
-        EXPECT_EQ(ds.len(1), ds.len(1019));
-        EXPECT_EQ(ds.len(100), ds.len(920));
-        EXPECT_EQ(ds.len(510), ds.len(510)); // main diagonal is its own mirror
+        EXPECT_EQ(ds.len(0), ds.len(252));
+        EXPECT_EQ(ds.len(1), ds.len(251));
+        EXPECT_EQ(ds.len(50), ds.len(202));
+        EXPECT_EQ(ds.len(126), ds.len(126)); // main diagonal is its own mirror
     }
 
     TEST(DiagSumTest, LenGrowsThenShrinks) {
         const DiagSum ds(kS);
-        // len should increase from 1 to 511, then decrease back to 1
+        // len should increase from 1 to 127, then decrease back to 1
         EXPECT_EQ(ds.len(0), 1);
         EXPECT_EQ(ds.len(1), 2);
         EXPECT_EQ(ds.len(2), 3);
-        EXPECT_EQ(ds.len(509), 510);
-        EXPECT_EQ(ds.len(510), 511);
-        EXPECT_EQ(ds.len(511), 510);
-        EXPECT_EQ(ds.len(1019), 2);
-        EXPECT_EQ(ds.len(1020), 1);
+        EXPECT_EQ(ds.len(125), 126);
+        EXPECT_EQ(ds.len(126), 127);
+        EXPECT_EQ(ds.len(127), 126);
+        EXPECT_EQ(ds.len(251), 2);
+        EXPECT_EQ(ds.len(252), 1);
     }
 
     TEST(DiagSumTest, GetByIndexAndSetByIndex) {
         DiagSum ds(kS);
-        ds.setByIndex(510, 99);
-        EXPECT_EQ(ds.getByIndex(510), 99);
+        ds.setByIndex(126, 99);
+        EXPECT_EQ(ds.getByIndex(126), 99);
         EXPECT_EQ(ds.getByIndex(0), 0);
     }
 
@@ -207,16 +202,16 @@ namespace {
     // AntiDiagSum tests
     // =======================================================================
 
-    TEST(AntiDiagSumTest, SizeEquals1021) {
+    TEST(AntiDiagSumTest, SizeEquals253) {
         const AntiDiagSum xs(kS);
-        EXPECT_EQ(xs.size(), 1021);
+        EXPECT_EQ(xs.size(), 253);
     }
 
     TEST(AntiDiagSumTest, InitialSumsAreZero) {
         const AntiDiagSum xs(kS);
         EXPECT_EQ(xs.get(0, 0), 0);
-        EXPECT_EQ(xs.get(255, 255), 0);
-        EXPECT_EQ(xs.get(510, 510), 0);
+        EXPECT_EQ(xs.get(63, 63), 0);
+        EXPECT_EQ(xs.get(126, 126), 0);
     }
 
     TEST(AntiDiagSumTest, LineIndexFormula) {
@@ -227,17 +222,17 @@ namespace {
         xs.set(0, 0, 1);
         EXPECT_EQ(xs.getByIndex(0), 1);
 
-        // (510, 510): lineIndex = 1020
-        xs.set(510, 510, 1);
-        EXPECT_EQ(xs.getByIndex(1020), 1);
+        // (126, 126): lineIndex = 252
+        xs.set(126, 126, 1);
+        EXPECT_EQ(xs.getByIndex(252), 1);
 
-        // (0, 510): lineIndex = 510
-        xs.set(0, 510, 1);
-        EXPECT_EQ(xs.getByIndex(510), 1);
+        // (0, 126): lineIndex = 126
+        xs.set(0, 126, 1);
+        EXPECT_EQ(xs.getByIndex(126), 1);
 
-        // (510, 0): lineIndex = 510 (same anti-diagonal as (0, 510))
-        xs.set(510, 0, 1);
-        EXPECT_EQ(xs.getByIndex(510), 2);
+        // (126, 0): lineIndex = 126 (same anti-diagonal as (0, 126))
+        xs.set(126, 0, 1);
+        EXPECT_EQ(xs.getByIndex(126), 2);
     }
 
     TEST(AntiDiagSumTest, SetAccumulatesOnAntiDiagonal) {
@@ -253,36 +248,36 @@ namespace {
 
     TEST(AntiDiagSumTest, LenCornerAntiDiagonals) {
         const AntiDiagSum xs(kS);
-        // k = 0: min(1, 511, 1020) = 1
+        // k = 0: min(1, 127, 252) = 1
         EXPECT_EQ(xs.len(0), 1);
-        // k = 1020: min(1021, 511, 2*511-1-1020) = min(1021, 511, 1) = 1
-        EXPECT_EQ(xs.len(1020), 1);
-        // k = 510: min(511, 511, 511) = 511
-        EXPECT_EQ(xs.len(510), 511);
+        // k = 252: min(253, 127, 2*127-1-252) = min(253, 127, 1) = 1
+        EXPECT_EQ(xs.len(252), 1);
+        // k = 126: min(127, 127, 127) = 127
+        EXPECT_EQ(xs.len(126), 127);
     }
 
     TEST(AntiDiagSumTest, LenSymmetric) {
         const AntiDiagSum xs(kS);
-        EXPECT_EQ(xs.len(0), xs.len(1020));
-        EXPECT_EQ(xs.len(1), xs.len(1019));
-        EXPECT_EQ(xs.len(100), xs.len(920));
+        EXPECT_EQ(xs.len(0), xs.len(252));
+        EXPECT_EQ(xs.len(1), xs.len(251));
+        EXPECT_EQ(xs.len(50), xs.len(202));
     }
 
     TEST(AntiDiagSumTest, LenGrowsThenShrinks) {
         const AntiDiagSum xs(kS);
         EXPECT_EQ(xs.len(0), 1);
         EXPECT_EQ(xs.len(1), 2);
-        EXPECT_EQ(xs.len(509), 510);
-        EXPECT_EQ(xs.len(510), 511);
-        EXPECT_EQ(xs.len(511), 510);
-        EXPECT_EQ(xs.len(1019), 2);
-        EXPECT_EQ(xs.len(1020), 1);
+        EXPECT_EQ(xs.len(125), 126);
+        EXPECT_EQ(xs.len(126), 127);
+        EXPECT_EQ(xs.len(127), 126);
+        EXPECT_EQ(xs.len(251), 2);
+        EXPECT_EQ(xs.len(252), 1);
     }
 
     TEST(AntiDiagSumTest, GetByIndexAndSetByIndex) {
         AntiDiagSum xs(kS);
-        xs.setByIndex(510, 77);
-        EXPECT_EQ(xs.getByIndex(510), 77);
+        xs.setByIndex(126, 77);
+        EXPECT_EQ(xs.getByIndex(126), 77);
         EXPECT_EQ(xs.getByIndex(0), 0);
     }
 
@@ -295,8 +290,8 @@ namespace {
         DiagSum ds(kS);
         AntiDiagSum xs(kS);
 
-        const std::uint16_t r = 100;
-        const std::uint16_t c = 200;
+        const std::uint16_t r = 50;
+        const std::uint16_t c = 100;
 
         rs.set(r, c, 1);
         cs.set(r, c, 1);

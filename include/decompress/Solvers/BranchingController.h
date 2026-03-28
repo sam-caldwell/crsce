@@ -31,7 +31,7 @@ namespace crsce::decompress::solvers {
          * @name kS
          * @brief Matrix dimension.
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name BranchingController

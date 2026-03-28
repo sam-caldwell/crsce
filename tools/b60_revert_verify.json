@@ -1,0 +1,54 @@
+{
+  "experiment": "B.60b",
+  "config": {
+    "S": 127,
+    "N": 16129,
+    "geo_lines": 760,
+    "lh_equations": 4064,
+    "vh_equations": 4064,
+    "total_gf2_equations": 8888
+  },
+  "results": [
+    {
+      "source": "mp4_block_0",
+      "density": 0.1487,
+      "popcount": 2398,
+      "n_determined": 3600,
+      "n_free": 12529,
+      "pct_determined": 22.32,
+      "feasible": true,
+      "verified": false,
+      "total_time_s": 200.92,
+      "iterations": 2,
+      "outcome": "H4_NO_IMPROVEMENT",
+      "stats": [
+        {
+          "iteration": 1,
+          "D": 3600,
+          "F": 12529,
+          "gain": 3600,
+          "from_gauss": 4,
+          "from_intbound": 3596,
+          "from_crossdeduce": 0,
+          "rank": 7793,
+          "t_gauss": 101.774,
+          "t_int": 0.002,
+          "t_cross": 0.007
+        },
+        {
+          "iteration": 2,
+          "D": 3600,
+          "F": 12529,
+          "gain": 0,
+          "from_gauss": 0,
+          "from_intbound": 0,
+          "from_crossdeduce": 0,
+          "rank": 7678,
+          "t_gauss": 98.199,
+          "t_int": 0.0,
+          "t_cross": 0.008
+        }
+      ]
+    }
+  ]
+}

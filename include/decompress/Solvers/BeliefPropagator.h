@@ -104,13 +104,13 @@ namespace crsce::decompress::solvers {
          * @name kS
          * @brief Matrix dimension.
          */
-        static constexpr std::uint16_t kS = 511;
+        static constexpr std::uint16_t kS = 127;
 
         /**
          * @name kLineTypes
-         * @brief Number of constraint-line families (Row..LTP4).
+         * @brief Number of constraint-line families (Row, Col, Diag, AntiDiag, LTP1, LTP2).
          */
-        static constexpr std::uint8_t kLineTypes = 8;
+        static constexpr std::uint8_t kLineTypes = 6;
 
         /**
          * @name cs_

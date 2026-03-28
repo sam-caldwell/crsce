@@ -28,7 +28,7 @@ using crsce::decompress::solvers::PropagationEngine;
 using crsce::decompress::solvers::Sha256HashVerifier;
 
 namespace {
-    constexpr std::uint16_t kS = 511;
+    constexpr std::uint16_t kS = 127;
     constexpr std::uint16_t kNumDiags = (2 * kS) - 1;
 
     /**
@@ -75,8 +75,8 @@ namespace {
         for (std::uint16_t k = 0; k < kLtpNumLines; ++k) {
             ltpSums[k] = static_cast<std::uint16_t>(ltpLineLen(k) / 2U);
         }
-        return {std::vector<std::uint16_t>(kS, 255),
-                std::vector<std::uint16_t>(kS, 255),
+        return {std::vector<std::uint16_t>(kS, static_cast<std::uint16_t>(kS / 2)),
+                std::vector<std::uint16_t>(kS, static_cast<std::uint16_t>(kS / 2)),
                 diagSums,
                 antiDiagSums,
                 ltpSums, ltpSums, ltpSums, ltpSums, ltpSums, ltpSums};
@@ -86,7 +86,7 @@ namespace {
      * @brief Set expected hashes for all-zero rows on a hasher.
      */
     void setAllZeroExpectedHashes(Sha256HashVerifier &hasher) {
-        const std::array<std::uint64_t, 8> zeroRow{};
+        const std::array<std::uint64_t, 2> zeroRow{};
         const auto zeroDigest = hasher.computeHash(zeroRow);
         for (std::uint16_t r = 0; r < kS; ++r) {
             hasher.setExpected(r, zeroDigest);
@@ -108,7 +108,7 @@ TEST(FailedLiteralProberDeepTest, Depth1FeasibleMatchesProbeAlternate) {
     Sha256HashVerifier hasher(kS);
     FailedLiteralProber prober(store, propagator, brancher, hasher);
 
-    EXPECT_TRUE(prober.probeAlternateDeep(255, 255, 0, 1));
+    EXPECT_TRUE(prober.probeAlternateDeep(63, 63, 0, 1));
 }
 
 /**
@@ -155,7 +155,7 @@ TEST(FailedLiteralProberDeepTest, Depth2FeasibleMidRange) {
     Sha256HashVerifier hasher(kS);
     FailedLiteralProber prober(store, propagator, brancher, hasher);
 
-    EXPECT_TRUE(prober.probeAlternateDeep(255, 255, 0, 2));
+    EXPECT_TRUE(prober.probeAlternateDeep(63, 63, 0, 2));
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +185,7 @@ TEST(FailedLiteralProberDeepTest, Depth4FeasibleMidRange) {
     Sha256HashVerifier hasher(kS);
     FailedLiteralProber prober(store, propagator, brancher, hasher);
 
-    EXPECT_TRUE(prober.probeAlternateDeep(255, 255, 0, 4));
+    EXPECT_TRUE(prober.probeAlternateDeep(63, 63, 0, 4));
 }
 
 // ---------------------------------------------------------------------------
@@ -202,13 +202,13 @@ TEST(FailedLiteralProberDeepTest, DeepProbeDoesNotMutateState) {
     Sha256HashVerifier hasher(kS);
     FailedLiteralProber prober(store, propagator, brancher, hasher);
 
-    const auto stateBefore = store.getCellState(255, 255);
-    const auto rowUnknownBefore = store.getStatDirect(255).unknown;
+    const auto stateBefore = store.getCellState(63, 63);
+    const auto rowUnknownBefore = store.getStatDirect(63).unknown;
 
-    static_cast<void>(prober.probeAlternateDeep(255, 255, 0, 3));
+    static_cast<void>(prober.probeAlternateDeep(63, 63, 0, 3));
 
-    EXPECT_EQ(store.getCellState(255, 255), stateBefore);
-    EXPECT_EQ(store.getStatDirect(255).unknown, rowUnknownBefore);
+    EXPECT_EQ(store.getCellState(63, 63), stateBefore);
+    EXPECT_EQ(store.getStatDirect(63).unknown, rowUnknownBefore);
     EXPECT_EQ(store.getCellState(0, 0), CellState::Unassigned);
 }
 

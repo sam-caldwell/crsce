@@ -72,7 +72,7 @@ namespace crsce::testrunner_random::cli {
             // Emit structured error JSON with as much context as possible
             std::error_code ec_isz; const auto in_sz = std::filesystem::file_size(in_path, ec_isz);
             const std::uint64_t raw_bytes = ec_isz ? 0ULL : static_cast<std::uint64_t>(in_sz);
-            static constexpr std::uint64_t S = 511ULL;
+            static constexpr std::uint64_t S = 127ULL;
             const std::uint64_t bits_per_block = S * S;
             const std::uint64_t bits = raw_bytes * 8ULL;
             const std::uint64_t blocks = (bits == 0ULL) ? 0ULL : ((bits + bits_per_block - 1ULL) / bits_per_block);
