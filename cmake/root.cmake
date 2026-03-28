@@ -53,6 +53,7 @@ include(cmake/projects/test_collisions.cmake)
 include(cmake/projects/useless_test.cmake)
 include(cmake/projects/row_solver.cmake)
 include(cmake/projects/combinator_solver.cmake)
+include(cmake/projects/overlap_solver.cmake)
 include(cmake/pipeline/sources.cmake)
 
 # --- clang-tidy integration (optional) ---

@@ -1,0 +1,11 @@
+{
+  "search": {
+    "solved": false,
+    "max_depth": 19,
+    "candidates_tried": 43718,
+    "backtracks": 43718,
+    "col_completions": 0,
+    "col_prunings": 23453,
+    "row_completions": 1034
+  }
+}

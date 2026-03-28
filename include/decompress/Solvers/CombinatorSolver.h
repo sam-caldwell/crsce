@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "common/BlockHash/BlockHash.h"
 #include "common/Csm/Csm.h"
 
 namespace crsce::decompress::solvers {
@@ -108,8 +109,20 @@ namespace crsce::decompress::solvers {
             std::uint8_t xhBits = 32;
 
             /**
+             * @name lhBits
+             * @brief Hash width for LH: 16 (CRC-16) or 32 (CRC-32). Default 32.
+             */
+            std::uint8_t lhBits = 32;
+
+            /**
+             * @name vhBits
+             * @brief Hash width for VH: 16 (CRC-16) or 32 (CRC-32). Default 32.
+             */
+            std::uint8_t vhBits = 32;
+
+            /**
              * @name useVHInCascade
-             * @brief Include VH (CRC-32 per column) from Phase 1 in cascade mode.
+             * @brief Include VH from Phase 1 in cascade mode.
              */
             bool useVHInCascade = false;
 
@@ -118,6 +131,18 @@ namespace crsce::decompress::solvers {
              * @brief Multi-phase diagonal cascade mode (B.60l/m).
              */
             bool cascade = false;
+
+            /**
+             * @name cascadeMaxLen
+             * @brief Maximum diagonal length for cascade phases (0 = all 127).
+             */
+            std::uint16_t cascadeMaxLen = 0;
+
+            /**
+             * @name hybridWidths
+             * @brief Use per-phase hybrid hash widths: CRC-8/16/32 by diagonal length.
+             */
+            bool hybridWidths = false;
 
             /**
              * @name toroidal
@@ -185,6 +210,12 @@ namespace crsce::decompress::solvers {
              * @brief True if all determined values match the original CSM.
              */
             bool correct{false};
+
+            /**
+             * @name bhVerified
+             * @brief True if full solve AND SHA-256 block hash matches.
+             */
+            bool bhVerified{false};
         };
 
         /**
@@ -202,7 +233,51 @@ namespace crsce::decompress::solvers {
          * @return Result with determined cells and statistics.
          * @throws None
          */
+        /**
+         * @name preAssign
+         * @brief Pre-assign a cell value before the fixpoint (for overlap donation).
+         * @param r Row index.
+         * @param c Column index.
+         * @param v Cell value (0 or 1).
+         */
+        void preAssign(std::uint16_t r, std::uint16_t c, std::uint8_t v);
+
         [[nodiscard]] Result solve();
+
+        /**
+         * @struct LineStats
+         * @name LineStats
+         * @brief Per-line-family completion statistics.
+         */
+        struct LineStats {
+            std::uint16_t rowsComplete{0};
+            std::uint16_t rowsTotal{kS};
+            std::uint16_t colsComplete{0};
+            std::uint16_t colsTotal{kS};
+            std::uint16_t diagsComplete{0};
+            std::uint16_t diagsTotal{kDiagCount};
+            std::uint16_t antiDiagsComplete{0};
+            std::uint16_t antiDiagsTotal{kDiagCount};
+            std::uint16_t vhVerified{0};
+            std::uint16_t dhVerified{0};
+            std::uint16_t xhVerified{0};
+            /**
+             * @name diagCompleteByLength
+             * @brief Count of complete diagonals at each length (index = length, 0..127).
+             */
+            std::array<std::uint16_t, kS + 1> diagCompleteByLength{};
+            std::array<std::uint16_t, kS + 1> antiDiagCompleteByLength{};
+            std::array<std::uint16_t, kS + 1> diagTotalByLength{};
+            std::array<std::uint16_t, kS + 1> antiDiagTotalByLength{};
+        };
+
+        /**
+         * @name analyzeLines
+         * @brief Post-fixpoint per-line completion analysis with hash verification.
+         * @param csm The original CSM (for hash computation).
+         * @return LineStats.
+         */
+        [[nodiscard]] LineStats analyzeLines(const common::Csm &csm) const;
 
         /**
          * @name solveCascade
@@ -297,6 +372,12 @@ namespace crsce::decompress::solvers {
         std::array<std::uint8_t, kN> original_{};
 
         /**
+         * @name expectedBH_
+         * @brief Expected SHA-256 block hash of the original CSM.
+         */
+        std::array<std::uint8_t, 32> expectedBH_{};
+
+        /**
          * @name config_
          * @brief Constraint configuration.
          */
@@ -365,6 +446,20 @@ namespace crsce::decompress::solvers {
         void addXHRange(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
 
         /**
+         * @name addLH16
+         * @brief Add per-row CRC-16 (LH16) equations.
+         * @param csm The original CSM.
+         */
+        void addLH16(const common::Csm &csm);
+
+        /**
+         * @name addVH16
+         * @brief Add per-column CRC-16 (VH16) equations.
+         * @param csm The original CSM.
+         */
+        void addVH16(const common::Csm &csm);
+
+        /**
          * @name addDH16Range
          * @brief Add CRC-16 DH equations for DSM diagonals with length in [minLen, maxLen].
          * @param csm The original CSM.
@@ -381,6 +476,9 @@ namespace crsce::decompress::solvers {
          * @param maxLen Maximum anti-diagonal length.
          */
         void addXH16Range(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
+
+        void addDH8Range(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
+        void addXH8Range(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
 
         // solveCascade declared in public section
 

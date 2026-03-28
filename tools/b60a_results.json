@@ -1,0 +1,102 @@
+{
+  "experiment": "B.60a",
+  "config": {
+    "S": 127,
+    "N": 16129,
+    "diag_count": 253,
+    "geometric_equations": 760,
+    "lh_equations": 4064,
+    "vh_equations": 4064,
+    "total_equations": 8888
+  },
+  "results": [
+    {
+      "trial": 1,
+      "stratified": {
+        "LSM only": {
+          "rank": 127,
+          "null_dim": 16002,
+          "density": 0.0079
+        },
+        "LSM + VSM": {
+          "rank": 253,
+          "null_dim": 15876,
+          "density": 0.0157
+        },
+        "LSM + VSM + DSM": {
+          "rank": 504,
+          "null_dim": 15625,
+          "density": 0.0312
+        },
+        "4 geometric (LSM+VSM+DSM+XSM)": {
+          "rank": 753,
+          "null_dim": 15376,
+          "density": 0.0467
+        },
+        "+ LH (geometric + row CRC-32)": {
+          "rank": 4785,
+          "null_dim": 11344,
+          "density": 0.2967
+        },
+        "+ VH (geometric + LH + VH)": {
+          "rank": 7793,
+          "null_dim": 8336,
+          "density": 0.4832
+        }
+      },
+      "geometric_rank": 753,
+      "lh_contribution": 4032,
+      "vh_contribution": 3008,
+      "full_rank": 7793,
+      "full_null_dim": 8336,
+      "density": 0.4832
+    },
+    {
+      "trial": 2,
+      "stratified": {
+        "LSM only": {
+          "rank": 127,
+          "null_dim": 16002,
+          "density": 0.0079
+        },
+        "LSM + VSM": {
+          "rank": 253,
+          "null_dim": 15876,
+          "density": 0.0157
+        },
+        "LSM + VSM + DSM": {
+          "rank": 504,
+          "null_dim": 15625,
+          "density": 0.0312
+        },
+        "4 geometric (LSM+VSM+DSM+XSM)": {
+          "rank": 753,
+          "null_dim": 15376,
+          "density": 0.0467
+        },
+        "+ LH (geometric + row CRC-32)": {
+          "rank": 4785,
+          "null_dim": 11344,
+          "density": 0.2967
+        },
+        "+ VH (geometric + LH + VH)": {
+          "rank": 7793,
+          "null_dim": 8336,
+          "density": 0.4832
+        }
+      },
+      "geometric_rank": 753,
+      "lh_contribution": 4032,
+      "vh_contribution": 3008,
+      "full_rank": 7793,
+      "full_null_dim": 8336,
+      "density": 0.4832
+    }
+  ],
+  "outcome": "H2 (Partial)",
+  "b58_comparison": {
+    "b58_rank": 5037,
+    "b60_rank": 7793,
+    "improvement": 2756
+  }
+}

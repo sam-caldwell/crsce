@@ -1,0 +1,35 @@
+{
+  "experiment": "B.60e",
+  "block": 0,
+  "density": 0.1487,
+  "n_determined": 127,
+  "n_free": 16002,
+  "from_gauss": 0,
+  "from_intbound": 127,
+  "from_crossdeduce": 0,
+  "correct": true,
+  "time_s": 188.96,
+  "outcome": "H3 (Fewer cells)",
+  "stats": [
+    {
+      "iteration": 1,
+      "D": 127,
+      "F": 16002,
+      "gain": 127,
+      "from_gauss": 0,
+      "from_intbound": 127,
+      "from_crossdeduce": 0,
+      "rank": 7545
+    },
+    {
+      "iteration": 2,
+      "D": 127,
+      "F": 16002,
+      "gain": 0,
+      "from_gauss": 0,
+      "from_intbound": 0,
+      "from_crossdeduce": 0,
+      "rank": 7512
+    }
+  ]
+}

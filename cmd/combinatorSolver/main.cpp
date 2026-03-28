@@ -92,10 +92,54 @@ int main(const int argc, const char *const argv[]) { // NOLINT
                   .dhBits = 16, .xhBits = 16, .useVHInCascade = true,
                   .cascade = true, .toroidal = false};
     } else if (configName == "lh_vh_dh16_xh16_cascade") {
-        // B.60m Config A: LH + VH + CRC-16 DH64/XH64 cascade
+        // B.60m old Config A: LH32 + VH32 + CRC-16 DH64/XH64 cascade
         config = {.useLH = true, .useVH = false, .useDH = false, .dhMaxDiags = 0,
                   .useXH = false, .xhMaxDiags = 0,
-                  .dhBits = 16, .xhBits = 16, .useVHInCascade = true,
+                  .dhBits = 16, .xhBits = 16,
+                  .lhBits = 32, .vhBits = 32,
+                  .useVHInCascade = true,
+                  .cascade = true, .toroidal = false};
+    } else if (configName == "vh_dh32_xh32_cascade") {
+        // B.60p: VH32 + DH32_64 + XH32_64 cascade (no LH), limited to diag length ≤32
+        config = {.useLH = false, .useVH = false, .useDH = false, .dhMaxDiags = 0,
+                  .useXH = false, .xhMaxDiags = 0,
+                  .dhBits = 32, .xhBits = 32,
+                  .lhBits = 32, .vhBits = 32,
+                  .useVHInCascade = true,
+                  .cascade = true, .cascadeMaxLen = 32, .toroidal = false};
+    } else if (configName == "vh_dh8_xh8_cascade") {
+        // B.60q: VH32 + DH8_253 + XH8_253 cascade (no LH)
+        config = {.useLH = false, .useVH = false, .useDH = false, .dhMaxDiags = 0,
+                  .useXH = false, .xhMaxDiags = 0,
+                  .dhBits = 8, .xhBits = 8,
+                  .lhBits = 32, .vhBits = 32,
+                  .useVHInCascade = true,
+                  .cascade = true, .cascadeMaxLen = 0, .toroidal = false};
+    } else if (configName == "hybrid_cascade") {
+        // B.60r: Hybrid CRC-8/16/32 DH128+XH128 + VH32 cascade
+        config = {.useLH = false, .useVH = false, .useDH = false, .dhMaxDiags = 0,
+                  .useXH = false, .xhMaxDiags = 0,
+                  .dhBits = 32, .xhBits = 32,
+                  .lhBits = 32, .vhBits = 32,
+                  .useVHInCascade = true,
+                  .cascade = true, .cascadeMaxLen = 0,
+                  .hybridWidths = true, .toroidal = false};
+    } else if (configName == "lh16_vh16_hybrid_cascade") {
+        // B.60s: LH16 + VH16 + hybrid DH128/XH128 cascade
+        config = {.useLH = true, .useVH = false, .useDH = false, .dhMaxDiags = 0,
+                  .useXH = false, .xhMaxDiags = 0,
+                  .dhBits = 32, .xhBits = 32,
+                  .lhBits = 16, .vhBits = 16,
+                  .useVHInCascade = true,
+                  .cascade = true, .cascadeMaxLen = 0,
+                  .hybridWidths = true, .toroidal = false};
+    } else if (configName == "all16_cascade") {
+        // B.60m revised: LH16 + VH16 + DH16_64 + XH16_64 cascade (all CRC-16)
+        config = {.useLH = true, .useVH = false, .useDH = false, .dhMaxDiags = 0,
+                  .useXH = false, .xhMaxDiags = 0,
+                  .dhBits = 16, .xhBits = 16,
+                  .lhBits = 16, .vhBits = 16,
+                  .useVHInCascade = true,
                   .cascade = true, .toroidal = false};
     } else {
         std::fprintf(stderr, "unknown config: %s\n", configName.c_str());
@@ -147,6 +191,33 @@ int main(const int argc, const char *const argv[]) { // NOLINT
     std::fprintf(stderr, "  Iterations:  %u\n", result.iterations);
     std::fprintf(stderr, "  Feasible:    %s\n", result.feasible ? "true" : "false");
     std::fprintf(stderr, "  Correct:     %s\n", result.correct ? "true" : "false");
+    std::fprintf(stderr, "  BH verified: %s\n", result.bhVerified ? "true" : "false");
+
+    // Per-line analysis
+    const auto ls = solver.analyzeLines(csm);
+    std::fprintf(stderr, "\nLine completion:\n");
+    std::fprintf(stderr, "  Rows:       %u / %u\n", ls.rowsComplete, ls.rowsTotal);
+    std::fprintf(stderr, "  Columns:    %u / %u (VH verified: %u)\n", ls.colsComplete, ls.colsTotal, ls.vhVerified);
+    std::fprintf(stderr, "  Diags:      %u / %u (DH verified: %u)\n", ls.diagsComplete, ls.diagsTotal, ls.dhVerified);
+    std::fprintf(stderr, "  AntiDiags:  %u / %u (XH verified: %u)\n", ls.antiDiagsComplete, ls.antiDiagsTotal, ls.xhVerified);
+
+    // Diagonal completion by length
+    std::fprintf(stderr, "\nDiag completion by length:\n");
+    std::fprintf(stderr, "  len | diags done/total | anti done/total\n");
+    std::fprintf(stderr, "  ----|------------------|----------------\n");
+    for (int len = 1; len <= 127; ++len) {
+        const auto dt = ls.diagTotalByLength[len]; // NOLINT
+        const auto dc = ls.diagCompleteByLength[len]; // NOLINT
+        const auto at = ls.antiDiagTotalByLength[len]; // NOLINT
+        const auto ac = ls.antiDiagCompleteByLength[len]; // NOLINT
+        if (dt == 0 && at == 0) { continue; }
+        if (dc == dt && ac == at) {
+            std::fprintf(stderr, "  %3d |     %3u / %3u    |     %3u / %3u\n", len, dc, dt, ac, at);
+        } else {
+            std::fprintf(stderr, "  %3d |     %3u / %3u  * |     %3u / %3u %s\n",
+                         len, dc, dt, ac, at, (ac < at) ? "*" : "");
+        }
+    }
 
     return result.feasible ? 0 : 1;
 }

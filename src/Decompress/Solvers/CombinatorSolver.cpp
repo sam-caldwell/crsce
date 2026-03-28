@@ -14,6 +14,8 @@
 #include <utility>
 #include <vector>
 
+#include "common/BlockHash/BlockHash.h"
+#include "common/Util/crc8.h"
 #include "common/Util/crc16_ccitt.h"
 #include "common/Util/crc32_ieee.h"
 #include "decompress/Solvers/Crc32RowCompleter.h"
@@ -99,6 +101,82 @@ namespace crsce::decompress::solvers {
             return {gm, c0};
         }
 
+        /**
+         * @name crc16OfBits
+         * @brief CRC-16 of a variable-length bit vector.
+         */
+        std::uint16_t crc16OfBits(const std::uint8_t *bits, const std::uint16_t len) {
+            const auto totalBytes = static_cast<std::size_t>((len + 1 + 7) / 8);
+            std::array<std::uint8_t, 16> msg{};
+            for (std::uint16_t k = 0; k < len; ++k) {
+                if (bits[k]) {
+                    msg[k / 8] |= static_cast<std::uint8_t>(1U << (7U - (k % 8U))); // NOLINT
+                }
+            }
+            return common::util::crc16_ccitt(msg.data(), totalBytes);
+        }
+
+        /**
+         * @name buildGenMatrix16ForLength
+         * @brief Build 16 x len GF(2) generator matrix for CRC-16.
+         */
+        std::pair<std::vector<std::array<std::uint8_t, 128>>, std::uint16_t>
+        buildGenMatrix16ForLength(const std::uint16_t len) {
+            const auto totalBytes = static_cast<std::size_t>((len + 1 + 7) / 8);
+            std::array<std::uint8_t, 16> zeroMsg{};
+            const auto c0 = common::util::crc16_ccitt(zeroMsg.data(), totalBytes);
+            std::vector<std::array<std::uint8_t, 128>> gm(16);
+            for (auto &row : gm) { row.fill(0); }
+            for (std::uint16_t col = 0; col < len; ++col) {
+                std::array<std::uint8_t, 16> msg{};
+                msg[col / 8] = static_cast<std::uint8_t>(1U << (7U - (col % 8U))); // NOLINT
+                const auto crcUnit = common::util::crc16_ccitt(msg.data(), totalBytes);
+                const auto colVal = static_cast<std::uint16_t>(crcUnit ^ c0);
+                for (std::uint8_t bit = 0; bit < 16; ++bit) {
+                    gm[bit][col] = static_cast<std::uint8_t>((colVal >> bit) & 1U); // NOLINT
+                }
+            }
+            return {gm, c0};
+        }
+
+        /**
+         * @name crc8OfBits
+         * @brief CRC-8 of a variable-length bit vector.
+         */
+        std::uint8_t crc8OfBits(const std::uint8_t *bits, const std::uint16_t len) {
+            const auto totalBytes = static_cast<std::size_t>((len + 1 + 7) / 8);
+            std::array<std::uint8_t, 16> msg{};
+            for (std::uint16_t k = 0; k < len; ++k) {
+                if (bits[k]) {
+                    msg[k / 8] |= static_cast<std::uint8_t>(1U << (7U - (k % 8U))); // NOLINT
+                }
+            }
+            return common::util::crc8(msg.data(), totalBytes);
+        }
+
+        /**
+         * @name buildGenMatrix8ForLength
+         * @brief Build 8 x len GF(2) generator matrix for CRC-8.
+         */
+        std::pair<std::vector<std::array<std::uint8_t, 128>>, std::uint8_t>
+        buildGenMatrix8ForLength(const std::uint16_t len) {
+            const auto totalBytes = static_cast<std::size_t>((len + 1 + 7) / 8);
+            std::array<std::uint8_t, 16> zeroMsg{};
+            const auto c0 = common::util::crc8(zeroMsg.data(), totalBytes);
+            std::vector<std::array<std::uint8_t, 128>> gm(8);
+            for (auto &row : gm) { row.fill(0); }
+            for (std::uint16_t col = 0; col < len; ++col) {
+                std::array<std::uint8_t, 16> msg{};
+                msg[col / 8] = static_cast<std::uint8_t>(1U << (7U - (col % 8U))); // NOLINT
+                const auto crcUnit = common::util::crc8(msg.data(), totalBytes);
+                const auto colVal = static_cast<std::uint8_t>(crcUnit ^ c0);
+                for (std::uint8_t bit = 0; bit < 8; ++bit) {
+                    gm[bit][col] = static_cast<std::uint8_t>((colVal >> bit) & 1U); // NOLINT
+                }
+            }
+            return {gm, c0};
+        }
+
     } // anonymous namespace
 
     // ── Constructor ─────────────────────────────────────────────────────
@@ -115,6 +193,7 @@ namespace crsce::decompress::solvers {
             }
         }
 
+        expectedBH_ = common::BlockHash::compute(csm);
         buildSystem(csm);
     }
 
@@ -133,8 +212,12 @@ namespace crsce::decompress::solvers {
 
     void CombinatorSolver::buildSystem(const common::Csm &csm) {
         addGeometricParity(csm);
-        if (config_.useLH) { addLH(csm); }
-        if (config_.useVH) { addVH(csm); }
+        if (config_.useLH) {
+            if (config_.lhBits == 16) { addLH16(csm); } else { addLH(csm); }
+        }
+        if (config_.useVH) {
+            if (config_.vhBits == 16) { addVH16(csm); } else { addVH(csm); }
+        }
         if (config_.useDH) { addDH(csm); }
         if (config_.useXH) { addXH(csm); }
     }
@@ -389,6 +472,59 @@ namespace crsce::decompress::solvers {
         }
     }
 
+    // ── CRC-16 LH and VH ─────────────────────────────────────────────
+
+    void CombinatorSolver::addLH16(const common::Csm &csm) {
+        const auto [gm, c0] = buildGenMatrix16ForLength(kS);
+        for (std::uint16_t r = 0; r < kS; ++r) {
+            std::array<std::uint8_t, 16> msg{};
+            for (std::uint16_t c = 0; c < kS; ++c) {
+                if (csm.get(r, c)) {
+                    msg[c / 8] |= static_cast<std::uint8_t>(1U << (7U - (c % 8U))); // NOLINT
+                }
+            }
+            const auto rowCrc = common::util::crc16_ccitt(msg.data(), msg.size());
+            for (std::uint8_t bit = 0; bit < 16; ++bit) {
+                GF2Row gf2row{};
+                const auto baseCol = static_cast<std::uint32_t>(r) * kS;
+                for (std::uint16_t c = 0; c < kS; ++c) {
+                    if (gm[bit][c]) { // NOLINT
+                        const auto flat = baseCol + c;
+                        gf2row[flat / 64] |= (std::uint64_t{1} << (flat % 64)); // NOLINT
+                    }
+                }
+                const auto t = static_cast<std::uint8_t>(((rowCrc >> bit) & 1U) ^ ((c0 >> bit) & 1U));
+                gf2Rows_.push_back(gf2row);
+                gf2Target_.push_back(t);
+            }
+        }
+    }
+
+    void CombinatorSolver::addVH16(const common::Csm &csm) {
+        const auto [gm, c0] = buildGenMatrix16ForLength(kS);
+        for (std::uint16_t c = 0; c < kS; ++c) {
+            std::array<std::uint8_t, 16> msg{};
+            for (std::uint16_t r = 0; r < kS; ++r) {
+                if (csm.get(r, c)) {
+                    msg[r / 8] |= static_cast<std::uint8_t>(1U << (7U - (r % 8U))); // NOLINT
+                }
+            }
+            const auto colCrc = common::util::crc16_ccitt(msg.data(), msg.size());
+            for (std::uint8_t bit = 0; bit < 16; ++bit) {
+                GF2Row gf2row{};
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    if (gm[bit][r]) { // NOLINT
+                        const auto flat = static_cast<std::uint32_t>(r) * kS + c;
+                        gf2row[flat / 64] |= (std::uint64_t{1} << (flat % 64)); // NOLINT
+                    }
+                }
+                const auto t = static_cast<std::uint8_t>(((colCrc >> bit) & 1U) ^ ((c0 >> bit) & 1U));
+                gf2Rows_.push_back(gf2row);
+                gf2Target_.push_back(t);
+            }
+        }
+    }
+
     // ── XH (anti-diagonal CRC-32) ─────────────────────────────────────
 
     void CombinatorSolver::addXH(const common::Csm &csm) {
@@ -584,40 +720,6 @@ namespace crsce::decompress::solvers {
         }
     }
 
-    // ── CRC-16 helpers ────────────────────────────────────────────────
-
-    namespace {
-        std::uint16_t crc16OfBits(const std::uint8_t *bits, const std::uint16_t len) {
-            const auto totalBytes = static_cast<std::size_t>((len + 1 + 7) / 8);
-            std::array<std::uint8_t, 16> msg{};
-            for (std::uint16_t k = 0; k < len; ++k) {
-                if (bits[k]) {
-                    msg[k / 8] |= static_cast<std::uint8_t>(1U << (7U - (k % 8U))); // NOLINT
-                }
-            }
-            return common::util::crc16_ccitt(msg.data(), totalBytes);
-        }
-
-        std::pair<std::vector<std::array<std::uint8_t, 128>>, std::uint16_t>
-        buildGenMatrix16ForLength(const std::uint16_t len) {
-            const auto totalBytes = static_cast<std::size_t>((len + 1 + 7) / 8);
-            std::array<std::uint8_t, 16> zeroMsg{};
-            const auto c0 = common::util::crc16_ccitt(zeroMsg.data(), totalBytes);
-            std::vector<std::array<std::uint8_t, 128>> gm(16);
-            for (auto &row : gm) { row.fill(0); }
-            for (std::uint16_t col = 0; col < len; ++col) {
-                std::array<std::uint8_t, 16> msg{};
-                msg[col / 8] = static_cast<std::uint8_t>(1U << (7U - (col % 8U))); // NOLINT
-                const auto crcUnit = common::util::crc16_ccitt(msg.data(), totalBytes);
-                const auto colVal = static_cast<std::uint16_t>(crcUnit ^ c0);
-                for (std::uint8_t bit = 0; bit < 16; ++bit) {
-                    gm[bit][col] = static_cast<std::uint8_t>((colVal >> bit) & 1U); // NOLINT
-                }
-            }
-            return {gm, c0};
-        }
-    } // anonymous namespace
-
     // ── CRC-16 DH/XH range methods ─────────────────────────────────────
 
     void CombinatorSolver::addDH16Range(const common::Csm &csm,
@@ -718,36 +820,148 @@ namespace crsce::decompress::solvers {
         }
     }
 
+    // ── CRC-8 DH/XH range methods ────────────────────────────────────
+
+    void CombinatorSolver::addDH8Range(const common::Csm &csm,
+                                        const std::uint16_t minLen,
+                                        const std::uint16_t maxLen) {
+        struct GenInfo8 { std::vector<std::array<std::uint8_t, 128>> gm; std::uint8_t c0; };
+        std::array<GenInfo8, 128> cache{};
+        std::array<bool, 128> cached{};
+        cached.fill(false);
+
+        for (std::uint16_t d = 0; d < kDiagCount; ++d) {
+            const auto cells = diagCells(d);
+            const auto dlen = static_cast<std::uint16_t>(cells.size());
+            if (dlen < minLen || dlen > maxLen) { continue; }
+            if (!cached[dlen]) {
+                auto [gm, c0] = buildGenMatrix8ForLength(dlen);
+                cache[dlen] = {std::move(gm), c0};
+                cached[dlen] = true;
+            }
+            const auto &gi = cache[dlen];
+            std::vector<std::uint8_t> diagBits(dlen);
+            for (std::uint16_t j = 0; j < dlen; ++j) {
+                const auto r = static_cast<std::uint16_t>(cells[j] / kS);
+                const auto c = static_cast<std::uint16_t>(cells[j] % kS);
+                diagBits[j] = csm.get(r, c);
+            }
+            const auto diagCrc = crc8OfBits(diagBits.data(), dlen);
+            for (std::uint8_t bit = 0; bit < 8; ++bit) {
+                std::uint8_t adjT = static_cast<std::uint8_t>(
+                    ((diagCrc >> bit) & 1U) ^ ((gi.c0 >> bit) & 1U));
+                GF2Row adjRow{};
+                for (std::uint16_t j = 0; j < dlen; ++j) {
+                    const auto flat = cells[j];
+                    if (cellState_[flat] >= 0) {
+                        if (cellState_[flat] == 1 && gi.gm[bit][j]) { adjT ^= 1; } // NOLINT
+                    } else if (gi.gm[bit][j]) { // NOLINT
+                        adjRow[flat / 64] |= (std::uint64_t{1} << (flat % 64)); // NOLINT
+                    }
+                }
+                gf2Rows_.push_back(adjRow);
+                gf2Target_.push_back(adjT);
+            }
+        }
+    }
+
+    void CombinatorSolver::addXH8Range(const common::Csm &csm,
+                                        const std::uint16_t minLen,
+                                        const std::uint16_t maxLen) {
+        struct GenInfo8 { std::vector<std::array<std::uint8_t, 128>> gm; std::uint8_t c0; };
+        std::array<GenInfo8, 128> cache{};
+        std::array<bool, 128> cached{};
+        cached.fill(false);
+
+        for (std::uint16_t x = 0; x < kDiagCount; ++x) {
+            const auto cells = antiDiagCells(x);
+            const auto xlen = static_cast<std::uint16_t>(cells.size());
+            if (xlen < minLen || xlen > maxLen) { continue; }
+            if (!cached[xlen]) {
+                auto [gm, c0] = buildGenMatrix8ForLength(xlen);
+                cache[xlen] = {std::move(gm), c0};
+                cached[xlen] = true;
+            }
+            const auto &gi = cache[xlen];
+            std::vector<std::uint8_t> xBits(xlen);
+            for (std::uint16_t j = 0; j < xlen; ++j) {
+                const auto r = static_cast<std::uint16_t>(cells[j] / kS);
+                const auto c = static_cast<std::uint16_t>(cells[j] % kS);
+                xBits[j] = csm.get(r, c);
+            }
+            const auto xCrc = crc8OfBits(xBits.data(), xlen);
+            for (std::uint8_t bit = 0; bit < 8; ++bit) {
+                std::uint8_t adjT = static_cast<std::uint8_t>(
+                    ((xCrc >> bit) & 1U) ^ ((gi.c0 >> bit) & 1U));
+                GF2Row adjRow{};
+                for (std::uint16_t j = 0; j < xlen; ++j) {
+                    const auto flat = cells[j];
+                    if (cellState_[flat] >= 0) {
+                        if (cellState_[flat] == 1 && gi.gm[bit][j]) { adjT ^= 1; } // NOLINT
+                    } else if (gi.gm[bit][j]) { // NOLINT
+                        adjRow[flat / 64] |= (std::uint64_t{1} << (flat % 64)); // NOLINT
+                    }
+                }
+                gf2Rows_.push_back(adjRow);
+                gf2Target_.push_back(adjT);
+            }
+        }
+    }
+
     // ── Multi-phase cascade solve ───────────────────────────────────────
 
     auto CombinatorSolver::solveCascade(const common::Csm &csm) -> Result {
-        // Phase boundaries depend on hash width
-        const bool use16 = (config_.dhBits == 16);
-        // CRC-16: fully determines diags of length ≤16; CRC-32: ≤32
-        static constexpr std::array<std::pair<std::uint16_t, std::uint16_t>, 4> phases32 = {{
-            {1, 32}, {33, 64}, {65, 96}, {97, 127}
+        // Hybrid phases: each phase uses the minimum CRC width that fully determines its length range
+        struct PhaseSpec {
+            std::uint16_t minLen;
+            std::uint16_t maxLen;
+            std::uint8_t hashBits;  // 8, 16, or 32
+        };
+        static constexpr std::array<PhaseSpec, 4> hybridPhases = {{
+            {1, 8, 8}, {9, 16, 16}, {17, 32, 32}, {33, 64, 16}
         }};
-        static constexpr std::array<std::pair<std::uint16_t, std::uint16_t>, 4> phases16 = {{
-            {1, 16}, {17, 32}, {33, 64}, {65, 127}
+        static constexpr std::array<PhaseSpec, 4> uniform32Phases = {{
+            {1, 32, 32}, {33, 64, 32}, {65, 96, 32}, {97, 127, 32}
         }};
-        const auto &phases = use16 ? phases16 : phases32;
+        static constexpr std::array<PhaseSpec, 4> uniform16Phases = {{
+            {1, 16, 16}, {17, 32, 16}, {33, 64, 16}, {65, 127, 16}
+        }};
+        static constexpr std::array<PhaseSpec, 4> uniform8Phases = {{
+            {1, 8, 8}, {9, 16, 8}, {17, 32, 8}, {33, 127, 8}
+        }};
+
+        const auto &phases = config_.hybridWidths ? hybridPhases
+            : (config_.dhBits == 8) ? uniform8Phases
+            : (config_.dhBits == 16) ? uniform16Phases
+            : uniform32Phases;
 
         // Add VH from the start if configured
         if (config_.useVHInCascade) {
-            addVH(csm);
-            std::fprintf(stderr, "  VH added: +%u equations\n", static_cast<unsigned>(kS * 32));
+            if (config_.vhBits == 16) { addVH16(csm); } else { addVH(csm); }
+            std::fprintf(stderr, "  VH%u added: +%u equations\n",
+                         config_.vhBits, static_cast<unsigned>(kS * config_.vhBits));
         }
 
         Result result;
         result.free = kN;
 
+        const auto cascadeLimit = (config_.cascadeMaxLen > 0)
+            ? config_.cascadeMaxLen : static_cast<std::uint16_t>(kS);
+
         for (std::size_t phase = 0; phase < phases.size(); ++phase) {
-            const auto [minLen, maxLen] = phases[phase]; // NOLINT
+            auto minLen = phases[phase].minLen; // NOLINT
+            auto maxLen = phases[phase].maxLen; // NOLINT
+            const auto phaseBits = phases[phase].hashBits; // NOLINT
+            if (minLen > cascadeLimit) { break; }
+            if (maxLen > cascadeLimit) { maxLen = cascadeLimit; }
             const auto prevDet = result.determined;
 
-            // Add DH/XH equations for this phase's length range
+            // Add DH/XH equations for this phase's length range using phase-specific width
             const auto rowsBefore = gf2Rows_.size();
-            if (use16) {
+            if (phaseBits == 8) {
+                addDH8Range(csm, minLen, maxLen);
+                addXH8Range(csm, minLen, maxLen);
+            } else if (phaseBits == 16) {
                 addDH16Range(csm, minLen, maxLen);
                 addXH16Range(csm, minLen, maxLen);
             } else {
@@ -756,8 +970,8 @@ namespace crsce::decompress::solvers {
             }
             const auto rowsAdded = gf2Rows_.size() - rowsBefore;
 
-            std::fprintf(stderr, "\n  Phase %zu (diag len %u-%u): +%zu GF2 equations (%zu total)\n",
-                         phase + 1, minLen, maxLen, rowsAdded, gf2Rows_.size());
+            std::fprintf(stderr, "\n  Phase %zu (diag len %u-%u, CRC-%u): +%zu GF2 equations (%zu total)\n",
+                         phase + 1, minLen, maxLen, phaseBits, rowsAdded, gf2Rows_.size());
 
             // Run fixpoint to convergence
             for (std::uint32_t iter = 1; iter <= 200; ++iter) {
@@ -812,7 +1026,7 @@ namespace crsce::decompress::solvers {
             }
         }
 
-        // Verify
+        // Verify cell values against original
         result.correct = true;
         for (std::uint32_t flat = 0; flat < kN; ++flat) {
             if (cellState_[flat] >= 0) {
@@ -823,7 +1037,149 @@ namespace crsce::decompress::solvers {
             }
         }
 
+        // SHA-256 block hash verification (only if fully solved)
+        if (result.determined == kN) {
+            common::Csm reconstructed;
+            for (std::uint16_t r = 0; r < kS; ++r) {
+                for (std::uint16_t c = 0; c < kS; ++c) {
+                    reconstructed.set(r, c, static_cast<std::uint8_t>(
+                        cellState_[static_cast<std::uint32_t>(r) * kS + c]));
+                }
+            }
+            result.bhVerified = common::BlockHash::verify(reconstructed, expectedBH_);
+        }
+
         return result;
+    }
+
+    // ── Pre-assignment (overlap donation) ─────────────────────────────
+
+    void CombinatorSolver::preAssign(const std::uint16_t r, const std::uint16_t c,
+                                      const std::uint8_t v) {
+        const auto flat = static_cast<std::uint32_t>(r) * kS + c;
+        if (cellState_[flat] >= 0) { return; } // already assigned
+        assignCell(flat, v);
+        // Propagate into GF(2) system
+        const auto word = flat / 64;
+        const auto bit = std::uint64_t{1} << (flat % 64);
+        for (std::size_t i = 0; i < gf2Rows_.size(); ++i) {
+            if (gf2Rows_[i][word] & bit) { // NOLINT
+                if (v == 1) { gf2Target_[i] ^= 1; }
+                gf2Rows_[i][word] &= ~bit; // NOLINT
+            }
+        }
+    }
+
+    // ── Per-line analysis ────────────────────────────────────────────────
+
+    auto CombinatorSolver::analyzeLines(const common::Csm &csm) const -> LineStats {
+        LineStats ls;
+
+        // Rows
+        for (std::uint16_t r = 0; r < kS; ++r) {
+            bool complete = true;
+            for (std::uint16_t c = 0; c < kS; ++c) {
+                if (cellState_[static_cast<std::uint32_t>(r) * kS + c] < 0) {
+                    complete = false;
+                    break;
+                }
+            }
+            if (complete) { ++ls.rowsComplete; }
+        }
+
+        // Columns + VH verification
+        for (std::uint16_t c = 0; c < kS; ++c) {
+            bool complete = true;
+            for (std::uint16_t r = 0; r < kS; ++r) {
+                if (cellState_[static_cast<std::uint32_t>(r) * kS + c] < 0) {
+                    complete = false;
+                    break;
+                }
+            }
+            if (complete) {
+                ++ls.colsComplete;
+                // VH32 verification
+                std::array<std::uint8_t, 16> msg{};
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    if (cellState_[static_cast<std::uint32_t>(r) * kS + c] == 1) {
+                        msg[r / 8] |= static_cast<std::uint8_t>(1U << (7U - (r % 8U))); // NOLINT
+                    }
+                }
+                const auto solvedCrc = common::util::crc32_ieee(msg.data(), msg.size());
+                // Compute expected from original
+                std::array<std::uint8_t, 16> origMsg{};
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    if (csm.get(r, c)) {
+                        origMsg[r / 8] |= static_cast<std::uint8_t>(1U << (7U - (r % 8U))); // NOLINT
+                    }
+                }
+                const auto expectedCrc = common::util::crc32_ieee(origMsg.data(), origMsg.size());
+                if (solvedCrc == expectedCrc) { ++ls.vhVerified; }
+            }
+        }
+
+        // DSM diagonals + DH verification
+        for (std::uint16_t d = 0; d < kDiagCount; ++d) {
+            const auto cells = diagCells(d);
+            const auto dlen = static_cast<std::uint16_t>(cells.size());
+            ls.diagTotalByLength[dlen]++; // NOLINT
+
+            bool complete = true;
+            for (const auto flat : cells) {
+                if (cellState_[flat] < 0) { complete = false; break; }
+            }
+            if (complete) {
+                ++ls.diagsComplete;
+                ls.diagCompleteByLength[dlen]++; // NOLINT
+
+                // DH16 verification (if dlen <= 64, i.e., in DH64)
+                if (dlen <= 64) {
+                    std::vector<std::uint8_t> bits(dlen);
+                    std::vector<std::uint8_t> origBits(dlen);
+                    for (std::uint16_t j = 0; j < dlen; ++j) {
+                        bits[j] = static_cast<std::uint8_t>(cellState_[cells[j]]);
+                        const auto r = static_cast<std::uint16_t>(cells[j] / kS);
+                        const auto c = static_cast<std::uint16_t>(cells[j] % kS);
+                        origBits[j] = csm.get(r, c);
+                    }
+                    const auto solvedCrc = crc16OfBits(bits.data(), dlen);
+                    const auto expectedCrc = crc16OfBits(origBits.data(), dlen);
+                    if (solvedCrc == expectedCrc) { ++ls.dhVerified; }
+                }
+            }
+        }
+
+        // XSM anti-diagonals + XH verification
+        for (std::uint16_t x = 0; x < kDiagCount; ++x) {
+            const auto cells = antiDiagCells(x);
+            const auto xlen = static_cast<std::uint16_t>(cells.size());
+            ls.antiDiagTotalByLength[xlen]++; // NOLINT
+
+            bool complete = true;
+            for (const auto flat : cells) {
+                if (cellState_[flat] < 0) { complete = false; break; }
+            }
+            if (complete) {
+                ++ls.antiDiagsComplete;
+                ls.antiDiagCompleteByLength[xlen]++; // NOLINT
+
+                if (xlen <= 64) {
+                    std::vector<std::uint8_t> bits(xlen);
+                    std::vector<std::uint8_t> origBits(xlen);
+                    for (std::uint16_t j = 0; j < xlen; ++j) {
+                        bits[j] = static_cast<std::uint8_t>(cellState_[cells[j]]);
+                        const auto r = static_cast<std::uint16_t>(cells[j] / kS);
+                        const auto c = static_cast<std::uint16_t>(cells[j] % kS);
+                        origBits[j] = csm.get(r, c);
+                    }
+                    const auto solvedCrc = crc16OfBits(bits.data(), xlen);
+                    const auto expectedCrc = crc16OfBits(origBits.data(), xlen);
+                    if (solvedCrc == expectedCrc) { ++ls.xhVerified; }
+                }
+            }
+        }
+
+        return ls;
     }
 
     // ── GaussElim ───────────────────────────────────────────────────────
@@ -1086,7 +1442,7 @@ namespace crsce::decompress::solvers {
             if (result.determined == prevDet || result.determined == kN) { break; }
         }
 
-        // Verify correctness
+        // Verify cell values against original
         result.correct = true;
         for (std::uint32_t flat = 0; flat < kN; ++flat) {
             if (cellState_[flat] >= 0) {
@@ -1095,6 +1451,18 @@ namespace crsce::decompress::solvers {
                     break;
                 }
             }
+        }
+
+        // SHA-256 block hash verification (only if fully solved)
+        if (result.determined == kN) {
+            common::Csm reconstructed;
+            for (std::uint16_t r = 0; r < kS; ++r) {
+                for (std::uint16_t c = 0; c < kS; ++c) {
+                    reconstructed.set(r, c, static_cast<std::uint8_t>(
+                        cellState_[static_cast<std::uint32_t>(r) * kS + c]));
+                }
+            }
+            result.bhVerified = common::BlockHash::verify(reconstructed, expectedBH_);
         }
 
         return result;
