@@ -14137,7 +14137,8 @@ The critical open question for C++ implementation: can Phase 3 arc consistency e
 
 ## B.60 Vertical CRC-32 Hash: Cross-Axis GF(2) Constraints (Proposed)
 
-### B.60.1 Motivation
+### Baseline
+#### B.60.1 Motivation
 
 B.58 established that CRC-32 lateral hashes (LH) are the most information-efficient component of the CRSCE payload. Each LH bit contributes 0.99 independent GF(2) equations, compared to 0.14 for each yLTP bit. The B.58a measurement confirmed that CRC-32 contributed 4,032 of a possible 4,064 independent equations&mdash;99.2% efficiency.
 
@@ -14145,7 +14146,7 @@ The natural question is: can we buy more CRC-32 equations along a different axis
 
 This cross-axis property is the key structural advantage of VH over CRC-64 per row. CRC-64 provides 64 equations on the *same* 127 row variables; VH provides 32 equations on a *different* set of 127 column variables. The combinator pipeline's CrossDeduce step can exploit the row-column intersection directly&mdash;cell $(r,c)$ is constrained by both row $r$'s CRC and column $c$'s CRC. This intersection reasoning is unavailable to any single-axis hash, regardless of width.
 
-### B.60.2 Format Change
+#### B.60.2 Format Change
 
 **Vertical Hash (VH).** 127 CRC-32 digests (32 bits each), one per column. Column message construction mirrors row message construction (&sect;B.58.2.1): the 127 data bits of column $c$ ($x_{0,c}, x_{1,c}, \ldots, x_{126,c}$) followed by 1 trailing zero bit (128 bits = 16 bytes). The same CRC-32 polynomial, reflection, and inversion conventions apply.
 
@@ -14166,7 +14167,7 @@ This cross-axis property is the key structural advantage of VH over CRC-64 per r
 | **Total** | **10,946 bits (1,369 bytes)** | **13,232 bits (1,654 bytes)** | **+2,286** |
 | **C_r** | **32.1%** | **18.0%** | **&minus;14.1 pp** |
 
-### B.60.3 GF(2) Constraint System
+#### B.60.3 GF(2) Constraint System
 
 #### B.60.3.1 VH Generator Matrix Construction
 
@@ -14332,7 +14333,7 @@ def solve_b60(payload):
 
 This is fundamentally different from DFS, where each cell assignment depends on the previous cell's propagation result, making the computation inherently sequential.
 
-### B.60.4 Information-Theoretic Analysis
+#### B.60.4 Information-Theoretic Analysis
 
 **GF(2) budget comparison.**
 
@@ -14360,7 +14361,7 @@ The optimistic residual is ~2,745 free variables (17.0% of cells)&mdash;a 75% re
 
 **Density sensitivity.** At low density (10&ndash;30%), integer constraints carry more information per line (&sect;B.58.7). Combined with the dual-hash GF(2) system, B.60 at 10% density may approach density 0.8+ eq/var, where the combinator fixpoint determines most cells.
 
-### B.60.5 Collision Resistance
+#### B.60.5 Collision Resistance
 
 **LH collision.** A constraint-preserving swap must alter at least one cell per affected row. Each affected row's CRC-32 changes with probability $1 - 2^{-32}$. For a swap touching $k$ rows: evasion probability $\leq 2^{-32k}$.
 
@@ -14372,7 +14373,7 @@ The optimistic residual is ~2,745 free variables (17.0% of cells)&mdash;a 75% re
 
 **Minimum-swap evasion at S=127.** B.59f will measure the minimum swap; the B.39 scaling model predicts ~250&ndash;380 cells touching ~10 rows and ~120 columns. Joint evasion: $2^{-32 \times (10+120)} = 2^{-4{,}160}$. Combined with BH: $\min(2^{-4{,}160}, 2^{-256}) = 2^{-256}$ (BH dominates). Collision resistance is more than sufficient.
 
-### B.60.6 Method
+#### B.60.6 Method
 
 B.60 decompression is a five-phase algebraic pipeline. No phase uses DFS, backtracking, or sequential row processing. All 16,129 cells participate in every phase from the start.
 
@@ -14441,7 +14442,7 @@ After fixpoint convergence, the remaining free variables $F$ form the null-space
 
 If the fixpoint leaves $> 25$ free variables, exploit the dual-hash structure to decompose the residual. This phase is detailed in &sect;B.60.9 (Sub-experiment B.60c). The key property: even in the residual search, all rows participate concurrently via column VH filtering. The search is NOT a sequential DFS over rows; it is a constraint satisfaction problem where per-row candidates (filtered by LH) are simultaneously filtered by per-column constraints (VH), and the cross-row consistency is enforced by global arc consistency over column, diagonal, and anti-diagonal constraints.
 
-### B.60.7 Relationship to Prior Work
+#### B.60.7 Relationship to Prior Work
 
 **B.58 (Combinator Solver).** B.60 uses the identical combinator pipeline (&sect;B.58.4) with VH equations added to the GF(2) matrix. The combinators (GaussElim, IntBound, Propagate, CrossDeduce, Fixpoint, EnumerateFree, VerifyBH) are unchanged. B.60 is a format change + system augmentation, not a solver change.
 
@@ -14451,7 +14452,7 @@ If the fixpoint leaves $> 25$ free variables, exploit the dual-hash structure to
 
 **CRC-64 analysis (preceding discussion).** Widening the row hash from 32 to 64 bits provides the same information density improvement (0.312 $\to$ 0.56) as adding VH. The payload cost is identical (4,064 additional bits). However, CRC-64 places all 64 equations on the same 127 row variables, while LH+VH places 32 equations on row variables and 32 on column variables. The cross-axis structure enables cascade interactions in the combinator fixpoint (row pivots propagate to column equations and vice versa) that single-axis CRC-64 cannot achieve. B.60 and CRC-64 are GF(2)-rank-equivalent but combinator-interaction-inequivalent.
 
-### B.60.8 Baseline Results
+#### B.60.8 Baseline Results
 
 All results from C++ `combinatorSolver` binary. No DFS. No search. Purely algebraic combinator fixpoint.
 
@@ -14463,7 +14464,7 @@ All results from C++ `combinatorSolver` binary. No DFS. No search. Purely algebr
 
 B.60f (LH + DH) is the strongest configuration: +805 cells over B.60b, driven by 1,189 GaussElim determinations from diagonal CRC-32 on short diagonals.
 
-## B.60a: GF(2) Rank with LH + VH
+### B.60a: GF(2) Rank with LH + VH
 
 ### Objective. 
 Measure the GF(2) rank of the combined cross-sum + LH + VH system at S=127 without yLTP.
@@ -14525,7 +14526,7 @@ Comparison to B.58 (LH + 2 yLTP): rank 5,037 &rarr; 7,793 (+54.7%). VH contribut
 
 **Status: COMPLETE (H2).**
 
-## B.60b: Combinator Pipeline with LH + VH
+### B.60b: Combinator Pipeline with LH + VH
 
 **Prerequisite.** B.60a completed (any outcome).
 
@@ -14571,7 +14572,7 @@ Comparison to B.58 (LH + 2 yLTP): rank 5,037 &rarr; 7,793 (+54.7%). VH contribut
 
 **Status: COMPLETE (H4).**
 
-## B.60c: Restate B.60 to use toroidal DSM and XSM cross sums then establish new baseline
+### B.60c: Restate B.60 to use toroidal DSM and XSM cross sums then establish new baseline
 
 **Motivation.** The B.60a/b baseline uses non-toroidal diagonals (DSM/XSM), producing 253 lines of varying length (1 to 127 cells). Toroidal diagonals wrap around the matrix, producing 127 lines of exactly 127 cells each &mdash; uniform-length, like rows and columns. At S=127 (prime), toroidal slope partitions have no collisions.
 
@@ -14619,7 +14620,7 @@ Toroidal DSM: slope $p = 1$, line index $k = (c - r) \bmod 127$. Toroidal XSM: s
 
 **Status: COMPLETE (H3). Non-toroidal diagonals retained.**
 
-## B.60d: GF(2) Rank with Toroidal Diagonals (B.60a on B.60c system)
+### B.60d: GF(2) Rank with Toroidal Diagonals (B.60a on B.60c system)
 
 **Prerequisite.** B.60c constraint system defined.
 
@@ -14661,7 +14662,7 @@ Toroidal DSM: slope $p = 1$, line index $k = (c - r) \bmod 127$. Toroidal XSM: s
 
 **Status: COMPLETE (H3). Data from B.60c C++ run.**
 
-## B.60e: Combinator Fixpoint with Toroidal Diagonals (B.60b on B.60c system)
+### B.60e: Combinator Fixpoint with Toroidal Diagonals (B.60b on B.60c system)
 
 **Prerequisite.** B.60d completed.
 
@@ -14695,7 +14696,7 @@ Toroidal DSM: slope $p = 1$, line index $k = (c - r) \bmod 127$. Toroidal XSM: s
 
 **Status: COMPLETE (H3).**
 
-## B.60f: Diagonal Hash (DH) — CRC-32 per DSM Diagonal
+### B.60f: Diagonal Hash (DH) — CRC-32 per DSM Diagonal
 
 **Motivation.** B.60a/b showed that VH (column CRC-32) adds 3,008 GF(2) equations but the fixpoint remains at 3,600 cells. The short non-toroidal diagonals are the cascade trigger (B.60c). This suggests adding CRC-32 hashes along the diagonal axis (DH) &mdash; directly strengthening the constraint family that initiates the cascade.
 
@@ -14758,7 +14759,7 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 
 **Status: COMPLETE (H1). DH produces +805 cells over VH.**
 
-## B.60g: Constrained DH &mdash; 64 vs 128 Shortest Diagonals
+### B.60g: Constrained DH &mdash; 64 vs 128 Shortest Diagonals
 
 **Prerequisite.** B.60f completed (H1).
 
@@ -14848,7 +14849,7 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 
 **Status: COMPLETE (H2). 128-diag DH recommended.**
 
-## B.60h: Constrained DH Payload Analysis
+### B.60h: Constrained DH Payload Analysis
 
 **Motivation.** B.60f/g showed DH128 (CRC-32 on the 128 shortest DSM diagonals) produces +805 cells over LH-only. The anti-diagonals (XSM) have the same length distribution as DSM. If CRC-32 on the shortest 128 anti-diagonals (XH128) provides a similar algebraic boost, it can replace LH (row CRC-32) without changing C_r &mdash; since XH128 costs 128 &times; 32 = 4,096 bits vs LH's 127 &times; 32 = 4,064 bits (+32 bits, negligible).
 
@@ -14880,7 +14881,7 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 
 **Status: PROPOSED.**
 
-## B.60i: XH128 + DH128 &mdash; Anti-Diagonal Hash Replacing LH
+### B.60i: XH128 + DH128 &mdash; Anti-Diagonal Hash Replacing LH
 
 **Prerequisite.** B.60g completed (DH128 established).
 
@@ -14929,7 +14930,7 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 
 **Status: COMPLETE (H1). XH128 + DH128 is the new best configuration.**
 
-## B.60j: LH + DH128 + XH128 &mdash; Three-Family Hash (Experimental)
+### B.60j: LH + DH128 + XH128 &mdash; Three-Family Hash (Experimental)
 
 **Prerequisite.** B.60i completed (XH128 + DH128 established as best dual-hash config).
 
@@ -15010,7 +15011,7 @@ This is a pure experiment &mdash; C_r will exceed 100%. The goal is to measure t
 
 **Status: COMPLETE (H2).**
 
-## B.60k: LH + DH64 + XH64 &mdash; Three-Family Hash at Compression C_r
+### B.60k: LH + DH64 + XH64 &mdash; Three-Family Hash at Compression C_r
 
 **Prerequisite.** B.60j completed.
 
@@ -15089,7 +15090,7 @@ This is true compression. The experiment measures how much cell yield is sacrifi
 
 **Status: COMPLETE (H2).**
 
-## B.60l: Iterative Diagonal Cascade &mdash; Multi-Phase Fixpoint with Expanding DH/XH Coverage
+### B.60l: Iterative Diagonal Cascade &mdash; Multi-Phase Fixpoint with Expanding DH/XH Coverage
 
 ### Objective.
 Extend the combinator fixpoint by iteratively expanding DH/XH coverage to longer diagonals as the fixpoint determines more cells. No search. No DFS. Pure algebraic cascade across the full diagonal length spectrum.
@@ -15183,7 +15184,7 @@ B.60i/j include DH/XH equations for a FIXED set of diagonals from the start. The
 
 **Status: COMPLETE (H2). 4/6 blocks fully solved. Low-density blocks remain open.**
 
-## B.60m: CRC-16 DH64/XH64 + CRC-32 VH &mdash; Three-Axis Cascade at Lower C_r
+### B.60m: CRC-16 DH64/XH64 + CRC-32 VH &mdash; Three-Axis Cascade at Lower C_r
 
 **Prerequisite.** B.60l completed.
 
@@ -15234,354 +15235,533 @@ Config B achieves true compression (75.7%) with three-axis hash coverage. Config
 | H2 (Reduced solve rate) | Fewer blocks solved; CRC-16 too weak on length 17&ndash;32 diags | CRC-32 DH/XH needed for cascade; VH alone doesn't compensate |
 | H3 (VH extends coverage) | More blocks solved than B.60l without LH | VH's column-axis coupling provides information that DH/XH cascade alone cannot |
 
-**Status: PROPOSED.**
+**Results.** C++ `combinatorSolver` on MP4 blocks 0&ndash;20. All values verified correct.
 
-## B.60n: Metal GPU Algebraic Solver
+**Comparison (blocks 0&ndash;5):**
 
-**Prerequisite.** B.60b demonstrates that the combinator pipeline produces a tractable residual ($|F| \leq 8{,}000$, outcome H1&ndash;H3). This sub-experiment ports the algebraic pipeline to Apple Metal for production-grade performance.
+| Config | C_r | Blk 0 | Blk 1 | Blk 2 | Blk 3 | Blk 4 | Blk 5 | Full solves |
+|--------|-----|-------|-------|-------|-------|-------|-------|-------------|
+| B.60l cascade (CRC-32) | 136.6% | FULL | FULL | FULL | FULL | 2,704 | 2,344 | 4/6 |
+| B.60m VH+DH16+XH16 (no LH) | **75.7%** | 4,314 | **FULL** | **FULL** | **FULL** | 1,286 | 640 | **3/6** |
+| B.60m LH+VH+DH16+XH16 | 100.9% | 4,317 | **FULL** | **FULL** | **FULL** | 1,286 | 640 | 3/6 |
 
-### Motivation
+**Blocks 5&ndash;20:** All configs produce 640 cells (CRC-16 GaussElim only, zero IntBound). Low-density blocks.
 
-The CPU combinator pipeline (B.60.6, Phase 2) requires $O(r^2 \times \lceil n/64 \rceil)$ word operations for GF(2) Gaussian elimination on the $8{,}888 \times 16{,}129$ matrix. On a single CPU core at ~$10^9$ ops/sec, this takes 5&ndash;10 minutes per block. CRSCE files may contain thousands of blocks (a 2 MB file at S=127 has ~1,000 blocks), making total decompression time impractical on CPU alone.
+**Analysis.**
 
-Apple Metal GPUs on Apple Silicon (M1&ndash;M4) provide 128&ndash;1,024 ALUs with SIMD-width 32, shared memory per threadgroup, and 200+ GB/s memory bandwidth. The B.60 algebraic pipeline is a natural fit: GaussElim row operations are independent SIMD XORs, IntBound line scans are embarrassingly parallel (one thread per line), and CrossDeduce cell checks are embarrassingly parallel (one thread per cell). The existing MetalContext infrastructure (&sect;`MetalContext.h`) provides the device/queue/buffer management; B.60d adds three new compute kernels.
+1. **3 full solves at 75.7% C_r** (Config B). Blocks 1, 2, 3 fully solved with VH + CRC-16 DH64/XH64 cascade &mdash; true compression with algebraic completeness. This is the first configuration that achieves both compression AND full algebraic solve on multiple blocks.
 
-### Existing Metal Infrastructure
+2. **Block 0 regresses.** B.60l (CRC-32) fully solves block 0; B.60m (CRC-16) reaches only 4,314 (26.7%). CRC-16 on diags of length 17&ndash;32 has n_free = length &minus; 16 (1&ndash;16 free variables), weaker than CRC-32's n_free = 0 for those diags. This gap prevents the cascade from reaching the long-diagonal phase.
 
-The codebase already contains a Metal GPU pipeline at S=127:
+3. **LH adds nearly zero.** Config A (with LH, C_r = 100.9%) produces +3 cells on block 0 over Config B. LH is negligible when VH + DH16/XH16 are present.
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `MetalContext` | `include/decompress/Solvers/MetalContext.h` | PIMPL wrapper: Metal device, command queue, buffers, pipeline state |
-| `MetalPropagationEngine` | `include/decompress/Solvers/MetalPropagationEngine.h` | Hybrid CPU+GPU: dispatches GPU audit when CPU work queue exceeds 4,096 steps |
-| `line_stat_audit.metal` | `src/Decompress/Solvers/Metal/line_stat_audit.metal` | Compute kernel: one thread per constraint line, computes $u$/$a$/$\rho$, emits force proposals when $\rho = 0$ or $\rho = u$ |
+4. **Low-density blocks:** 640 cells = CRC-16 determines only diags of length &le; 16 (shorter than CRC-32's &le; 32). The GaussElim floor drops from 2,344 (CRC-32) to 640 (CRC-16).
 
-The existing `line_stat_audit` kernel implements the IntBound combinator's core logic on GPU. B.60d extends this infrastructure with kernels for the remaining combinators.
+**Outcome: H2 (Reduced solve rate).** CRC-16 DH/XH solves 3/6 blocks vs B.60l's 4/6. The weakness is on diags of length 17&ndash;32 where CRC-16 has free variables but CRC-32 fully determines. However, Config B achieves 75.7% C_r &mdash; the best compression ratio with any full-solve configuration.
 
-### GPU Kernel Architecture
+**Trade-off summary:**
 
-B.60d introduces three new Metal compute kernels, each corresponding to one combinator in the algebraic pipeline. The kernels operate on GPU-resident buffers; the CPU orchestrates the fixpoint loop by dispatching kernels in sequence and checking convergence between iterations.
+| Metric | B.60l (CRC-32 cascade) | B.60m Config B (CRC-16 + VH) |
+|--------|----------------------|------------------------------|
+| C_r | 136.6% (expansion) | **75.7% (compression)** |
+| Full solves (blk 0&ndash;5) | 4/6 | 3/6 |
+| Block 0 | FULL | 4,314 (26.7%) |
+| Low-density floor | 2,344 | 640 |
 
-**Kernel 1: `gf2_block_reduce` &mdash; Block-Diagonal CRC Reduction**
+**Tool:** `build/arm64-release/combinatorSolver -config vh_dh16_xh16_cascade` and `-config lh_vh_dh16_xh16_cascade`
 
-Reduces the 254 independent CRC blocks (127 LH + 127 VH) in parallel. Each block is a $32 \times 127$ GF(2) sub-matrix. One threadgroup per block.
+**Revised experiment: all CRC-16 (LH16 + VH16 + DH16_64 + XH16_64).**
 
-```metal
-// Pseudocode — one threadgroup per CRC block (127 LH + 127 VH = 254 blocks)
-kernel void gf2_block_reduce(
-    device uint64_t* gf2_matrix      [[buffer(0)]],  // 8,888 rows x 253 words
-    device uint8_t*  target_bits     [[buffer(1)]],   // 8,888 target bits
-    device uint16_t* pivot_cols      [[buffer(2)]],   // output: pivot column per row
-    device uint8_t*  determined      [[buffer(3)]],   // output: determined cell values
-    device atomic_uint* det_count    [[buffer(4)]],   // output: count of determined cells
-    const device uint16_t* params   [[buffer(5)]],    // [s, num_crc_blocks]
-    uint tgid [[threadgroup_position_in_grid]],        // block index (0..253)
-    uint tid  [[thread_index_in_threadgroup]]           // thread within block (0..31)
-) {
-    const uint s = params[0];
-    const uint block_idx = tgid;
-    const bool is_lh = (block_idx < s);
-    const uint hash_idx = is_lh ? block_idx : (block_idx - s);  // row or column index
+C_r = 75.7% (same as Config B). 4 hash families, all CRC-16.
 
-    // Offset into the GF(2) matrix: LH rows start at 760, VH rows start at 760 + 127*32
-    const uint base_row = 760 + block_idx * 32;
+| Block | All CRC-16 | VH32+DH16+XH16 (no LH) |
+|-------|-----------|------------------------|
+| 0 | 4,313 | 4,314 |
+| 1 | **4,625** | **FULL** |
+| 2 | FULL | FULL |
+| 3 | FULL | FULL |
+| 4 | 1,286 | 1,286 |
+| 5 | 640 | 640 |
+| **Full solves** | **2/6** | **3/6** |
 
-    // Each thread handles one of the 32 equations in this CRC block.
-    // Threadgroup-cooperative GF(2) RREF on the 32x127 sub-matrix.
-    //
-    // Step 1: Load 32 rows (each 2 uint64 words for 127 bits) into threadgroup memory
-    // Step 2: Parallel pivot search (each thread checks its row for leading 1)
-    // Step 3: Sequential pivot selection, parallel elimination (all 31 non-pivot
-    //          threads XOR their row with the pivot row simultaneously)
-    // Step 4: Write back pivot columns and determined values
+**All CRC-16 loses block 1.** Replacing VH32 with VH16 + LH16 (same total bits) loses the full solve on block 1. VH32's 32 GF(2) equations per column are more effective than VH16 + LH16's split (16 per column + 16 per row).
 
-    threadgroup uint64_t tg_rows[32][2];   // 32 equations x 128 bits
-    threadgroup uint8_t  tg_target[32];
-    threadgroup uint16_t tg_pivots[32];
+**Full comparison (blocks 0&ndash;5):**
 
-    // Load this thread's equation from global memory
-    if (tid < 32) {
-        uint global_row = base_row + tid;
-        // Extract the 127-bit sub-row for this CRC block's variables
-        // LH block i: global columns [127*i .. 127*i+126]
-        // VH block j: global columns [j, 127+j, 254+j, ...] (stride-127)
-        load_subrow(gf2_matrix, global_row, block_idx, is_lh, s, tg_rows[tid]);
-        tg_target[tid] = target_bits[global_row];
-    }
-    threadgroup_barrier(mem_flags::mem_threadgroup);
+| Config | C_r | Full solves | Key difference |
+|--------|-----|-------------|---------------|
+| B.60l CRC-32 cascade | 136.6% | 4/6 | Best solve rate, expansion |
+| VH32 + DH16 + XH16 (no LH) | **75.7%** | **3/6** | **Best compression + solve** |
+| LH32 + VH32 + DH16 + XH16 | 100.9% | 3/6 | LH adds ~0 over VH32 |
+| All CRC-16 (LH16+VH16+DH16+XH16) | 75.7% | 2/6 | VH16 too weak |
 
-    // GF(2) RREF on the 32x127 sub-matrix (threadgroup-cooperative)
-    for (uint pivot = 0; pivot < 32; pivot++) {
-        // Find row with leading 1 in next available column
-        // (sequential scan, but only 32 rows — trivial)
-        // ...
-        // Parallel elimination: all non-pivot threads XOR with pivot row
-        if (tid != pivot && /* row has 1 in pivot col */) {
-            tg_rows[tid][0] ^= tg_rows[pivot][0];
-            tg_rows[tid][1] ^= tg_rows[pivot][1];
-            tg_target[tid] ^= tg_target[pivot];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
+**Conclusion.** At 75.7% C_r, VH32 + DH16_64 + XH16_64 (no LH) is the optimal configuration: 3 full algebraic solves with true compression. CRC-32 on columns provides more cascade value per bit than CRC-16 on rows + columns.
 
-    // Write determined cells: pivot rows with no free-column dependencies
-    // (for the block-local sub-problem, ALL 32 pivots may be determined)
-    // ...
-}
-```
+**Tool:** `build/arm64-release/combinatorSolver` with configs `vh_dh16_xh16_cascade`, `lh_vh_dh16_xh16_cascade`, `all16_cascade`
 
-**Dispatch:** 254 threadgroups $\times$ 32 threads = 8,128 threads. Each threadgroup reduces one $32 \times 127$ block. Wall time: $< 0.1$ ms (32 pivot steps $\times$ 32-way parallel elimination $\times$ 2-word XOR).
+**Status: COMPLETE (H2). VH32 + DH16_64 + XH16_64 confirmed as best compression config at 75.7% C_r.**
 
-**Kernel 2: `gf2_global_reduce` &mdash; Cross-Sum Parity Reduction**
+### B.60n: Production Candidate &mdash; VH32 + DH16_64 + XH16_64 Cascade
 
-After the CRC blocks are reduced, substitute CRC pivots into the 760 cross-sum parity equations and perform GaussElim on the reduced cross-sum system. This kernel discovers cross-row and cross-column relationships.
+**Prerequisite.** B.60m completed.
 
-```metal
-// Pseudocode — one thread per cross-sum equation (760 threads)
-kernel void gf2_global_reduce(
-    device uint64_t* reduced_parity  [[buffer(0)]],   // 760 rows x 253 words
-    device uint8_t*  parity_targets  [[buffer(1)]],   // 760 target bits
-    device uint16_t* crc_pivots      [[buffer(2)]],   // pivot columns from Kernel 1
-    device uint8_t*  crc_values      [[buffer(3)]],   // determined values from Kernel 1
-    device uint16_t* global_pivots   [[buffer(4)]],   // output: additional pivots
-    device atomic_uint* det_count    [[buffer(5)]],
-    uint tid [[thread_position_in_grid]]
-) {
-    if (tid >= 760) return;
+**Objective.** Formally evaluate the best-performing compression configuration (VH32 + DH16_64 + XH16_64, no LH) as a production candidate. Multi-block test across all available MP4 blocks with full analysis of solve rate, density correlation, and C_r.
 
-    // Step 1: Substitute all CRC-determined cells into this parity equation.
-    //   For each CRC pivot column p with value v:
-    //     if this equation has a 1 in column p:
-    //       XOR target with v, clear column p
-    // (Each thread processes its own equation independently — parallel)
+**Configuration.**
 
-    // Step 2: Global RREF on the substituted 760-row system.
-    //   This is the sequential bottleneck: 760 pivot steps.
-    //   But each elimination step is parallel across all 759 non-pivot rows.
-    //   Dispatch as 760 serial pivot steps with 760-way parallel elimination.
-}
-```
+| Component | Hash | Elements | Bits |
+|-----------|------|----------|------|
+| VH | CRC-32 | 127 columns | 4,064 |
+| DH | CRC-16 | 64 shortest DSM diags | 1,024 |
+| XH | CRC-16 | 64 shortest XSM anti-diags | 1,024 |
+| SHA-256 BH | &mdash; | 1 | 256 |
+| DI | &mdash; | 1 | 8 |
+| LSM | integer | 127 | 889 |
+| VSM | integer | 127 | 889 |
+| DSM | integer | 253 | 1,531 |
+| XSM | integer | 253 | 1,531 |
+| **Total** | | | **11,216 bits** |
+| **C_r** | | | **69.5%** |
 
-**Dispatch:** 760 threads for substitution (parallel), then 760 serial pivot steps with 760-way parallel elimination per step. Wall time: $760 \times (253 \text{ words} / 32 \text{ SIMD lanes}) \approx 6{,}000$ operations per pivot step $\times$ 760 steps = ~$4.6 \times 10^6$ operations. At 1 THz (Apple M-series GPU), this is $< 5$ ms.
+No LH (row CRC-32). No yLTP. Solver: multi-phase combinator cascade (B.60l architecture).
 
-**Kernel 3: `int_bound_and_cross_deduce` &mdash; Combined IntBound + CrossDeduce**
+**Method.**
 
-Extends the existing `line_stat_audit.metal` kernel to include both IntBound (per-line $\rho = 0$ / $\rho = u$ forcing) and CrossDeduce (pairwise intersection reasoning). One thread per cell.
+(a) Run C++ `combinatorSolver -config vh_dh16_xh16_cascade` on all MP4 blocks (0&ndash;20+).
 
-```metal
-// Pseudocode — one thread per cell (16,129 threads)
-kernel void int_bound_and_cross_deduce(
-    const device uint8_t* cell_values     [[buffer(0)]],  // 16,129: 0/1/UNKNOWN
-    const device uint16_t* line_rho       [[buffer(1)]],  // 760 residuals
-    const device uint16_t* line_u         [[buffer(2)]],  // 760 unknown counts
-    const device uint16_t* cell_lines     [[buffer(3)]],  // 16,129 x 4 line indices (geometric)
-    device uint8_t* force_results         [[buffer(4)]],  // output: forced value per cell
-    device atomic_uint* force_count       [[buffer(5)]],
-    const device uint16_t* params         [[buffer(6)]],  // [s]
-    uint tid [[thread_position_in_grid]]
-) {
-    const uint s = params[0];
-    if (tid >= s * s) return;
-    if (cell_values[tid] != 0xFF) return;  // already determined
+(b) Record per-block: $|D|$, GaussElim, IntBound, CrossDeduce, correctness, density (popcount / 16,129).
 
-    // IntBound per-cell: test both values against all 4 geometric lines
-    bool val0_feasible = true;
-    bool val1_feasible = true;
+(c) Classify each block: FULL SOLVE ($|D| = 16{,}129$), PARTIAL ($|D| > 640$), MINIMAL ($|D| \leq 640$).
 
-    for (uint li = 0; li < 4; li++) {
-        uint line = cell_lines[tid * 4 + li];
-        uint rho = line_rho[line];
-        uint u   = line_u[line];
+(d) Analyze density vs solve rate.
 
-        // If we set this cell to 0: new_rho = rho, new_u = u - 1
-        if (rho > u - 1) val0_feasible = false;  // rho > remaining unknowns
-        // If we set this cell to 1: new_rho = rho - 1, new_u = u - 1
-        if (rho < 1)     val1_feasible = false;  // rho would go negative
-        if (rho - 1 > u - 1) val1_feasible = false;  // residual exceeds remaining
-    }
+**Results.** C++ `combinatorSolver -config vh_dh16_xh16_cascade` on MP4 blocks 0&ndash;20. All values verified correct.
 
-    if (!val0_feasible && !val1_feasible) {
-        // Inconsistency detected — signal to host
-        force_results[tid] = 0xFE;  // INCONSISTENT sentinel
-        return;
-    }
-    if (!val0_feasible) {
-        force_results[tid] = 1;
-        atomic_fetch_add_explicit(force_count, 1, memory_order_relaxed);
-        return;
-    }
-    if (!val1_feasible) {
-        force_results[tid] = 0;
-        atomic_fetch_add_explicit(force_count, 1, memory_order_relaxed);
-        return;
-    }
+| Block | Density | $|D|$ | GaussElim | IntBound | Class |
+|-------|---------|-------|-----------|----------|-------|
+| 0 | 0.149 | 4,314 | 677 | 3,637 | PARTIAL |
+| **1** | **0.158** | **16,129** | **7,945** | **8,184** | **FULL** |
+| **2** | **0.146** | **16,129** | **1,845** | **14,284** | **FULL** |
+| **3** | **0.183** | **16,129** | **8,689** | **7,440** | **FULL** |
+| 4 | 0.378 | 1,286 | 640 | 646 | PARTIAL |
+| 5&ndash;20 | 0.491&ndash;0.511 | 640 | 640 | 0 | MINIMAL |
 
-    // CrossDeduce: pairwise intersection bounds (C(4,2) = 6 pairs)
-    for (uint a = 0; a < 4; a++) {
-        for (uint b = a + 1; b < 4; b++) {
-            uint La = cell_lines[tid * 4 + a];
-            uint Lb = cell_lines[tid * 4 + b];
-            // Bounds on this cell from La: max(0, rho_a - (u_a - 1))..min(1, rho_a)
-            int lo_a = max(0, int(line_rho[La]) - int(line_u[La] - 1));
-            int hi_a = min(1, int(line_rho[La]));
-            int lo_b = max(0, int(line_rho[Lb]) - int(line_u[Lb] - 1));
-            int hi_b = min(1, int(line_rho[Lb]));
-            int lo = max(lo_a, lo_b);
-            int hi = min(hi_a, hi_b);
-            if (lo > hi) {
-                force_results[tid] = 0xFE;
-                return;
-            }
-            if (lo == hi) {
-                force_results[tid] = uint8_t(lo);
-                atomic_fetch_add_explicit(force_count, 1, memory_order_relaxed);
-                return;
-            }
-        }
-    }
+**Summary:** 3/21 FULL, 2/21 PARTIAL, 16/21 MINIMAL. All correct.
 
-    force_results[tid] = 0xFF;  // still undetermined
-}
-```
+**Density analysis.**
 
-**Dispatch:** 16,129 threads, each doing 4 IntBound checks + 6 CrossDeduce pair checks = 10 comparisons per thread. Total: 161K comparisons. Wall time: $< 0.01$ ms.
+| Density range | Blocks | Full solves | Mechanism |
+|---------------|--------|-------------|-----------|
+| 0.14&ndash;0.19 | 4 | 3 (75%) | Short-diag GaussElim cascades through low-rho IntBound lines |
+| 0.37&ndash;0.38 | 1 | 0 | IntBound partially activates; rho/u still too far from extremes |
+| 0.49&ndash;0.51 | 16 | 0 | rho &asymp; u/2 on all lines; IntBound never triggers beyond GaussElim floor |
 
-#### GPU Fixpoint Orchestration
+**Why low density solves.** At 14&ndash;18% density, lines have rho close to 0. GaussElim determines short-diagonal cells, which push neighboring lines to rho = 0, triggering IntBound. The cascade self-sustains because each forcing creates more extreme rho/u ratios.
 
-The CPU orchestrates the fixpoint loop by dispatching GPU kernels and checking convergence. No cell data returns to the CPU between kernels within a single fixpoint iteration (kernel-to-kernel chaining via Metal command buffers).
+**Why 50% density stalls.** At 50% density, every line has rho &asymp; u/2. IntBound requires rho = 0 or rho = u, which is unreachable without first determining ~60% of a line's cells &mdash; requiring the cascade to already be running. The GaussElim floor of 640 cells (from DH16 + XH16 on diags of length &le; 16) is insufficient to shift rho/u ratios on 127-cell lines.
 
-```
-def gpu_fixpoint(payload):
-    """B.60d GPU-accelerated fixpoint loop.
+**C_r.** Payload: VH32 (4,064) + DH16_64 (1,024) + XH16_64 (1,024) + LSM (889) + VSM (889) + DSM (1,531) + XSM (1,531) + BH (256) + DI (8) = **11,216 bits = 69.5%**.
 
-    All data resides in GPU buffers. The CPU only checks the
-    determined-cell count between iterations.
-    """
-    # --- One-time setup (CPU) ---
-    ctx = MetalContext()
-    buffers = allocate_gpu_buffers(ctx, s=127)
-    upload_constraints(buffers, payload)          # cross-sums, LH, VH targets
-    upload_gf2_matrix(buffers, payload)           # 8,888 x 253 words
+**Tool:** `build/arm64-release/combinatorSolver -config vh_dh16_xh16_cascade`
 
-    # --- Phase 2: GF(2) block-diagonal reduction (GPU) ---
-    ctx.dispatch(gf2_block_reduce, threadgroups=254, threads_per=32)
-    ctx.dispatch(gf2_global_reduce, threadgroups=1, threads_per=760)
-    # Result: pivot columns and determined cells in GPU buffers
+**Status: COMPLETE. 3/21 full solves at C_r = 69.5%. Solve rate is density-dependent: effective at &le; 20%, stalls at ~50%.**
 
-    # --- Phase 3: Fixpoint loop (GPU kernels, CPU convergence check) ---
-    for iteration in range(200):
-        prev_count = read_atomic(buffers.det_count)  # 4-byte GPU→CPU read
+### B.60o: Per-Constraint-Line Completion Analysis
 
-        # Update line stats from newly determined cells
-        ctx.dispatch(update_line_stats, threads=760)
+**Prerequisite.** B.60n completed.
 
-        # IntBound + CrossDeduce on all 16,129 cells
-        ctx.dispatch(int_bound_and_cross_deduce, threads=16129)
+**Objective.** After the combinator fixpoint converges, measure per-line completion: how many rows, columns, DSM diagonals, and XSM anti-diagonals have all cells determined (u = 0)? For lines with hash digests, verify the hash matches. This provides granular data on WHERE the fixpoint succeeds and fails across the constraint geometry.
 
-        # Propagate: substitute forced cells into GF(2) system
-        new_count = read_atomic(buffers.force_count)
-        if new_count > 0:
-            ctx.dispatch(gf2_substitute_determined, threads=new_count)
-            # Re-run global reduction on affected equations
-            ctx.dispatch(gf2_global_reduce, threadgroups=1, threads_per=760)
+**Method.**
 
-        total = read_atomic(buffers.det_count)
-        if total == prev_count:
-            break  # convergence
+(a) Extend the C++ `combinatorSolver` to report post-fixpoint per-line statistics:
+- Rows complete (u = 0): count out of 127
+- Columns complete (u = 0): count out of 127
+- DSM diagonals complete (u = 0): count out of 253
+- XSM anti-diagonals complete (u = 0): count out of 253
 
-    # --- Phase 4: Read back result ---
-    determined = download_cell_values(buffers)  # 16,129 bytes GPU→CPU
-    free_count = 16129 - total
-    return determined, free_count
-```
+(b) For complete lines with CRC hashes, verify the hash:
+- VH32: verify CRC-32 of each complete column
+- DH16: verify CRC-16 of each complete diagonal (length &le; 64)
+- XH16: verify CRC-16 of each complete anti-diagonal (length &le; 64)
 
-**GPU&ndash;CPU synchronization.** Only two synchronization points per fixpoint iteration: (1) read `det_count` (4 bytes) to check convergence, (2) read `force_count` (4 bytes) to decide whether to re-run GaussElim. All kernel dispatches within an iteration are chained in a single Metal command buffer without CPU intervention.
+(c) Run on MP4 blocks 0&ndash;20 using the B.60n config (VH32 + DH16_64 + XH16_64 cascade).
 
-**Multi-block parallelism.** Each CRSCE block is independent. Multiple blocks can be decompressed concurrently by allocating separate buffer sets per block. An M1 Pro with 16 GPU cores can process ~4 blocks simultaneously; an M4 Max with 40 cores can process ~10.
+(d) Analyze: which line families complete first? Do columns complete before rows? Do short diagonals complete but long ones don't? Is there a diagonal-length threshold where completion drops off?
 
-#### Performance Estimates
+**Results.** C++ `combinatorSolver` with `analyzeLines` on MP4 blocks 0&ndash;20. All values verified correct.
 
-| Phase | CPU time (per block) | GPU time (per block) | Speedup |
-|-------|---------------------|---------------------|---------|
-| GF(2) block reduction (254 blocks) | ~30s | $< 0.1$ ms | $> 300{,}000\times$ |
-| GF(2) global reduction (760 rows) | ~300s | $< 5$ ms | $> 60{,}000\times$ |
-| IntBound + CrossDeduce (per iter) | ~50 ms | $< 0.01$ ms | $> 5{,}000\times$ |
-| Fixpoint (10 iterations) | ~310s | $< 50$ ms | $> 6{,}000\times$ |
-| Null-space enumeration ($|F| \leq 25$) | ~100s | ~10s | $10\times$ |
-| **Total (no residual search)** | **~5&ndash;10 min** | **$< 0.1$s** | **$> 3{,}000\times$** |
+**Per-line completion summary:**
 
-**Memory.** GPU buffer requirements per block:
+| Block | Density   | $|D|$      | Rows        | Cols (VH)   | Diags (DH)  | AntiDiags (XH) | Class |
+|-------|-----------|------------|-------------|-------------|-------------|----------------|-------|
+| 0     | 0.149     | 4,314      | 2/127       | 0/127       | 90/253      | 36/253         | PARTIAL  |
+| **1** | **0.158** | **16,129** | **127/127** | **127/127** | **253/253** | **253/253**    | **FULL** |
+| **2** | **0.146** | **16,129** | **127/127** | **127/127** | **253/253** | **253/253**    | **FULL** |
+| **3** | **0.183** | **16,129** | **127/127** | **127/127** | **253/253** | **253/253**    | **FULL** |
+| 4     | 0.378     | 1,286      | 0/127       | 0/127       | 51/253      | 32/253         | PARTIAL |
+| 5     | 0.496     | 640        | 0/127       | 0/127       | 32/253      | 32/253         | MINIMAL |
+| 10    | 0.503     | 640        | 0/127       | 0/127       | 32/253      | 32/253         | MINIMAL |
+| 15    | 0.499     | 640        | 0/127       | 0/127       | 32/253      | 32/253         | MINIMAL |
+| 20    | 0.492     | 640        | 0/127       | 0/127       | 32/253      | 32/253         | MINIMAL |
+ 
+**Diagonal completion by length (block 0, PARTIAL):**
 
-| Buffer | Size | Notes |
-|--------|------|-------|
-| GF(2) matrix | 18 MB | 8,888 rows $\times$ 253 uint64 words |
-| Cell values | 16 KB | 16,129 bytes |
-| Line stats ($\rho$, $u$) | 3 KB | 760 lines $\times$ 4 bytes |
-| Cell-to-line index | 128 KB | 16,129 cells $\times$ 4 lines $\times$ 2 bytes |
-| Force results | 16 KB | 16,129 bytes |
-| Pivot tables | 18 KB | 8,888 uint16 |
-| **Total per block** | **~18.2 MB** | |
+| Length range | DSM diags done | XSM anti-diags done | Notes |
+|-------------|---------------|--------------------| ------|
+| 1&ndash;16 | 32/32 (100%) | 32/32 (100%) | CRC-16 fully determines |
+| 17&ndash;21 | 4/10 | 2/10 | Cascade partially extends |
+| 22&ndash;53 | 0/64 (DSM: scattered 1/2) | 0/64 | DSM cascade reaches one side only |
+| 54&ndash;85 | 0/64 (DSM: some 1/2) | 0/64 | Same asymmetry |
+| 86&ndash;127 | 0/84 | 0/84 | No completion |
 
-Apple M-series GPUs have 8&ndash;192 GB unified memory. At 18.2 MB per block, 4 concurrent blocks require 73 MB&mdash;trivially within budget.
+**Critical asymmetry on block 0:** DSM diags complete 90/253 but XSM anti-diags complete only 36/253. The cascade propagates along ONE diagonal family (DSM) but not the other (XSM). This is why block 0 doesn't fully solve &mdash; the anti-diagonal cascade stalls, leaving the interior unresolved.
 
-#### Implementation Plan
+**Diagonal completion by length (block 5, MINIMAL, 50% density):**
 
-**Metal shader files (new):**
+| Length range | DSM diags done | XSM anti-diags done |
+|-------------|---------------|---------------------|
+| 1&ndash;16 | 32/32 (100%) | 32/32 (100%) |
+| 17+ | 0/221 | 0/221 |
 
-| File | Kernel | Threads |
-|------|--------|---------|
-| `gf2_block_reduce.metal` | CRC block RREF | 254 threadgroups $\times$ 32 |
-| `gf2_global_reduce.metal` | Cross-sum RREF | 760 |
-| `int_bound_cross_deduce.metal` | IntBound + CrossDeduce | 16,129 |
-| `gf2_substitute.metal` | Propagation of determined cells into GF(2) rows | variable |
-| `update_line_stats.metal` | Update $\rho$/$u$ from new determinations | 760 |
+Hard cutoff at length 16 &mdash; exactly the CRC-16 full-determination boundary. At 50% density, the IntBound cascade never extends beyond CRC-16 GaussElim. Zero rows, zero columns complete.
 
-**C++ host code (extends MetalContext):**
+**Hash verification:** All complete lines pass hash verification. On full-solve blocks: 127/127 VH, 128/128 DH, 128/128 XH verified. On partial blocks: all complete diags pass DH/XH verification.
 
-| Method | Purpose |
-|--------|---------|
-| `MetalContext::uploadGF2Matrix(...)` | Upload the $8{,}888 \times 253$-word GF(2) matrix to a shared-memory buffer |
-| `MetalContext::uploadConstraints(...)` | Upload cross-sum targets, LH digests, VH digests |
-| `MetalContext::dispatchBlockReduce()` | Encode and commit the `gf2_block_reduce` kernel |
-| `MetalContext::dispatchGlobalReduce()` | Encode and commit the `gf2_global_reduce` kernel |
-| `MetalContext::dispatchIntBoundCrossDeduce()` | Encode and commit the combined kernel |
-| `MetalContext::readDeterminedCount()` | Read atomic counter (4-byte GPU$\to$CPU) |
-| `MetalContext::downloadCellValues()` | Read back 16,129 determined cell values |
-| `MetalAlgebraicSolver` | New class implementing `solve_b60()` using GPU kernels |
+**Key findings.**
 
-**Relationship to existing MetalPropagationEngine.** The existing `MetalPropagationEngine` implements DFS-era IntBound on GPU (line-stat audit + force proposals). B.60d replaces this with the algebraic pipeline. The existing `MetalContext` (device/queue/buffer management) and `line_stat_audit.metal` (IntBound kernel structure) serve as templates. The `gf2_block_reduce` and `gf2_global_reduce` kernels are architecturally new&mdash;there is no DFS-era equivalent of GPU-accelerated Gaussian elimination.
+1. **The cascade is asymmetric.** On block 0, DSM diags cascade to length 85 on one side but XSM anti-diags stop at length 21. The two diagonal families don't reinforce each other equally.
 
-#### Expected Outcomes
+2. **Zero rows and zero columns complete on non-full-solve blocks.** Rows and columns (127 cells each) never reach u = 0 unless the block fully solves. They are the LAST lines to complete, not the first.
+
+3. **CRC-16 boundary at length 16 is a hard floor.** At 50% density, nothing beyond length 16 completes. The GaussElim floor of 640 cells (32 + 32 short diags, all length &le; 16) is the entire output.
+
+4. **The gap between PARTIAL and FULL is the anti-diagonal cascade.** Block 0 has 90 DSM diags complete but only 36 XSM. If the XSM cascade matched DSM, block 0 would likely fully solve.
+
+**Tool:** `build/arm64-release/combinatorSolver` with `analyzeLines` post-fixpoint analysis.
+
+**Status: COMPLETE.**
+
+### B.60p: VH32 + DH32_64 + XH32_64 Cascade &mdash; CRC-32 on Short Diagonals
+
+**Prerequisite.** B.60o completed.
+
+**Objective.** Repeat B.60o per-line analysis with CRC-32 (instead of CRC-16) on DH64/XH64. CRC-32 fully determines diags of length &le; 32 (vs CRC-16's &le; 16). Tests whether the wider hash closes the cascade asymmetry (block 0: DSM 90/253 vs XSM 36/253) and pushes more blocks to full solve.
+
+**Configuration.** VH32 + DH32_64 + XH32_64 cascade (no LH). C_r = 82.2%.
+
+**Results.** C++ `combinatorSolver -config vh_dh32_xh32_cascade` on MP4 blocks 0&ndash;20. All correct.
+
+**Per-line completion comparison (B.60o CRC-16 vs B.60p CRC-32):**
+
+| Block | Density | B.60o $|D|$ | B.60p $|D|$ | B.60o Rows | B.60p Rows | B.60o Cols | B.60p Cols | B.60o Diags | B.60p Diags | B.60o XSM | B.60p XSM |
+|-------|---------|-----------|-----------|----------|----------|----------|----------|-----------|-----------|---------|---------|
+| 0 | 0.149 | 4,314 | **6,931** | 2 | 3 | 0 | **15** | 90 | **125** | 36 | **64** |
+| 1 | 0.158 | FULL | 8,120 | 127 | 1 | 127 | 20 | 253 | 134 | 253 | 64 |
+| 2 | 0.146 | FULL | **FULL** | 127 | 127 | 127 | 127 | 253 | 253 | 253 | 253 |
+| 3 | 0.183 | FULL | 8,777 | 127 | 0 | 127 | 6 | 253 | 152 | 253 | 64 |
+| 4 | 0.378 | 1,286 | **2,530** | 0 | 0 | 0 | 0 | 51 | **75** | 32 | **64** |
+| 5 | 0.496 | 640 | **2,112** | 0 | 0 | 0 | 0 | 32 | **64** | 32 | **64** |
+
+**CRC-32 vs CRC-16 key differences on block 0:**
+
+| Length range | B.60o DSM done | B.60p DSM done | B.60o XSM done | B.60p XSM done |
+|-------------|---------------|---------------|---------------|---------------|
+| 1&ndash;16 | 32/32 | 32/32 | 32/32 | 32/32 |
+| 17&ndash;32 | 4/32 | **32/32** | 2/32 | **32/32** |
+| 33&ndash;53 | 20/42 | 21/42 | 0/42 | 0/42 |
+| 54&ndash;127 | 34/147 | 40/147 | 2/147 | 0/147 |
+
+**Analysis.**
+
+1. **CRC-32 fully determines length 17&ndash;32 diags.** B.60o (CRC-16) had only 4/32 DSM and 2/32 XSM done at length 17&ndash;32. B.60p (CRC-32) completes all 32/32 on both families. This is the expected gain: CRC-32 rank = min(32, length), so length &le; 32 is fully determined.
+
+2. **Block 0 improves but doesn't solve.** $|D|$ rises from 4,314 to 6,931 (+61%). Columns now partially complete (15/127 via VH32). But the cascade still stalls: XSM anti-diags only reach 64/253 (exactly the DH64/XH64 set). No anti-diagonal beyond length 32 completes.
+
+3. **Blocks 1 and 3 REGRESS from FULL to partial.** This is unexpected. B.60o (CRC-16) fully solved blocks 1 and 3, but B.60p (CRC-32) doesn't. The reason: B.60o used the multi-phase cascade with CRC-16 phases extending to length 127 (phases 1-16, 17-32, 33-64, 65-127). B.60p limits cascade to length &le; 32 only (DH64/XH64). The longer-phase equations that completed blocks 1 and 3 in B.60o are absent.
+
+4. **The cascade asymmetry persists.** Block 0: DSM 125/253 vs XSM 64/253. CRC-32 closes the gap for length &le; 32 (both reach 64/64) but beyond 32, only DSM cascades further (one-sided). The asymmetry is NOT about hash width &mdash; it's about the cascade direction through the matrix.
+
+5. **50% density floor rises.** Block 5: 2,112 (CRC-32) vs 640 (CRC-16). CRC-32 determines all diags up to length 32, doubling the floor. But still zero IntBound.
+
+**Outcome.** CRC-32 DH64/XH64 provides a higher GaussElim floor (length &le; 32 fully determined) but the cascade max-length limit of 32 prevents full solves that the unbounded CRC-16 cascade achieved. The optimal production config depends on whether the cascade extends beyond DH64/XH64 coverage.
+
+**Tool:** `build/arm64-release/combinatorSolver -config vh_dh32_xh32_cascade`
+
+**Status: COMPLETE.**
+
+### B.60q: VH32 + DH8_253 + XH8_253 Cascade &mdash; CRC-8 Full Coverage at C_r &lt; 90%
+
+**Prerequisite.** B.60p completed.
+
+**Motivation.** The cascade needs CRC hashes on ALL diagonal lengths for full solves, but CRC-32 or CRC-16 on all 506 diags exceeds 90% C_r. CRC-8 on all 506 diags costs 4,048 bits, achieving C_r = 81.9% with full cascade coverage. CRC-8 fully determines diags of length &le; 8 and provides 8 GF(2) equations on longer diags.
+
+**Configuration.** VH32 + DH8_253 + XH8_253 cascade (no LH).
+
+| Component | Hash | Elements | Bits |
+|-----------|------|----------|------|
+| VH | CRC-32 | 127 columns | 4,064 |
+| DH | CRC-8 | 253 DSM diags | 2,024 |
+| XH | CRC-8 | 253 XSM anti-diags | 2,024 |
+| Geometric + BH + DI | &mdash; | &mdash; | 5,104 |
+| **Total** | | | **13,216 bits** |
+| **C_r** | | | **81.9%** |
+
+**Method.** Implement constexpr CRC-8 in C++. Run multi-phase cascade on MP4 blocks 0&ndash;20 with per-line analysis. Compare to B.60o (CRC-16), B.60p (CRC-32 DH64), and B.60l (CRC-32 all).
+
+**Results.** C++ `combinatorSolver -config vh_dh8_xh8_cascade` on MP4 blocks 0&ndash;20. All correct.
+
+**Per-line completion:**
+
+| Block | Density | $|D|$ | Rows | Cols (VH) | Diags (DH) | XSM (XH) | Class |
+|-------|---------|-------|------|-----------|------------|---------|-------|
+| 0 | 0.149 | 3,727 | 1 | 0 | 82/253 | 21/253 | PARTIAL |
+| 1 | 0.158 | 4,049 | 0 | 0 | 91/253 | 17/253 | PARTIAL |
+| **2** | **0.146** | **16,129** | **127** | **127** | **253/253** | **253/253** | **FULL** |
+| 3 | 0.183 | 7,765 | 0 | 0 | 141/253 | 24/253 | PARTIAL |
+| 4 | 0.378 | 873 | 0 | 0 | 38/253 | 20/253 | PARTIAL |
+| 5&ndash;20 | ~0.50 | 164 | 0 | 0 | 16/253 | 16/253 | MINIMAL |
+
+**Cross-experiment comparison (blocks 0&ndash;5):**
+
+| Config | C_r | Blk 0 | Blk 1 | Blk 2 | Blk 3 | Blk 4 | Blk 5 | Full |
+|--------|-----|-------|-------|-------|-------|-------|-------|------|
+| B.60l CRC-32 all cascade | 136.6% | FULL | FULL | FULL | FULL | 2,704 | 2,344 | 4/6 |
+| B.60o CRC-16 DH64+XH64+VH32 | 69.5%* | 4,314 | FULL | FULL | FULL | 1,286 | 640 | 3/6 |
+| B.60p CRC-32 DH64+XH64+VH32 | 82.2% | 6,931 | 8,120 | FULL | 8,777 | 2,530 | 2,112 | 1/6 |
+| **B.60q CRC-8 all+VH32** | **81.9%** | **3,727** | **4,049** | **FULL** | **7,765** | **873** | **164** | **1/6** |
+
+*B.60o C_r of 69.5% only counts DH64/XH64 in payload; cascade phases use additional hashes not in the payload.
+
+**Analysis.**
+
+1. **CRC-8 solves only block 2** (same as B.60p). The full cascade with CRC-8 on all 506 diags does NOT match B.60o's 3 full solves. CRC-8 has only 8 GF(2) equations per diagonal &mdash; on diags of length 9&ndash;127, n_free = length &minus; 8, leaving too many free variables for GaussElim to determine cells.
+
+2. **GaussElim floor drops to 164 cells** at 50% density (vs 640 for CRC-16, 2,112 for CRC-32). CRC-8 fully determines only diags of length &le; 8: 2 &times; 8 = 16 diags per family &times; 2 families = 32 diags. 164 cells = 32 short diags + IntBound cascade from those.
+
+3. **The cascade asymmetry worsens.** Block 0: DSM 82/253 vs XSM 21/253. Block 3: DSM 141/253 vs XSM 24/253. CRC-8's weaker equations produce less cascade momentum than CRC-16.
+
+4. **B.60o (CRC-16) remains the best sub-90% C_r config** for solve rate. However, its true C_r when including all cascade hashes is 107%, not 69.5%.
+
+**Outcome.** CRC-8 is too weak for the cascade. 8 equations per diagonal do not provide enough algebraic constraint for GaussElim to determine cells beyond length 8. The minimum effective hash width for the cascade is CRC-16.
+
+**Tool:** `build/arm64-release/combinatorSolver -config vh_dh8_xh8_cascade`
+
+**Status: COMPLETE. CRC-8 insufficient. 1/21 full solve at C_r = 81.9%.**
+
+### B.60r: Hybrid-Width DH128/XH128 + VH32 Cascade &mdash; C_r = 87.0%
+
+**Prerequisite.** B.60q completed.
+
+**Motivation.** Use the minimum CRC width that fully determines each diagonal length, then extend to 128 elements per family covering length 1&ndash;64. CRC-8 for length &le; 8, CRC-16 for 9&ndash;16, CRC-32 for 17&ndash;32, CRC-16 for 33&ndash;64 (cascade-dependent).
+
+**Payload.**
+
+  ┌────────┬──────────────────┬────────────────────────┬───────────┬────────────┐
+  │ Length │ Diags per family │ Min full-determine CRC │ Bits/diag │ Total bits │
+  ├────────┼──────────────────┼────────────────────────┼───────────┼────────────┤
+  │ 1-8    │ 16               │ CRC-8                  │ 8         │ 128        │
+  ├────────┼──────────────────┼────────────────────────┼───────────┼────────────┤
+  │ 9-16   │ 16               │ CRC-16                 │ 16        │ 256        │
+  ├────────┼──────────────────┼────────────────────────┼───────────┼────────────┤
+  │ 17-32  │ 32               │ CRC-32                 │ 32        │ 1,024      │
+  ├────────┼──────────────────┼────────────────────────┼───────────┼────────────┤
+  │ 33-64  │ 64               │ CRC-16 (cascade)       │ 16        │ 1,024      │
+  └────────┴──────────────────┴────────────────────────┴───────────┴────────────┘
+
+Per family: 2,432 bits. DH128 + XH128: 4,864 bits. VH32: 4,064. Geometric+BH+DI: 5,104. **Total: 14,032 bits. C_r = 87.0%.**
+
+**Results.** C++ `combinatorSolver -config hybrid_cascade` on MP4 blocks 0&ndash;20. All correct.
+
+| Block | Density | $|D|$ | Rows | Cols (VH) | Diags | XSM | Class |
+|-------|---------|-------|------|-----------|-------|-----|-------|
+| 0 | 0.149 | 7,454 (46.2%) | 3 | 20 | 128/253 | 68/253 | PARTIAL |
+| 1 | 0.158 | 12,002 (74.4%) | 7 | 51 | 166/253 | 108/253 | PARTIAL |
+| **2** | **0.146** | **16,129 (100%)** | **127** | **127** | **253** | **253** | **FULL** |
+| 3 | 0.183 | 9,491 (58.8%) | 0 | 13 | 157/253 | 68/253 | PARTIAL |
+| 4 | 0.378 | 2,530 (15.7%) | 0 | 0 | 75/253 | 64/253 | PARTIAL |
+| 5&ndash;20 | ~0.50 | 2,112 (13.1%) | 0 | 0 | 64/253 | 64/253 | MINIMAL |
+
+**Comparison (blocks 0&ndash;3, moderate density):**
+
+| Config                      | C_r       | Blk 0     | Blk 1      | Blk 2    | Blk 3     | Full  |
+|-----------------------------|-----------|-----------|------------|----------|-----------|-------|
+| B.60l CRC-32 all            | 136.6%    | FULL      | FULL       | FULL     | FULL      | 4     |
+| B.60p CRC-32 DH64+XH64+VH32 | 82.2%     | 6,931     | 8,120      | FULL     | 8,777     | 1     |
+| B.60q CRC-8 all+VH32        | 81.9%     | 3,727     | 4,049      | FULL     | 7,765     | 1     |
+| **B.60r Hybrid+VH32**       | **87.0%** | **7,454** | **12,002** | **FULL** | **9,491** | **1** |
+
+**Analysis.**
+
+1. **Block 1 reaches 74.4%** &mdash; highest partial solve under 90% C_r. Phase 4 (CRC-16 on length 33&ndash;64) adds 3,882 cells. 51 columns VH-verified.
+
+2. **Block 0 reaches 46.2%** with 20 VH-verified columns. The hybrid progression CRC-8 &rarr; 16 &rarr; 32 &rarr; 16 provides a smooth cascade ramp.
+
+3. **Phase 4 (CRC-16 len 33&ndash;64) is productive** on blocks 0 (+523), 1 (+3,882), 3 (+714). The cascade extends into mid-diagonal territory at CRC-16 cost.
+
+4. **50% density floor: 2,112** (same as CRC-32 DH64). Phase 4 contributes 0 at high density.
+
+**Outcome.** Hybrid widths at C_r = 87.0% achieve the best sub-90% partial-solve performance. Block 1 at 74.4% is the closest any compressing config reaches without full solve.
+
+**Tool:** `build/arm64-release/combinatorSolver -config hybrid_cascade`
+
+**Status: COMPLETE. 1 full solve, best sub-90% partial yields.**
+
+### B.60s: B.60r with SHA-256 Block Hash Verification
+
+**Prerequisite.** B.60r completed.
+
+**Objective.** Reproduce B.60r results with SHA-256 block hash (BH) verification on full-solve blocks. Going forward, "full solve" requires BH verification.
+
+**Method.** Added `bhVerified` to `CombinatorSolver::Result`. After the fixpoint, if all 16,129 cells are determined, reconstruct the CSM and verify against `BlockHash::compute(original)`. Run on blocks 0&ndash;20.
+
+**Results.** C++ `combinatorSolver -config hybrid_cascade` with BH verification. All blocks 0&ndash;20.
+
+| Block | $|D|$ | Correct | BH verified | Status |
+|-------|-------|---------|-------------|--------|
+| **2** | **16,129** | **true** | **true** | **FULL SOLVE** |
+| 0 | 7,454 | true | false | partial |
+| 1 | 12,002 | true | false | partial |
+| 3 | 9,491 | true | false | partial |
+| 4&ndash;20 | 2,112&ndash;2,530 | true | false | minimal/partial |
+
+**Block 2 is a verified full solve.** SHA-256 block hash matches. This is the only block that achieves complete algebraic reconstruction with $BH$ verification under the B.60r configuration ($C_r = 87.0%$).
+
+**Status: COMPLETE. 1/21 BH-verified full solve at C_r = 87.0%.**
+
+## B.61: Overlapping Blocks
+
+### Prerequisites
+1. B.60s completed: algebraic combinator solver with BH verification at $C_r = 87.0%$.
+2. Sufficient $C_r$ headroom to absorb the compression cost of overlapping columns.
+
+### Hypotheses
+1. Some blocks are easier to solve than others. If adjacent blocks share overlapping columns, a solved block donates pre-determined cells to its neighbor, shifting the neighbor's rho/u ratios toward extremes and triggering the IntBound cascade.
+2. The 50% density wall (blocks 5&ndash;20 stall at 2,112 cells) can be broken if sufficient pre-determined boundary cells are available from an adjacent solved block.
+3. There exists an optimal overlap size $n$ that balances compression cost (each overlapping column is stored in two blocks) against solve-rate improvement.
+
+### B.61a: Baseline Overlapping Compressor and Decompressor
+
+**Objective.** Implement a configurable-overlap compressor and decompressor in C++. Establish the baseline: for each overlap size $n \in \{0, 8, 16, 32, 64\}$, measure how many blocks achieve BH-verified full solve across the MP4 test file.
+
+**Architecture.**
+
+**Compressor changes:**
+- Input is partitioned into overlapping blocks. Block $k$ covers columns $[k \times (s - n), k \times (s - n) + s)$ of the input stream, where $s = 127$ and $n$ is the overlap width.
+- Each block is a full $127 \times 127$ CSM. Adjacent blocks share $n$ rightmost/leftmost columns.
+- Per-block payload is unchanged (VH32 + hybrid DH128/XH128 + geometric + BH + DI).
+- The file contains more blocks than non-overlapping: $\lceil L / (s - n) \rceil$ vs $\lceil L / s \rceil$ where $L$ is the total column count.
+
+**Decompressor changes:**
+- Blocks are solved sequentially, left to right.
+- When solving block $k$ ($k > 0$): the rightmost $n$ columns of block $k-1$'s solution are pre-assigned into block $k$'s leftmost $n$ columns before the combinator fixpoint runs.
+- The pre-assigned cells reduce unknowns on boundary constraint lines, potentially triggering IntBound cascade.
+- Block 0 is solved without overlap (same as B.60r/s).
+
+**Effective C_r with overlap:**
+- Non-overlapping: each input bit appears in exactly 1 block. Total blocks = $\lceil \text{input\_bits} / s^2 \rceil$.
+- Overlapping by $n$ columns: each input bit appears in 1 or 2 blocks. Total blocks increases by factor $s / (s - n)$.
+- Effective C_r = base C_r $\times$ $s / (s - n)$.
+
+| Overlap $n$ | Blocks factor | Effective C_r (from 87.0% base) |
+|-------------|--------------|-------------------------------|
+| 0 | 1.00&times; | 87.0% |
+| 8 | 1.067&times; | 92.8% |
+| 16 | 1.144&times; | 99.5% |
+| 32 | 1.337&times; | 116.3% |
+| 64 | 2.016&times; | 175.4% |
+
+**Method.**
+
+(a) Implement the overlapping block partitioner in C++ (or as a Python orchestration wrapper around the existing `combinatorSolver`).
+
+(b) Implement the sequential decompression with overlap donation: after solving block $k$, extract the rightmost $n$ columns and inject them as pre-assigned cells into block $k+1$'s solver state before running the fixpoint.
+
+(c) Run on MP4 blocks 0&ndash;20 for each overlap $n \in \{0, 8, 16, 32\}$.
+
+(d) Record per-block: $|D|$, BH verified, density. Record aggregate: total BH-verified full solves, effective C_r.
+
+**Expected outcomes.**
 
 | Outcome | Criteria | Interpretation |
 |---------|----------|----------------|
-| H1 (Full GPU solve) | GPU fixpoint determines all cells in $< 1$s per block | Production-viable CRSCE decompression at S=127. Throughput: $> 1$ block/second $= > 2{,}016$ bytes/second raw, $> 7{,}258$ bytes/second effective (at 18% C_r). |
-| H2 (GPU fixpoint + CPU residual) | GPU fixpoint in $< 0.1$s, CPU residual search in $< 60$s | Viable but CPU-bound on residual. GPU handles the algebraic pipeline; CPU handles enumeration. |
-| H3 (GPU bottleneck in GaussElim) | Global reduction exceeds 1s per block | The $760 \times 16{,}129$ sequential pivot steps are GPU-unfriendly. Optimize: use warp-cooperative reduction, or accept CPU-hybrid for the global phase. |
-| H4 (Memory-bound) | Per-block buffer exceeds GPU memory for concurrent blocks | Reduce concurrency or switch to streaming (process blocks sequentially). |
+| H1 (Cascade propagates) | $n = 16$ or $n = 32$ enables full solve on blocks that stalled at $n = 0$ | Overlap donation triggers the IntBound cascade; CRSCE decompression is viable with overlapping blocks |
+| H2 (Insufficient) | No $n \leq 32$ enables additional full solves | Pre-determined boundary columns don't shift rho/u enough; the 50% density wall is not a boundary problem |
+| H3 (Large $n$ needed) | $n = 64$ needed | Overlap works but the C_r cost exceeds 100%; not viable for compression |
 
-#### Multi-Block Throughput Model
+**Status: PROPOSED.**
 
-For a 2 MB input file at S=127:
+### B.61b: Minimum Overlap for 50% Density Cascade
 
-$$
-    \text{blocks} = \lceil 2{,}000{,}000 \times 8 / 16{,}129 \rceil = 993 \text{ blocks}
-$$
+**Prerequisite.** B.61a baseline established.
 
-| Pipeline | Per-block | 993 blocks (serial) | 993 blocks (4$\times$ parallel) |
-|----------|-----------|--------------------|---------------------------------|
-| CPU combinator | 5&ndash;10 min | 83&ndash;166 hours | 21&ndash;42 hours |
-| **GPU combinator (B.60d)** | **$< 0.1$s** | **$< 100$s** | **$< 25$s** |
-| GPU + CPU residual ($|F| \leq 25$) | ~60s | ~16.5 hours | ~4.1 hours |
+**Objective.** Determine the minimum overlap $n$ that triggers full solve on a 50% density block. Take the first 50% density block that is adjacent to a solved block, and sweep $n$ from 1 to 64 in steps of 1. Find the threshold.
 
-If B.60b achieves H1 ($|F| = 0$), the GPU pipeline decompresses 2 MB in under 2 minutes. This is slower than conventional decompression algorithms but fast enough for practical use on archival or low-bandwidth data.
+**Status: PROPOSED.**
 
-**Status: PROPOSED. Conditional on B.60b outcome H1&ndash;H3.**
+### B.61c: C_r Optimization &mdash; Asymmetric Overlap
 
+**Prerequisite.** B.61b completed (minimum $n$ known).
 
+**Objective.** Test asymmetric overlap: donate $n$ columns from the solved block but do NOT store the overlap redundantly. Instead, the decompressor solves block $k-1$ first, extracts the boundary columns, and uses them as constraints for block $k$. The payload stores each column exactly once. This eliminates the C_r penalty of overlap.
 
----
+The challenge: block $k$'s cross-sum targets, CRC hashes, and BH must be computed over the FULL $127 \times 127$ CSM including the overlapping columns. The compressor knows the overlap (it has the original data). The decompressor must solve block $k-1$ first to recover the overlap.
 
+**Status: PROPOSED.**
+
+### B.61d: Full-File Sequential Decompression
+
+**Prerequisite.** B.61a or B.61c demonstrates cascade propagation.
+
+**Objective.** Run the overlapping decompressor on the ENTIRE MP4 file (1,331 blocks). Measure: total blocks solved, cascade propagation distance (how many consecutive blocks solve after a seed block), failure modes (where does the cascade stall?).
+
+**Status: PROPOSED.**
+
+### B.61e: Block Ordering Optimization
+
+**Prerequisite.** B.61d completed.
+
+**Objective.** If the cascade stalls at some blocks, test alternative block orderings: solve the easiest blocks first (lowest density), then propagate outward to neighbors. This requires bidirectional overlap (left and right donation). Measure whether non-sequential ordering improves the total solve rate.
+
+**Status: PROPOSED.**
+
+### B.61f: Final Overlap Optimization
+
+**Prerequisite.** B.61b&ndash;e completed.
+
+**Objective.** Select the production overlap value $n$ that maximizes full-solve rate while keeping C_r within an acceptable budget. Sweep $n$ across the viable range informed by B.61b (minimum for cascade) and B.61c (asymmetric optimization), and measure the Pareto frontier of solve rate vs C_r.
+
+**C_r reference (base 87.0%):**
+
+| $n$ | Effective C_r |
+|-----|--------------|
+| 5 | 90.6% |
+| 6 | 91.3% |
+| 7 | 92.1% |
+| 8 | 92.8% |
+| 9 | 93.6% |
+| 10 | 94.4% |
+| 15 | 98.7% |
+
+**Method.**
+
+(a) Using the B.61d full-file results, compute for each $n$: total BH-verified full solves out of total blocks, effective C_r, cascade propagation statistics.
+
+(b) Identify the knee of the Pareto curve: the smallest $n$ where increasing $n$ further yields diminishing solve-rate improvement.
+
+(c) If B.61c (asymmetric overlap) is viable, recalculate C_r without the overlap penalty and re-evaluate.
+
+(d) Recommend the production $n$ for the CRSCE format specification.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (Small $n$ sufficient) | $n \leq 8$ achieves $> 90\%$ full-solve rate | Overlap is efficient; C_r stays under 93% |
+| H2 (Moderate $n$) | $n$ = 10&ndash;16 needed | Acceptable C_r trade-off (94&ndash;99%) |
+| H3 (Large $n$ or diminishing returns) | No $n \leq 16$ achieves $> 90\%$ solve rate | Overlap alone insufficient; additional techniques needed |
+
+**Status: PROPOSED.**
 
 ## Appendix C: Open Questions Consolidated
 
