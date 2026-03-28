@@ -1,0 +1,13 @@
+{
+  "intbound": 3600,
+  "crc_determined": 0,
+  "propagation_determined": 0,
+  "rows_solved": 0,
+  "total_determined": 3600,
+  "free": 12529,
+  "pct": 22.3,
+  "solved": false,
+  "wall_time": 116.41,
+  "block": 0,
+  "density": 0.1487
+}

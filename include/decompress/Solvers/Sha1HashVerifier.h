@@ -73,6 +73,17 @@ namespace crsce::decompress::solvers {
          */
         void setExpected(std::uint16_t r, const std::array<std::uint8_t, 32> &digest) override;
 
+        /**
+         * @name getExpected
+         * @brief Retrieve the stored expected digest for row r.
+         * @param r Row index.
+         * @return The stored kSha1DigestBytes-byte expected digest.
+         * @throws None
+         */
+        [[nodiscard]] const std::array<std::uint8_t, kSha1DigestBytes> &getExpected(std::uint16_t r) const {
+            return expected_[r]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+
     private:
         /**
          * @name s_

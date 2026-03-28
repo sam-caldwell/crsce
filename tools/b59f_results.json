@@ -1,0 +1,20 @@
+{
+  "experiment": "B.59f",
+  "S": 127,
+  "N": 16129,
+  "rank": 1005,
+  "null_dim": 15124,
+  "min_swap_weight": 256,
+  "min_swap_row_span": 7,
+  "min_swap_col_span": 108,
+  "basis_weights": {
+    "min": 282,
+    "p5": 314,
+    "p25": 340,
+    "median": 368,
+    "mean": 379.0,
+    "p75": 408,
+    "p95": 484,
+    "max": 574
+  }
+}

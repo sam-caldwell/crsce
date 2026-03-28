@@ -1,0 +1,55 @@
+{
+  "experiment": "B.59g",
+  "results": [
+    {
+      "determined": 3600,
+      "free": 12529,
+      "pct": 22.3,
+      "solved": false,
+      "bh_verified": false,
+      "iterations": 2,
+      "stats": [
+        {
+          "iter": 1,
+          "determined": 3600,
+          "pct": 22.3,
+          "free": 12529,
+          "gain": 3600,
+          "gf2": 4,
+          "intbound": 3596,
+          "crc32_row": 0,
+          "crossdeduce": 0,
+          "rank": 5037,
+          "t_gauss": 3.99,
+          "t_int": 0.0,
+          "t_crc": 0.04,
+          "t_cross": 0.01
+        },
+        {
+          "iter": 2,
+          "determined": 3600,
+          "pct": 22.3,
+          "free": 12529,
+          "gain": 0,
+          "gf2": 0,
+          "intbound": 0,
+          "crc32_row": 0,
+          "crossdeduce": 0,
+          "rank": 4922,
+          "t_gauss": 3.8,
+          "t_int": 0.0,
+          "t_crc": 0.04,
+          "t_cross": 0.01
+        }
+      ],
+      "total_gf2": 4,
+      "total_int": 3596,
+      "total_crc32_row": 0,
+      "total_cross": 0,
+      "build_time": 2.87,
+      "block": 0,
+      "density": 0.1487,
+      "wall_time": 15.3
+    }
+  ]
+}

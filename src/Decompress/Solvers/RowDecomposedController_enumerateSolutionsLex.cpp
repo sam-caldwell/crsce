@@ -28,7 +28,9 @@
 #include "decompress/Solvers/BeliefPropagator.h"
 #include "decompress/Solvers/CellState.h"
 #include "decompress/Solvers/ConstraintStore.h"
+#include "decompress/Solvers/Crc32RowCompleter.h"
 #include "decompress/Solvers/FailedLiteralProber.h"
+#include "decompress/Solvers/Sha1HashVerifier.h"
 #include "decompress/Solvers/IBranchingController.h"
 #include "decompress/Solvers/IPropagationEngine.h"
 #include "decompress/Solvers/LineID.h"
@@ -289,6 +291,28 @@ namespace crsce::decompress::solvers {
             co_return;
         }
 
+        // --- B.59g: CRC-32 incremental row completion ---
+        // Build expected CRC array from the hash verifier
+        std::unique_ptr<Crc32RowCompleter> crc32Completer;
+        {
+            const auto *sha1Hasher = dynamic_cast<const Sha1HashVerifier *>(hasher_.get());
+            if (sha1Hasher != nullptr) {
+                std::array<std::uint32_t, kS> expectedCrcs{};
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    const auto digest = sha1Hasher->getExpected(r);
+                    // Convert 4-byte big-endian CRC digest back to uint32
+                    expectedCrcs[r] = (static_cast<std::uint32_t>(digest[0]) << 24U)
+                                    | (static_cast<std::uint32_t>(digest[1]) << 16U)
+                                    | (static_cast<std::uint32_t>(digest[2]) << 8U)
+                                    | static_cast<std::uint32_t>(digest[3]); // NOLINT
+                }
+                crc32Completer = std::make_unique<Crc32RowCompleter>(expectedCrcs);
+            }
+        }
+        std::uint64_t crc32Completions = 0;
+        std::uint64_t crc32Prunes = 0;
+        std::uint64_t crc32ForcedCells = 0;
+
         // --- Phase B setup: CPU propagation engine for in-DFS probing ---
         // Speculative assign/undo cycles require CPU-side propagation regardless of
         // whether the main solver uses Metal.
@@ -303,9 +327,19 @@ namespace crsce::decompress::solvers {
         std::uint64_t bpPrevEscalations = 0;
         std::uint64_t bpCheckpoints     = 0;
 
-        // --- Compute global cell ordering by probability confidence ---
+        // --- B.59g: Row-serial cell ordering for CRC-32 row completion ---
+        // Solve rows top-to-bottom, left-to-right within each row.
+        // This enables CRC-32 to complete rows at u=32 (last 32 cells determined algebraically).
         const ProbabilityEstimator estimator(cs);
-        auto cellOrder = estimator.computeGlobalCellScores();
+        std::vector<CellScore> cellOrder;
+        cellOrder.reserve(static_cast<std::size_t>(kS) * kS);
+        for (std::uint16_t r = 0; r < kS; ++r) {
+            for (std::uint16_t c = 0; c < kS; ++c) {
+                if (cs.getCellState(r, c) == CellState::Unassigned) {
+                    cellOrder.push_back(CellScore{r, c, 0ULL, 0ULL, 0});
+                }
+            }
+        }
 
         // --- B.31: Compute bottom-up cell ordering ---
         // Cells ordered by row descending (510 → 0), within each row by confidence
@@ -1022,6 +1056,61 @@ namespace crsce::decompress::solvers {
                 checkHeapRow(a.r);
             }
 
+            // --- B.59g: CRC-32 incremental row completion ---
+            // When u(row) ≤ 32, the 32 CRC-32 GF(2) equations fully determine remaining cells.
+            if (crc32Completer != nullptr) {
+                bool crcCompletionFailed = false;
+                auto tryCrcComplete = [&](const std::uint16_t cr) -> bool {
+                    const auto ru = cs.getStatDirect(cr).unknown;
+                    if (ru == 0 || ru > 32) { return true; }
+                    const auto crcResult = crc32Completer->tryCompleteRow(cr, cs);
+                    if (!crcResult.feasible) {
+                        ++crc32Prunes;
+                        return false;
+                    }
+                    for (std::uint8_t ci = 0; ci < crcResult.numAssigned; ++ci) {
+                        const auto [cc, cv] = crcResult.assignments[ci]; // NOLINT
+                        if (cs.getCellState(cr, cc) != CellState::Unassigned) { continue; }
+                        cs.assign(cr, cc, cv);
+                        brancher_->recordAssignment(cr, cc);
+                        ++crc32ForcedCells;
+                        // Propagate the CRC-forced cell
+                        const bool pOk = cpuProp
+                            ? cpuProp->tryPropagateCell(cr, cc)
+                            : [&]() {
+                                const auto lines = cs.getLinesForCell(cr, cc);
+                                (*propagator_).reset();
+                                return propagator_->propagate(
+                                    std::span<const LineID>{lines.lines.data(),
+                                                            static_cast<std::size_t>(lines.count)});
+                            }();
+                        if (!pOk) { return false; }
+                        const auto &crcForced = cpuProp
+                            ? cpuProp->getForcedAssignments()
+                            : propagator_->getForcedAssignments();
+                        for (const auto &pa : crcForced) {
+                            brancher_->recordAssignment(pa.r, pa.c);
+                        }
+                    }
+                    if (crcResult.numAssigned > 0) { ++crc32Completions; }
+                    return true;
+                };
+                if (!tryCrcComplete(frame.row)) { crcCompletionFailed = true; }
+                if (!crcCompletionFailed) {
+                    for (const auto &a : forced) {
+                        if (a.r != frame.row && !tryCrcComplete(a.r)) {
+                            crcCompletionFailed = true;
+                            break;
+                        }
+                    }
+                }
+                if (crcCompletionFailed) {
+                    if (frame.nextValue == 1) { ++b42PreferredInfeasible; }
+                    else { ++b42AlternateInfeasible; }
+                    continue;
+                }
+            }
+
             // --- B.44d sub-block CRC-32 verification ---
             // Update block unknown counts and verify completed blocks.
             if (b44dEnabled && !b44dBlockU.empty()) {
@@ -1322,7 +1411,10 @@ namespace crsce::decompress::solvers {
                     {"b44c_parity_forcings",    b44cForcings,          ::crsce::o11y::O11y::MetricKind::Counter},
                     {"b44d_block_verifications",b44dVerifications,     ::crsce::o11y::O11y::MetricKind::Counter},
                     {"b44d_block_mismatches",   b44dMismatches,        ::crsce::o11y::O11y::MetricKind::Counter},
-                    {"b45_forcings",            b45Forcings,           ::crsce::o11y::O11y::MetricKind::Counter}});
+                    {"b45_forcings",            b45Forcings,           ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b59g_crc32_completions",  crc32Completions,      ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b59g_crc32_prunes",       crc32Prunes,           ::crsce::o11y::O11y::MetricKind::Counter},
+                    {"b59g_crc32_forced_cells", crc32ForcedCells,      ::crsce::o11y::O11y::MetricKind::Counter}});
 
                 // B.40: flush profiling data every ~100M iterations when enabled.
                 // The outer block fires every ~1M iterations (0x100000). We use a

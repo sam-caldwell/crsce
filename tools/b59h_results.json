@@ -1,0 +1,11 @@
+{
+  "experiment": "B.59h",
+  "block": 0,
+  "density": 0.1487,
+  "determined": 3707,
+  "pct": 23.0,
+  "rows_solved": 2,
+  "free": 12422,
+  "solved": false,
+  "wall_time": 2.04
+}

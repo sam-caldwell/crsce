@@ -296,6 +296,53 @@ namespace crsce::decompress::solvers {
             return stats_[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
+        /**
+         * @struct Snapshot
+         * @name Snapshot
+         * @brief Complete mutable state snapshot for backtracking (~26 KB).
+         */
+        struct Snapshot {
+            /**
+             * @name cells
+             * @brief Copy of cells_ vector.
+             */
+            std::vector<CellState> cells;
+
+            /**
+             * @name stats
+             * @brief Copy of stats_ array.
+             */
+            std::array<LineStat, kTotalLines> stats;
+
+            /**
+             * @name rowBits
+             * @brief Copy of rowBits_ vector.
+             */
+            std::vector<std::array<std::uint64_t, 2>> rowBits;
+
+            /**
+             * @name assigned
+             * @brief Copy of assigned_ bitset.
+             */
+            std::array<std::array<std::uint64_t, 2>, kS> assigned;
+        };
+
+        /**
+         * @name takeSnapshot
+         * @brief Save the complete mutable state for later restoration.
+         * @return Snapshot containing copies of all mutable members.
+         * @throws None
+         */
+        [[nodiscard]] Snapshot takeSnapshot() const;
+
+        /**
+         * @name restoreSnapshot
+         * @brief Restore the mutable state from a previously taken snapshot.
+         * @param snap The snapshot to restore.
+         * @throws None
+         */
+        void restoreSnapshot(const Snapshot &snap);
+
     private:
 
         /**

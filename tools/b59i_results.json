@@ -1,0 +1,18 @@
+{
+  "experiment": "B.59i",
+  "block": 0,
+  "density": 0.1487,
+  "intbound_determined": 3600,
+  "sac_forced": 0,
+  "total_determined": 3600,
+  "free": 12529,
+  "iterations": [
+    {
+      "iteration": 1,
+      "forced": 0,
+      "determined": 3600,
+      "free": 12529,
+      "time_s": 1.14
+    }
+  ]
+}

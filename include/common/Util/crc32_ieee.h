@@ -1,12 +1,14 @@
 /**
  * @file crc32_ieee.h
- * @brief CRC-32 (IEEE 802.3) utility.
+ * @brief CRC-32 (IEEE 802.3) utility — constexpr-capable.
  * @copyright © 2026 Sam Caldwell.  See LICENSE.txt for details
  */
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
+
+#include "common/Util/crc32_table.h"
 
 namespace crsce::common::util {
     /**
@@ -17,6 +19,13 @@ namespace crsce::common::util {
      * @param seed Initial CRC seed (usually 0xFFFFFFFF for a fresh computation).
      * @return Final CRC value after bitwise negation (~crc).
      */
-    std::uint32_t crc32_ieee(const std::uint8_t *data, std::size_t len,
-                             std::uint32_t seed = 0xFFFFFFFFU) noexcept;
+    constexpr std::uint32_t crc32_ieee(const std::uint8_t *data, std::size_t len,
+                                       std::uint32_t seed = 0xFFFFFFFFU) noexcept {
+        std::uint32_t c = seed;
+        for (std::size_t i = 0; i < len; ++i) {
+            const auto idx = static_cast<std::size_t>((c ^ static_cast<std::uint32_t>(data[i])) & 0xFFU); // NOLINT
+            c = detail::kCrc32Table[idx] ^ (c >> 8U); // NOLINT
+        }
+        return ~c;
+    }
 }
