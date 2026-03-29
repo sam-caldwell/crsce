@@ -12473,13 +12473,13 @@ The determined cells can be assigned immediately. The constrained cells can be s
 
 ---
 
-## B.57 Reduced Matrix Dimension: S=127, b=7, CRC-32 Lateral Hash (Proposed)
+## B.57 Reduced Matrix Dimension: $S=127$, $b=7$, CRC-32 Lateral Hash (Proposed)
 
 ### B.57.1 Motivation
 
-The research program (B.1-B.54) established that the DFS solver's depth ceiling at S=511 is an information-theoretic barrier: 2% constraint density leaves 256,024 unconstrained degrees of freedom across 261,121 cells. No solver architecture tested&mdash;DFS, SAT, ILP, or SMT&mdash;can navigate this space efficiently.
+The research program (B.1-B.54) established that the DFS solver's depth ceiling at $S=511$ is an information-theoretic barrier: 2% constraint density leaves 256,024 unconstrained degrees of freedom across 261,121 cells. No solver architecture tested&mdash;DFS, SAT, ILP, or SMT&mdash;can navigate this space efficiently.
 
-Reducing the matrix dimension from S=511 to S=127 fundamentally changes the problem:
+Reducing the matrix dimension from $S=511$ to $S=127$ fundamentally changes the problem:
 
 | Parameter | S=511 | S=127 | Improvement |
 |-----------|-------|-------|-------------|
@@ -12489,47 +12489,51 @@ Reducing the matrix dimension from S=511 to S=127 fundamentally changes the prob
 | Bits per cross-sum (b) | 9 | 7 | 22% smaller encoding |
 | Search space | $2^{256,024}$ | $2^{14,872}$ | Astronomically smaller |
 
-At S=127, the constraint density of 6.2% is triple the current system's 2.0%. The DFS solver's propagation cascade, which exhausts at ~37% of the matrix at S=511, may reach 60-100% at S=127 due to the higher constraint density. The solver has 16$\times$ fewer cells to assign, with each cell participating in constraint lines that are 4$\times$ shorter (127 cells per line vs 511).
+At $S=127$, the constraint density of 6.2% is triple the current system's 2.0%. The DFS solver's propagation cascade, which exhausts at ~37% of the matrix at $S=511$, may reach 60-100% at $S=127$ due to the higher constraint density. The solver has 16$\times$ fewer cells to assign, with each cell participating in constraint lines that are 4$\times$ shorter (127 cells per line vs 511).
 
-### B.57.2 Format Specification (S=127)
+### B.57.2 Format Specification ($S=127$)
 
-**Matrix encoding.** Input data is partitioned into blocks of $127^2 = 16{,}129$ bits (2,016 bytes). Each block is loaded into a $127 \times 127$ binary CSM. Rows are stored as two 64-bit words (128 bits, with 1 trailing zero bit).
+#### Matrix encoding
+Input data is partitioned into blocks of $127^2 = 16{,}129$ bits (2,016 bytes). Each block is loaded into a $127 \times 127$ binary CSM. Rows are stored as two 64-bit words (128 bits, with 1 trailing zero bit).
 
-**Constraint families (6 total).**
+#### Constraint families (6 total)
 
-| Family | Type | Lines | Length | Bits/element |
-|--------|------|-------|--------|-------------|
-| LSM | Row sums | 127 | 127 | 7 |
-| VSM | Column sums | 127 | 127 | 7 |
-| DSM | Diagonal sums | 253 | 1-127-1 (variable) | 1-7 (variable) |
-| XSM | Anti-diagonal sums | 253 | 1-127-1 (variable) | 1-7 (variable) |
-| yLTP1 | Fisher-Yates uniform | 127 | 127 | 7 |
-| yLTP2 | Fisher-Yates uniform | 127 | 127 | 7 |
+| Family | Type                 | Lines | Length              | Bits/element |
+| ------ | -------------------- | ----- | ------------------- |-------------|
+| LSM    | Row sums             | 127   | 127                 | 7 |
+| VSM    | Column sums          | 127   | 127                 | 7 |
+| DSM    | Diagonal sums        | 253   | 1-12 7-1 (variable) | 1-7 (variable) |
+| XSM    | Anti-diagonal sums   | 253   | 1-127-1 (variable)  | 1-7 (variable) |
+| yLTP1  | Fisher-Yates uniform | 127   | 127                 | 7 |
+| yLTP2  | Fisher-Yates uniform | 127   | 127                 | 7 |
 
-**Verification.**
-
+#### Verification
 - **Lateral Hash (LH):** 127 CRC-32 digests (32 bits each), one per row.
 - **Block Hash (BH):** 1 SHA-256 digest (256 bits) of the entire CSM row-major.
 - **Disambiguation Index (DI):** 1 uint8 (8 bits).
 
-**Payload.**
+#### Payload
 
-| Component | Bits |
-|-----------|------|
-| CRC-32 LH | 127 $\times$ 32 = 4,064 |
-| SHA-256 BH | 256 |
-| DI | 8 |
-| LSM | 127 $\times$ 7 = 889 |
-| VSM | 127 $\times$ 7 = 889 |
-| DSM | ~1,209 (variable-width) |
-| XSM | ~1,209 (variable-width) |
-| yLTP1 | 127 $\times$ 7 = 889 |
-| yLTP2 | 127 $\times$ 7 = 889 |
-| **Total** | **~10,302 bits (1,288 bytes)** |
+| Component  | Bits                           |
+| ---------- | ------------------------------ |
+| CRC-32 LH  | 127 $\times$ 32 = 4,064        |
+| SHA-256 BH | 256                            |
+| DI         | 8                              |
+| LSM        | 127 $\times$ 7 = 889           |
+| VSM        | 127 $\times$ 7 = 889.          |
+| DSM        | ~1,209 (variable-width)        |
+| XSM        | ~1,209 (variable-width)        |
+| yLTP1      | 127 $\times$ 7 = 889           |
+| yLTP2      | 127 $\times$ 7 = 889           |
+| **Total**  | **~10,302 bits (1,288 bytes)** |
 
-**Compression ratio:** $10{,}302 / 16{,}129 \approx 63.9\%$ (36.1% space savings).
+#### Compression ratio:
+$10{,}302 / 16{,}129 \approx 63.9\%$ (36.1% space savings).
 
-**Collision resistance:** Minimum-swap evasion (estimated ~3 rows): $2^{-32 \times 3 - 256} = 2^{-352}$. SHA-256 BH provides $2^{-256}$ adversarial resistance. Sufficient for all practical purposes.
+#### Collision resistance:
+- Minimum-swap evasion (estimated ~3 rows): $2^{-32 \times 3 - 256} = 2^{-352}$. 
+- SHA-256 BH provides $2^{-256}$ adversarial resistance.
+- Sufficient for all practical purposes.
 
 ### B.57.3 Key Constants
 
@@ -12569,52 +12573,54 @@ B.57 requires modifications to the following components:
 
 8. **HashVerifier.** Replace SHA-1 computation with CRC-32 for lateral hashes. Retain SHA-256 for block hash.
 
-9. **Tests.** Update all unit and integration tests for S=127 geometry.
+9. **Tests.** Update all unit and integration tests for $S=127$ geometry.
 
-## B.57a: Compress and Decompress Round-Trip
+### B.57a: Compress and Decompress Round-Trip
 
-**Objective.** Verify that the S=127 format compresses and decompresses correctly.
+#### Objective
+Verify that the $S=127$ format compresses and decompresses correctly.
 
-**Acceptance criteria:**
+#### Acceptance criteria:
+1. **Compressor works.** Compress `useless-machine.mp4` with `DISABLE_COMPRESS_DI=1`. The output file contains a valid header (version 2, $S=127$) and correctly serialized block payloads. $File\ size = 28 + (block\_count \times kBlockPayloadBytes)$.
 
-1. **Compressor works.** Compress `useless-machine.mp4` with `DISABLE_COMPRESS_DI=1`. The output file contains a valid header (version 2, S=127) and correctly serialized block payloads. File size = 28 + (block_count $\times$ kBlockPayloadBytes).
+2. **All tests pass.** Unit tests for ConstraintStore, PropagationEngine, HashVerifier, CompressedPayload, and integration round-trip tests all pass at $S=127$.
 
-2. **All tests pass.** Unit tests for ConstraintStore, PropagationEngine, HashVerifier, CompressedPayload, and integration round-trip tests all pass at S=127.
+3. **Decompressor parses correctly.** The decompressor reads the $S=127$ `.crsce` file, deserializes payloads, and constructs the constraint store with correct cross-sum targets.
 
-3. **Decompressor parses correctly.** The decompressor reads the S=127 .crsce file, deserializes payloads, and constructs the constraint store with correct cross-sum targets.
+4. **Depth reaches $\geq$ 30% of the matrix.** The DFS solver on the MP4 block 0 reaches peak depth $\geq 0.30 \times 16{,}129 = 4{,}839$ cells. At $S=511$, the solver reaches 37% depth. With 3.1$\times$ higher constraint density at $S=127$, we expect at least 30% depth and potentially much higher.
 
-4. **Depth reaches $\geq$ 30% of the matrix.** The DFS solver on the MP4 block 0 reaches peak depth $\geq 0.30 \times 16{,}129 = 4{,}839$ cells. At S=511, the solver reaches 37% depth. With 3.1$\times$ higher constraint density at S=127, we expect at least 30% depth and potentially much higher.
+#### Expected outcomes.
 
-**Expected outcomes.**
+| Outcome         | Criteria                             | Interpretation                                                        |
+| --------------- | ------------------------------------ | --------------------------------------------------------------------- |
+| H1 (Full solve) | Depth = 16,129 (100%)                | The S=127 matrix is fully solvable; CRSCE is viable at this dimension |
+| H2 (Deep solve) | Depth $>$ 8,064 ($>$ 50%)            | Significantly deeper than S=511's 37%; higher density matters         |
+| H3 (Comparable) | Depth $\approx$ 4,839-8,064 (30-50%) | Density improvement provides modest gains                             |
+| H4 (Regression) | Depth $<$ 4,839 ($<$ 30%)            | Smaller matrix does not compensate; other factors dominate            |
 
-| Outcome | Criteria | Interpretation |
-|---------|----------|----------------|
-| H1 (Full solve) | Depth = 16,129 (100%) | The S=127 matrix is fully solvable; CRSCE is viable at this dimension |
-| H2 (Deep solve) | Depth $>$ 8,064 ($>$ 50%) | Significantly deeper than S=511's 37%; higher density matters |
-| H3 (Comparable) | Depth $\approx$ 4,839-8,064 (30-50%) | Density improvement provides modest gains |
-| H4 (Regression) | Depth $<$ 4,839 ($<$ 30%) | Smaller matrix does not compensate; other factors dominate |
-
-**Status: COMPLETE. H4 (Regression) — 3,651/16,129 = 22.6% depth.**
+#### Status: COMPLETE. H4 (Regression) — 3,651/16,129 = 22.6% depth.**
 
 ### B.57b: 2-Seed Search at S=127 (2 yLTPs)
 
-**Objective.** Determine whether B.57a's 22.6% depth regression is caused by unoptimized LTP seeds or is an inherent structural property of S=127.
+#### Objective.
+Determine whether B.57a's 22.6% depth regression is caused by unoptimized LTP seeds or is an inherent structural property of S=127.
 
-**Method.** B.26c-style joint seed search: 12 × 12 = 144 seed pairs (top-12 candidates from B.26c), 15 seconds per evaluation, on the MP4 test block. Seeds are the "CRSCLTP" + suffix ASCII construction. The B.57a baseline uses CRSCLTPV+CRSCLTPP (the B.26c winners at S=511, which carry no optimization benefit at S=127 due to different pool size).
+#### Method.
+B.26c-style joint seed search: 12 × 12 = 144 seed pairs (top-12 candidates from B.26c), 15 seconds per evaluation, on the MP4 test block. Seeds are the "CRSCLTP" + suffix ASCII construction. The B.57a baseline uses CRSCLTPV+CRSCLTPP (the B.26c winners at S=511, which carry no optimization benefit at S=127 due to different pool size).
 
-**Results.**
+#### Results.
 
-| Metric | Value |
-|--------|-------|
-| Pairs evaluated | 144 |
-| Initial forced (all pairs) | 3,600 (invariant) |
-| DFS depth range | 51&ndash;102 |
-| Depth distribution | 140 pairs at 3,651 (22.6%), 4 pairs at 3,702 (23.0%) |
-| Best pair | CRSCLTPZ+CRSCLTPR = 3,702 (23.0%) |
-| Improvement over baseline | +51 cells (+0.3 pp) |
-| H3 threshold (30%) | 4,838 &mdash; not reached |
+| Metric                     | Value                                                |
+| -------------------------- | ---------------------------------------------------- |
+| Pairs evaluated.           | 144                                                  |
+| Initial forced (all pairs) | 3,600 (invariant)                                    |
+| DFS depth range            | 51&ndash;102                                         |
+| Depth distribution         | 140 pairs at 3,651 (22.6%), 4 pairs at 3,702 (23.0%) |
+| Best pair                  | CRSCLTPZ+CRSCLTPR = 3,702 (23.0%)                    |
+| Improvement over baseline  | +51 cells (+0.3 pp)                                  |
+| H3 threshold (30%)         | 4,838 &mdash; not reached                            |
 
-**Key findings.**
+#### Key findings.
 
 1. **Initial propagation is seed-invariant.** All 144 pairs produce exactly 3,600 forced cells. Seeds only affect the DFS phase, not the constraint cascade.
 
@@ -12622,13 +12628,14 @@ B.57 requires modifications to the following components:
 
 3. **The regression is structural.** The 22.6% depth ceiling at S=127 is an intrinsic property of the constraint system geometry, not the LTP table quality. Seed optimization cannot push depth past ~23%.
 
-**Conclusion.** H4 confirmed. The depth regression from S=511's 37% to S=127's 22.6% is not caused by unoptimized seeds. B.57c (4 yLTPs) is unnecessary &mdash; the initial propagation zone (which dominates total depth) is invariant to LTP count and seed choice. The DFS solver's depth ceiling is a structural property of the cross-sum constraint system at any matrix dimension.
+#### Conclusion.
+H4 confirmed. The depth regression from S=511's 37% to S=127's 22.6% is not caused by unoptimized seeds. B.57c (4 yLTPs) is unnecessary &mdash; the initial propagation zone (which dominates total depth) is invariant to LTP count and seed choice. The DFS solver's depth ceiling is a structural property of the cross-sum constraint system at any matrix dimension.
 
-**Status: COMPLETE. H4 confirmed &mdash; regression is structural, not seed-dependent.**
+#### Status: COMPLETE. H4 confirmed &mdash; regression is structural, not seed-dependent.**
 
 ---
 
-## B.58 Combinator-Based Symbolic Solver at S=127 (Proposed)
+## B.58 Combinator-Based Symbolic Solver at $S=127$ (Proposed)
 
 ### B.58.1 Motivation
 
@@ -13866,7 +13873,7 @@ Implements:
 
 ---
 
-## B.59 Experiments at S=127
+## B.59 Experiments at $S=127$
 
 ### B.59.0 Architecture
 
@@ -14232,7 +14239,7 @@ B.60 **eliminates the DFS solver entirely**. There is no cell-by-cell branching,
 
 **Why all rows are solved concurrently.** In the GF(2) constraint matrix $G$ ($8{,}888 \times 16{,}129$), every equation is present from the start. Row 0's LH equations, row 126's LH equations, column 0's VH equations, and column 126's VH equations all participate in the same Gaussian elimination. When GaussElim pivots a cell in row 0 via an LH equation, the substitution propagates into VH equations affecting columns that span rows 0&ndash;126, which in turn may create pivots in rows 60&ndash;126&mdash;the very rows that the DFS solver could never reach. The algebraic solver has no concept of "depth" or "progress through rows"; it operates on the full system simultaneously.
 
-**Why cross-sum integer constraints participate globally.** The 760 geometric cross-sum lines (127 rows + 127 columns + 253 diagonals + 253 anti-diagonals) enter the GF(2) system as parity equations AND the integer system as cardinality constraints. IntBound processes ALL 760 lines in each fixpoint iteration, not just lines touching recently-assigned cells. A diagonal spanning rows 0&ndash;126 provides a constraint that couples the top and bottom of the matrix in a single equation&mdash;information that the DFS solver could only access after assigning all 127 cells on that diagonal sequentially.
+**Why cross-sum integer constraints participate globally.** The 760 geometric cross-sum lines ($127 rows + 127 columns + 253 diagonals + 253 anti-diagonals$) enter the GF(2) system as parity equations AND the integer system as cardinality constraints. IntBound processes ALL 760 lines in each fixpoint iteration, not just lines touching recently-assigned cells. A diagonal spanning rows 0&ndash;126 provides a constraint that couples the top and bottom of the matrix in a single equation&mdash;information that the DFS solver could only access after assigning all 127 cells on that diagonal sequentially.
 
 **Formal solver specification.** The B.60 solver is the composition:
 
@@ -14464,7 +14471,7 @@ All results from C++ `combinatorSolver` binary. No DFS. No search. Purely algebr
 
 B.60f (LH + DH) is the strongest configuration: +805 cells over B.60b, driven by 1,189 GaussElim determinations from diagonal CRC-32 on short diagonals.
 
-### B.60a: GF(2) Rank with LH + VH
+### B.60a: GF(2) Rank with $LH + VH$
 
 ### Objective. 
 Measure the GF(2) rank of the combined cross-sum + LH + VH system at S=127 without yLTP.
@@ -14503,20 +14510,20 @@ Measure the GF(2) rank of the combined cross-sum + LH + VH system at S=127 witho
 
 Rank confirmed input-independent (identical across 2 trials with different random CSMs).
 
-| Configuration | Equations | Measured rank | Null-space | Density |
-|---------------|-----------|--------------|-----------|---------|
-| LSM only | 127 | 127 | 16,002 | 0.0079 |
-| LSM + VSM | 254 | 253 | 15,876 | 0.0157 |
-| LSM + VSM + DSM | 507 | 504 | 15,625 | 0.0312 |
-| 4 geometric | 760 | 753 | 15,376 | 0.0467 |
-| + LH | 4,824 | 4,785 | 11,344 | 0.2967 |
-| **+ VH** | **8,888** | **7,793** | **8,336** | **0.4832** |
+| Configuration   | Equations | Measured rank | Null-space | Density    |
+| --------------- | --------- | ------------- | ---------- | ---------- |
+| LSM only        | 127       | 127           | 16,002     | 0.0079     |
+| LSM + VSM       | 254       | 253           | 15,876     | 0.0157     |
+| LSM + VSM + DSM | 507       | 504.          | 15,625     | 0.0312     |
+| 4 geometric     | 760       | 753           | 15,376     | 0.0467     |
+| + LH            | 4,824     | 4,785         | 11,344     | 0.2967     |
+| **+ VH**        | **8,888** | **7,793**     | **8,336**  | **0.4832** |
 
-| Source | Contribution | Max possible | Efficiency |
-|--------|-------------|-------------|-----------|
-| Geometric | 753 | 760 | 99.1% |
-| LH (over geometric) | +4,032 | 4,064 | 99.2% |
-| VH (over geometric + LH) | +3,008 | 4,064 | 74.0% |
+| Source                   | Contribution  | Max possible  | Efficiency  |
+| ------------------------ | ------------- | ------------- | ----------- |
+| Geometric                | 753           | 760           | 99.1%       |
+| LH (over geometric)      | +4,032        | 4,064         | 99.2%       |
+| VH (over geometric + LH) | +3,008        | 4,064         | 74.0%       |
 
 Comparison to B.58 (LH + 2 yLTP): rank 5,037 &rarr; 7,793 (+54.7%). VH contributes 3,008 independent equations, but 1,056 are redundant with the existing LH + geometric system.
 
@@ -14761,11 +14768,13 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 
 ### B.60g: Constrained DH &mdash; 64 vs 128 Shortest Diagonals
 
-**Prerequisite.** B.60f completed (H1).
+#### Prerequisite.** 
+B.60f completed (H1).
 
-**Motivation.** B.60f showed that DH on all 253 diagonals produces 4,405 determined cells but C_r = 107% (expansion). A sweep over diagonal counts revealed that the shortest 64 diagonals produce 4,334 cells (98.4% of full DH yield) at C_r = 44.7%, while the shortest 128 produce the full 4,405 cells at C_r = 57.4%. This experiment formally evaluates both configurations.
+#### Motivation.
+B.60f showed that DH on all 253 diagonals produces 4,405 determined cells but C_r = 107% (expansion). A sweep over diagonal counts revealed that the shortest 64 diagonals produce 4,334 cells (98.4% of full DH yield) at C_r = 44.7%, while the shortest 128 produce the full 4,405 cells at C_r = 57.4%. This experiment formally evaluates both configurations.
 
-**Method.**
+#### Method.
 
 (a) Run the C++ combinator fixpoint (`combinatorSolver -config lh_dh`) with `-dh-diags 64` and `-dh-diags 128` on MP4 block 0.
 
@@ -14775,18 +14784,18 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 
 (d) Compute payload size and C_r for each configuration:
 
-| Component | 64-diag DH | 128-diag DH |
-|-----------|-----------|------------|
-| CRC-32 LH | 4,064 bits | 4,064 bits |
-| CRC-32 DH | 64 &times; 32 = 2,048 bits | 128 &times; 32 = 4,096 bits |
-| SHA-256 BH | 256 bits | 256 bits |
-| DI | 8 bits | 8 bits |
-| LSM | 889 bits | 889 bits |
-| VSM | 889 bits | 889 bits |
-| DSM | 1,531 bits | 1,531 bits |
-| XSM | 1,531 bits | 1,531 bits |
-| **Total** | **11,216 bits** | **13,264 bits** |
-| **C_r** | **69.5%** | **82.2%** |
+| Component   | 64-diag DH                 | 128-diag DH                 |
+| ----------- | -------------------------- | --------------------------- |
+| CRC-32 LH   | 4,064 bits                 | 4,064 bits                  |
+| CRC-32 DH   | 64 &times; 32 = 2,048 bits | 128 &times; 32 = 4,096 bits |
+| SHA-256 BH  | 256 bits                   | 256 bits                    |
+| DI          | 8 bits                     | 8 bits                      |
+| LSM         | 889 bits                   | 889 bits                    |
+| VSM         | 889 bits                   | 889 bits                    |
+| DSM         | 1,531 bits                 | 1,531 bits                  |
+| XSM         | 1,531 bits                 | 1,531 bits                  |
+| **Total**   | **11,216 bits**            | **13,264 bits**             |
+| **C_r**     | **69.5%**                  | **82.2%**                   |
 
 **Expected outcomes.**
 
@@ -14795,67 +14804,74 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 | H1 (64-diag sufficient) | 64-diag $|D|$ within 5% of 128-diag across all blocks | 64-diag is the optimal trade-off; adopt for production |
 | H2 (128-diag needed) | 128-diag $|D|$ materially higher ($> 5\%$) on some blocks | Longer diagonals contribute block-specific value; use 128-diag |
 
-**Results.** C++ `combinatorSolver -config lh_dh -dh-diags {64,128}` on MP4 blocks 0&ndash;5. All values verified correct against original CSM.
+#### Results.
+C++ `combinatorSolver -config lh_dh -dh-diags {64,128}` on MP4 blocks 0&ndash;5. All values verified correct against original CSM.
 
-**64-diagonal DH:**
+#### 64-diagonal DH:
 
-| Block | $|D|$ | GaussElim | IntBound | CD | Rank | Correct |
-|-------|-------|-----------|----------|----|------|---------|
-| 0 | 4,334 | 1,058 | 3,276 | 0 | 4,631 | true |
-| 1 | 4,534 | 1,058 | 3,476 | 0 | 4,630 | true |
-| 2 | 10,885 | 2,030 | 8,855 | 0 | 2,828 | true |
-| 3 | 7,872 | 1,058 | 6,814 | 0 | 4,614 | true |
-| 4 | 1,541 | 1,058 | 483 | 0 | 4,697 | true |
-| 5 | 1,060 | 1,058 | 2 | 0 | 4,718 | true |
-| **Mean** | **5,038** | | | | | |
+| Block    | $|D|$     | GaussElim | IntBound | CD | Rank | Correct |
+| -------- | --------- |-----------|----------|----|------|---------|
+| 0        | 4,334     | 1,058     | 3,276    | 0  | 4,631 | true |
+| 1        | 4,534     | 1,058     | 3,476    | 0  | 4,630 | true |
+| 2        | 10,885    | 2,030     | 8,855    | 0  | 2,828 | true |
+| 3        | 7,872     | 1,058     | 6,814    | 0  | 4,614 | true |
+| 4        | 1,541     | 1,058     | 483      | 0  | 4,697 | true |
+| 5        | 1,060     | 1,058     | 2        | 0  | 4,718 | true |
+| **Mean** | **5,038** | -----     | --       | -- | ----- | ---- |
 
-**128-diagonal DH:**
+#### 128-diagonal DH:
 
-| Block | $|D|$ | GaussElim | IntBound | CD | Rank | Correct |
-|-------|-------|-----------|----------|----|------|---------|
-| 0 | 4,405 | 1,189 | 3,216 | 0 | 5,870 | true |
-| 1 | 4,686 | 1,211 | 3,475 | 0 | 5,757 | true |
-| 2 | 11,027 | 2,183 | 8,844 | 0 | 3,680 | true |
-| 3 | 7,872 | 1,174 | 6,698 | 0 | 5,574 | true |
-| 4 | 1,599 | 1,174 | 425 | 0 | 6,335 | true |
-| 5 | 1,176 | 1,174 | 2 | 0 | 6,650 | true |
-| **Mean** | **5,128** | | | | | |
+| Block     | $|D|$   | GaussElim   | IntBound   | CD   | Rank   | Correct   |
+| --------- | ------- | ----------- | ---------- | ---- | ------ | --------- |
+| 0         | 4,405   | 1,189      | 3,216       | 0    | 5,870  | true      |
+| 1         | 4,686   | 1,211      | 3,475       | 0    | 5,757  | true      |
+| 2         | 11,027  | 2,183      | 8,844       | 0    | 3,680  | true      |
+| 3         | 7,872   | 1,174      | 6,698       | 0    | 5,574  | true      |
+| 4         | 1,599   | 1,174      | 425         | 0    | 6,335  | true      |
+| 5         | 1,176   | 1,174      | 2           | 0    | 6,650  | true      |
+| **Mean**  | **5,128** |          |             |      |        |           |
 
-**64 vs 128 comparison:**
+#### 64 vs 128 comparison:
 
-| Block | 64-diag | 128-diag | Delta | % change |
-|-------|---------|----------|-------|----------|
-| 0 | 4,334 | 4,405 | +71 | +1.6% |
-| 1 | 4,534 | 4,686 | +152 | +3.4% |
-| 2 | 10,885 | 11,027 | +142 | +1.3% |
-| 3 | 7,872 | 7,872 | 0 | 0.0% |
-| 4 | 1,541 | 1,599 | +58 | +3.8% |
-| 5 | 1,060 | 1,176 | +116 | +10.9% |
-| **Mean** | **5,038** | **5,128** | **+90** | |
+| Block.    | 64-diag   | 128-diag  | Delta   | % change |
+| --------- | --------- | --------- | ------- | -------- |
+| 0         | 4,334     | 4,405     | +71     | +1.6%    |
+| 1         | 4,534     | 4,686     | +152    | +3.4%    |
+| 2         | 10,885    | 11,027    | +142    | +1.3%    |
+| 3         | 7,872     | 7,872     | 0       | 0.0%     |
+| 4         | 1,541     | 1,599     | +58     | +3.8%    |
+| 5         | 1,060     | 1,176     | +116    | +10.9%   |
+| **Mean**  | **5,038** | **5,128** | **+90** |          |
 
-**Payload and C_r:**
+#### Payload and C_r:
 
-| Config | DH bits | Total payload | C_r |
-|--------|---------|--------------|-----|
-| 64-diag DH | 2,048 | 11,216 bits | 69.5% |
-| 128-diag DH | 4,096 | 13,264 bits | 82.2% |
-| B.60b (VH) | 4,064 | 13,232 bits | 82.0% |
+| Config      | DH bits   | Total payload  | $C_r$ |
+| ----------- | --------- | -------------- | ----- |
+| 64-diag DH  | 2,048     | 11,216 bits    | 69.5% |
+| 128-diag DH | 4,096     | 13,264 bits    | 82.2% |
+| B.60b (VH)  | 4,064     | 13,232 bits.   | 82.0% |
 
-**Outcome: H2 (128-diag needed).** Block 5 shows a 10.9% improvement from 64&rarr;128, exceeding the 5% threshold. However, 128-diag DH has nearly the same C_r as VH (82.2% vs 82.0%) while producing +805 more cells on block 0 and +90 more cells on average across 6 blocks.
+#### Outcome: H2 (128-diag needed)
+Block 5 shows a 10.9% improvement from 64&rarr;128, exceeding the 5% threshold. However, 128-diag DH has nearly the same C_r as VH (82.2% vs 82.0%) while producing +805 more cells on block 0 and +90 more cells on average across 6 blocks.
 
-**Observation.** Block density strongly affects $|D|$: block 2 (high density) reaches 10,885&ndash;11,027 cells (67&ndash;68%), while block 5 (low density) reaches only 1,060&ndash;1,176 (6.6&ndash;7.3%). The combinator fixpoint is density-sensitive.
+#### Observation
+Block density strongly affects $|D|$: block 2 (high density) reaches 10,885&ndash;11,027 cells (67&ndash;68%), while block 5 (low density) reaches only 1,060&ndash;1,176 (6.6&ndash;7.3%). The combinator fixpoint is density-sensitive.
 
-**Tool:** `build/arm64-release/combinatorSolver -config lh_dh -dh-diags {64,128}`
+#### Tool:
+`build/arm64-release/combinatorSolver -config lh_dh -dh-diags {64,128}`
 
-**Status: COMPLETE (H2). 128-diag DH recommended.**
+#### Status: 
+COMPLETE (H2). 128-diag DH recommended.
 
 ### B.60h: Constrained DH Payload Analysis
 
-**Motivation.** B.60f/g showed DH128 (CRC-32 on the 128 shortest DSM diagonals) produces +805 cells over LH-only. The anti-diagonals (XSM) have the same length distribution as DSM. If CRC-32 on the shortest 128 anti-diagonals (XH128) provides a similar algebraic boost, it can replace LH (row CRC-32) without changing C_r &mdash; since XH128 costs 128 &times; 32 = 4,096 bits vs LH's 127 &times; 32 = 4,064 bits (+32 bits, negligible).
+#### Motivation
+B.60f/g showed DH128 (CRC-32 on the 128 shortest DSM diagonals) produces +805 cells over LH-only. The anti-diagonals (XSM) have the same length distribution as DSM. If CRC-32 on the shortest 128 anti-diagonals (XH128) provides a similar algebraic boost, it can replace LH (row CRC-32) without changing C_r &mdash; since XH128 costs 128 &times; 32 = 4,096 bits vs LH's 127 &times; 32 = 4,064 bits (+32 bits, negligible).
 
-**Hypothesis.** XH128 paired with DH128 produces comparable or better cell yield to LH paired with DH128, because both DH and XH operate on the diagonal constraint families that initiate the IntBound cascade.
+#### Hypothesis
+XH128 paired with DH128 produces comparable or better cell yield to LH paired with DH128, because both DH and XH operate on the diagonal constraint families that initiate the IntBound cascade.
 
-**Method.**
+#### Method.
 
 (a) Implement XH: per-anti-diagonal CRC-32, same construction as DH but on XSM geometry. XH128 = 128 shortest anti-diagonals.
 
@@ -14872,22 +14888,25 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 | A: LH + DH128 | 4,064 | 4,096 | 0 | 8,160 | 13,264 | 82.2% |
 | B: XH128 + DH128 | 0 | 4,096 | 4,096 | 8,192 | 13,296 | 82.4% |
 
-**Expected outcomes.**
+#### Expected outcomes.
 
-| Outcome | Criteria | Interpretation |
-|---------|----------|----------------|
-| H1 (XH128 comparable) | Config B $|D|$ within 5% of Config A across all blocks | XH128 substitutes for LH; diagonal-family hashes are self-sufficient |
-| H2 (LH needed) | Config B $|D|$ materially lower ($> 5\%$) on some blocks | Row hashes provide orthogonal information that diagonal hashes cannot replace |
+| Outcome               | Criteria                                               | Interpretation                                                                  |
+| --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| H1 (XH128 comparable) | Config B $|D|$ within 5% of Config A across all blocks | XH128 substitutes for LH; diagonal-family hashes are self-sufficient            |
+| H2 (LH needed)        | Config B $|D|$ materially lower ($> 5\%$) on some blocks | Row hashes provide orthogonal information that diagonal hashes cannot replace |
 
-**Status: PROPOSED.**
+#### Status:
+PROPOSED.
 
 ### B.60i: XH128 + DH128 &mdash; Anti-Diagonal Hash Replacing LH
 
-**Prerequisite.** B.60g completed (DH128 established).
+#### Prerequisite.
+B.60g completed (DH128 established).
 
-**Motivation.** DH128 exploits DSM diagonals. The anti-diagonals (XSM) have the same length distribution. XH128 (CRC-32 on 128 shortest anti-diagonals) replaces LH (row CRC-32) at nearly the same payload cost (+32 bits). The hypothesis: XH128 + DH128 produces comparable or better cell yield than LH + DH128.
+#### Motivation.
+DH128 exploits DSM diagonals. The anti-diagonals (XSM) have the same length distribution. XH128 (CRC-32 on 128 shortest anti-diagonals) replaces LH (row CRC-32) at nearly the same payload cost (+32 bits). The hypothesis: XH128 + DH128 produces comparable or better cell yield than LH + DH128.
 
-**Method.**
+#### Method.
 
 (a) Run C++ `combinatorSolver -config xh_dh -dh-diags 128 -xh-diags 128` on MP4 blocks 0&ndash;5.
 
@@ -14895,28 +14914,30 @@ DH produces a dramatic improvement: +805 cells (22% more than B.60b). The mechan
 
 (c) Record $|D|$, per-combinator attribution, correctness.
 
-**Results.** All 12 runs (2 configs &times; 6 blocks) executed in C++, all values verified correct.
+#### Results.
 
-| Block | LH + DH128 | XH128 + DH128 | Delta | % change |
-|-------|-----------|---------------|-------|----------|
-| 0 | 4,405 | 6,809 | +2,404 | +54.6% |
-| 1 | 4,686 | 11,286 | +6,600 | +140.8% |
-| **2** | **11,027** | **16,129** | **+5,102** | **+46.3% (FULL SOLVE)** |
-| 3 | 7,872 | 9,853 | +1,981 | +25.2% |
-| 4 | 1,599 | 2,704 | +1,105 | +69.1% |
-| 5 | 1,176 | 2,344 | +1,168 | +99.3% |
-| **Mean** | **5,128** | **8,188** | **+3,060** | |
+All 12 runs (2 configs &times; 6 blocks) executed in C++, all values verified correct.
+
+| Block    | LH + DH128 | XH128 + DH128 | Delta.     | % change |
+| -------- | ---------- | ------------- | ---------- | -------- |
+| 0        | 4,405      | 6,809         | +2,404     | +54.6%   |
+| 1        | 4,686      | 11,286        | +6,600     | +140.8%  |
+| **2**    | **11,027** | **16,129**    | **+5,102** | **+46.3% (FULL SOLVE)** |
+| 3        | 7,872      | 9,853         | +1,981     | +25.2%  |
+| 4        | 1,599      | 2,704         | +1,105     | +69.1%  |
+| 5        | 1,176      | 2,344         | +1,168     | +99.3%  |
+| **Mean** | **5,128**  | **8,188**     | **+3,060** |         |
 
 **XH128 + DH128 detail (Config B):**
 
-| Block | $|D|$ | GaussElim | IntBound | CD | Rank | Correct |
-|-------|-------|-----------|----------|----|------|---------|
-| 0 | 6,809 | 2,950 | 3,859 | 0 | 3,104 | true |
-| 1 | 11,286 | 4,287 | 6,999 | 0 | 1,385 | true |
-| 2 | 16,129 | 2,423 | 13,706 | 0 | 1,214 | true |
-| 3 | 9,853 | 3,580 | 6,273 | 0 | 1,741 | true |
-| 4 | 2,704 | 2,344 | 360 | 0 | 4,184 | true |
-| 5 | 2,344 | 2,344 | 0 | 0 | 4,489 | true |
+| Block | $|D|$  | GaussElim | IntBound | CD | Rank  | Correct |
+| ----- | ------ | --------- | -------- | -- | ----- | ------- |
+| 0     | 6,809  | 2,950     | 3,859    | 0  | 3,104 | true    |
+| 1     | 11,286 | 4,287     | 6,999    | 0  | 1,385 | true    |
+| 2     | 16,129 | 2,423     | 13,706   | 0  | 1,214 | true    |
+| 3     | 9,853  | 3,580     | 6,273    | 0  | 1,741 | true    |
+| 4     | 2,704  | 2,344     | 360      | 0  | 4,184 | true    |
+| 5     | 2,344  | 2,344     | 0        | 0  | 4,489 | true    |
 
 **Block 2: FULL SOLVE.** 16,129/16,129 cells determined by the combinator fixpoint alone. No search. No DFS. Pure algebraic determination. This is the first complete algebraic solve of any CRSCE block.
 
@@ -15490,11 +15511,11 @@ Hard cutoff at length 16 &mdash; exactly the CRC-16 full-determination boundary.
 
 **Status: COMPLETE.**
 
-### B.60q: VH32 + DH8_253 + XH8_253 Cascade &mdash; CRC-8 Full Coverage at C_r &lt; 90%
+### B.60q: VH32 + DH8_253 + XH8_253 Cascade &mdash; CRC-8 Full Coverage at $C_r < 90%$
 
 **Prerequisite.** B.60p completed.
 
-**Motivation.** The cascade needs CRC hashes on ALL diagonal lengths for full solves, but CRC-32 or CRC-16 on all 506 diags exceeds 90% C_r. CRC-8 on all 506 diags costs 4,048 bits, achieving C_r = 81.9% with full cascade coverage. CRC-8 fully determines diags of length &le; 8 and provides 8 GF(2) equations on longer diags.
+**Motivation.** The cascade needs CRC hashes on ALL diagonal lengths for full solves, but CRC-32 or CRC-16 on all 506 diags exceeds 90% $C_r$. CRC-8 on all 506 diags costs 4,048 bits, achieving $C_r = 81.9%$ with full cascade coverage. CRC-8 fully determines diags of length &le; 8 and provides 8 GF(2) equations on longer diags.
 
 **Configuration.** VH32 + DH8_253 + XH8_253 cascade (no LH).
 
@@ -15549,13 +15570,15 @@ Hard cutoff at length 16 &mdash; exactly the CRC-16 full-determination boundary.
 
 **Status: COMPLETE. CRC-8 insufficient. 1/21 full solve at C_r = 81.9%.**
 
-### B.60r: Hybrid-Width DH128/XH128 + VH32 Cascade &mdash; C_r = 87.0%
+### B.60r: Hybrid-Width DH128/XH128 + VH32 Cascade &mdash; $C_r = 87.0%$
 
-**Prerequisite.** B.60q completed.
+#### Prerequisite
+B.60q completed.
 
-**Motivation.** Use the minimum CRC width that fully determines each diagonal length, then extend to 128 elements per family covering length 1&ndash;64. CRC-8 for length &le; 8, CRC-16 for 9&ndash;16, CRC-32 for 17&ndash;32, CRC-16 for 33&ndash;64 (cascade-dependent).
+#### Motivation
+Use the minimum CRC width that fully determines each diagonal length, then extend to 128 elements per family covering length 1&ndash;64. CRC-8 for length &le; 8, CRC-16 for 9&ndash;16, CRC-32 for 17&ndash;32, CRC-16 for 33&ndash;64 (cascade-dependent).
 
-**Payload.**
+#### Payload
 
   ┌────────┬──────────────────┬────────────────────────┬───────────┬────────────┐
   │ Length │ Diags per family │ Min full-determine CRC │ Bits/diag │ Total bits │
@@ -15571,18 +15594,19 @@ Hard cutoff at length 16 &mdash; exactly the CRC-16 full-determination boundary.
 
 Per family: 2,432 bits. DH128 + XH128: 4,864 bits. VH32: 4,064. Geometric+BH+DI: 5,104. **Total: 14,032 bits. C_r = 87.0%.**
 
-**Results.** C++ `combinatorSolver -config hybrid_cascade` on MP4 blocks 0&ndash;20. All correct.
+#### Results
+C++ `combinatorSolver -config hybrid_cascade` on MP4 blocks 0&ndash;20. All correct.
 
-| Block | Density | $|D|$ | Rows | Cols (VH) | Diags | XSM | Class |
-|-------|---------|-------|------|-----------|-------|-----|-------|
-| 0 | 0.149 | 7,454 (46.2%) | 3 | 20 | 128/253 | 68/253 | PARTIAL |
-| 1 | 0.158 | 12,002 (74.4%) | 7 | 51 | 166/253 | 108/253 | PARTIAL |
-| **2** | **0.146** | **16,129 (100%)** | **127** | **127** | **253** | **253** | **FULL** |
-| 3 | 0.183 | 9,491 (58.8%) | 0 | 13 | 157/253 | 68/253 | PARTIAL |
-| 4 | 0.378 | 2,530 (15.7%) | 0 | 0 | 75/253 | 64/253 | PARTIAL |
-| 5&ndash;20 | ~0.50 | 2,112 (13.1%) | 0 | 0 | 64/253 | 64/253 | MINIMAL |
+| Block      | Density   | $|D|$             | Rows.       | Cols (VH) | Diags   | XSM     | Class    |
+| ---------- | --------- | ----------------- | ----------- | --------- | ------- | ------- | -------- |
+| 0          | 0.149     | 7,454 (46.2%)     | 3           | 20.       | 128/253 | 68/253  | PARTIAL  |
+| 1          | 0.158     | 12,002 (74.4%)    | 7           | 51        | 166/253 | 108/253 | PARTIAL  |
+| **2**      | **0.146** | **16,129 (100%)** | **127**     | **127**   | **253** | **253** | **FULL** |
+| 3          | 0.183     | 9,491 (58.8%)     | 0           | 13        | 157/253 | 68/253  | PARTIAL  |
+| 4          | 0.378     | 2,530 (15.7%)     | 0           | 0         | 75/253  | 64/253  | PARTIAL  |
+| 5&ndash;20 | ~0.50     | 2,112 (13.1%)     | 0           | 0         | 64/253  | 64/253  | MINIMAL  |
 
-**Comparison (blocks 0&ndash;3, moderate density):**
+#### Comparison (blocks 0&ndash;3, moderate density):
 
 | Config                      | C_r       | Blk 0     | Blk 1      | Blk 2    | Blk 3     | Full  |
 |-----------------------------|-----------|-----------|------------|----------|-----------|-------|
@@ -15591,7 +15615,7 @@ Per family: 2,432 bits. DH128 + XH128: 4,864 bits. VH32: 4,064. Geometric+BH+DI:
 | B.60q CRC-8 all+VH32        | 81.9%     | 3,727     | 4,049      | FULL     | 7,765     | 1     |
 | **B.60r Hybrid+VH32**       | **87.0%** | **7,454** | **12,002** | **FULL** | **9,491** | **1** |
 
-**Analysis.**
+#### Analysis
 
 1. **Block 1 reaches 74.4%** &mdash; highest partial solve under 90% C_r. Phase 4 (CRC-16 on length 33&ndash;64) adds 3,882 cells. 51 columns VH-verified.
 
@@ -15601,11 +15625,13 @@ Per family: 2,432 bits. DH128 + XH128: 4,864 bits. VH32: 4,064. Geometric+BH+DI:
 
 4. **50% density floor: 2,112** (same as CRC-32 DH64). Phase 4 contributes 0 at high density.
 
-**Outcome.** Hybrid widths at C_r = 87.0% achieve the best sub-90% partial-solve performance. Block 1 at 74.4% is the closest any compressing config reaches without full solve.
+#### Outcome
+Hybrid widths at C_r = 87.0% achieve the best sub-90% partial-solve performance. Block 1 at 74.4% is the closest any compressing config reaches without full solve.
 
-**Tool:** `build/arm64-release/combinatorSolver -config hybrid_cascade`
+#### Tool:
+`build/arm64-release/combinatorSolver -config hybrid_cascade`
 
-**Status: COMPLETE. 1 full solve, best sub-90% partial yields.**
+#### Status: COMPLETE. 1 full solve, best sub-90% partial yields.**
 
 ### B.60s: B.60r with SHA-256 Block Hash Verification
 
@@ -15617,13 +15643,14 @@ Per family: 2,432 bits. DH128 + XH128: 4,864 bits. VH32: 4,064. Geometric+BH+DI:
 
 **Results.** C++ `combinatorSolver -config hybrid_cascade` with BH verification. All blocks 0&ndash;20.
 
-| Block | $|D|$ | Correct | BH verified | Status |
-|-------|-------|---------|-------------|--------|
-| **2** | **16,129** | **true** | **true** | **FULL SOLVE** |
-| 0 | 7,454 | true | false | partial |
-| 1 | 12,002 | true | false | partial |
-| 3 | 9,491 | true | false | partial |
-| 4&ndash;20 | 2,112&ndash;2,530 | true | false | minimal/partial |
+
+| Block      | \|D\|             | Correct   | BH verified   | Status          |
+| ---------- | ----------------- | --------- | ------------- | --------------- |
+| **2**      | **16,129**        | **true**  | **true**      | **FULL SOLVE**  |
+| 0          | 7,454             | true      | false         | partial         |
+| 1          | 12,002            | true      | false         | partial         |
+| 3          | 9,491             | true      | false         | partial         |
+| 4&ndash;20 | 2,112&ndash;2,530 | true      | false         | minimal/partial |
 
 **Block 2 is a verified full solve.** SHA-256 block hash matches. This is the only block that achieves complete algebraic reconstruction with $BH$ verification under the B.60r configuration ($C_r = 87.0%$).
 
@@ -15792,6 +15819,292 @@ B.61c (asymmetric overlap), B.61d (full-file decompression), B.61e (block orderi
 **B.61: FAILED.** The overlapping blocks hypothesis was that solved blocks could donate boundary cells to trigger the IntBound cascade in unsolved neighbors. B.61a confirmed the mechanism works (donation flows, cells are pre-assigned) but B.61b proved it cannot break the 50% density wall. The reason is geometric: the IntBound cascade stalls on interior constraint lines (rows, columns, long diagonals) where rho &asymp; u/2, and boundary-column donation only affects constraint lines that cross the boundary.
 
 The 50% density problem requires known cells in the matrix INTERIOR, not at the edges. This is a different research direction than block overlap.
+
+## B.62: Optimizing at s=191, b=8
+
+### B.62.1 Motivation
+
+Every experiment from B.57 through B.61 operates at $s = 127$, $b = 7$. This choice was inherited from
+the convention of maximizing $b$ within a given bit width: $s = 127 = 2^7 - 1$ is the largest $s$ where
+$b = \lceil \log_2(s+1) \rceil = 7$, meaning every 7-bit cross-sum element uses its full range $[0, 127]$.
+
+This convention optimizes per-element encoding efficiency but ignores a critical scaling relationship:
+the combinator solver's power depends on the ratio of GF(2) equations to variables. CRC-32 per row or
+column provides $32s$ equations for $s^2$ variables &mdash; a density of $32/s$ equations per variable.
+At $s = 127$, this density is $32/127 = 0.252$. At $s = 191$, it drops to $32/191 = 0.168$. The
+equation density is monotonically decreasing in $s$.
+
+However, the *payload* also scales favorably: input grows as $s^2$ while most payload components grow
+as $O(s)$ or $O(s \log s)$. At $s = 127$, the B.60r configuration consumed 87.0% of the input
+($C_r = 87.0\%$), leaving only 13% headroom for additional constraint families. At $s = 191$, the
+same configuration consumes only $\sim 56\%$, leaving 44% headroom. This headroom can be spent on
+additional CRC hash families &mdash; notably yLTP CRC-32 &mdash; that were budget-infeasible at $s = 127$.
+
+The B.62 hypothesis: there exists an intermediate $s$ where the budget headroom from $s^2$ input
+scaling allows purchasing enough additional GF(2) equations to exceed the equation density achievable
+at $s = 127$, while maintaining $C_r < 100\%$. The candidate is $s = 191$ ($b = 8$), which balances:
+
+- Sufficient $s^2 = 36{,}481$ input bits to amortize fixed-cost payload components
+- $b = 8$ (not yet at the $b = 9$ jump at $s = 257$), keeping cross-sum encoding efficient
+- Budget for VH (CRC-32 per column) + yLTP CRC-32 + yLTP cross-sums alongside DH/XH
+
+### B.62.2 Scaling Analysis
+
+The following table compares payload composition and equation density across candidate $s$ values,
+all using the B.60r hybrid-width DH/XH architecture with no LH (CRC-32 per row).
+
+**Base configuration (VH + DH/XH + geometric + BH + DI, no LH, no yLTP):**
+
+| Metric | $s = 127$ ($b = 7$) | $s = 128$ ($b = 8$) | $s = 191$ ($b = 8$) |
+|--------|---------------------|---------------------|---------------------|
+| Input ($s^2$) | 16,129 | 16,384 | 36,481 |
+| Payload (base) | 14,032 | 14,364 | 20,428 |
+| $C_r$ (base) | 87.0% | 87.7% | 56.0% |
+| GF(2) eq/var (base) | 0.547 | &mdash; | 0.356 |
+| Headroom (bits) | 2,097 | 2,020 | 16,053 |
+
+$s = 128$ is strictly worse than $s = 127$: the $b = 7 \to 8$ jump adds 332 payload bits against
+only 255 new input bits. $s = 191$ has 7.7$\times$ more headroom than $s = 127$.
+
+### B.62.3 Target Configuration
+
+The B.62 baseline configuration at $s = 191$ adds VH (CRC-32 per column), one yLTP sub-table with
+both CRC-32 and cross-sum, and optimized DH192/XH192 diagonal hashes. LH (CRC-32 per row) is omitted
+because without LH there is no row-axis CRC for VH to cross-interact with; VH's value comes from its
+cross-axis interaction with yLTP CRC-32, not from LH$\times$VH coupling.
+
+**DH192/XH192 optimization for $s = 191$.** At $s = 191$, there are $2s - 1 = 381$ diagonals per
+family with lengths 1 to 191. Proportional coverage matching B.60r's 50.4% gives 192 of 381 diagonals
+(lengths 1&ndash;96). The hybrid-width tiers:
+
+| Tier | Lengths | Diags | CRC width | Bits/family | Fully determines? |
+|------|---------|-------|-----------|-------------|-------------------|
+| 1 | 1&ndash;8 | 16 | CRC-8 | 128 | Yes |
+| 2 | 9&ndash;16 | 16 | CRC-16 | 256 | Yes |
+| 3 | 17&ndash;32 | 32 | CRC-32 | 1,024 | Yes |
+| 4 | 33&ndash;64 | 64 | CRC-16 | 1,024 | Partial (16 eq) |
+| 5 | 65&ndash;96 | 64 | CRC-8 | 512 | Partial (8 eq) |
+
+Per family: 2,944 bits. DH192 + XH192: 5,888 bits.
+
+**Full payload:**
+
+| Component | Bits | GF(2) eq (est.) | Integer lines |
+|-----------|------|-----------------|---------------|
+| LSM ($191 \times 8$) | 1,528 | 190 | 191 |
+| VSM ($191 \times 8$) | 1,528 | 190 | 191 |
+| DSM (381 diags, variable-width) | 2,554 | 380 | 381 |
+| XSM (381 anti-diags, variable-width) | 2,554 | 380 | 381 |
+| VH (CRC-32, 191 columns) | 6,112 | ~6,063 | &mdash; |
+| DH192 (hybrid-width) | 2,944 | ~2,888 | &mdash; |
+| XH192 (hybrid-width) | 2,944 | ~2,888 | &mdash; |
+| yLTP1 CRC-32 (191 lines) | 6,112 | ~6,063 | &mdash; |
+| yLTP1 cross-sum ($191 \times 8$) | 1,528 | 190 | 191 |
+| BH (SHA-256) | 256 | &mdash; | &mdash; |
+| DI | 8 | &mdash; | &mdash; |
+| **Total** | **28,068** | **~19,232** | **1,335** |
+
+$C_r = 28{,}068 / 36{,}481 = 76.9\%$.
+
+**Comparison with $s = 127$ (B.60r/B.60s):**
+
+| Metric | $s = 127$ (B.60s) | $s = 191$ (B.62) |
+|--------|-------------------|------------------|
+| $C_r$ | 87.0% | **76.9%** |
+| GF(2) eq/var | 0.547 | **0.527** |
+| Integer constraint lines | 760 | **1,335** |
+| CRC hash axes | 1 (VH only) | **2 (VH + yLTP)** |
+| Headroom | 13.0% | **23.1%** |
+| Full solves (B.60s, blocks 0&ndash;20) | 1/21 | TBD |
+
+The equation density (0.527) is slightly below $s = 127$'s 0.547, but the configuration has two CRC
+axes (VH and yLTP CRC-32) whose variable sets intersect at exactly one cell per (column, LTP-line) pair.
+This cross-axis interaction is the structural mechanism that drove B.60's cascade. Additionally, the
+yLTP cross-sum provides 191 integer constraint lines for IntBound &mdash; a resource unavailable at
+$s = 127$ due to budget constraints.
+
+The 23.1% headroom (8,413 bits) reserves capacity for future additions: a second yLTP sub-table
+(+7,640 bits to $C_r = 97.9\%$), expanded DH/XH coverage, or LH if cross-axis interaction proves
+insufficient.
+
+### B.62.4 Hypotheses
+
+**H1 (Density-dependent solve rate).** The combinator fully solves all blocks with density $\leq 20\%$
+(matching B.60s) and additionally solves some blocks in the 20&ndash;40% density range that B.60s could
+not, due to the yLTP CRC-32 axis providing interior-cell GF(2) equations that VH alone could not supply.
+
+**H2 (50% density improvement).** The 50% density floor moves upward from B.60s's 2,112 determined
+cells (13.1%) to $\geq 4,000$ cells (25%), because the yLTP CRC-32 equations couple interior cells
+across all rows and columns, providing the long-range information transfer that geometric families lack
+at 50% density.
+
+**H3 (Cross-axis cascade).** The VH $\times$ yLTP CRC-32 cross-axis interaction triggers fixpoint
+cascades that neither axis achieves independently, analogous to the LH $\times$ VH interaction in B.60.
+This is testable by comparing the VH-only config ($C_r = 56.0\%$, eq/var $= 0.356$) against the
+VH + yLTP config.
+
+**H4 (Headroom enables iteration).** The 23.1% headroom allows B.62b&ndash;f to add constraint families
+incrementally without exceeding $C_r = 100\%$, enabling a controlled search for the optimal payload
+composition at $s = 191$.
+
+### B.62.5 Method
+
+The B.62 experiment family proceeds in stages. Each sub-experiment builds on the previous result.
+
+**(a) B.62a: Baseline.** Implement the $s = 191$ combinator solver with the B.62.3 payload
+(VH + DH192/XH192 + 1 yLTP CRC-32 + 1 yLTP cross-sum + geometric + BH + DI). Run on the MP4 test
+file, blocks 0&ndash;20. Measure per-block $|D|$, BH-verified full solves, and density. Establish the
+baseline for comparison with B.60s.
+
+**(b) B.62b+: Incremental experiments.** Based on B.62a results, candidate follow-on experiments include:
+
+- **Add a second yLTP sub-table** (CRC-32 + cross-sum, +7,640 bits, $C_r \to 97.9\%$). Tests whether
+  a third CRC axis (second yLTP) breaks the 50% density wall.
+- **Expand DH/XH to DH256/XH256** (lengths 1&ndash;128, +2,048 bits, $C_r \to 82.5\%$). Tests whether
+  deeper diagonal coverage improves mid-density partial solves.
+- **Add LH** (CRC-32 per row, +6,112 bits, $C_r \to 93.7\%$). Tests whether three orthogonal CRC axes
+  (LH + VH + yLTP) produce a qualitative cascade improvement.
+- **Sweep yLTP seeds** (same infrastructure as B.26c/B.27). Tests whether seed optimization at $s = 191$
+  provides depth/solve-rate gains analogous to the $s = 511$ programme.
+- **Vary $s$** within the $b = 8$ range ($s \in \{129, 163, 191, 223, 251, 255\}$). Tests whether
+  $s = 191$ is optimal or whether a different $s$ at $b = 8$ achieves better eq/var at acceptable $C_r$.
+
+The specific sequence of B.62b, B.62c, etc. will be determined by B.62a's results.
+
+### B.62.6 Implementation Requirements
+
+1. **Parameterize $s$.** The combinator solver, constraint store, CSM, cross-sum families, CRC
+   generator matrix, and yLTP construction must all accept $s$ as a runtime or compile-time parameter
+   rather than hardcoding $s = 127$. The block partitioner must handle $s = 191$ input blocks.
+
+2. **yLTP CRC-32.** Implement CRC-32 computation per yLTP line and integrate the resulting GF(2)
+   equations into the constraint matrix alongside VH and DH/XH equations.
+
+3. **DH192/XH192 hybrid widths.** Extend the hybrid-width DH/XH infrastructure to support a fifth
+   tier (CRC-8 on lengths 65&ndash;96).
+
+4. **Test data.** Generate $s = 191$ blocks from the MP4 test file. Compute ground-truth cross-sums,
+   CRC-32 hashes (VH, DH, XH, yLTP), and BH for blocks 0&ndash;20.
+
+### B.62a: Baseline at $s = 191$
+
+**Prerequisite.** B.60s completed. $s$-parameterized combinator solver implemented.
+
+**Objective.** Establish the B.62 baseline: run the VH + DH192/XH192 + 1 yLTP (CRC-32 + cross-sum) +
+geometric + BH configuration at $s = 191$ on MP4 blocks 0&ndash;20. Report per-block $|D|$, density,
+BH verification, and comparison with B.60s at $s = 127$.
+
+**Payload.** As specified in B.62.3. $C_r = 76.9\%$.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 confirmed | All blocks with density $\leq 20\%$ fully solve | yLTP CRC-32 does not degrade low-density performance |
+| H2 confirmed | 50% density $|D| \geq 4{,}000$ | yLTP provides meaningful interior coupling at high density |
+| H2 refuted | 50% density $|D| \approx 2{,}100$ (same as $s = 127$) | The 50% density wall is eq/var-limited, not axis-limited |
+| H3 confirmed | VH + yLTP config outperforms VH-only config at same density | Cross-axis interaction is productive |
+
+**Results.** C++ `combinatorSolver191 -config b62a` on MP4 blocks 0&ndash;5. All values Correct=true. BH not verified (SHA-256 not yet implemented for S&gt;127). C_r = 76.9%.
+
+| Block | $|D|$ | /36,481 | GaussElim | IntBound | Correct |
+|-------|-------|---------|-----------|----------|---------|
+| 0 | 3,053 | 8.4% | 1,764 | 1,289 | true |
+| **1** | **11,978** | **32.8%** | **1,525** | **10,453** | **true** |
+| 2 | 2,112 | 5.8% | 2,112 | 0 | true |
+| 3 | 2,112 | 5.8% | 2,112 | 0 | true |
+| 4 | 2,112 | 5.8% | 2,112 | 0 | true |
+| 5 | 2,112 | 5.8% | 2,112 | 0 | true |
+
+**Comparison to B.60s at S=127 (same test data, different block geometry):**
+
+| Metric | S=127 (B.60s) | S=191 (B.62a) |
+|--------|--------------|---------------|
+| C_r | 87.0% | **76.9%** |
+| Block 0 | 7,454 (46.2%) | 3,053 (8.4%) |
+| Block 1 | 12,002 (74.4%) | **11,978 (32.8%)** |
+| Block 2 (full at S=127) | 16,129 (100%) | 2,112 (5.8%) |
+| 50% density floor | 2,112 (13.1%) | 2,112 (5.8%) |
+
+**Analysis.**
+
+1. **H1 not confirmed.** No blocks fully solve at S=191. Block 0 at S=127 reached 46.2% but at S=191 only 8.4%. The larger matrix dilutes the short-diagonal cascade: at S=191, the 192 shortest diags cover $192 / 381 = 50.4\%$ of diags but only determine cells in the matrix corners/edges, which is a smaller fraction of 36,481 total cells.
+
+2. **H2 refuted.** 50% density blocks (2&ndash;5) stall at 2,112 cells (5.8%), the GaussElim floor from short-diagonal CRC. No IntBound cascade. The yLTP CRC-32 equations do not break the 50% density wall at S=191.
+
+3. **Block 1 is the bright spot.** 11,978 cells (32.8%) with 10,453 from IntBound. This block has low density at S=191 and the yLTP + VH cross-axis coupling produces a meaningful cascade. However, 32.8% is not a full solve.
+
+4. **The GaussElim floor is the SAME (2,112) at both S=127 and S=191.** This is because the hybrid DH/XH covers diags of length 1&ndash;32 regardless of S. CRC-32 on 32-cell diags determines 2 &times; 32 &times; 2 = 128 diags &times; ~16.5 cells avg = ~2,112 cells.
+
+5. **S=191 does NOT improve solve rate over S=127.** The larger matrix and higher equation count are offset by the larger variable count. The equation density (eq/var) drops from 0.547 to 0.527, and the cascade is weaker because short diags cover a smaller fraction of the matrix.
+
+**Outcome.** H1 not confirmed, H2 refuted. S=191 provides better C_r (76.9% vs 87.0%) but worse solve rate. The 50% density wall persists. The yLTP CRC-32 axis does not provide the interior coupling needed to break the wall.
+
+**Implementation notes.** Two bugs were found and fixed during implementation:
+1. Generator matrix arrays were `array<uint8_t, 128>` &mdash; too small for S=191 (needs 191 columns). Fixed to `array<uint8_t, 256>`.
+2. Zero-message array in `buildGenMatrixForLength` was `array<uint8_t, 16>` &mdash; too small for S=191's 24-byte messages. Fixed to `array<uint8_t, 32>`.
+Both caused undefined behavior (out-of-bounds reads) producing wrong GF(2) equations.
+
+**Tool:** `build/arm64-release/combinatorSolver191 -config b62a`
+
+**Status: COMPLETE. S=191 does not improve over S=127.**
+
+### B.62b: Second yLTP Sub-Table at S=191
+
+**Prerequisite.** B.62a completed.
+
+**Objective.** Add a second yLTP sub-table (CRC-32 + cross-sum). Two random-interior CRC axes, each cutting through different cell subsets. Tests cross-axis coupling at 50% density.
+
+**Payload.** B.62a base (28,068) + yLTP2 parity (1,528) + yLTP2 CRC-32 (6,112) = 35,708 bits. C_r = 97.9%.
+
+**Results.** C++ `combinatorSolver191 -config b62b` on MP4 blocks 0&ndash;5. All correct.
+
+| Block | B.62a (1 yLTP) | B.62b (2 yLTP) | Delta |
+|-------|---------------|----------------|-------|
+| 0 | 3,053 (8.4%) | 3,053 (8.4%) | 0 |
+| 1 | 11,978 (32.8%) | 11,978 (32.8%) | 0 |
+| 2 | 2,112 (5.8%) | 2,112 (5.8%) | 0 |
+| 3 | 2,112 (5.8%) | 2,112 (5.8%) | 0 |
+| 4 | 2,112 (5.8%) | 2,112 (5.8%) | 0 |
+| 5 | 2,112 (5.8%) | 2,112 (5.8%) | 0 |
+
+**Zero improvement.** The second yLTP sub-table produces identical results on every block. The additional 7,640 payload bits and 6,303 GF(2) equations have no effect on the fixpoint.
+
+**Root cause.** At 50% density, each yLTP line (191 cells) has rho &asymp; 95, u = 191. Adding a second set of 191-cell lines doesn't change this: rho/u &asymp; 0.5 on every line regardless of how many yLTP families are present. The yLTP CRC-32 equations add GF(2) rank but GaussElim can't extract cell determinations because all pivots depend on free variables. Same mechanism as B.60b (VH added rank but not cells).
+
+**Status: COMPLETE. Second yLTP adds zero value. C_r cost (97.9%) is wasted.**
+
+### B.62c&ndash;f: ABANDONED
+
+**Status: ABANDONED (B.62d&ndash;f only).**
+
+### B.62c: Full Configuration &mdash; LH + VH + DH192 + XH192 + yLTP at S=191
+
+**Prerequisite.** B.62a/b completed.
+
+**Objective.** Test the maximum constraint configuration at S=191: all geometric cross-sums, LH (row CRC-32), VH (column CRC-32), hybrid-width DH192/XH192, and 1 yLTP (CRC-32 + cross-sum). This is every available constraint axis at S=191.
+
+**Payload.** LSM (1,528) + VSM (1,528) + DSM (2,554) + XSM (2,554) + LH (6,112) + VH (6,112) + DH192 (2,944) + XH192 (2,944) + yLTP cross-sum (1,528) + yLTP CRC-32 (6,112) + BH (256) + DI (8) = 34,180 bits. C_r = 93.7%.
+
+**Method.** Run multi-phase hybrid cascade with LH + VH + yLTP from Phase 1 on MP4 blocks 0&ndash;5.
+
+**Status: PROPOSED.**
+
+### B.62 Conclusion
+
+**B.62: FAILED.** The S=191 hypothesis was that increased payload headroom at larger S would allow purchasing enough additional GF(2) equations (via yLTP CRC-32) to exceed the constraint density achievable at S=127. The experiments refute this:
+
+1. **B.62a:** S=191 with VH + DH/XH + 1 yLTP at C_r = 76.9%. No full solves. Worse solve rate than S=127 despite better C_r.
+2. **B.62b:** Adding a second yLTP (C_r = 97.9%) produces zero improvement. Identical results to B.62a on every block.
+
+**The 50% density wall is a structural property of the combinator fixpoint**, not an equation-density or axis-diversity problem. At 50% density:
+- Every constraint line (row, column, diagonal, yLTP) has rho &asymp; u/2
+- IntBound triggers only at rho = 0 or rho = u
+- GaussElim determines cells only on short lines (length &le; 32) where CRC rank = length
+- Adding equations on long lines increases GF(2) rank but every new pivot depends on free variables
+- No combination of CRC hash families, widths, or axes changes this
+
+The combinator fixpoint extracts all algebraically available information from the constraint system. The remaining cells at 50% density require a qualitatively different mechanism.
 
 ## Appendix C: Open Questions Consolidated
 
