@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "common/Csm/Csm.h"
@@ -31,6 +32,16 @@ namespace crsce::common {
         [[nodiscard]] static auto compute(const Csm &csm) -> std::array<std::uint8_t, 32>;
 
         /**
+         * @name compute
+         * @brief Compute SHA-256 of pre-serialized row-major matrix bytes.
+         * @param data Pointer to serialized byte buffer.
+         * @param len Length of the buffer in bytes.
+         * @return 32-byte SHA-256 digest.
+         */
+        [[nodiscard]] static auto compute(const std::uint8_t *data, std::size_t len)
+            -> std::array<std::uint8_t, 32>;
+
+        /**
          * @name verify
          * @brief Verify that a CSM matches an expected block hash.
          * @param csm The Cross-Sum Matrix to verify.
@@ -38,6 +49,17 @@ namespace crsce::common {
          * @return True if the computed hash matches expected.
          */
         [[nodiscard]] static auto verify(const Csm &csm,
+                                         const std::array<std::uint8_t, 32> &expected) -> bool;
+
+        /**
+         * @name verify
+         * @brief Verify that pre-serialized matrix bytes match an expected block hash.
+         * @param data Pointer to serialized byte buffer.
+         * @param len Length of the buffer in bytes.
+         * @param expected The expected 32-byte SHA-256 digest.
+         * @return True if the computed hash matches expected.
+         */
+        [[nodiscard]] static auto verify(const std::uint8_t *data, std::size_t len,
                                          const std::array<std::uint8_t, 32> &expected) -> bool;
     };
 } // namespace crsce::common

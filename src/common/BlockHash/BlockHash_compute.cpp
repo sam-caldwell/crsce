@@ -39,4 +39,16 @@ namespace crsce::common {
         }
         return detail::sha256::sha256_digest(buf.data(), buf.size());
     }
+
+    /**
+     * @name compute
+     * @brief Compute SHA-256 of pre-serialized row-major matrix bytes.
+     * @param data Pointer to serialized byte buffer.
+     * @param len Length of the buffer in bytes.
+     * @return 32-byte SHA-256 digest.
+     */
+    auto BlockHash::compute(const std::uint8_t *data, const std::size_t len)
+        -> std::array<std::uint8_t, 32> {
+        return detail::sha256::sha256_digest(data, len);
+    }
 } // namespace crsce::common

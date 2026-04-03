@@ -20,6 +20,7 @@
 
 #include "common/BlockHash/BlockHash.h"
 #include "common/Csm/Csm.h"
+#include "common/Csm/CsmVariable.h"
 
 namespace crsce::decompress::solvers {
 
@@ -32,9 +33,13 @@ namespace crsce::decompress::solvers {
     public:
         /**
          * @name kS
-         * @brief Matrix dimension.
+         * @brief Matrix dimension. Compile-time configurable via CRSCE_S macro.
          */
+#ifdef CRSCE_S
+        static constexpr std::uint16_t kS = CRSCE_S;
+#else
         static constexpr std::uint16_t kS = 127;
+#endif
 
         /**
          * @name kN
@@ -47,6 +52,12 @@ namespace crsce::decompress::solvers {
          * @brief Number of uint64 words per GF(2) matrix row (ceil(16129/64)).
          */
         static constexpr std::uint32_t kWordsPerRow = (kN + 63) / 64;
+
+        /**
+         * @name kMsgBytes
+         * @brief CRC message size in bytes for kS data bits + 1 pad bit.
+         */
+        static constexpr std::uint32_t kMsgBytes = (kS + 1 + 7) / 8;
 
         /**
          * @name kDiagCount
@@ -139,10 +150,106 @@ namespace crsce::decompress::solvers {
             std::uint16_t cascadeMaxLen = 0;
 
             /**
+             * @name useYLTP
+             * @brief Include yLTP CRC-32 + cross-sum equations.
+             */
+            bool useYLTP = false;
+
+            /**
+             * @name useRLTP
+             * @brief Include rLTP (center-spiral) CRC-32 + cross-sum equations.
+             */
+            bool useRLTP = false;
+
+            /**
+             * @name rltpCenterR
+             * @brief rLTP spiral center row.
+             */
+            std::uint16_t rltpCenterR = 0;
+
+            /**
+             * @name rltpCenterC
+             * @brief rLTP spiral center column.
+             */
+            std::uint16_t rltpCenterC = 0;
+
+            /**
+             * @name useRLTP2
+             * @brief Include a second rLTP spiral partition.
+             */
+            bool useRLTP2 = false;
+
+            /**
+             * @name rltpCenter2R
+             * @brief rLTP2 spiral center row.
+             */
+            std::uint16_t rltpCenter2R = 0;
+
+            /**
+             * @name rltpCenter2C
+             * @brief rLTP2 spiral center column.
+             */
+            std::uint16_t rltpCenter2C = 0;
+
+            /**
+             * @name rltpCrcOnly
+             * @brief When true, rLTP adds only CRC hash equations (GF2) without IntBound lines.
+             */
+            bool rltpCrcOnly = false;
+
+            /**
+             * @name rltpMaxLines
+             * @brief Maximum number of rLTP graduated lines (0 = all s + uniform tail).
+             */
+            std::uint16_t rltpMaxLines = 0;
+
+            /**
+             * @name rltpTier3Width
+             * @brief CRC width for rLTP tier 3 (lines 17-32): 16 or 32. Default 32.
+             */
+            std::uint8_t rltpTier3Width = 32;
+
+            /**
+             * @name rltpTier5Width
+             * @brief CRC width for rLTP tier 5 (lines 65+): 8, 16, or 32. Default 32.
+             */
+            std::uint8_t rltpTier5Width = 32;
+
+            /**
+             * @name yltpSeed
+             * @brief Fisher-Yates LCG seed for yLTP1 partition.
+             */
+            std::uint64_t yltpSeed = 0;
+
+            /**
+             * @name yltpSeed2
+             * @brief Fisher-Yates LCG seed for yLTP2 partition (0 = disabled).
+             */
+            std::uint64_t yltpSeed2 = 0;
+
+            /**
              * @name hybridWidths
              * @brief Use per-phase hybrid hash widths: CRC-8/16/32 by diagonal length.
              */
             bool hybridWidths = false;
+
+            /**
+             * @name useDSMSums
+             * @brief Include DSM diagonal integer cross-sums (IntBound lines). Default true.
+             */
+            bool useDSMSums = true;
+
+            /**
+             * @name useXSMSums
+             * @brief Include XSM anti-diagonal integer cross-sums (IntBound lines). Default true.
+             */
+            bool useXSMSums = true;
+
+            /**
+             * @name hybrid
+             * @brief Run hybrid combinator + row search (Phase I algebra + Phase II DFS).
+             */
+            bool hybrid = false;
 
             /**
              * @name toroidal
@@ -228,6 +335,15 @@ namespace crsce::decompress::solvers {
         CombinatorSolver(const common::Csm &csm, Config config);
 
         /**
+         * @name CombinatorSolver
+         * @brief Construct from a variable-size CSM (for S != 127 experiments).
+         * @param csm The variable-dimension CSM.
+         * @param config Constraint system configuration.
+         * @throws None
+         */
+        CombinatorSolver(const common::CsmVariable &csm, Config config);
+
+        /**
          * @name solve
          * @brief Run the combinator fixpoint to convergence.
          * @return Result with determined cells and statistics.
@@ -277,7 +393,7 @@ namespace crsce::decompress::solvers {
          * @param csm The original CSM (for hash computation).
          * @return LineStats.
          */
-        [[nodiscard]] LineStats analyzeLines(const common::Csm &csm) const;
+        [[nodiscard]] LineStats analyzeLines() const;
 
         /**
          * @name solveCascade
@@ -286,7 +402,15 @@ namespace crsce::decompress::solvers {
          * @return Result with statistics.
          * @throws None
          */
-        [[nodiscard]] Result solveCascade(const common::Csm &csm);
+        [[nodiscard]] Result solveCascade();
+
+        /**
+         * @name solveHybrid
+         * @brief Phase I (combinator algebra) + Phase II (row-by-row DFS with LH verification).
+         * @return Result with statistics.
+         * @throws None
+         */
+        [[nodiscard]] Result solveHybrid();
 
         /**
          * @name configName
@@ -378,6 +502,41 @@ namespace crsce::decompress::solvers {
         std::array<std::uint8_t, 32> expectedBH_{};
 
         /**
+         * @name expectedLH_
+         * @brief Expected CRC-32 per row for Phase II LH verification.
+         */
+        std::vector<std::uint32_t> expectedLH_;
+
+        /**
+         * @name expectedVH_
+         * @brief Expected CRC-32 per column for Phase III VH verification.
+         */
+        std::vector<std::uint32_t> expectedVH_;
+
+        /**
+         * @struct AxisLine
+         * @name AxisLine
+         * @brief A verifiable line on any axis (row/col/diag/anti-diag).
+         */
+        struct AxisLine {
+            std::vector<std::uint32_t> cells;
+            std::uint32_t expectedCrc{0};
+            std::uint8_t crcWidth{32};
+        };
+
+        /**
+         * @name diagAxes_
+         * @brief Verifiable diagonal lines with expected DH CRC.
+         */
+        std::vector<AxisLine> diagAxes_;
+
+        /**
+         * @name antiDiagAxes_
+         * @brief Verifiable anti-diagonal lines with expected XH CRC.
+         */
+        std::vector<AxisLine> antiDiagAxes_;
+
+        /**
          * @name config_
          * @brief Constraint configuration.
          */
@@ -386,46 +545,56 @@ namespace crsce::decompress::solvers {
         // ── Private methods ─────────────────────────────────────────────
 
         /**
-         * @name buildSystem
-         * @brief Construct the GF(2) and integer constraint systems.
-         * @param csm The original CSM.
+         * @name getOrig
+         * @brief Read original cell value from stored original_[].
+         * @param r Row index.
+         * @param c Column index.
+         * @return 0 or 1.
          */
-        void buildSystem(const common::Csm &csm);
+        [[nodiscard]] std::uint8_t getOrig(std::uint16_t r, std::uint16_t c) const {
+            return original_[static_cast<std::uint32_t>(r) * kS + c];
+        }
+
+        /**
+         * @name buildSystem
+         * @brief Construct the GF(2) and integer constraint systems from original_[].
+         */
+        void buildSystem();
 
         /**
          * @name addGeometricParity
          * @brief Add geometric parity equations and integer lines.
          * @param csm The original CSM.
          */
-        void addGeometricParity(const common::Csm &csm);
+        void addGeometricParity();
 
         /**
          * @name addLH
          * @brief Add per-row CRC-32 (LH) equations.
          * @param csm The original CSM.
          */
-        void addLH(const common::Csm &csm);
+        void addLH();
 
         /**
          * @name addVH
          * @brief Add per-column CRC-32 (VH) equations.
          * @param csm The original CSM.
          */
-        void addVH(const common::Csm &csm);
+        void addVH();
 
         /**
          * @name addDH
          * @brief Add per-diagonal CRC-32 (DH) equations.
          * @param csm The original CSM.
          */
-        void addDH(const common::Csm &csm);
+        void addDH();
 
         /**
          * @name addXH
          * @brief Add per-anti-diagonal CRC-32 (XH) equations.
          * @param csm The original CSM.
          */
-        void addXH(const common::Csm &csm);
+        void addXH();
 
         /**
          * @name addDHRange
@@ -434,7 +603,7 @@ namespace crsce::decompress::solvers {
          * @param minLen Minimum diagonal length (inclusive).
          * @param maxLen Maximum diagonal length (inclusive).
          */
-        void addDHRange(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
+        void addDHRange(std::uint16_t minLen, std::uint16_t maxLen);
 
         /**
          * @name addXHRange
@@ -443,21 +612,21 @@ namespace crsce::decompress::solvers {
          * @param minLen Minimum anti-diagonal length (inclusive).
          * @param maxLen Maximum anti-diagonal length (inclusive).
          */
-        void addXHRange(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
+        void addXHRange(std::uint16_t minLen, std::uint16_t maxLen);
 
         /**
          * @name addLH16
          * @brief Add per-row CRC-16 (LH16) equations.
          * @param csm The original CSM.
          */
-        void addLH16(const common::Csm &csm);
+        void addLH16();
 
         /**
          * @name addVH16
          * @brief Add per-column CRC-16 (VH16) equations.
          * @param csm The original CSM.
          */
-        void addVH16(const common::Csm &csm);
+        void addVH16();
 
         /**
          * @name addDH16Range
@@ -466,7 +635,7 @@ namespace crsce::decompress::solvers {
          * @param minLen Minimum diagonal length.
          * @param maxLen Maximum diagonal length.
          */
-        void addDH16Range(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
+        void addDH16Range(std::uint16_t minLen, std::uint16_t maxLen);
 
         /**
          * @name addXH16Range
@@ -475,10 +644,20 @@ namespace crsce::decompress::solvers {
          * @param minLen Minimum anti-diagonal length.
          * @param maxLen Maximum anti-diagonal length.
          */
-        void addXH16Range(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
+        void addXH16Range(std::uint16_t minLen, std::uint16_t maxLen);
 
-        void addDH8Range(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
-        void addXH8Range(const common::Csm &csm, std::uint16_t minLen, std::uint16_t maxLen);
+        void addDH8Range(std::uint16_t minLen, std::uint16_t maxLen);
+        void addXH8Range(std::uint16_t minLen, std::uint16_t maxLen);
+
+        /**
+         * @name addYLTP
+         * @brief Add yLTP CRC-32 equations and integer cross-sum lines.
+         * @param csm The original CSM.
+         */
+        void addYLTP();
+        void addYLTPWithSeed(std::uint64_t seed);
+        void addRLTP();
+        void addRLTPAt(std::uint16_t centerR, std::uint16_t centerC);
 
         // solveCascade declared in public section
 
@@ -517,6 +696,88 @@ namespace crsce::decompress::solvers {
          * @param determined Vector of (cell_index, value) pairs.
          */
         void propagateGF2(const std::vector<std::pair<std::uint32_t, std::uint8_t>> &determined);
+
+        // ── Hybrid solver (Phase II) helpers ──────────────────────────────
+
+        /**
+         * @name unassignCell
+         * @brief Reverse a cell assignment (for DFS backtracking).
+         * @param flat Flat cell index.
+         */
+        void unassignCell(std::uint32_t flat);
+
+        /**
+         * @name verifyRowLH
+         * @brief Check CRC-32 of a completed row against expectedLH_.
+         * @param r Row index.
+         * @return True if CRC matches.
+         */
+        [[nodiscard]] bool verifyRowLH(std::uint16_t r) const;
+
+        /**
+         * @name runFixpoint
+         * @brief Run GaussElim + IntBound + CrossDeduce to convergence on current state.
+         * @param result Updated with new cell counts.
+         */
+        void runFixpoint(Result &result);
+
+        /**
+         * @name dfsRow
+         * @brief DFS over unknown cells in a single row.
+         * @param unknowns Flat indices of unknown cells in this row.
+         * @param idx Current position in unknowns vector.
+         * @param r Row index (for LH verification at completion).
+         * @return True if a valid LH-verified assignment was found.
+         */
+        [[nodiscard]] bool dfsRow(const std::vector<std::uint32_t> &unknowns,
+                                  std::uint32_t idx, std::uint16_t r);
+
+        /**
+         * @name verifyLineCrc
+         * @brief Compute CRC of assigned cells on a line and compare to expected.
+         * @param cells Flat indices of all cells on the line.
+         * @param expectedCrc Expected CRC value.
+         * @param crcWidth CRC width (8, 16, or 32).
+         * @return True if CRC matches.
+         */
+        [[nodiscard]] bool verifyLineCrc(const std::vector<std::uint32_t> &cells,
+                                         std::uint32_t expectedCrc, std::uint8_t crcWidth) const;
+
+        /**
+         * @name dfsLine
+         * @brief DFS over unknown cells on any axis line with CRC verification.
+         * @param unknowns Flat indices of unknown cells on the line.
+         * @param idx Current position.
+         * @param allCells All cells on the line (for CRC at completion).
+         * @param expectedCrc Expected CRC.
+         * @param crcWidth CRC width.
+         * @return True if a valid CRC-verified assignment was found.
+         */
+        [[nodiscard]] bool dfsLine(const std::vector<std::uint32_t> &unknowns, std::uint32_t idx,
+                                   const std::vector<std::uint32_t> &allCells,
+                                   std::uint32_t expectedCrc, std::uint8_t crcWidth);
+
+        /**
+         * @struct IntLineState
+         * @name IntLineState
+         * @brief Compact snapshot of IntLine rho/u for backup/restore.
+         */
+        struct IntLineState {
+            std::int32_t rho;
+            std::int32_t u;
+        };
+
+        /**
+         * @name snapshotIntLines
+         * @brief Capture rho/u for all IntLines.
+         */
+        [[nodiscard]] std::vector<IntLineState> snapshotIntLines() const;
+
+        /**
+         * @name restoreIntLines
+         * @brief Restore rho/u for all IntLines from snapshot.
+         */
+        void restoreIntLines(const std::vector<IntLineState> &snap);
     };
 
 } // namespace crsce::decompress::solvers

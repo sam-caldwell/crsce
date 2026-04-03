@@ -12,3 +12,4 @@ add_executable(combinatorSolver191
 target_include_directories(combinatorSolver191 PRIVATE include)
 target_compile_definitions(combinatorSolver191 PRIVATE CRSCE_S=191)
 target_link_libraries(combinatorSolver191 PRIVATE crsce_static)
+set_target_properties(combinatorSolver191 PROPERTIES CXX_CLANG_TIDY "")
