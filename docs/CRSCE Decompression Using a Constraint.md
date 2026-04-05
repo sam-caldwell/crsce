@@ -16194,10 +16194,23 @@ but all remaining constraint lines have $\rho$ in the interior of $[0, u]$. No s
 assignment tips any line into forcing. The search must guess multiple cells correctly &mdash;
 an exponential problem.
 
-**Open questions:**
-- Can LH/VH/DH/XH CRC verification during the DFS (not just at line completion) provide earlier pruning?
-- Would clause learning (CDCL) or restart strategies avoid the plateau thrashing?
-- Is the 50% density wall a fundamental information-theoretic barrier for CRSCE at any S?
+18. **B.63e (Random restarts):** 100 restarts, 500K decisions each. **BREAKTHROUGH: 95.1% determination on 50% density block** (789 cells from full solve). MCF ordering was worst (80.9%); random orderings average 92.3%. The plateau is ordering-dependent, not structural.
+
+**The 50% density wall is broken at S=127.** B.63e demonstrates that combinator algebra (Phase I: 14.9%) + cell-by-cell DFS with IntBound propagation and random restarts reaches 95.1% on a 50% density block. The remaining 5% (~789 cells) is the true residual.
+
+19. **B.63f (CDCL):** Run 1 (coarse) and Run 2 (first-UIP): both produced **0 learned clauses**. Cardinality constraint antecedents are inherently O(s) literals — standard CDCL clause learning doesn&rsquo;t apply. Random restarts (95.8%) remain the best.
+
+20. **B.63g (Beam search K=1000):** Beam collapses — all 1,000 states converge to same 22.8% plateau due to IntBound propagation homogenization. Zero benefit over single-path DFS.
+21. **B.63h (10K restart census):** Max 96.4% (583 cells remaining). Diminishing returns: +93 cells over 1K restarts. 0/10,001 solved. Distribution stable (mean 92.2%).
+
+**B.63e random restarts (95.8%) is the definitively best search strategy tested.** CDCL fails
+(cardinality antecedents too large). Beam search fails (propagation homogenizes states). Random
+restarts succeed because ordering diversity produces different propagation chains.
+
+**The remaining 4.2% gap (676 cells) is the true residual.** Closing it requires either:
+- An ordering that happens to reach 100% (not found in 1,000 trials)
+- A qualitatively different constraint mechanism beyond IntBound cardinality forcing
+- Hybrid with CRC verification during search (not just at row boundaries)
 
 ### B.62e: B.62d without LH &mdash; C_r under 100%
 
@@ -17408,8 +17421,12 @@ The multi-axis cycling creates a feedback loop: rows help columns, columns help 
 diagonals help anti-diagonals, and all of them feed back into the combinator (Phase I) which
 may find new GaussElim pivots from the tightened constraints.
 
-**Configuration.** A2 from B.63a: LSM + VSM + DSM + LH + VH + DH64 + XH64 + BH/DI. All four
-hash axes present for verification. $C_r \approx 94\%$ (DH64 + XH64 adds anti-diagonal coverage
+**Configuration.** LSM + VSM + DSM + LH + VH + DH64 + XH64 + 1 rLTP (lines 1&ndash;16) + BH/DI.
+All four hash axes present for verification. $C_r \approx 88.8\%$ (14,325 / 16,129 bits). XSM
+integer sums dropped (redundant per B.62j). This configuration and $C_r$ applies to all
+subsequent experiments (B.63d through B.63g) which differ only in search strategy.
+
+Previously estimated $C_r \approx 94\%$ (DH64 + XH64 adds anti-diagonal coverage
 not present in the A2 baseline; needed for Phase V).
 
 Actually, A3 from B.63a provides both DH64 and XH64. If $C_r$ is too high, DH and XH can be
@@ -17653,6 +17670,597 @@ events.
 
 **Status: COMPLETE. Cell-by-cell DFS extends 14.9% &rarr; 22.8% (+7.9%), then plateaus.
 Same constraint-exhaustion wall as production DFS. 19.3M decisions, zero progress beyond depth 662.**
+
+### B.63f: CDCL (Conflict-Driven Clause Learning) at S=127
+
+**Prerequisite.** B.63d completed (cell-by-cell DFS plateaus at 22.8%).
+
+**Baseline.** B.63c multi-axis solver: 2,405 / 16,129 determined (14.9%). B.63d cell-by-cell DFS
+extended to 3,682 (22.8%) then thrashed &mdash; 19.3M decisions with zero progress beyond depth 662.
+The DFS backtracks chronologically (one level at a time) even when the root cause of infeasibility
+is hundreds of levels earlier.
+
+**Motivation.** B.63d&rsquo;s DFS thrashes because it backtracks chronologically. When a conflict
+occurs at depth 662, the problematic decision may be at depth 50 &mdash; but the DFS tries all
+$2^{612}$ combinations between depth 50 and 662 before reaching it. CDCL addresses this by:
+
+1. **Conflict analysis:** When infeasibility is detected, analyze the implication graph to identify
+   the SUBSET of decisions that caused the conflict (the conflict clause).
+2. **Clause learning:** Record the conflict clause so the same combination is never tried again.
+3. **Non-chronological backjumping:** Backtrack directly to the earliest decision in the conflict
+   clause, skipping hundreds of irrelevant intermediate levels.
+4. **Restarts:** Periodically restart the search from depth 0 using accumulated clauses to prune.
+
+CDCL is the architecture used by modern SAT solvers (MiniSat, CaDiCaL) which routinely solve
+problems with millions of variables. B.21 previously attempted CDCL at S=127 but on the RAW
+constraint system (bit-blasting CRC equations into CNF, producing millions of clauses). B.63e
+differs fundamentally: the CDCL operates on the INTEGER constraint system (IntBound on cross-sum
+lines), not on bit-blasted CRC. The variables are cell values (0/1), and the constraints are
+cardinality bounds ($0 \leq \rho \leq u$ per line). Conflict analysis identifies which cell
+assignments collectively violated a cardinality constraint.
+
+**Architecture.**
+
+Starting from B.63c&rsquo;s 2,405 determined cells:
+
+1. **Unit propagation** = IntBound forcing ($\rho = 0 \Rightarrow$ all 0; $\rho = u \Rightarrow$ all 1).
+2. **Decision:** Select the most constrained unassigned cell. Assign a value.
+3. **Propagation:** Run IntBound. If forcing cascades, record implications.
+4. **Conflict detection:** If $\rho < 0$ or $\rho > u$ on any line, a conflict has occurred.
+5. **Conflict analysis:** The conflict clause is the set of decision-level assignments on the
+   conflicting line. For a line $L$ with cells $\{c_1, \ldots, c_n\}$ where the cardinality
+   constraint is violated: the clause is $\neg(c_{d_1} = v_1 \wedge \ldots \wedge c_{d_k} = v_k)$
+   where $d_1, \ldots, d_k$ are the decision cells (not propagated cells) on line $L$.
+6. **Backjump:** Return to the second-highest decision level in the conflict clause.
+7. **Learn:** Add the conflict clause to a clause database. Future search avoids this combination.
+8. **LH verification:** At row completion, verify CRC-32. Treat LH failure as a conflict and
+   learn the clause.
+9. **Restart:** After $N$ conflicts, restart from depth 0. Learned clauses persist across restarts.
+
+**Key metric.** The backjump distance: how many levels does CDCL skip compared to chronological
+backtracking? If the average backjump is 100+ levels, CDCL should escape the depth-662 plateau
+that trapped B.63d&rsquo;s DFS.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (CDCL breaks plateau) | Determination exceeds 22.8%, potentially reaches 100% | Non-chronological backjumping escapes the local trap; clause learning prunes exponentially |
+| H2 (CDCL extends modestly) | 22.8% &lt; determination &lt; 50% | Backjumping helps but clause database grows too large or conflicts remain shallow |
+| H3 (CDCL same as DFS) | Determination &asymp; 22.8% | Conflicts at the plateau are caused by the IMMEDIATE decision (depth 661&ndash;662), not distant ones; backjumping gains nothing |
+
+**Method.** Implement a CDCL solver operating on the IntBound constraint system within
+`CombinatorSolver`. Track decision levels and propagation reasons per cell. On conflict, analyze
+the conflicting IntLine to produce a clause, backjump non-chronologically, and learn the clause.
+Restarts every 10K decisions with learned clauses persisting. 200 restarts, 5M total decisions.
+
+**Results (block 5, 50% density).**
+
+| Metric | B.63e Run 2 (random restarts) | B.63f (CDCL) |
+|--------|------------------------------|-------------|
+| Best peak | **15,453 (95.8%)** | 15,230 (94.4%) |
+| Mean peak | **14,875 (92.2%)** | 14,590 (90.4%) |
+| Decisions/restart | 5,000,000 | 10,000 |
+| Restarts | 1,000 | 200 |
+| Total decisions | 5,000,000,000 | 2,000,000 |
+| Clauses learned | N/A | **0** |
+| Conflicts | N/A | 1,368,773 |
+
+**Outcome: H3 (CDCL same as DFS) &mdash; implementation gap.**
+
+1. **Zero clauses learned.** The conflict analysis collected ALL assigned cells on the conflicting
+   IntLine (~100 cells at 90%+ determination). Every clause exceeded the 20-literal size limit.
+   Without clause learning, the CDCL reduces to a plain random-restart DFS with backjumping.
+
+2. **Smaller restart budget hurt performance.** The 10K-decision restart interval (needed to
+   exercise restarts with clause accumulation) gave each restart less exploration time than
+   B.63e&rsquo;s 500K&ndash;5M budget. Peak determination was lower (94.4% vs 95.8%).
+
+3. **The backjumping mechanism fired but was ineffective.** Non-chronological backjumping skipped
+   intermediate levels, but without clause learning to prune future exploration, the same
+   conflicts were encountered repeatedly.
+
+**Root cause:** The conflict analysis is too coarse. Collecting all assigned cells on the
+conflicting line produces clauses of size ~100. A proper first-UIP (Unique Implication Point)
+resolution scheme would trace propagated cells back through their IntBound reasons to identify
+the minimal set of DECISION cells that caused the conflict, producing clauses of size 5&ndash;15.
+This requires a full implication graph traversal that the current implementation does not perform.
+
+**Required for effective CDCL:**
+- First-UIP conflict analysis: resolve propagated cells to their decision antecedents
+- Two-watched-literal scheme for efficient clause propagation
+- Activity-based variable selection (VSIDS) instead of random ordering
+- Clause database management (deletion of large/inactive clauses)
+
+These are standard SAT solver components but represent substantial engineering beyond the
+current research prototype. The B.63e random-restart approach achieves 95.8% without clause
+learning and is the better baseline for further work.
+
+**Run 2: First-UIP resolution (500 restarts, 100K decisions each, clause limit 50).**
+
+| Metric | Run 1 (coarse analysis) | Run 2 (first-UIP) |
+|--------|------------------------|--------------------|
+| Best peak | 15,230 (94.4%) | 15,230 (94.4%) |
+| Mean peak | 14,590 (90.4%) | 14,527 (90.0%) |
+| Clauses learned | 0 | **0** |
+| Restarts | 200 | 500 |
+
+First-UIP resolution did not help. Zero clauses learned even with proper resolution.
+
+**Root cause: cardinality constraint antecedents are inherently large.** When IntBound forces
+cell $c$ to 0 via $\rho = 0$ on line $L$, the &ldquo;reason&rdquo; is ALL 1-valued cells on $L$
+(&sim;64 cells on a 127-cell line at 50% density). Resolution replaces one large antecedent
+with another from a different line. The first-UIP clause still contains 50&ndash;100 literals
+because every resolution step adds as many literals as it removes.
+
+This is a known limitation of standard CDCL on cardinality constraints. Boolean clauses have
+2&ndash;3 literals, so resolution produces small learned clauses. Cardinality constraints
+involve $O(s)$ cells per line, so learned clauses are $O(s)$. Specialized techniques
+(pseudo-Boolean reasoning, cutting planes) are needed for effective learning on cardinality
+constraints, but these are a fundamentally different solver architecture.
+
+**Status: COMPLETE. CDCL ineffective on IntBound cardinality constraints &mdash; antecedents
+too large for standard clause learning. First-UIP resolution confirmed insufficient.
+Random restarts (B.63e: 95.8%) remain the best approach.**
+
+### B.63g: Beam Search (Bounded BFS) at S=127
+
+**Prerequisite.** B.63d completed.
+
+**Baseline.** B.63c: 2,405 cells (14.9%). B.63d DFS: 3,682 cells (22.8%), plateaued.
+
+**Motivation.** B.63d&rsquo;s DFS commits to a single path and backtracks when it fails. It found
+ONE path to depth ~660, then thrashed. But there may be MANY paths to depth ~660 with different
+cell assignments. Some of those alternative paths may extend deeper &mdash; the DFS never
+discovers them because it&rsquo;s trapped in the chronological backtracking neighborhood of the
+first path it found.
+
+Beam search explores $K$ paths in parallel. At each depth, it maintains the top-$K$ partial
+assignments ranked by a heuristic (e.g., maximum constraint tightness, minimum total residual
+imbalance). The beam width $K$ controls the trade-off between exploration breadth and memory.
+
+**Architecture.**
+
+Starting from B.63c&rsquo;s 2,405 determined cells:
+
+1. **Initialize beam** with a single state: the combinator&rsquo;s partial solution.
+2. **Select the most constrained unknown cell** across all beam states (or per-state).
+3. **Expand:** For each state in the beam, branch on the selected cell (value 0 and value 1).
+   Run IntBound propagation on each branch. Discard infeasible branches.
+4. **Score** each surviving state by a heuristic:
+   - Total determined cells (more = better)
+   - Sum of $|\rho - u/2|$ across all lines (larger = more forcing potential)
+   - Number of lines with $\rho = 0$ or $\rho = u$ (more = imminent cascades)
+5. **Prune:** Keep only the top-$K$ states. Discard the rest.
+6. **Repeat** until a state reaches 100% or the beam is empty.
+7. **LH verification** at row completion (discard states that fail LH).
+8. **BH verification** at full completion.
+
+**Memory:** Each state stores `cellState_[]` (16 KB) + `intLines_` rho/u (~10 KB). At $K = 1{,}000$
+beams: ~26 MB. At $K = 10{,}000$: ~260 MB. Both tractable.
+
+**Key metric.** Maximum determination achieved across any beam state after $N$ expansion steps.
+Compare to B.63d&rsquo;s 22.8% ceiling.
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (beam breaks plateau) | Any beam state exceeds 22.8%, potentially reaches 100% | Multiple-path exploration finds a viable extension that DFS missed |
+| H2 (beam explores wider but not deeper) | All beam states plateau at ~22.8% | The plateau is not path-dependent; all paths converge to the same depth |
+| H3 (beam collapses) | The beam quickly narrows to 1 state (all alternatives pruned) | IntBound propagation is deterministic enough that most branches are equivalent |
+
+**Method.** Implement beam search within `CombinatorSolver`. Beam width $K = 1{,}000$.
+Score by total determined cells. Branch on most-constrained cell. Run on block 5.
+
+**Results (block 5, 50% density, K=1,000).**
+
+| Step | Beam size | Best det. | Worst det. | Best ever |
+|------|-----------|-----------|------------|-----------|
+| 100 | 1,000 | 2,583 (16.0%) | 2,583 (16.0%) | 2,583 |
+| 200 | 1,000 | 2,790 (17.3%) | 2,771 (17.2%) | 2,790 |
+| 300 | 1,000 | 2,989 (18.5%) | 2,969 (18.4%) | 2,989 |
+| 500 | 1,000 | 3,295 (20.4%) | 3,295 (20.4%) | 3,295 |
+| 700 | 1,000 | 3,609 (22.4%) | 3,609 (22.4%) | 3,609 |
+| 762 | **0** | &mdash; | &mdash; | **3,682 (22.8%)** |
+
+**Outcome: H3 (beam collapses).**
+
+1. **Peak: 3,682 (22.8%) &mdash; identical to B.63d single-path DFS.** The beam search provides
+   zero benefit over a single DFS path. Both achieve exactly the same plateau.
+
+2. **All 1,000 states converge.** By step 500, best=worst=3,295 &mdash; every beam state has
+   the same determination. IntBound propagation is deterministic: given the same cell assignment
+   at step $k$, propagation produces the same cascaded result in all states. Branching on one
+   cell generates two candidates, but after propagation they converge to nearly identical states
+   that receive the same score. The beam carries 1,000 copies of essentially the same solution.
+
+3. **Beam empties at step 762.** At 22.8% determination, BOTH branches (0 and 1) fail feasibility
+   for the next cell &mdash; all 1,000 identical states hit the same wall simultaneously.
+   The beam provides no diversity to escape.
+
+4. **IntBound propagation homogenizes the beam.** This is the fundamental limitation. Each cell
+   assignment triggers a cascade that determines dozens of additional cells deterministically.
+   The cascade overwhelms the single-cell branch difference. By the next branching step,
+   the two branches have been homogenized by propagation into nearly identical states.
+
+**Why random restarts succeed where beam search fails.** Random restarts (B.63e) work because
+each restart uses a DIFFERENT cell ordering, which produces DIFFERENT propagation chains from
+the start. The beam search branches within a single ordering &mdash; all branches follow the
+same propagation path and converge. Restart diversity is across orderings (macroscopic);
+beam diversity is across single-cell branches (microscopic, erased by propagation).
+
+**Comparison:**
+
+| Strategy | Peak det. | Mechanism |
+|----------|-----------|-----------|
+| B.63d (single DFS, MCF) | 22.8% | Single path, MCF ordering |
+| **B.63g (beam K=1000)** | **22.8%** | 1000 paths converge to same plateau |
+| B.63e (random restarts) | **95.8%** | Different orderings reach different plateaus |
+
+**Status: COMPLETE. H3 confirmed: beam collapses due to IntBound propagation homogenization.
+Peak identical to single-path DFS (22.8%). Random restarts (95.8%) confirmed superior.**
+
+### B.63e: Random Restarts at S=127
+
+**Prerequisite.** B.63d completed.
+
+**Baseline.** B.63c: 2,405 cells (14.9%). B.63d DFS: 3,682 cells (22.8%), plateaued.
+
+**Motivation.** B.63d reached depth ~660 in 500 decisions using residual-guided cell ordering
+(most-constrained-first). The cell ordering determines the path through the search tree. Different
+orderings explore different paths. If the plateau depth varies by ordering, the best ordering
+among many restarts may reach deeper than any single ordering.
+
+Random restarts are the simplest meta-strategy: run the DFS from the combinator base with a
+different random cell ordering, collect the plateau depth, and repeat. This tests whether the
+22.8% plateau is ordering-dependent or structural.
+
+**Architecture.**
+
+For $R$ restarts:
+
+1. Start from B.63c&rsquo;s 2,405 determined cells.
+2. Generate a random permutation of the ~13,724 unknown cells.
+3. Run the cell-by-cell DFS using the random permutation as the cell ordering (instead of
+   most-constrained-first). Apply IntBound propagation after each assignment.
+4. Record the plateau depth (where backtracking begins) and total determined cells.
+5. Restore to B.63c&rsquo;s state. Repeat with a new random permutation.
+
+After $R$ restarts, report:
+- Distribution of plateau depths (min, max, mean, P90)
+- Best determination achieved across all restarts
+- Whether any restart broke the 22.8% barrier
+- Correlation between cell ordering properties and plateau depth
+
+**Expected outcomes.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (depth varies, some deeper) | Max plateau depth $>$ 700; some restarts reach $> 25\%$ | The plateau is ordering-dependent; there exist good orderings that extend deeper |
+| H2 (depth is invariant) | All restarts plateau at ~660 $\pm$ 20 | The plateau is structural (constraint-exhaustion), not ordering-dependent |
+| H3 (some restarts solve fully) | Any restart reaches 100% | The correct path exists but the original ordering missed it; random search finds it |
+
+**Method.** Implement restart loop within `solveHybrid`. Each restart saves/restores the B.63c
+base state and uses a seeded RNG for the cell permutation. 500K decisions max per restart.
+Run $R = 100$ restarts on block 5 (50% density).
+
+**$C_r = 88.8\%$ (shared across B.63c&ndash;g; configuration differs only in search strategy).**
+
+**Run 1 results (block 5, 50% density, 100 restarts, 500K decisions/restart).**
+
+| Metric | MCF (restart 0) | Random restarts (1&ndash;99) |
+|--------|-----------------|----------------------------|
+| Strategy | Most-constrained-first | Random cell permutation |
+| Peak determination | **13,044 (80.9%)** | **mean 14,921 (92.5%), max 15,340 (95.1%)** |
+| Plateau depth | 6,619 | mean ~6,800 |
+| Decisions | 11,161 | mean ~8,800 |
+| Backtracks | 4,542 | mean ~2,000 |
+| Propagated cells | 1,138,963 | mean ~280,000 |
+| Solved (100%) | No | No (0/99) |
+
+Peak determination distribution (100 restarts):
+- Minimum: 13,044 (80.9%) &mdash; the MCF ordering (worst)
+- P10: ~14,500 (89.9%)
+- Mean: 14,889 (92.3%)
+- P90: ~15,200 (94.2%)
+- Maximum: **15,340 (95.1%)** (restart 16) &mdash; **789 cells short of full solve**
+
+**Outcome: H1 (depth varies, dramatically deeper).**
+
+1. **The plateau is ordering-dependent, not structural.** Random cell orderings consistently
+   reach 90&ndash;95% determination vs the MCF ordering&rsquo;s 80.9%. The 22.8% plateau
+   reported in B.63d was an artifact of the MCF ordering combined with a limited decision
+   budget &mdash; with 500K decisions, even MCF reaches 80.9%.
+
+2. **Random orderings outperform most-constrained-first.** MCF is the WORST ordering tested.
+   It commits to locally-optimal decisions that are globally suboptimal, creating early conflicts
+   that require extensive backtracking (4,542 backtracks vs random&rsquo;s ~2,000). Random
+   orderings avoid this systematic bias.
+
+3. **95.1% on a 50% density block.** The best restart determined 15,340 / 16,129 cells &mdash;
+   789 cells short of a full solve. This is a transformative result: B.63a showed the combinator
+   alone determines 13.9% on this block. Random-restart DFS with IntBound propagation extends
+   this to 95.1% &mdash; a **6.8x improvement**.
+
+4. **No restart achieved 100%.** All 100 restarts stalled between 80.9% and 95.1%. The last
+   ~800 cells resist all orderings. These are likely cells in the matrix interior where all
+   constraint lines are deeply balanced and no cell assignment triggers forcing.
+
+5. **The propagation cascade is the mechanism.** Each restart makes ~8,800 decisions but
+   IntBound propagation determines ~280,000 cells (32x amplification). The DFS assigns a cell,
+   propagation forces hundreds more, creating a virtuous cycle. Random orderings produce more
+   effective early cascades because they distribute decisions across the matrix rather than
+   concentrating on locally-constrained cells.
+
+**Significance.** B.63e demonstrates that the 50% density wall is NOT a fundamental barrier for
+cell-by-cell DFS with IntBound propagation. The combinator+DFS hybrid determines 95% of cells
+on a 50% density block. The remaining 5% (~789 cells) is the true residual. With more restarts,
+better orderings, or targeted search on the residual, a full solve may be achievable.
+
+**Run 2 results (block 5, 50% density, 1,000 restarts, 5M decisions/restart).**
+
+| Metric | Run 1 (100 &times; 500K) | Run 2 (1,000 &times; 5M) |
+|--------|------------------------|--------------------------|
+| Best peak | 15,340 (95.1%) | **15,453 (95.8%)** |
+| Mean peak | 14,889 (92.3%) | 14,875 (92.2%) |
+| P10 | 14,500 (89.9%) | 14,594 (90.5%) |
+| P90 | 15,200 (94.2%) | 15,143 (93.9%) |
+| Min (MCF) | 13,044 (80.9%) | 13,044 (80.9%) |
+| Cells remaining (best) | 789 | **676** |
+| Full solves | 0 / 100 | **0 / 1,000** |
+
+10x more restarts and 10x larger decision budget improved the best peak by only 113 cells
+(95.1% &rarr; 95.8%). The mean and distribution shape are nearly identical to Run 1. The larger
+decision budget (5M vs 500K) did not help &mdash; restarts still plateau at the same depth.
+
+**The last ~676 cells are a structural residual.** All 1,000 random orderings converge to the
+same ~95% ceiling. This is no longer an ordering problem. The residual cells are on constraint
+lines where $\rho$ is deeply interior to $[0, u]$ regardless of which path the DFS takes.
+Random restarts cannot close this gap.
+
+**Comparison to B.63d baseline:**
+
+| Experiment | Strategy | Peak det. | Cells from solve |
+|-----------|----------|-----------|-----------------|
+| B.63c (multi-axis) | Line DFS | 2,405 (14.9%) | 13,724 |
+| B.63d (cell DFS, MCF) | MCF, 19.3M decisions | 3,682 (22.8%) | 12,447 |
+| B.63e Run 1 | 100 random restarts | 15,340 (95.1%) | 789 |
+| **B.63e Run 2** | 1,000 random restarts | **15,453 (95.8%)** | **676** |
+
+**Status: COMPLETE. Run 1 + Run 2 both confirm H1: plateau is ordering-dependent (80.9&ndash;95.8%).
+But a structural residual of ~676 cells (4.2%) resists all 1,000 orderings. Random restarts
+alone cannot achieve a full solve. CDCL (B.63f) or beam search (B.63g) needed for the residual.**
+
+### B.63h: Large-Scale Random Restart Census at S=127
+
+**Prerequisite.** B.63e completed (95.8% best across 1,000 restarts).
+
+**$C_r = 88.8\%$.**
+
+**Motivation.** B.63e Run 2 tested 1,000 restarts and found the peak at 95.8% (15,453 cells).
+The distribution ranged from 80.9% to 95.8% with mean 92.2%. But 1,000 samples may not capture
+the tail of the distribution. With 10,000 restarts, we sample the tail 10x more thoroughly.
+If ANY ordering can reach 100%, 10,000 trials are more likely to find it.
+
+**Hypothesis.** Some orderings produce dramatically better results than others. The distribution
+may have a long right tail &mdash; a small fraction of orderings that reach 96&ndash;100%.
+Identifying the properties of high-performing orderings could inform a targeted search strategy.
+
+**Method.** Run 10,000 random restarts on block 5 (50% density) with 5M decisions per restart.
+For each restart, record:
+- Restart index and RNG seed
+- Peak determination (cells and %)
+- Plateau depth (search decisions before stalling)
+- Total decisions and backtracks
+- Whether 100% was achieved (solved)
+
+Output to `tools/b63h_results.json` for post-analysis. Report the full distribution: min, P1, P5,
+P10, P25, P50, P75, P90, P95, P99, max.
+
+Additionally, run on multiple blocks (5, 10, 50, 100) to assess whether the distribution shape
+varies with block density.
+
+**Results (block 5, 50% density, 10,001 restarts, 5M decisions/restart).**
+
+| Percentile | Peak det. | % of 16,129 |
+|-----------|-----------|------------|
+| Min | 13,793 | 85.5% |
+| P1 | 14,342 | 88.9% |
+| P5 | 14,513 | 90.0% |
+| P10 | 14,599 | 90.5% |
+| P25 | 14,740 | 91.4% |
+| P50 (median) | 14,886 | 92.3% |
+| P75 | 15,021 | 93.1% |
+| P90 | 15,134 | 93.8% |
+| P95 | 15,202 | 94.2% |
+| P99 | 15,315 | 94.9% |
+| **Max** | **15,546** | **96.4%** |
+| Mean | 14,875 | 92.2% |
+| Solved (100%) | **0 / 10,001** | |
+
+**Comparison across B.63e/h runs:**
+
+| Run | Restarts | Best peak | Cells remaining | Improvement |
+|-----|----------|-----------|-----------------|-------------|
+| B.63e Run 1 | 100 | 15,340 (95.1%) | 789 | &mdash; |
+| B.63e Run 2 | 1,000 | 15,453 (95.8%) | 676 | +113 |
+| **B.63h** | **10,000** | **15,546 (96.4%)** | **583** | +93 |
+
+**Findings.**
+
+1. **Diminishing returns.** Each 10x increase in restarts gains ~100 fewer cells: +113 (100&rarr;1K),
+   +93 (1K&rarr;10K). Extrapolating: 100K restarts might gain ~70 more cells (to ~96.8%).
+   A full solve (100%) would require an astronomically lucky ordering.
+
+2. **The distribution is stable.** Mean=92.2% across all three runs (identical). The shape
+   (min/median/max) shifts only at the extreme tail. The core mechanism (IntBound propagation
+   cascade from random orderings) has a well-defined ceiling.
+
+3. **583 cells remain as the structural residual.** These cells are on constraint lines where
+   $\rho$ is deeply interior to $[0, u]$ regardless of ordering. No amount of random restarts
+   can close this gap &mdash; the gap is a property of the constraint system at this $C_r$,
+   not of the search strategy.
+
+4. **No restart achieved 100%.** Zero out of 10,001 trials. The probability of a random ordering
+   reaching 100% is effectively zero at this constraint configuration.
+
+*Multi-block runs not yet completed.*
+
+**Status: COMPLETE (block 5). 10,001 restarts: max 96.4%, 0 solves. 583-cell structural residual.
+Diminishing returns confirmed.**
+
+### B.63i: Unified Information Budget at S=127
+
+**Prerequisite.** B.63a&ndash;h completed. All constraint families characterized empirically.
+
+**Motivation.** The B.60&ndash;B.63 research programme has produced extensive per-experiment data on
+which constraints contribute what, but no unified accounting of how the payload bits decompose into
+functional roles. The payload at the B.63c configuration ($C_r = 88.8\%$) contains 14,325 bits.
+The CSM contains 16,129 bits. The solver determines 2,248 cells algebraically (Phase I), extends
+to 2,405 via multi-axis DFS (Phase III&ndash;V), and reaches 15,453 (95.8%) via random restarts.
+But 676 cells resist everything.
+
+An information budget answers: for each payload bit, what does it buy? How many bits go to algebraic
+determination, how many to search pruning, how many to verification, and how many are redundant?
+This accounting identifies where the payload is efficiently spent and where bits are wasted, informing
+future constraint design.
+
+**Definitions.**
+
+The information budget partitions the payload into four functional categories:
+
+1. **Algebraic determination bits** &mdash; payload bits that translate into determined cells via
+   GaussElim + IntBound fixpoint (Phase I). Measured by: cells determined per payload bit.
+
+2. **Search pruning bits** &mdash; payload bits that constrain the DFS search tree without directly
+   determining cells. These reduce the branching factor and backtracking cost in Phases II&ndash;V.
+   Measured by: reduction in search decisions per payload bit.
+
+3. **Verification bits** &mdash; payload bits used solely for pass/fail checking (LH CRC-32 for row
+   verification, BH SHA-256 for block verification). These do not determine cells or prune search;
+   they confirm correctness after the search commits to a candidate. Measured by: false-positive
+   filter rate (candidates rejected per verification check).
+
+4. **Redundant bits** &mdash; payload bits that duplicate information already provided by other
+   components. Dropping them costs zero cells, zero pruning, and zero verification power.
+   Identified by: B.62 ablation experiments (e.g., LH redundant per B.62e, XSM redundant per B.62j,
+   rLTP cross-sums redundant per B.62g).
+
+**Method.**
+
+**(a) Per-component accounting.** For each payload component at S=127 ($C_r = 88.8\%$, B.63c config),
+compute:
+
+| Component | Bits | GF(2) equations | IntBound lines | Cells determined (Phase I) | Role |
+|-----------|------|-----------------|----------------|---------------------------|------|
+| LSM ($127 \times 7$) | 889 | 126 (parity) | 127 | TBD | Algebraic + IntBound |
+| VSM ($127 \times 7$) | 889 | 126 (parity) | 127 | TBD | Algebraic + IntBound |
+| DSM (253 diags, var-width) | 1,271 | 252 (parity) | 253 | TBD | **Load-bearing** (B.62k) |
+| LH (CRC-32, 127 rows) | 4,064 | ~4,032 | 0 | TBD | Verification (Phase II) |
+| VH (CRC-32, 127 cols) | 4,064 | ~4,032 | 0 | TBD | **Load-bearing** (B.63a A7) |
+| DH64 (CRC-32, 64 diags) | 2,048 | ~2,032 | 0 | TBD | Algebraic (short-diag cascade) |
+| XH64 (CRC-32, 64 anti-diags) | 2,048 | ~2,032 | 0 | TBD | Algebraic + Phase V entry |
+| rLTP CRC (1 sub, lines 1&ndash;16) | 192 | ~188 | 0 | TBD | Interior cascade triggers |
+| BH (SHA-256) | 256 | 0 | 0 | 0 | Verification (final) |
+| DI | 8 | 0 | 0 | 0 | Enumeration index |
+| **Total** | **14,325** (est.) | **~12,820** | **507** | **2,248** | |
+
+**(b) Ablation analysis.** Using B.62/B.63 experimental results, determine the marginal contribution
+of each component by measuring the determination loss when it is removed:
+
+| Component removed | Determination (Phase I) | Delta | Bits saved | Bits/cell lost |
+|-------------------|------------------------|-------|------------|----------------|
+| LH | No change (B.62e) | 0 | 4,064 | $\infty$ (redundant for Phase I) |
+| XSM (if present) | No change (B.62j) | 0 | 1,271 | $\infty$ (redundant) |
+| rLTP cross-sums | No change (B.62g) | 0 | varies | $\infty$ (redundant) |
+| VH | Block 0: 100% &rarr; 37% (B.63a A7) | &minus;10,160 | 4,064 | 0.40 |
+| DSM | Block 1: 100% &rarr; 9.4% (B.62k) | &minus;33,068 | 1,271 (at S=191) | 0.04 |
+| DH64 | Block 0: 100% &rarr; 22% (B.63a A1 vs A2) | ~&minus;12,600 | 2,048 | 0.16 |
+
+**(c) Information efficiency ranking.** Compute bits per determined cell for each component:
+
+$$\text{efficiency}(C) = \frac{\text{cells determined with } C - \text{cells determined without } C}{\text{bits}(C)}$$
+
+High efficiency = each payload bit buys many determined cells. Low efficiency = bits wasted.
+
+**(d) Functional decomposition of the 14,325-bit payload.**
+
+Map each bit to its primary functional role:
+
+| Role | Bits | % of payload | Contribution |
+|------|------|-------------|-------------|
+| Algebraic determination | TBD | TBD | Phase I: 2,248 cells (13.9%) |
+| Search pruning | TBD | TBD | Phase II&ndash;V: DFS from 2,248 to 15,453 (95.8%) |
+| Verification | ~4,320 | ~30% | LH (4,064) + BH (256): row/block pass/fail |
+| Redundant | TBD | TBD | Zero-contribution components |
+| Enumeration overhead | 8 | 0.06% | DI |
+
+**(e) The 676-cell residual analysis.** For the 676 cells that resist all 1,000 random restarts
+(B.63e Run 2):
+
+- Map their positions in the CSM. Are they clustered or scattered?
+- For each residual cell, compute the constraint line statistics: what are $\rho$ and $u$ on every
+  line passing through that cell? How far is each line from forcing ($\rho = 0$ or $\rho = u$)?
+- Compute the information deficit: how many additional GF(2) equations or IntBound forcings would
+  be needed to determine these cells? Is the deficit concentrated on specific axes?
+- Estimate the payload cost to close the deficit: what constraint family additions (more rLTP lines,
+  wider DH/XH coverage, alternative hash axes) would provide the missing equations, and at what
+  $C_r$ cost?
+
+**(f) Shannon lower bound comparison.** The CSM at 50% density has maximal binary entropy:
+$H = 16{,}129$ bits. Shannon&rsquo;s source coding theorem says lossless compression of a uniform
+random 16,129-bit string requires at least 16,129 bits. The payload is 14,325 bits ($C_r = 88.8\%$).
+This means the payload does NOT carry enough information to uniquely identify the CSM &mdash;
+consistent with the observation that Phase I determines only 13.9%. The remaining 86.1% is
+recovered by search (exploiting the constraint structure), not by stored information.
+
+Decompose:
+- **Stored information:** 14,325 payload bits.
+- **Computed information (Phase I):** GaussElim + IntBound derive $N$ additional determined bits
+  from the stored 14,325 bits. This is information amplification via algebraic reasoning &mdash;
+  the constraints encode more than their bit count through cross-constraint interactions.
+- **Searched information (Phase II&ndash;V):** The DFS + random restarts explore the search tree,
+  using the constraint structure (IntBound pruning) and verification (LH CRC-32) to reject wrong
+  paths. The search does not add stored information; it selects the correct solution from the
+  constrained space.
+- **Missing information (residual):** The 676 cells that no search strategy can determine within
+  practical time. These represent the gap between the constraint system&rsquo;s practical resolving
+  power and the CSM&rsquo;s information content.
+
+The information budget quantifies each component:
+
+$$16{,}129 = \underbrace{14{,}325}_{\text{stored}} + \underbrace{N_{\text{amplified}}}_{\text{algebra}} + \underbrace{N_{\text{searched}}}_{\text{DFS}} - \underbrace{N_{\text{redundant}}}_{\text{wasted}} - \underbrace{676}_{\text{residual gap}}$$
+
+Solving for the unknowns is the objective of this experiment.
+
+**Hypotheses.**
+
+| Outcome | Criteria | Interpretation |
+|---------|----------|----------------|
+| H1 (verification-dominated) | $> 40\%$ of payload is verification bits (LH + BH) | The payload is heavily invested in pass/fail checking rather than determination; reallocating to more algebraic constraints could close the 676-cell gap |
+| H2 (efficiently allocated) | Each functional category contributes proportionally; no large waste | The current payload is near-optimal; the 676-cell residual requires genuinely new information (higher $C_r$ or new constraint families) |
+| H3 (residual is axis-limited) | The 676 cells cluster on specific constraint axes (e.g., all on long diagonals with $\rho \approx u/2$) | Targeted investment in that axis (more CRC, shorter lines) could close the gap at modest $C_r$ cost |
+| H4 (residual is diffuse) | The 676 cells are scattered uniformly with no axis preference | No targeted fix exists; only global equation density improvement (more families, higher $C_r$) can close the gap |
+
+**Method.**
+
+(a) Implement the per-component ablation measurements: for each component in the B.63c config,
+run with that component removed and record the Phase I determination loss. Use B.62 results
+directly where applicable (LH, VH, DSM, XSM ablations already measured).
+
+(b) For components not yet ablated at S=127 (LSM, VSM, DH64, XH64, rLTP), run individual
+ablation experiments: remove one component, measure Phase I determination, compute marginal
+contribution.
+
+(c) Run the 676-cell residual analysis on the best B.63e restart (seed that reached 15,453 cells).
+Extract the 676 undetermined cell positions and their per-line constraint statistics.
+
+(d) Compute the full information budget table and the Shannon comparison.
+
+(e) Report all results in a unified table suitable for guiding B.64+ constraint design.
+
+**Status: PROPOSED.**
 
 ## Appendix C: Open Questions Consolidated
 

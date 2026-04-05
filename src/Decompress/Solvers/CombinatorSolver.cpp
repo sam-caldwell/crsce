@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -2227,214 +2228,173 @@ namespace crsce::decompress::solvers {
             }
         }
 
-        // ── Phase VI: Cell-by-cell residual-guided DFS (B.63d) ──────────
+
+        // ── Phase VI: Random restart census (B.63h) ─────────────────────
         if (result.determined < kN) {
-            std::fprintf(stderr, "\n--- Phase VI: Cell-by-cell DFS (B.63d) ---\n"); // NOLINT
-            std::fprintf(stderr, "Starting from %u determined (%.1f%%)\n", // NOLINT
-                         result.determined, 100.0 * result.determined / kN);
+            const auto baseCellState = cellState_;
+            const auto baseIntLines = snapshotIntLines();
+            const auto baseDetermined = result.determined;
 
-            // Iterative DFS with explicit stack
-            struct Decision {
-                std::uint32_t flat;
-                std::uint8_t value;
-                std::array<std::int8_t, kN> cellSnap;
-                std::vector<IntLineState> intSnap;
-                std::uint32_t detBefore;
-            };
-            std::vector<Decision> stack;
+            std::fprintf(stderr, "\n--- Phase VI: Random restart census (B.63h) ---\n"); // NOLINT
+            std::fprintf(stderr, "Baseline: %u / %u determined (%.1f%%)\n", // NOLINT
+                         baseDetermined, kN, 100.0 * baseDetermined / kN);
 
-            std::uint64_t totalDecisions = 0;
-            std::uint64_t totalBacktracks = 0;
-            std::uint64_t totalPropagated = 0;
-            std::uint32_t maxDepth = 0;
-
-            auto propagateIntBound = [&]() -> std::pair<std::uint32_t, bool> {
-                // Propagate IntBound forcing until quiescence or infeasibility
+            // IntBound propagation helper
+            auto propagateIB = [&]() -> std::pair<std::uint32_t, bool> {
                 std::uint32_t forced = 0;
                 bool changed = true;
                 while (changed) {
                     changed = false;
                     for (auto &il : intLines_) {
                         if (il.u <= 0) { continue; }
-                        if (il.rho < 0 || il.rho > il.u) { return {forced, false}; } // infeasible
+                        if (il.rho < 0 || il.rho > il.u) { return {forced, false}; }
                         if (il.rho == 0) {
-                            // Force all remaining unknowns to 0
                             for (const auto f : il.cells) {
-                                if (cellState_[f] < 0) { // NOLINT
-                                    assignCell(f, 0);
-                                    ++forced;
-                                    changed = true;
-                                }
+                                if (cellState_[f] < 0) { assignCell(f, 0); ++forced; changed = true; } // NOLINT
                             }
                         } else if (il.rho == il.u) {
-                            // Force all remaining unknowns to 1
                             for (const auto f : il.cells) {
-                                if (cellState_[f] < 0) { // NOLINT
-                                    assignCell(f, 1);
-                                    ++forced;
-                                    changed = true;
-                                }
+                                if (cellState_[f] < 0) { assignCell(f, 1); ++forced; changed = true; } // NOLINT
                             }
                         }
                     }
                 }
-                // Check feasibility
                 for (const auto &il : intLines_) {
                     if (il.rho < 0 || il.rho > il.u) { return {forced, false}; }
                 }
                 return {forced, true};
             };
 
-            auto selectCell = [&]() -> std::uint32_t {
-                // Select the most constrained unknown cell
-                std::uint32_t bestFlat = kN;
-                double bestScore = -1.0;
-                for (std::uint32_t flat = 0; flat < kN; ++flat) {
-                    if (cellState_[flat] >= 0) { continue; } // NOLINT
-                    double score = 0.0;
-                    for (const auto li : cellToLines_[flat]) { // NOLINT
-                        if (intLines_[li].u > 0) { // NOLINT
-                            score += 1.0 / static_cast<double>(intLines_[li].u); // NOLINT
-                        }
-                    }
-                    if (score > bestScore) { bestScore = score; bestFlat = flat; }
-                }
-                return bestFlat;
-            };
+            static constexpr std::uint32_t kMaxDecPerRestart = 5'000'000;
+            static constexpr std::uint32_t kNumRestarts = 10'000;
 
-            bool solved = false;
+            // Run one restart, return peak determination
+            auto runRestart = [&](const std::vector<std::uint32_t> &order)
+                -> std::tuple<std::uint32_t, std::uint32_t, std::uint64_t, std::uint64_t, bool> {
+                cellState_ = baseCellState;
+                restoreIntLines(baseIntLines);
 
-            while (!solved) {
-                // Check if all assigned
-                std::uint32_t det = 0;
-                for (std::uint32_t f = 0; f < kN; ++f) {
-                    if (cellState_[f] >= 0) { ++det; } // NOLINT
-                }
-                result.determined = det;
-                result.free = kN - det;
+                struct Dec { std::uint32_t flat; std::uint8_t value;
+                    std::array<std::int8_t, kN> cs; std::vector<IntLineState> is; };
+                std::vector<Dec> stack;
+                std::uint64_t decisions = 0, backtracks = 0;
+                std::uint32_t peakDet = baseDetermined, orderIdx = 0;
 
-                if (det == kN) {
-                    solved = true;
-                    break;
-                }
+                while (decisions < kMaxDecPerRestart) {
+                    std::uint32_t det = 0;
+                    for (std::uint32_t f = 0; f < kN; ++f) { if (cellState_[f] >= 0) { ++det; } } // NOLINT
+                    if (det > peakDet) { peakDet = det; }
+                    if (det == kN) { return {peakDet, static_cast<std::uint32_t>(stack.size()), decisions, backtracks, true}; }
 
-                // Select next cell
-                const auto flat = selectCell();
-                if (flat >= kN) { break; } // no cell found (shouldn't happen)
+                    while (orderIdx < static_cast<std::uint32_t>(order.size()) &&
+                           cellState_[order[orderIdx]] >= 0) { ++orderIdx; } // NOLINT
+                    if (orderIdx >= static_cast<std::uint32_t>(order.size())) { break; }
+                    const auto flat = order[orderIdx]; // NOLINT
 
-                // Try value 0 first
-                ++totalDecisions;
-                if (stack.size() > maxDepth) { maxDepth = static_cast<std::uint32_t>(stack.size()); }
-
-                // Save state
-                stack.push_back({flat, 0, cellState_, snapshotIntLines(), det});
-                assignCell(flat, 0);
-
-                auto [forced, feasible] = propagateIntBound();
-                totalPropagated += forced;
-
-                // Check LH on any completed rows
-                if (feasible) {
-                    const auto r = static_cast<std::uint16_t>(flat / kS);
-                    bool rowComplete = true;
-                    const auto base = static_cast<std::uint32_t>(r) * kS;
-                    for (std::uint16_t c = 0; c < kS; ++c) {
-                        if (cellState_[base + c] < 0) { rowComplete = false; break; } // NOLINT
-                    }
-                    if (rowComplete && !verifyRowLH(r)) {
-                        feasible = false;
-                    }
-                }
-
-                if (!feasible) {
-                    // Backtrack: undo and try 1
-                    cellState_ = stack.back().cellSnap;
-                    restoreIntLines(stack.back().intSnap);
-                    stack.back().value = 1;
-                    assignCell(flat, 1);
-
-                    auto [forced2, feasible2] = propagateIntBound();
-                    totalPropagated += forced2;
-
-                    if (feasible2) {
+                    ++decisions;
+                    stack.push_back({flat, 0, cellState_, snapshotIntLines()});
+                    assignCell(flat, 0);
+                    auto [f1, ok1] = propagateIB();
+                    if (ok1) {
                         const auto r = static_cast<std::uint16_t>(flat / kS);
-                        bool rowComplete = true;
+                        bool rc = true;
                         const auto base = static_cast<std::uint32_t>(r) * kS;
                         for (std::uint16_t c = 0; c < kS; ++c) {
-                            if (cellState_[base + c] < 0) { rowComplete = false; break; } // NOLINT
+                            if (cellState_[base + c] < 0) { rc = false; break; } // NOLINT
                         }
-                        if (rowComplete && !verifyRowLH(r)) { feasible2 = false; }
+                        if (rc && !verifyRowLH(r)) { ok1 = false; }
                     }
-
-                    if (!feasible2) {
-                        // Both values failed — deep backtrack
-                        ++totalBacktracks;
-                        cellState_ = stack.back().cellSnap;
-                        restoreIntLines(stack.back().intSnap);
-                        stack.pop_back();
-
-                        // Continue backtracking up the stack
-                        while (!stack.empty()) {
-                            auto &prev = stack.back();
-                            if (prev.value == 0) {
-                                // Try value 1
-                                cellState_ = prev.cellSnap;
-                                restoreIntLines(prev.intSnap);
-                                prev.value = 1;
-                                assignCell(prev.flat, 1);
-
-                                auto [f3, ok3] = propagateIntBound();
-                                totalPropagated += f3;
-                                if (ok3) {
-                                    const auto rr = static_cast<std::uint16_t>(prev.flat / kS);
-                                    bool rc = true;
-                                    const auto bb = static_cast<std::uint32_t>(rr) * kS;
-                                    for (std::uint16_t c = 0; c < kS; ++c) {
-                                        if (cellState_[bb + c] < 0) { rc = false; break; } // NOLINT
-                                    }
-                                    if (rc && !verifyRowLH(rr)) { ok3 = false; }
-                                }
-                                if (ok3) { break; } // found viable branch
+                    if (!ok1) {
+                        cellState_ = stack.back().cs; restoreIntLines(stack.back().is);
+                        stack.back().value = 1;
+                        assignCell(flat, 1);
+                        auto [f2, ok2] = propagateIB();
+                        if (ok2) {
+                            const auto r = static_cast<std::uint16_t>(flat / kS);
+                            bool rc = true;
+                            const auto base = static_cast<std::uint32_t>(r) * kS;
+                            for (std::uint16_t c = 0; c < kS; ++c) {
+                                if (cellState_[base + c] < 0) { rc = false; break; } // NOLINT
                             }
-                            // This decision exhausted — backtrack further
-                            ++totalBacktracks;
-                            cellState_ = prev.cellSnap;
-                            restoreIntLines(prev.intSnap);
+                            if (rc && !verifyRowLH(r)) { ok2 = false; }
+                        }
+                        if (!ok2) {
+                            ++backtracks;
+                            cellState_ = stack.back().cs; restoreIntLines(stack.back().is);
                             stack.pop_back();
-                        }
-
-                        if (stack.empty()) {
-                            std::fprintf(stderr, "  Search exhausted. No solution found.\n"); // NOLINT
-                            break;
+                            while (!stack.empty()) {
+                                auto &prev = stack.back();
+                                if (prev.value == 0) {
+                                    cellState_ = prev.cs; restoreIntLines(prev.is);
+                                    prev.value = 1;
+                                    assignCell(prev.flat, 1);
+                                    auto [f3, ok3] = propagateIB();
+                                    if (ok3) {
+                                        const auto rr = static_cast<std::uint16_t>(prev.flat / kS);
+                                        bool rc = true;
+                                        const auto bb = static_cast<std::uint32_t>(rr) * kS;
+                                        for (std::uint16_t c = 0; c < kS; ++c) {
+                                            if (cellState_[bb + c] < 0) { rc = false; break; } // NOLINT
+                                        }
+                                        if (rc && !verifyRowLH(rr)) { ok3 = false; }
+                                    }
+                                    if (ok3) { break; }
+                                }
+                                ++backtracks;
+                                cellState_ = prev.cs; restoreIntLines(prev.is);
+                                stack.pop_back();
+                            }
+                            if (stack.empty()) { break; }
                         }
                     }
                 }
+                return {peakDet, static_cast<std::uint32_t>(stack.size()), decisions, backtracks, false};
+            };
 
-                // Progress logging
-                if (totalDecisions % 500 == 0) {
-                    std::uint32_t curDet = 0;
-                    for (std::uint32_t f = 0; f < kN; ++f) {
-                        if (cellState_[f] >= 0) { ++curDet; } // NOLINT
-                    }
-                    std::fprintf(stderr, "  [%llu decisions, %llu backtracks, depth %zu] %u determined (%.1f%%)\n", // NOLINT
-                                 static_cast<unsigned long long>(totalDecisions),
-                                 static_cast<unsigned long long>(totalBacktracks),
-                                 stack.size(), curDet, 100.0 * curDet / kN);
-                }
-            }
-
-            // Final count
-            result.determined = 0;
+            // Collect unknowns
+            std::vector<std::uint32_t> unknowns;
             for (std::uint32_t f = 0; f < kN; ++f) {
-                if (cellState_[f] >= 0) { ++result.determined; } // NOLINT
+                if (baseCellState[f] < 0) { unknowns.push_back(f); } // NOLINT
             }
-            result.free = kN - result.determined;
 
-            std::fprintf(stderr, "\nPhase VI complete: %u / %u (%.1f%%), %llu decisions, %llu backtracks, %llu propagated\n", // NOLINT
-                         result.determined, kN, 100.0 * result.determined / kN,
-                         static_cast<unsigned long long>(totalDecisions),
-                         static_cast<unsigned long long>(totalBacktracks),
-                         static_cast<unsigned long long>(totalPropagated));
+            std::uint32_t bestPeak = 0, bestRestart = 0;
+            std::uint64_t seed = 77777;
+
+            for (std::uint32_t restart = 0; restart < kNumRestarts; ++restart) {
+                // Shuffle
+                auto order = unknowns;
+                seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+                for (std::size_t i = order.size() - 1; i > 0; --i) {
+                    seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+                    const auto j = static_cast<std::size_t>(seed >> 33) % (i + 1); // NOLINT
+                    std::swap(order[i], order[j]); // NOLINT
+                }
+
+                auto [peak, depth, decisions, backtracks, solved] = runRestart(order);
+                if (peak > bestPeak) { bestPeak = peak; bestRestart = restart; }
+
+                std::fprintf(stderr, "  restart=%u peak=%u (%.1f%%) depth=%u decisions=%llu backtracks=%llu solved=%s\n", // NOLINT
+                             restart, peak, 100.0 * peak / kN, depth,
+                             static_cast<unsigned long long>(decisions),
+                             static_cast<unsigned long long>(backtracks),
+                             solved ? "true" : "false");
+
+                if (solved) {
+                    result.determined = kN; result.free = 0;
+                    std::fprintf(stderr, "  SOLVED on restart %u!\n", restart); // NOLINT
+                    break;
+                }
+            }
+
+            std::fprintf(stderr, "\nCensus: best restart=%u peak=%u (%.1f%%)\n", // NOLINT
+                         bestRestart, bestPeak, 100.0 * bestPeak / kN);
+
+            if (result.determined < kN) {
+                cellState_ = baseCellState;
+                restoreIntLines(baseIntLines);
+                result.determined = baseDetermined;
+                result.free = kN - baseDetermined;
+            }
         }
 
         std::fprintf(stderr, "\nFinal: %u / %u determined (%.1f%%)\n", // NOLINT
