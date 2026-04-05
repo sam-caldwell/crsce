@@ -117,7 +117,7 @@ namespace crsce::decompress::solvers {
             if (found < 0) { continue; } // free variable
 
             // Swap rows
-            if (found != pivotRow) {
+            if (found != static_cast<int>(pivotRow)) {
                 std::swap(A[pivotRow], A[found]); // NOLINT
                 std::swap(b[pivotRow], b[found]); // NOLINT
             }

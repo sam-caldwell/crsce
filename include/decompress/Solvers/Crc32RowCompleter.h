@@ -27,7 +27,7 @@ namespace crsce::decompress::solvers {
          */
         constexpr std::uint32_t computeCrcZero() {
             const std::uint8_t zero[16] = {}; // NOLINT
-            return common::util::crc32_ieee(zero, 16);
+            return common::util::crc32_ieee(zero, 16); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
         }
 
         /**
@@ -51,7 +51,7 @@ namespace crsce::decompress::solvers {
             for (std::uint16_t col = 0; col < s; ++col) {
                 std::uint8_t msg[16] = {}; // NOLINT
                 msg[col / 8] = static_cast<std::uint8_t>(1U << (7U - (col % 8U))); // NOLINT
-                const std::uint32_t colVal = common::util::crc32_ieee(msg, 16) ^ kCrcZero;
+                const std::uint32_t colVal = common::util::crc32_ieee(msg, 16) ^ kCrcZero; // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
                 for (std::uint8_t bit = 0; bit < 32; ++bit) {
                     if ((colVal >> bit) & 1U) {
                         gm[bit][col / 64] |= (std::uint64_t{1} << (col % 64)); // NOLINT

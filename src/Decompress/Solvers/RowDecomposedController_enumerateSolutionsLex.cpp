@@ -336,7 +336,7 @@ namespace crsce::decompress::solvers {
         for (std::uint16_t r = 0; r < kS; ++r) {
             for (std::uint16_t c = 0; c < kS; ++c) {
                 if (cs.getCellState(r, c) == CellState::Unassigned) {
-                    cellOrder.push_back(CellScore{r, c, 0ULL, 0ULL, 0});
+                    cellOrder.push_back(CellScore{.row = r, .col = c, .score1 = 0ULL, .score0 = 0ULL, .preferred = 0});
                 }
             }
         }

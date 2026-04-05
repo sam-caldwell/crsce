@@ -136,7 +136,7 @@ int main(const int argc, const char *const argv[]) { // NOLINT
         }
 
         // Solve
-        const auto result = solver.solveCascade(csm);
+        const auto result = solver.solveCascade();
 
         // Store this block's solution for next block
         prevSolved = result.bhVerified;

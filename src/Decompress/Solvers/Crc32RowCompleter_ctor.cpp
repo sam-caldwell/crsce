@@ -8,6 +8,9 @@
  */
 #include "decompress/Solvers/Crc32RowCompleter.h"
 
+#include <array>
+#include <cstdint>
+
 namespace crsce::decompress::solvers {
 
     /**
