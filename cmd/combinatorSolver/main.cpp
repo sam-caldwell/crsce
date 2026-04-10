@@ -15,6 +15,7 @@
  *   lh_dh         Non-toroidal DSM/XSM + LH + DH          [B.60f]
  */
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -290,6 +291,94 @@ int main(const int argc, const char *const argv[]) { // NOLINT
                   .rltpCrcOnly = true, .rltpMaxLines = 16,
                   .useVHInCascade = true, .cascade = true, .cascadeMaxLen = 64,
                   .hybridWidths = true, .hybrid = true,
+                  .useXSMSums = false, .toroidal = false};
+    } else if (configName == "b63n") {
+        // B.63n: CRC-64 version of b63c (LH64+VH64+DH64+XH64+rLTP with CRC-64 tiers)
+        config = {.useLH = true, .useVH = true, .useDH = false, .useXH = false,
+                  .useRLTP = true, .rltpCenterR = 63, .rltpCenterC = 63,
+                  .rltpCrcOnly = true, .rltpMaxLines = 16,
+                  .useVHInCascade = true, .cascade = true, .cascadeMaxLen = 64,
+                  .hybridWidths = true, .useCrc64 = true, .hybrid = true,
+                  .useXSMSums = false, .toroidal = false};
+    } else if (configName.substr(0, 4) == "b63k") { // NOLINT
+        // B.63k: K0-K6 trade-off configs. Generate rLTP grid centers.
+        auto makeGrid = [](int n, std::uint16_t s) {
+            std::vector<std::pair<std::uint16_t, std::uint16_t>> centers;
+            const int side = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n))));
+            for (int i = 0; i < side && static_cast<int>(centers.size()) < n; ++i) {
+                for (int j = 0; j < side && static_cast<int>(centers.size()) < n; ++j) {
+                    centers.emplace_back(
+                        static_cast<std::uint16_t>(s * i / side),
+                        static_cast<std::uint16_t>(s * j / side));
+                }
+            }
+            return centers;
+        };
+
+        // Base: DSM + DH64+XH64 + BH/DI + rLTP(63,63). Vary LH/VH/LSM/VSM + extra rLTPs.
+        config = {.useLH = false, .useVH = false, .useDH = false, .useXH = false,
+                  .useRLTP = true, .rltpCenterR = 63, .rltpCenterC = 63,
+                  .rltpCrcOnly = true, .rltpMaxLines = 16,
+                  .useVHInCascade = true, .cascade = true, .cascadeMaxLen = 64,
+                  .hybridWidths = true, .useXSMSums = false, .toroidal = false};
+
+        if (configName == "b63k0") {
+            // K0 baseline = b63c
+            config.useLH = true; config.useVH = true;
+        } else if (configName == "b63k1") {
+            // K1: drop LH, +21 rLTPs
+            config.useLH = false; config.useVH = true;
+            config.rltpExtraCenters = makeGrid(21, kS);
+        } else if (configName == "b63k2") {
+            // K2: drop VH, +21 rLTPs
+            config.useLH = true; config.useVH = false;
+            config.rltpExtraCenters = makeGrid(21, kS);
+        } else if (configName == "b63k3") {
+            // K3: drop LSM+VSM, +9 rLTPs
+            config.useLH = true; config.useVH = true;
+            config.useLSMSums = false; config.useVSMSums = false;
+            config.rltpExtraCenters = makeGrid(9, kS);
+        } else if (configName == "b63k4") {
+            // K4: drop LH+LSM+VSM, +30 rLTPs
+            config.useLH = false; config.useVH = true;
+            config.useLSMSums = false; config.useVSMSums = false;
+            config.rltpExtraCenters = makeGrid(30, kS);
+        } else if (configName == "b63k5") {
+            // K5: drop VH+LSM+VSM, +30 rLTPs
+            config.useLH = true; config.useVH = false;
+            config.useLSMSums = false; config.useVSMSums = false;
+            config.rltpExtraCenters = makeGrid(30, kS);
+        } else if (configName == "b63k6") {
+            // K6: drop LH+VH, +42 rLTPs
+            config.useLH = false; config.useVH = false;
+            config.rltpExtraCenters = makeGrid(42, kS);
+        }
+    } else if (configName == "b63i_no_lh") {
+        // B.63i ablation: b63c minus LH
+        config = {.useLH = false, .useVH = true, .useDH = false, .useXH = false,
+                  .useRLTP = true, .rltpCenterR = 63, .rltpCenterC = 63,
+                  .rltpCrcOnly = true, .rltpMaxLines = 16,
+                  .useVHInCascade = true, .cascade = true, .cascadeMaxLen = 64,
+                  .hybridWidths = true, .useXSMSums = false, .toroidal = false};
+    } else if (configName == "b63i_no_vh") {
+        // B.63i ablation: b63c minus VH
+        config = {.useLH = true, .useVH = false, .useDH = false, .useXH = false,
+                  .useRLTP = true, .rltpCenterR = 63, .rltpCenterC = 63,
+                  .rltpCrcOnly = true, .rltpMaxLines = 16,
+                  .cascade = true, .cascadeMaxLen = 64,
+                  .hybridWidths = true, .useXSMSums = false, .toroidal = false};
+    } else if (configName == "b63i_no_rltp") {
+        // B.63i ablation: b63c minus rLTP
+        config = {.useLH = true, .useVH = true, .useDH = false, .useXH = false,
+                  .useRLTP = false,
+                  .useVHInCascade = true, .cascade = true, .cascadeMaxLen = 64,
+                  .hybridWidths = true, .useXSMSums = false, .toroidal = false};
+    } else if (configName == "b63i_no_dh") {
+        // B.63i ablation: b63c minus DH/XH (no cascade, just LH+VH+rLTP)
+        config = {.useLH = true, .useVH = true, .useDH = false, .useXH = false,
+                  .useRLTP = true, .rltpCenterR = 63, .rltpCenterC = 63,
+                  .rltpCrcOnly = true, .rltpMaxLines = 16,
+                  .useVHInCascade = true, .cascade = false,
                   .useXSMSums = false, .toroidal = false};
     } else if (configName == "b63a1") {
         // B.63a A1: LSM + DSM + LH + VH (no DH/XH/rLTP). C_r ~71%

@@ -81,4 +81,8 @@ Each experiment is stored in a separate file under `docs/experiments/`.
 
 ### Hybrid Combinator + DFS at S=127 (B.63)
 
-- [B.63](experiments/B.63.md) — Hybrid Combinator + DFS (includes B.63a-i: sweep, restarts, CDCL, beam search, information budget)
+- [B.63](experiments/B.63.md) — Hybrid Combinator + DFS (includes B.63a-n: constraint sweep, random restarts (95.8%), CDCL, beam search, GaussElim checkpoint (100% det, 0 BH solves), payload trade-offs, rLTPh pruning, per-line CRC pruning, CRC-64 validation, information budget)
+
+### Joint S-Dimension and CRC-Width Optimization (B.64)
+
+- [B.64](experiments/B.64.md) — Parameter space sweep: S×W optimization for null space minimization at C_r < 80%. **Result: null space is information-theoretically nonzero at C_r < 100% for 50% density data (Shannon limit). CRSCE compresses non-uniform data but cannot compress incompressible data.**

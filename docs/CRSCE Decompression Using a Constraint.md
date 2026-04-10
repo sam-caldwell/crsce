@@ -1685,6 +1685,39 @@ well-defined interfaces. This architectural requirement supports extensibility, 
 substitution of alternative implementations&mdash;including GPU-accelerated components&mdash;without compromising the
 determinism guarantees on which the DI mechanism depends.
 
+### 13.1 Research Update (B.58&ndash;B.64)
+
+Experiments B.58 through B.64 explored a combinator-algebraic solver architecture that replaces
+DFS enumeration with a purely algebraic fixpoint: GF(2) Gaussian elimination on CRC hash equations,
+integer-bound cardinality forcing (IntBound), and pairwise cross-deduction. Key findings:
+
+**Combinator algebra (B.60&ndash;B.62).** At $S = 191$ with CRC-32, the combinator achieves
+BH-verified full solves on favorable blocks at $C_r = 97.4\%$ (B.62j). The load-bearing
+constraint analysis (B.62e&ndash;l) showed that LH, rLTP cross-sums, and XSM cross-sums are
+redundant when CRC hash equations are present. Only DSM diagonal cross-sums are irreplaceable
+(B.62k).
+
+**Hybrid solver (B.63).** At $S = 127$, combining Phase I combinator algebra with Phase II
+cell-by-cell DFS and random restarts achieves 96.4% determination on 50% density blocks (B.63h).
+GaussElim checkpoints during DFS push to 100% determination (B.63j), but all completions are
+wrong&mdash;the GF(2) null space (~6,544 dimensions at $C_r = 88.8\%$) admits astronomically many
+constraint-consistent solutions. CDCL fails on cardinality constraints (B.63f). Beam search
+collapses from propagation homogenization (B.63g). CRC-64 at $C_r > 100\%$ achieves a BH-verified
+full solve (B.63n), confirming the mechanism but not demonstrating compression.
+
+**Information-theoretic limit (B.64a).** A parameter sweep across $S \in \{127, 191, 255, 383, 511\}$
+and CRC widths up to CRC-256 establishes that at $C_r < 80\%$, the GF(2) null space is always
+$> 54\%$ of $S^2$, regardless of dimension or CRC width. This is Shannon's source coding theorem:
+a uniform random $S \times S$ binary matrix has entropy $S^2$ bits and cannot be losslessly
+reconstructed from fewer than $S^2$ bits of stored information. The null space at $C_r < 100\%$
+is an information-theoretic inevitability, not an engineering limitation.
+
+**Practical implications.** CRSCE achieves genuine compression ($C_r < 80\%$) on non-uniform data
+(file headers, structured formats, low-entropy blocks). The 50% density wall is the Shannon limit
+for incompressible data&mdash;no lossless compression algorithm can exceed it. Future work should
+focus on optimizing CRSCE for the blocks it CAN compress and characterizing what fraction of
+real-world files consist of compressible blocks.
+
 
 ## Appendix A. Command-Line Usage
 
@@ -1694,14 +1727,15 @@ See [appendix-a-command-line-usage.md](appendix-a-command-line-usage.md).
 
 See [appendix-b-experiments.md](appendix-b-experiments.md).
 
-This appendix contains all experiment documentation from B.1 through B.63, including:
+This appendix contains all experiment documentation from B.1 through B.64, including:
 - B.1-B.37: Early solver experiments (DFS, propagation, LTP optimization)
 - B.38-B.57: Intermediate experiments (deflation, hash correlation, constraint density)
 - B.58-B.59: Combinator-based symbolic solver at S=127
 - B.60: Vertical CRC-32 hash and cross-axis GF(2) constraints
 - B.61: Overlapping blocks
-- B.62: Optimization at S=191 (load-bearing constraint analysis)
-- B.63: Hybrid combinator + DFS at S=127 (random restarts, CDCL, beam search, information budget)
+- B.62: Optimization at S=191 (load-bearing constraint analysis, first BH-verified solve at C_r=97.4%)
+- B.63: Hybrid combinator + DFS at S=127 (random restarts 96.4%, GaussElim checkpoint 100%, CRC-64 validation)
+- B.64: Joint S &times; CRC-width optimization (Shannon limit: null space nonzero at C_r < 100% for 50% density)
 
 ## Appendix C: Open Questions Consolidated
 
