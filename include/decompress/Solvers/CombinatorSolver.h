@@ -192,6 +192,12 @@ namespace crsce::decompress::solvers {
             std::uint16_t rltpCenter2C = 0;
 
             /**
+             * @name rltpExtraCenters
+             * @brief Additional rLTP spiral centers beyond rltpCenter and rltpCenter2.
+             */
+            std::vector<std::pair<std::uint16_t, std::uint16_t>> rltpExtraCenters;
+
+            /**
              * @name rltpCrcOnly
              * @brief When true, rLTP adds only CRC hash equations (GF2) without IntBound lines.
              */
@@ -234,6 +240,18 @@ namespace crsce::decompress::solvers {
             bool hybridWidths = false;
 
             /**
+             * @name useLSMSums
+             * @brief Include LSM row integer cross-sums (IntBound lines). Default true.
+             */
+            bool useLSMSums = true;
+
+            /**
+             * @name useVSMSums
+             * @brief Include VSM column integer cross-sums (IntBound lines). Default true.
+             */
+            bool useVSMSums = true;
+
+            /**
              * @name useDSMSums
              * @brief Include DSM diagonal integer cross-sums (IntBound lines). Default true.
              */
@@ -244,6 +262,12 @@ namespace crsce::decompress::solvers {
              * @brief Include XSM anti-diagonal integer cross-sums (IntBound lines). Default true.
              */
             bool useXSMSums = true;
+
+            /**
+             * @name useCrc64
+             * @brief Use CRC-64 for LH, VH, and tier 4+ graduated hashes.
+             */
+            bool useCrc64 = false;
 
             /**
              * @name hybrid

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -326,44 +327,54 @@ namespace crsce::decompress::solvers {
     }
 
     void CombinatorSolver::addGeometricParity() {
-        // LSM (rows)
+        // LSM (rows) — skip IntBound when useLSMSums=false; parity GF2 always added
         for (std::uint16_t r = 0; r < kS; ++r) {
-            IntLine line;
             GF2Row gf2row{};
             std::uint8_t parity = 0;
             for (std::uint16_t c = 0; c < kS; ++c) {
                 const auto flat = static_cast<std::uint32_t>(r) * kS + c;
-                line.cells.push_back(flat);
                 gf2row[flat / 64] |= (std::uint64_t{1} << (flat % 64)); // NOLINT
-                if (getOrig(r, c)) { parity ^= 1; line.target++; }
+                if (getOrig(r, c)) { parity ^= 1; }
+            }
+            gf2Rows_.push_back(gf2row);
+            gf2Target_.push_back(parity);
+            if (!config_.useLSMSums) { continue; }
+            IntLine line;
+            for (std::uint16_t c = 0; c < kS; ++c) {
+                const auto flat = static_cast<std::uint32_t>(r) * kS + c;
+                line.cells.push_back(flat);
+                if (getOrig(r, c)) { line.target++; }
             }
             line.rho = line.target;
             line.u = kS;
             const auto li = static_cast<std::uint32_t>(intLines_.size());
             intLines_.push_back(std::move(line));
             for (const auto f : intLines_[li].cells) { cellToLines_[f].push_back(li); }
-            gf2Rows_.push_back(gf2row);
-            gf2Target_.push_back(parity);
         }
 
-        // VSM (columns)
+        // VSM (columns) — skip IntBound when useVSMSums=false; parity GF2 always added
         for (std::uint16_t c = 0; c < kS; ++c) {
-            IntLine line;
             GF2Row gf2row{};
             std::uint8_t parity = 0;
             for (std::uint16_t r = 0; r < kS; ++r) {
                 const auto flat = static_cast<std::uint32_t>(r) * kS + c;
-                line.cells.push_back(flat);
                 gf2row[flat / 64] |= (std::uint64_t{1} << (flat % 64)); // NOLINT
-                if (getOrig(r, c)) { parity ^= 1; line.target++; }
+                if (getOrig(r, c)) { parity ^= 1; }
+            }
+            gf2Rows_.push_back(gf2row);
+            gf2Target_.push_back(parity);
+            if (!config_.useVSMSums) { continue; }
+            IntLine line;
+            for (std::uint16_t r = 0; r < kS; ++r) {
+                const auto flat = static_cast<std::uint32_t>(r) * kS + c;
+                line.cells.push_back(flat);
+                if (getOrig(r, c)) { line.target++; }
             }
             line.rho = line.target;
             line.u = kS;
             const auto li = static_cast<std::uint32_t>(intLines_.size());
             intLines_.push_back(std::move(line));
             for (const auto f : intLines_[li].cells) { cellToLines_[f].push_back(li); }
-            gf2Rows_.push_back(gf2row);
-            gf2Target_.push_back(parity);
         }
 
         if (config_.toroidal) {
@@ -1047,6 +1058,9 @@ namespace crsce::decompress::solvers {
         addRLTPAt(config_.rltpCenterR, config_.rltpCenterC);
         if (config_.useRLTP2) {
             addRLTPAt(config_.rltpCenter2R, config_.rltpCenter2C);
+        }
+        for (const auto &[cr, cc] : config_.rltpExtraCenters) {
+            addRLTPAt(cr, cc);
         }
     }
 
@@ -2229,17 +2243,125 @@ namespace crsce::decompress::solvers {
         }
 
 
-        // ── Phase VI: Random restart census (B.63h) ─────────────────────
+
+
+        // ── Phase VI: Incremental per-line GF(2) pruning on LH/VH/DH/XH (B.63m) ──
         if (result.determined < kN) {
             const auto baseCellState = cellState_;
             const auto baseIntLines = snapshotIntLines();
+            const auto baseGF2Rows = gf2Rows_;
+            const auto baseGF2Target = gf2Target_;
             const auto baseDetermined = result.determined;
 
-            std::fprintf(stderr, "\n--- Phase VI: Random restart census (B.63h) ---\n"); // NOLINT
+            std::fprintf(stderr, "\n--- Phase VI: Per-line LH/VH/DH/XH pruning DFS (B.63m) ---\n"); // NOLINT
             std::fprintf(stderr, "Baseline: %u / %u determined (%.1f%%)\n", // NOLINT
                          baseDetermined, kN, 100.0 * baseDetermined / kN);
 
-            // IntBound propagation helper
+            // ── Build per-line GF(2) sub-matrices for all CRC axes ──────
+            struct CrcLineEq {
+                std::vector<std::uint32_t> varCells; // cells with nonzero GF(2) coefficient
+                std::uint8_t target;
+            };
+            struct CrcLine {
+                std::vector<CrcLineEq> eqns;
+            };
+
+            // Cell-to-CRC-line mapping: for each cell, which CRC lines it belongs to
+            // Store as {lineIndex into allCrcLines}
+            std::vector<CrcLine> allCrcLines;
+            std::vector<std::vector<std::uint32_t>> cellToCrcLine(kN);
+
+            // Helper: build CRC line equations for a set of cells with a known CRC
+            auto addCrcLine = [&](const std::vector<std::uint32_t> &cells,
+                                  std::uint32_t expectedCrc, std::uint8_t crcWidth) {
+                const auto lineLen = static_cast<std::uint16_t>(cells.size());
+                const auto msgBytes = static_cast<std::size_t>((lineLen + 1 + 7) / 8);
+                // Compute c0 (CRC of zero message)
+                std::array<std::uint8_t, 32> zeroMsg{};
+
+                CrcLine cl;
+                for (std::uint8_t bit = 0; bit < crcWidth; ++bit) {
+                    CrcLineEq eq;
+                    // Target = (expectedCrc >> bit) XOR (c0 >> bit)
+                    std::uint32_t c0 = 0;
+                    if (crcWidth == 8) { c0 = common::util::crc8(zeroMsg.data(), msgBytes); }
+                    else if (crcWidth == 16) { c0 = common::util::crc16_ccitt(zeroMsg.data(), msgBytes); }
+                    else { c0 = common::util::crc32_ieee(zeroMsg.data(), msgBytes); }
+                    eq.target = static_cast<std::uint8_t>(((expectedCrc >> bit) & 1U) ^ ((c0 >> bit) & 1U));
+
+                    // Generator matrix column: for each cell, CRC of unit vector at that position
+                    for (std::uint16_t s = 0; s < lineLen; ++s) {
+                        std::vector<std::uint8_t> unitMsg(msgBytes, 0);
+                        unitMsg[s / 8] = static_cast<std::uint8_t>(1U << (7U - (s % 8U))); // NOLINT
+                        std::uint32_t unitCrc = 0;
+                        if (crcWidth == 8) { unitCrc = common::util::crc8(unitMsg.data(), msgBytes) ^ c0; }
+                        else if (crcWidth == 16) { unitCrc = common::util::crc16_ccitt(unitMsg.data(), msgBytes) ^ c0; }
+                        else { unitCrc = common::util::crc32_ieee(unitMsg.data(), msgBytes) ^ c0; }
+                        if ((unitCrc >> bit) & 1U) {
+                            eq.varCells.push_back(cells[s]); // NOLINT
+                        }
+                    }
+                    cl.eqns.push_back(std::move(eq));
+                }
+
+                const auto li = static_cast<std::uint32_t>(allCrcLines.size());
+                allCrcLines.push_back(std::move(cl));
+                for (const auto f : cells) {
+                    cellToCrcLine[f].push_back(li); // NOLINT
+                }
+            };
+
+            // Add LH lines (127 rows, CRC-32)
+            for (std::uint16_t r = 0; r < kS; ++r) {
+                std::vector<std::uint32_t> cells(kS);
+                for (std::uint16_t c = 0; c < kS; ++c) {
+                    cells[c] = static_cast<std::uint32_t>(r) * kS + c;
+                }
+                addCrcLine(cells, expectedLH_[r], 32);
+            }
+            std::fprintf(stderr, "  LH: %u lines (rows, CRC-32)\n", kS); // NOLINT
+
+            // Add VH lines (127 columns, CRC-32)
+            for (std::uint16_t c = 0; c < kS; ++c) {
+                std::vector<std::uint32_t> cells(kS);
+                for (std::uint16_t r = 0; r < kS; ++r) {
+                    cells[r] = static_cast<std::uint32_t>(r) * kS + c;
+                }
+                addCrcLine(cells, expectedVH_[c], 32);
+            }
+            std::fprintf(stderr, "  VH: %u lines (cols, CRC-32)\n", kS); // NOLINT
+
+            // Add DH/XH lines (from precomputed diagAxes_/antiDiagAxes_)
+            std::uint32_t dhCount = 0, xhCount = 0;
+            for (const auto &da : diagAxes_) {
+                if (da.cells.size() <= 64) { addCrcLine(da.cells, da.expectedCrc, da.crcWidth); ++dhCount; }
+            }
+            for (const auto &aa : antiDiagAxes_) {
+                if (aa.cells.size() <= 64) { addCrcLine(aa.cells, aa.expectedCrc, aa.crcWidth); ++xhCount; }
+            }
+            std::fprintf(stderr, "  DH: %u lines, XH: %u lines\n", dhCount, xhCount); // NOLINT
+            std::fprintf(stderr, "  Total CRC pruning lines: %zu (%zu equations)\n", // NOLINT
+                         allCrcLines.size(),
+                         [&]{ std::size_t t=0; for(const auto &cl:allCrcLines) t+=cl.eqns.size(); return t; }());
+
+            // ── Per-line incremental GF(2) consistency check ──
+            auto checkCrcConsistency = [&](std::uint32_t flat) -> bool {
+                for (const auto li : cellToCrcLine[flat]) { // NOLINT
+                    const auto &cl = allCrcLines[li]; // NOLINT
+                    for (const auto &eq : cl.eqns) {
+                        bool allAssigned = true;
+                        std::uint8_t xorSum = eq.target;
+                        for (const auto cf : eq.varCells) {
+                            if (cellState_[cf] < 0) { allAssigned = false; break; } // NOLINT
+                            xorSum ^= static_cast<std::uint8_t>(cellState_[cf]); // NOLINT
+                        }
+                        if (allAssigned && xorSum != 0) { return false; }
+                    }
+                }
+                return true;
+            };
+
+            // ── IntBound propagation ──
             auto propagateIB = [&]() -> std::pair<std::uint32_t, bool> {
                 std::uint32_t forced = 0;
                 bool changed = true;
@@ -2265,103 +2387,158 @@ namespace crsce::decompress::solvers {
                 return {forced, true};
             };
 
+            // GaussElim checkpoint
+            auto gaussElimCheckpoint = [&]() -> std::uint32_t {
+                gf2Rows_ = baseGF2Rows; gf2Target_ = baseGF2Target;
+                std::vector<std::pair<std::uint32_t, std::uint8_t>> assigned;
+                for (std::uint32_t f = 0; f < kN; ++f) {
+                    if (cellState_[f] >= 0) { assigned.emplace_back(f, static_cast<std::uint8_t>(cellState_[f])); } // NOLINT
+                }
+                propagateGF2(assigned);
+                auto [rank, detGF2] = gaussElim();
+                std::uint32_t nc = 0;
+                for (const auto &[f, v] : detGF2) {
+                    if (cellState_[f] < 0) { assignCell(f, v); ++nc; } // NOLINT
+                }
+                if (nc > 0) { auto [ib, ok] = propagateIB(); nc += ib; }
+                return nc;
+            };
+
             static constexpr std::uint32_t kMaxDecPerRestart = 5'000'000;
-            static constexpr std::uint32_t kNumRestarts = 10'000;
+            static constexpr std::uint32_t kNumRestarts = 100;
+            static constexpr std::uint32_t kGEInterval = 500;
 
-            // Run one restart, return peak determination
             auto runRestart = [&](const std::vector<std::uint32_t> &order)
-                -> std::tuple<std::uint32_t, std::uint32_t, std::uint64_t, std::uint64_t, bool> {
-                cellState_ = baseCellState;
-                restoreIntLines(baseIntLines);
-
+                -> std::tuple<std::uint32_t, std::uint64_t, std::uint64_t,
+                              std::uint64_t, std::uint64_t, bool> {
+                cellState_ = baseCellState; restoreIntLines(baseIntLines);
                 struct Dec { std::uint32_t flat; std::uint8_t value;
                     std::array<std::int8_t, kN> cs; std::vector<IntLineState> is; };
                 std::vector<Dec> stack;
-                std::uint64_t decisions = 0, backtracks = 0;
-                std::uint32_t peakDet = baseDetermined, orderIdx = 0;
+                std::uint64_t decisions = 0, backtracks = 0, geForced = 0, crcPrunes = 0;
+                std::uint32_t peakDet = baseDetermined, orderIdx = 0, sinceGE = 0;
 
                 while (decisions < kMaxDecPerRestart) {
                     std::uint32_t det = 0;
                     for (std::uint32_t f = 0; f < kN; ++f) { if (cellState_[f] >= 0) { ++det; } } // NOLINT
                     if (det > peakDet) { peakDet = det; }
-                    if (det == kN) { return {peakDet, static_cast<std::uint32_t>(stack.size()), decisions, backtracks, true}; }
+                    if (det == kN) {
+                        // BH check
+                        bool bhOk = false;
+                        if constexpr (kS <= 127) {
+                            common::Csm rec;
+                            for (std::uint16_t rr = 0; rr < kS; ++rr)
+                                for (std::uint16_t cc = 0; cc < kS; ++cc)
+                                    rec.set(rr, cc, static_cast<std::uint8_t>(
+                                        cellState_[(static_cast<std::uint32_t>(rr)*kS)+cc])); // NOLINT
+                            bhOk = common::BlockHash::verify(rec, expectedBH_);
+                        }
+                        if (bhOk) { return {peakDet, decisions, backtracks, geForced, crcPrunes, true}; }
+                        std::fprintf(stderr, "    BH FAIL decisions=%llu crcPrunes=%llu\n", // NOLINT
+                                     static_cast<unsigned long long>(decisions),
+                                     static_cast<unsigned long long>(crcPrunes));
+                        while (!stack.empty()) {
+                            auto &prev = stack.back();
+                            if (prev.value == 0) {
+                                cellState_ = prev.cs; restoreIntLines(prev.is);
+                                prev.value = 1; assignCell(prev.flat, 1);
+                                auto [fb, okb] = propagateIB();
+                                if (okb && checkCrcConsistency(prev.flat)) { break; }
+                                if (okb) { ++crcPrunes; }
+                            }
+                            ++backtracks; cellState_ = prev.cs; restoreIntLines(prev.is);
+                            stack.pop_back();
+                        }
+                        if (stack.empty()) { break; }
+                        sinceGE = 0; continue;
+                    }
+
+                    if (sinceGE >= kGEInterval) {
+                        sinceGE = 0;
+                        auto gc = gaussElimCheckpoint();
+                        geForced += gc;
+                        if (gc > 0) { continue; }
+                    }
 
                     while (orderIdx < static_cast<std::uint32_t>(order.size()) &&
                            cellState_[order[orderIdx]] >= 0) { ++orderIdx; } // NOLINT
                     if (orderIdx >= static_cast<std::uint32_t>(order.size())) { break; }
                     const auto flat = order[orderIdx]; // NOLINT
 
-                    ++decisions;
+                    ++decisions; ++sinceGE;
                     stack.push_back({flat, 0, cellState_, snapshotIntLines()});
                     assignCell(flat, 0);
                     auto [f1, ok1] = propagateIB();
+
+                    // Per-line CRC pruning on LH/VH/DH/XH
+                    if (ok1 && !checkCrcConsistency(flat)) { ok1 = false; ++crcPrunes; }
+
+                    // Also check CRC consistency for any cells propagated by IntBound
+                    if (ok1) {
+                        // Scan all recently forced cells for CRC contradictions
+                        for (std::uint32_t f2 = 0; f2 < kN && ok1; ++f2) {
+                            if (cellState_[f2] >= 0 && baseCellState[f2] < 0) { // NOLINT
+                                if (!checkCrcConsistency(f2)) { ok1 = false; ++crcPrunes; }
+                            }
+                        }
+                    }
+
+                    // LH row check
                     if (ok1) {
                         const auto r = static_cast<std::uint16_t>(flat / kS);
                         bool rc = true;
                         const auto base = static_cast<std::uint32_t>(r) * kS;
                         for (std::uint16_t c = 0; c < kS; ++c) {
-                            if (cellState_[base + c] < 0) { rc = false; break; } // NOLINT
+                            if (cellState_[base+c] < 0) { rc = false; break; } // NOLINT
                         }
                         if (rc && !verifyRowLH(r)) { ok1 = false; }
                     }
+
                     if (!ok1) {
                         cellState_ = stack.back().cs; restoreIntLines(stack.back().is);
-                        stack.back().value = 1;
-                        assignCell(flat, 1);
+                        stack.back().value = 1; assignCell(flat, 1);
                         auto [f2, ok2] = propagateIB();
+                        if (ok2 && !checkCrcConsistency(flat)) { ok2 = false; ++crcPrunes; }
                         if (ok2) {
                             const auto r = static_cast<std::uint16_t>(flat / kS);
                             bool rc = true;
                             const auto base = static_cast<std::uint32_t>(r) * kS;
                             for (std::uint16_t c = 0; c < kS; ++c) {
-                                if (cellState_[base + c] < 0) { rc = false; break; } // NOLINT
+                                if (cellState_[base+c] < 0) { rc = false; break; } // NOLINT
                             }
                             if (rc && !verifyRowLH(r)) { ok2 = false; }
                         }
                         if (!ok2) {
-                            ++backtracks;
-                            cellState_ = stack.back().cs; restoreIntLines(stack.back().is);
+                            ++backtracks; cellState_ = stack.back().cs; restoreIntLines(stack.back().is);
                             stack.pop_back();
                             while (!stack.empty()) {
                                 auto &prev = stack.back();
                                 if (prev.value == 0) {
                                     cellState_ = prev.cs; restoreIntLines(prev.is);
-                                    prev.value = 1;
-                                    assignCell(prev.flat, 1);
+                                    prev.value = 1; assignCell(prev.flat, 1);
                                     auto [f3, ok3] = propagateIB();
-                                    if (ok3) {
-                                        const auto rr = static_cast<std::uint16_t>(prev.flat / kS);
-                                        bool rc = true;
-                                        const auto bb = static_cast<std::uint32_t>(rr) * kS;
-                                        for (std::uint16_t c = 0; c < kS; ++c) {
-                                            if (cellState_[bb + c] < 0) { rc = false; break; } // NOLINT
-                                        }
-                                        if (rc && !verifyRowLH(rr)) { ok3 = false; }
-                                    }
+                                    if (ok3 && !checkCrcConsistency(prev.flat)) { ok3 = false; ++crcPrunes; }
                                     if (ok3) { break; }
                                 }
-                                ++backtracks;
-                                cellState_ = prev.cs; restoreIntLines(prev.is);
+                                ++backtracks; cellState_ = prev.cs; restoreIntLines(prev.is);
                                 stack.pop_back();
                             }
                             if (stack.empty()) { break; }
                         }
                     }
                 }
-                return {peakDet, static_cast<std::uint32_t>(stack.size()), decisions, backtracks, false};
+                return {peakDet, decisions, backtracks, geForced, crcPrunes, false};
             };
 
-            // Collect unknowns
             std::vector<std::uint32_t> unknowns;
             for (std::uint32_t f = 0; f < kN; ++f) {
                 if (baseCellState[f] < 0) { unknowns.push_back(f); } // NOLINT
             }
 
             std::uint32_t bestPeak = 0, bestRestart = 0;
-            std::uint64_t seed = 77777;
+            std::uint64_t seed = 54321;
 
             for (std::uint32_t restart = 0; restart < kNumRestarts; ++restart) {
-                // Shuffle
                 auto order = unknowns;
                 seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
                 for (std::size_t i = order.size() - 1; i > 0; --i) {
@@ -2370,13 +2547,19 @@ namespace crsce::decompress::solvers {
                     std::swap(order[i], order[j]); // NOLINT
                 }
 
-                auto [peak, depth, decisions, backtracks, solved] = runRestart(order);
+                const auto t0 = std::chrono::steady_clock::now();
+                auto [peak, decisions, backtracks, geForced, crcPrunes, solved] = runRestart(order);
+                const auto t1 = std::chrono::steady_clock::now();
+                const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
                 if (peak > bestPeak) { bestPeak = peak; bestRestart = restart; }
 
-                std::fprintf(stderr, "  restart=%u peak=%u (%.1f%%) depth=%u decisions=%llu backtracks=%llu solved=%s\n", // NOLINT
-                             restart, peak, 100.0 * peak / kN, depth,
+                std::fprintf(stderr, "  restart=%u peak=%u (%.1f%%) decisions=%llu backtracks=%llu geForced=%llu crcPrunes=%llu time_ms=%lld solved=%s\n", // NOLINT
+                             restart, peak, 100.0 * peak / kN,
                              static_cast<unsigned long long>(decisions),
                              static_cast<unsigned long long>(backtracks),
+                             static_cast<unsigned long long>(geForced),
+                             static_cast<unsigned long long>(crcPrunes),
+                             static_cast<long long>(ms),
                              solved ? "true" : "false");
 
                 if (solved) {
@@ -2386,14 +2569,13 @@ namespace crsce::decompress::solvers {
                 }
             }
 
-            std::fprintf(stderr, "\nCensus: best restart=%u peak=%u (%.1f%%)\n", // NOLINT
+            std::fprintf(stderr, "\nB.63m: best restart=%u peak=%u (%.1f%%)\n", // NOLINT
                          bestRestart, bestPeak, 100.0 * bestPeak / kN);
 
             if (result.determined < kN) {
-                cellState_ = baseCellState;
-                restoreIntLines(baseIntLines);
-                result.determined = baseDetermined;
-                result.free = kN - baseDetermined;
+                cellState_ = baseCellState; restoreIntLines(baseIntLines);
+                gf2Rows_ = baseGF2Rows; gf2Target_ = baseGF2Target;
+                result.determined = baseDetermined; result.free = kN - baseDetermined;
             }
         }
 
