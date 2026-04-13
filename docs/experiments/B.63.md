@@ -819,7 +819,7 @@ Run $R = 100$ restarts on block 5 (50% density).
 | Metric | MCF (restart 0) | Random restarts (1&ndash;99) |
 |--------|-----------------|----------------------------|
 | Strategy | Most-constrained-first | Random cell permutation |
-| Peak determination | **13,044 (80.9%)** | **mean 14,921 (92.5%), max 15,340 (95.1%)** |
+| Peak determination | **13,044 (80.9%)** | **mean 14,889 (92.3%), max 15,340 (95.1%)** |
 | Plateau depth | 6,619 | mean ~6,800 |
 | Decisions | 11,161 | mean ~8,800 |
 | Backtracks | 4,542 | mean ~2,000 |
