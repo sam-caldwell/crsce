@@ -14,7 +14,7 @@ function(_crsce_lint_cpp_detect_bin_dir out)
 
   if (NOT EXISTS "${_BIN_DIR}/compile_commands.json")
 
-    set(_ALT_DIR "${CMAKE_SOURCE_DIR}/build/arm64-debug")
+    set(_ALT_DIR "${CMAKE_SOURCE_DIR}/build/amd64-debug")
     if (EXISTS "${_ALT_DIR}/compile_commands.json")
 
       set(_BIN_DIR "${_ALT_DIR}")

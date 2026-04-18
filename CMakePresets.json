@@ -2,6 +2,27 @@
   "version": 3,
   "configurePresets": [
     {
+      "name": "amd64-release",
+      "displayName": "AMD64 Release",
+      "description": "Configure for AMD64 with optimizations and SHA-NI extensions.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/amd64-release",
+      "architecture": {
+        "value": "x86_64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_FLAGS": "-O3 -flto=thin -march=x86-64-v3 -msha",
+        "CMAKE_C_FLAGS": "-O3 -flto=thin -march=x86-64-v3 -msha",
+        "CMAKE_ASM_FLAGS": "-march=x86-64-v3 -msha",
+        "CMAKE_EXE_LINKER_FLAGS": "-flto=thin"
+      }
+    },
+    {
       "name": "arm64-release",
       "displayName": "ARM64 Release",
       "description": "Configure for ARM64 with optimizations and SHA-2 extensions.",

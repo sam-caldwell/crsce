@@ -8,10 +8,13 @@ NODE_BIN_DIR := $(NODE_DIR)/node_modules/.bin
 BUILD_DIR := $(CURDIR)/build
 LLVMBIN := /opt/homebrew/opt/llvm/bin
 
-# Choose a sensible default preset: prefer Homebrew LLVM if present, otherwise use a portable debug preset
+# Choose a sensible default preset based on available toolchain and architecture
 HAVE_LLVM := $(shell [ -x "$(LLVMBIN)/clang++" ] && echo yes || echo no)
+ARCH := $(shell uname -m)
 ifeq ($(HAVE_LLVM),yes)
   PRESET ?= llvm-release
+else ifeq ($(ARCH),x86_64)
+  PRESET ?= amd64-release
 else
   PRESET ?= arm64-release
 endif

@@ -7,14 +7,18 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "decompress/Solvers/CellState.h"
-#include "decompress/Solvers/LineID.h"
-#include "decompress/Solvers/LtpTable.h"
+#include "decompress/Solvers/ConstraintStore.h"
+#include "decompress/Solvers/Crc32RowCompleter.h"
+#include "decompress/Solvers/PropagationEngine.h"
 
 namespace crsce::decompress::solvers {
 
@@ -32,7 +36,8 @@ namespace crsce::decompress::solvers {
                                      PropagationEngine &propagator,
                                      const Crc32RowCompleter & /*completer*/)
         : store_(store),
-          propagator_(propagator) {
+          propagator_(propagator),
+          expectedCrcs_{} {
     }
 
     // ── Public solve entry point ───────────────────────────────────────────
@@ -57,7 +62,7 @@ namespace crsce::decompress::solvers {
      * @param depth Current recursion depth.
      * @return True if solution found.
      */
-    auto RowSerialSolver::solveRecursive(const std::uint16_t depth) -> bool {
+    auto RowSerialSolver::solveRecursive(const std::uint16_t depth) -> bool { // NOLINT(misc-no-recursion)
         if (depth > result_.maxDepth) {
             result_.maxDepth = depth;
         }
@@ -76,10 +81,10 @@ namespace crsce::decompress::solvers {
 
         // Find the tractable row with fewest actual candidates
         struct RowInfo {
-            std::uint16_t row;
-            std::uint16_t estFree;
-            std::vector<std::uint16_t> freeCols;
-            std::vector<std::vector<std::uint8_t>> candidates;
+            std::uint16_t row{};
+            std::uint16_t estFree{};
+            std::vector<std::uint16_t> freeCols; // NOLINT(cppcoreguidelines-pro-type-member-init)
+            std::vector<std::vector<std::uint8_t>> candidates; // NOLINT(cppcoreguidelines-pro-type-member-init)
         };
 
         RowInfo best{};
@@ -120,14 +125,15 @@ namespace crsce::decompress::solvers {
         if (depth < 10 || depth % 5 == 0) {
             std::uint32_t totalUnknown = 0;
             for (std::uint16_t i = 0; i < kS; ++i) { totalUnknown += store_.getStatDirect(i).unknown; }
-            std::fprintf(stderr, "  [d%3u] r%3u f=%zu c=%zu known=%u rc=%llu cc=%llu bt=%llu\n",
+            std::fprintf(stderr, // NOLINT(cppcoreguidelines-pro-type-vararg,modernize-use-std-print)
+                         "  [d%3u] r%3u f=%zu c=%zu known=%u rc=%lu cc=%lu bt=%lu\n",
                          depth, best.row, best.freeCols.size(), best.candidates.size(),
                          static_cast<unsigned>(kS * kS - totalUnknown),
                          result_.rowCompletions, result_.colCompletions, result_.backtracks);
         }
 
         // Try each candidate
-        for (const auto &cand : best.candidates) {
+        for (const auto &cand : best.candidates) { // NOLINT(readability-use-anyofallof)
             ++result_.candidatesTried;
 
             auto snap = store_.takeSnapshot();
@@ -179,7 +185,7 @@ namespace crsce::decompress::solvers {
 
         // CRC-32 equations
         for (std::uint8_t bit = 0; bit < 32; ++bit) {
-            std::uint8_t t = ((expectedCrcs_[r] >> bit) & 1U) ^ ((detail::kCrcZero >> bit) & 1U);
+            std::uint8_t t = ((expectedCrcs_[r] >> bit) & 1U) ^ ((detail::kCrcZero >> bit) & 1U); // NOLINT
             for (std::uint16_t c = 0; c < kS; ++c) {
                 if (store_.getCellState(r, c) == CellState::One) {
                     if ((detail::kGenMatrix[bit][c / 64] >> (c % 64)) & 1U) { // NOLINT
@@ -187,11 +193,11 @@ namespace crsce::decompress::solvers {
                     }
                 }
             }
-            target[bit] = t;
+            target[bit] = t; // NOLINT
             for (std::uint8_t j = 0; j < fR; ++j) {
                 const auto col = freeCols[j];
                 G[bit][j] = static_cast<std::uint8_t>( // NOLINT
-                    (detail::kGenMatrix[bit][col / 64] >> (col % 64)) & 1U);
+                    (detail::kGenMatrix[bit][col / 64] >> (col % 64)) & 1U); // NOLINT
             }
         }
 
@@ -201,9 +207,9 @@ namespace crsce::decompress::solvers {
             for (std::uint16_t c = 0; c < kS; ++c) {
                 if (store_.getCellState(r, c) == CellState::One) { rp ^= 1; }
             }
-            target[32] = rp;
+            target[32] = rp; // NOLINT
             for (std::uint8_t j = 0; j < fR; ++j) {
-                G[32][j] = 1;
+                G[32][j] = 1; // NOLINT
             }
         }
 
@@ -218,7 +224,7 @@ namespace crsce::decompress::solvers {
                 if (G[rr][col]) { found = static_cast<std::int8_t>(rr); break; } // NOLINT
             }
             if (found < 0) { continue; }
-            if (found != pivotRow) {
+            if (static_cast<std::uint8_t>(found) != pivotRow) {
                 std::swap(G[pivotRow], G[found]); // NOLINT
                 std::swap(target[pivotRow], target[found]); // NOLINT
             }
@@ -269,7 +275,6 @@ namespace crsce::decompress::solvers {
         std::array<std::uint8_t, 128> canBe1{};
         for (std::uint8_t j = 0; j < fR; ++j) {
             canBe0[j] = 1; canBe1[j] = 1; // NOLINT
-            const auto flat = static_cast<std::uint32_t>(r) * kS + freeCols[j];
             const auto lines = store_.getLinesForCell(r, freeCols[j]);
             for (std::size_t li = 0; li < lines.count; ++li) {
                 const auto idx = ConstraintStore::lineIndex(lines.lines[li]); // NOLINT
@@ -416,11 +421,11 @@ namespace crsce::decompress::solvers {
                     }
                 }
             }
-            target[bit] = t;
+            target[bit] = t; // NOLINT
             for (std::uint8_t j = 0; j < fC; ++j) {
                 const auto row = freeRows[j];
                 G[bit][j] = static_cast<std::uint8_t>( // NOLINT
-                    (detail::kGenMatrix[bit][row / 64] >> (row % 64)) & 1U);
+                    (detail::kGenMatrix[bit][row / 64] >> (row % 64)) & 1U); // NOLINT
             }
         }
 
@@ -431,9 +436,9 @@ namespace crsce::decompress::solvers {
             for (std::uint16_t r = 0; r < kS; ++r) {
                 if (store_.getCellState(r, c) == CellState::One) { cp ^= 1; }
             }
-            target[32] = cp;
+            target[32] = cp; // NOLINT
             for (std::uint8_t j = 0; j < fC; ++j) {
-                G[32][j] = 1;
+                G[32][j] = 1; // NOLINT
             }
         }
 
@@ -448,7 +453,7 @@ namespace crsce::decompress::solvers {
                 if (G[rr][col]) { found = static_cast<std::int8_t>(rr); break; } // NOLINT
             }
             if (found < 0) { continue; }
-            if (found != pivotRow) {
+            if (static_cast<std::uint8_t>(found) != pivotRow) {
                 std::swap(G[pivotRow], G[found]); // NOLINT
                 std::swap(target[pivotRow], target[found]); // NOLINT
             }
@@ -660,7 +665,6 @@ namespace crsce::decompress::solvers {
     auto RowSerialSolver::tryCascadeCompletions() -> bool {
         bool anyProgress = true;
         while (anyProgress) {
-            anyProgress = false;
             bool rp = false;
             bool cp = false;
             if (!tryCompleteRows(rp)) { return false; }

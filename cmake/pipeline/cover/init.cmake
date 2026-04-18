@@ -34,4 +34,4 @@ execute_process(COMMAND "${CLANGXX_EXE}" --version OUTPUT_VARIABLE _CLVER)
 message(STATUS "Using clang++ for coverage: ${CLANGXX_EXE}\n${_CLVER}")
 
 # Build directory for coverage configuration
-set(COV_BIN_DIR "${BUILD_DIR}/arm64-debug-coverage")
+set(COV_BIN_DIR "${BUILD_DIR}/amd64-debug-coverage")

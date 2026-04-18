@@ -5,8 +5,8 @@ cmake_minimum_required(VERSION 4.2)
 
 project(crsce VERSION 1.0.0 LANGUAGES CXX)
 
-# --- ARM64 assembly support (SHA-2 hardware extensions) ---
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+# --- Assembly support (SHA hardware extensions) ---
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64|x86_64|AMD64")
     enable_language(ASM)
 endif()
 

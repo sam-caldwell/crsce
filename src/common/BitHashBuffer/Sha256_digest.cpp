@@ -9,8 +9,10 @@
 #include "common/BitHashBuffer/sha256/sha256_digest.h"
 #include "common/BitHashBuffer/sha256/store_be32.h"
 
-#ifdef __aarch64__
+#if defined(__aarch64__)
 #include "common/BitHashBuffer/sha256/sha256_compress_arm64.h"
+#elif defined(__x86_64__) && defined(__SHA__)
+#include "common/BitHashBuffer/sha256/sha256_compress_amd64.h"
 #else
 #include "common/BitHashBuffer/sha256/K.h"
 #include "common/BitHashBuffer/sha256/ch.h"
@@ -30,7 +32,7 @@
 
 namespace crsce::common::detail::sha256 {
 
-#ifndef __aarch64__
+#if !defined(__aarch64__) && !(defined(__x86_64__) && defined(__SHA__))
     /**
      * @name compress_block_sw
      * @brief Software SHA-256 block compression (C++ fallback).
@@ -86,7 +88,7 @@ namespace crsce::common::detail::sha256 {
                          + small_sigma0(w.at(i_sz - 15)) + w.at(i_sz - 16);
         }
     }
-#endif // !__aarch64__
+#endif // software fallback
 
     /**
      * @name sha256_digest
@@ -105,14 +107,16 @@ namespace crsce::common::detail::sha256 {
         const std::size_t full_chunks = len / 64U;
         const std::size_t rem = len % 64U;
 
-#ifndef __aarch64__
+#if !defined(__aarch64__) && !(defined(__x86_64__) && defined(__SHA__))
         std::array<u32, 64> w{};
 #endif
 
         for (std::size_t chunk = 0; chunk < full_chunks; ++chunk) {
             auto block = data_span.subspan(chunk * 64U, 64U);
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha256_compress_arm64(state.data(), block.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha256_compress_amd64(state.data(), block.data());
 #else
             expand_schedule(w, block);
             compress_block_sw(state, w);
@@ -141,16 +145,20 @@ namespace crsce::common::detail::sha256 {
             tail[off + 7] = static_cast<u8>(total_bits & 0xffU);
 
             const std::span<const u8> tail_block{tail.data(), 64U};
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha256_compress_arm64(state.data(), tail_block.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha256_compress_amd64(state.data(), tail_block.data());
 #else
             expand_schedule(w, tail_block);
             compress_block_sw(state, w);
 #endif
         } else {
             const std::span<const u8> tail_block1{tail.data(), 64U};
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha256_compress_arm64(state.data(), tail_block1.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha256_compress_amd64(state.data(), tail_block1.data());
 #else
             expand_schedule(w, tail_block1);
             compress_block_sw(state, w);
@@ -167,8 +175,10 @@ namespace crsce::common::detail::sha256 {
             tail2[63] = static_cast<u8>(total_bits & 0xffU);
 
             const std::span<const u8> tail2_span{tail2.data(), tail2.size()};
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha256_compress_arm64(state.data(), tail2_span.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha256_compress_amd64(state.data(), tail2_span.data());
 #else
             expand_schedule(w, tail2_span);
             compress_block_sw(state, w);

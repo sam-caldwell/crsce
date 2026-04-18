@@ -6,7 +6,11 @@
 PRESET ?= llvm-release
 
 # Aggregate list used by configure/all
-PRESETS_ALL := arm64-release
+ifeq ($(ARCH),x86_64)
+  PRESETS_ALL := amd64-release
+else
+  PRESETS_ALL := arm64-release
+endif
 ifeq ($(HAVE_LLVM),yes)
   PRESETS_ALL += llvm-release
 endif

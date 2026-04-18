@@ -6,8 +6,10 @@
 #include "common/BitHashBuffer/sha1/sha1_digest.h"
 #include "common/BitHashBuffer/sha256/store_be32.h"
 
-#ifdef __aarch64__
+#if defined(__aarch64__)
 #include "common/BitHashBuffer/sha1/sha1_compress_arm64.h"
+#elif defined(__x86_64__) && defined(__SHA__)
+#include "common/BitHashBuffer/sha1/sha1_compress_amd64.h"
 #endif
 
 #include <array>
@@ -19,7 +21,7 @@
 
 namespace crsce::common::detail::sha1 {
 
-#ifndef __aarch64__
+#if !defined(__aarch64__) && !(defined(__x86_64__) && defined(__SHA__))
     /**
      * @name rotl32
      * @brief Rotate a 32-bit word left by n bits.
@@ -141,7 +143,7 @@ namespace crsce::common::detail::sha1 {
         state[3] += d;
         state[4] += e;
     }
-#endif // !__aarch64__
+#endif // software fallback
 
     /**
      * @name sha1_digest
@@ -161,8 +163,10 @@ namespace crsce::common::detail::sha1 {
 
         for (std::size_t chunk = 0; chunk < full_chunks; ++chunk) {
             auto block = data_span.subspan(chunk * 64U, 64U);
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha1_compress_arm64(state.data(), block.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha1_compress_amd64(state.data(), block.data());
 #else
             compress_block_sw(state, block.data());
 #endif
@@ -190,15 +194,19 @@ namespace crsce::common::detail::sha1 {
             tail[off + 7] = static_cast<std::uint8_t>(total_bits & 0xffU);
 
             const std::span<const std::uint8_t> tail_block{tail.data(), 64U};
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha1_compress_arm64(state.data(), tail_block.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha1_compress_amd64(state.data(), tail_block.data());
 #else
             compress_block_sw(state, tail_block.data());
 #endif
         } else {
             const std::span<const std::uint8_t> tail_block1{tail.data(), 64U};
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha1_compress_arm64(state.data(), tail_block1.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha1_compress_amd64(state.data(), tail_block1.data());
 #else
             compress_block_sw(state, tail_block1.data());
 #endif
@@ -214,8 +222,10 @@ namespace crsce::common::detail::sha1 {
             tail2[63] = static_cast<std::uint8_t>(total_bits & 0xffU);
 
             const std::span<const std::uint8_t> tail2_span{tail2.data(), tail2.size()};
-#ifdef __aarch64__
+#if defined(__aarch64__)
             sha1_compress_arm64(state.data(), tail2_span.data());
+#elif defined(__x86_64__) && defined(__SHA__)
+            sha1_compress_amd64(state.data(), tail2_span.data());
 #else
             compress_block_sw(state, tail2_span.data());
 #endif

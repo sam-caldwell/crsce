@@ -7,8 +7,12 @@ PRESET ?= llvm-release
 JOBS := $(shell cmake -P cmake/tools/print_num_cpus.cmake | tail -n1 | sed 's/[^0-9].*//')
 
 # Compute the set of presets to build when running the aggregate 'build' target.
-# Start with arm64-release; add llvm-release if Homebrew LLVM is available.
-PRESETS_ALL := arm64-release
+# Start with the architecture-appropriate preset; add llvm-release if Homebrew LLVM is available.
+ifeq ($(ARCH),x86_64)
+  PRESETS_ALL := amd64-release
+else
+  PRESETS_ALL := arm64-release
+endif
 ifeq ($(HAVE_LLVM),yes)
   PRESETS_ALL += llvm-release
 endif

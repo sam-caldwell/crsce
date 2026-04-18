@@ -26,10 +26,14 @@ file(GLOB_RECURSE COMPRESS_SOLVER_SOURCES CONFIGURE_DEPENDS
     "src/Decompress/Solvers/*.cpp"
 )
 
-# Discover ARM64 assembly sources (.S files) when building for ARM64
+# Discover assembly sources (.S files) for hardware-accelerated SHA
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
     file(GLOB_RECURSE COMPRESS_ASM_SOURCES CONFIGURE_DEPENDS
-        "src/common/*.S"
+        "src/common/*_arm64.S"
+    )
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    file(GLOB_RECURSE COMPRESS_ASM_SOURCES CONFIGURE_DEPENDS
+        "src/common/*_amd64.S"
     )
 endif()
 

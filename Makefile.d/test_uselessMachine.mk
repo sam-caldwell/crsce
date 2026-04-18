@@ -10,6 +10,8 @@ test/uselessMachine:
 	@# Prefer an optimized release binary when present
 	@if [ -x "$(BUILD_DIR)/llvm-release/uselessTest" ]; then \
 	  USL_EXE="$(BUILD_DIR)/llvm-release/uselessTest"; \
+	elif [ -x "$(BUILD_DIR)/amd64-release/uselessTest" ]; then \
+	  USL_EXE="$(BUILD_DIR)/amd64-release/uselessTest"; \
 	elif [ -x "$(BUILD_DIR)/arm64-release/uselessTest" ]; then \
 	  USL_EXE="$(BUILD_DIR)/arm64-release/uselessTest"; \
 	else \
